@@ -3,14 +3,6 @@ from cleantext import clean
 
 
 
-
-
-
-
-
-
-
-
 def write_current_ops_file(ops_name: str):
 
     ops_name = clean(ops_name, to_ascii=True, no_emoji=True)
