@@ -47,8 +47,11 @@ def main():
                         3.3.2 A2B Forecast
                  4. Road network graph generation
                  5. Other options
-                    5.1 EDA (Exploratory Data Analysis)
-                    5.2 Erase all data about an operation
+                    5.1 Set forecasting system folders (manually)
+                    5.2 EDA (Exploratory Data Analysis)
+                    5.3 Erase all data about an operation
+                    5.4 Find best model for the current operation
+                    5.5 Analyze pre-existing road network graph
                  0. Exit""")
 
         option = input("Choice: ")
