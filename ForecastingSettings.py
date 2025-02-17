@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 
 target_datetime_filename = "target_datetime"
 dt_format = '%Y %m %d %H:%-M%-S'  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
@@ -31,8 +32,18 @@ def read_forecasting_target_datetime():
         print("\033[91mTarget Datetime File Not Found\033[0m")
         exit()
 
-
     return target_dt
+
+
+def del_forecasting_target_datetime():
+
+    try:
+        os.remove(target_datetime_filename)
+    except FileNotFoundError:
+        print("\033[91mTarget Datetime File Not Found\033[0m")
+        exit()
+
+    return None
 
 
 
