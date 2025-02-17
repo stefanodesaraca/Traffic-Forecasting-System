@@ -2,6 +2,7 @@ from OpsSettings import read_current_ops_file
 import os
 
 cwd = os.getcwd()
+ops_folder = "ops"
 
 #This function creates the traffic forecasting system folders for the current operation
 def create_tfs_folders():
@@ -15,19 +16,19 @@ def create_tfs_folders():
 
 
     for mf in main_folders:
-        os.makedirs(f"{cwd}/{current_ops}/{mf}", exist_ok=True)
+        os.makedirs(f"{cwd}/{ops_folder}/{current_ops}/{mf}", exist_ok=True)
 
     #Data subfolders
     for dsf in data_subfolders:
-        os.makedirs(f"{cwd}/{current_ops}/{current_ops}_data/{dsf}", exist_ok=True)
+        os.makedirs(f"{cwd}/{ops_folder}/{current_ops}/{current_ops}_data/{dsf}", exist_ok=True)
 
     #Graph subfolders
     for gsf in rn_graph_subfolders:
-        os.makedirs(f"{cwd}/{current_ops}/{current_ops}_rn_graph/{gsf}", exist_ok=True)
+        os.makedirs(f"{cwd}/{ops_folder}/{current_ops}/{current_ops}_rn_graph/{gsf}", exist_ok=True)
 
     #Machine learning subfolders
     for mlsf in ml_subfolders:
-        os.makedirs(f"{cwd}/{current_ops}/{current_ops}_ml/{mlsf}", exist_ok=True)
+        os.makedirs(f"{cwd}/{ops_folder}/{current_ops}/{current_ops}_ml/{mlsf}", exist_ok=True)
 
 
     return None

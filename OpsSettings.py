@@ -1,8 +1,12 @@
 import os
 from cleantext import clean
 
+ops_folder = "ops"
+os.makedirs(ops_folder, exist_ok=True) #Creating the operations folder
+
 current_ops_filename = "current_ops"
 
+#The user sets the current operation
 def write_current_ops_file(ops_name: str):
 
     ops_name = clean(ops_name, to_ascii=True, no_emoji=True)
@@ -11,7 +15,6 @@ def write_current_ops_file(ops_name: str):
         ops_file.write(ops_name)
 
     return None
-
 
 
 #Reading operations file, it indicates which road network we're taking into consideration
@@ -27,14 +30,13 @@ def read_current_ops_file():
     return op
 
 
-
+#If the user wants to create a new operation, this function will be called
 def create_ops_folder(ops_name: str):
 
     ops_name = clean(ops_name, to_ascii=True, no_emoji=True)
-    os.makedirs(ops_name, exist_ok=True)
+    os.makedirs(f"{ops_folder}/{ops_name}", exist_ok=True)
 
     return None
-
 
 
 def del_ops_folder(ops_name: str):
