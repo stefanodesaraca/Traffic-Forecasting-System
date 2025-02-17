@@ -1,0 +1,2 @@
+#Here we'll just define the road network graph, the operations on the graph will be defined in other files which will
+#automatically find the right graph for the current operation, import it and then execute the analyses there

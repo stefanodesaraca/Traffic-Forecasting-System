@@ -1,0 +1,2 @@
+#Here we'll define the characteristics of a measurement point. The purpose of this is to be able to analyze every single
+#measurement point individually without having to import them all (to avoid filling up the RAM)
