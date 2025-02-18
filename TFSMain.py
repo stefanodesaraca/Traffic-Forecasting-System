@@ -1,8 +1,18 @@
+from OpsSettings import create_ops_folder
 
 
 
+def manage_ops(functionality: str):
 
-
+    if functionality == "1":
+        ops_name = input("Insert new operation name: ")
+        create_ops_folder(ops_name)
+    else:
+        print("Functionality not found, try again with a correct one")
+        print("Returning to the main menu...")
+        main()
+        
+    return None
 
 
 
