@@ -3,11 +3,14 @@ from gql import gql, Client
 from gql.transport.aiohttp import AIOHTTPTransport
 
 
-
-def collect_traffic_measurement_points():
-
+def start_client():
     transport = AIOHTTPTransport(url="https://trafikkdata-api.atlas.vegvesen.no/")
     client = Client(transport=transport, fetch_schema_from_transport=True)
+
+    return client
+
+
+def collect_traffic_measurement_points(client: Client):
 
     tmp_query = gql(
         '''
@@ -58,10 +61,7 @@ def collect_traffic_measurement_points():
     return traffic_measurement_points
 
 
-def collect_traffic_volumes_for_tmp_id(traffic_measurement_point: str, time_start: str, time_end: str):
-
-    transport = AIOHTTPTransport(url="https://trafikkdata-api.atlas.vegvesen.no/")
-    client = Client(transport=transport, fetch_schema_from_transport=True)
+def collect_traffic_volumes_for_tmp_id(client: Client, traffic_measurement_point: str, time_start: str, time_end: str):
 
     tv_query = gql('''{
       trafficData(trafficRegistrationPointId: ''' + traffic_measurement_point + ''') {
@@ -121,11 +121,20 @@ def collect_traffic_volumes_for_tmp_id(traffic_measurement_point: str, time_star
     return traffic_volumes
 
 
+def collect_road_categories(client: Client):
 
+    rc_query = gql('''
+    {
+        roadCategories{
+            id
+            name
+        }
+    }
+    ''')
 
+    road_categories = client.execute(rc_query)
 
-
-
+    return road_categories
 
 
 
