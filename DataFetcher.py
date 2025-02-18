@@ -172,4 +172,3 @@ def fetch_areas(client: Client):
 
 
 
-
