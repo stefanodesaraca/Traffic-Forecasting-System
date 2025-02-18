@@ -10,7 +10,7 @@ def start_client():
     return client
 
 
-def collect_traffic_measurement_points(client: Client):
+def fetch_traffic_measurement_points(client: Client):
 
     tmp_query = gql(
         '''
@@ -61,7 +61,7 @@ def collect_traffic_measurement_points(client: Client):
     return traffic_measurement_points
 
 
-def collect_traffic_volumes_for_tmp_id(client: Client, traffic_measurement_point: str, time_start: str, time_end: str):
+def fetch_traffic_volumes_for_tmp_id(client: Client, traffic_measurement_point: str, time_start: str, time_end: str):
 
     tv_query = gql('''{
       trafficData(trafficRegistrationPointId: ''' + traffic_measurement_point + ''') {
@@ -121,7 +121,7 @@ def collect_traffic_volumes_for_tmp_id(client: Client, traffic_measurement_point
     return traffic_volumes
 
 
-def collect_road_categories(client: Client):
+def fetch_road_categories(client: Client):
 
     rc_query = gql('''
     {
@@ -137,11 +137,35 @@ def collect_road_categories(client: Client):
     return road_categories
 
 
+def fetch_areas(client: Client):
 
+    a_query = gql('''
+    {
+      areas {
+        countryParts {
+          name
+          id
+          counties {
+            name
+            number
+            geographicNumber
+            municipalities {
+              name
+              number
+            }
+            countryPart {
+              name
+              id
+            }
+          }
+        }
+      }
+    }
+    ''')
 
+    areas = client.execute(a_query)
 
-
-
+    return areas
 
 
 
