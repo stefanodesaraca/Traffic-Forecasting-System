@@ -26,7 +26,10 @@ def manage_ops(functionality: str):
 
 def download_data():
 
-    traffic_data_to_json()
+    print("Downloading data for the active operation...")
+
+    ops_name = read_active_ops_file()
+    traffic_measurement_points_to_json(ops_name)
 
 
     return None

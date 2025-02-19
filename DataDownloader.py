@@ -16,18 +16,18 @@ def traffic_measurement_points_to_json(ops_name: str):
 
     TMPs = fetch_traffic_measurement_points(client)
 
-    with open(f"{cwd}/{ops_folder}/{ops_name}_data/traffic_measurement_points.json", "w") as tmps_w:
-        json.dump(TMPs, tmps_w, indent=6)
+    with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_measurement_points.json", "w") as tmps_w:
+        json.dump(TMPs, tmps_w, indent=4)
 
     return None
 
 def traffic_data_to_json():
 
-    client = start_client()
+    #client = start_client()
 
-    fetch_traffic_volumes_for_tmp_id(client)
+    #fetch_traffic_volumes_for_tmp_id(client)
 
-
+    print("TODO")
 
 
 
