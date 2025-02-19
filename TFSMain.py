@@ -1,12 +1,19 @@
-from OpsSettings import create_ops_folder
-
+from OpsSettings import *
 
 
 def manage_ops(functionality: str):
 
-    if functionality == "1":
+    if functionality == "1.1":
         ops_name = input("Insert new operation name: ")
         create_ops_folder(ops_name)
+
+    if functionality == "1.2":
+        ops_name = input("Insert the operation to set as active: ")
+        write_active_ops_file(ops_name)
+
+    if functionality == "1.3":
+        print("Active operation: ", read_active_ops_file(), "\n\n")
+
     else:
         print("Functionality not found, try again with a correct one")
         print("Returning to the main menu...")
@@ -48,6 +55,7 @@ def main():
                  1. Set pre-analysis information
                     1.1 Create an operation
                     1.2 Set an operation as active (current one)
+                    1.3 Check the active operation name
                  2. Download traffic volumes data (Trafikkdata API)
                  3. Forecast
                     3.1 Set forecasting target datetime
@@ -67,8 +75,14 @@ def main():
         option = input("Choice: ")
         print()
 
-        if option == "1":
-            pass
+        if option == "1.1":
+            manage_ops("1.1")
+
+        if option == "1.2":
+            manage_ops("1.2")
+
+        if option == "1.3":
+            manage_ops("1.3")
 
         elif option == "0":
             exit()

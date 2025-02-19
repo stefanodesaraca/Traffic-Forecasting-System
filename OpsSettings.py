@@ -1,31 +1,39 @@
 import os
-from cleantext import clean
+#from emoji import demojize
 
 cwd = os.getcwd()
 
 ops_folder = "ops"
 os.makedirs(ops_folder, exist_ok=True) #Creating the operations folder
 
-current_ops_filename = "current_ops"
+active_ops_filename = "active_ops"
 
+
+def clean_text(text: str):
+
+    #text = demojize(text, use_aliases=True)
+    text = text.replace(" ", "_")
+    text = text.lower()
+
+    return text
 
 
 #The user sets the current operation
-def write_current_ops_file(ops_name: str):
+def write_active_ops_file(ops_name: str):
 
-    ops_name = clean(ops_name, to_ascii=True, no_emoji=True)
+    ops_name = clean_text(ops_name)
 
-    with open(f"{current_ops_filename}.txt", "w") as ops_file:
+    with open(f"{active_ops_filename}.txt", "w") as ops_file:
         ops_file.write(ops_name)
 
     return None
 
 
 #Reading operations file, it indicates which road network we're taking into consideration
-def read_current_ops_file():
+def read_active_ops_file():
 
     try:
-        with open(f"{current_ops_filename}.txt", "r") as ops_file:
+        with open(f"{active_ops_filename}.txt", "r") as ops_file:
             op = ops_file.read()
 
     except FileNotFoundError:
@@ -34,10 +42,10 @@ def read_current_ops_file():
     return op
 
 
-def del_current_ops_file():
+def del_active_ops_file():
 
     try:
-        os.remove(f"{current_ops_filename}.txt")
+        os.remove(f"{active_ops_filename}.txt")
 
     except FileNotFoundError:
         print("\033[91mCurrent Operation File Not Found\033[0m")
@@ -48,7 +56,7 @@ def del_current_ops_file():
 #If the user wants to create a new operation, this function will be called
 def create_ops_folder(ops_name: str):
 
-    ops_name = clean(ops_name, to_ascii=True, no_emoji=True)
+    ops_name = clean_text(ops_name)
     os.makedirs(f"{ops_folder}/{ops_name}", exist_ok=True)
 
     create_tfs_folders(ops_name)
