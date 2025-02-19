@@ -1,4 +1,6 @@
 from OpsSettings import *
+from DataDownloader import *
+import time
 
 
 def manage_ops(functionality: str):
@@ -22,7 +24,12 @@ def manage_ops(functionality: str):
     return None
 
 
+def download_data():
 
+    traffic_data_to_json()
+
+
+    return None
 
 
 
@@ -83,6 +90,9 @@ def main():
 
         if option == "1.3":
             manage_ops("1.3")
+
+        if option == "2":
+            download_data()
 
         elif option == "0":
             exit()
