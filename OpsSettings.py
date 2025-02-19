@@ -59,7 +59,25 @@ def create_ops_folder(ops_name: str):
     ops_name = clean_text(ops_name)
     os.makedirs(f"{ops_folder}/{ops_name}", exist_ok=True)
 
-    create_tfs_folders(ops_name)
+    main_folders = [f"{ops_name}_data", f"{ops_name}_eda", f"{ops_name}_rn_graph", f"{ops_name}_ml"]
+    data_subfolders = ["traffic_volumes", "average_speed", "travel_times"]
+    rn_graph_subfolders = [f"{ops_name}_edges", f"{ops_name}_arches", f"{ops_name}_graph_analysis", f"{ops_name}_shortest_paths"]
+    ml_subfolders = [f"{ops_name}_models", f"{ops_name}_models_performance", f"{ops_name}_ml_reports"]
+
+    for mf in main_folders:
+        os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{mf}", exist_ok=True)
+
+    # Data subfolders
+    for dsf in data_subfolders:
+        os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}", exist_ok=True)
+
+    # Graph subfolders
+    for gsf in rn_graph_subfolders:
+        os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_rn_graph/{gsf}", exist_ok=True)
+
+    # Machine learning subfolders
+    for mlsf in ml_subfolders:
+        os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{mlsf}", exist_ok=True)
 
     return None
 
@@ -77,31 +95,6 @@ def del_ops_folder(ops_name: str):
     return None
 
 
-#This function creates the traffic forecasting system folders for the current operation
-def create_tfs_folders(ops_name: str):
-
-    main_folders = [f"{ops_name}_data", f"{ops_name}_eda", f"{ops_name}_rn_graph", f"{ops_name}_ml"]
-    data_subfolders = ["traffic_volumes", "average_speed", "travel_times"]
-    rn_graph_subfolders = [f"{ops_name}_edges", f"{ops_name}_arches", f"{ops_name}_graph_analysis", f"{ops_name}_shortest_paths"]
-    ml_subfolders = [f"{ops_name}_models", f"{ops_name}_models_performance", f"{ops_name}_ml_reports"]
-
-
-    for mf in main_folders:
-        os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{mf}", exist_ok=True)
-
-    #Data subfolders
-    for dsf in data_subfolders:
-        os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}", exist_ok=True)
-
-    #Graph subfolders
-    for gsf in rn_graph_subfolders:
-        os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_rn_graph/{gsf}", exist_ok=True)
-
-    #Machine learning subfolders
-    for mlsf in ml_subfolders:
-        os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{mlsf}", exist_ok=True)
-
-    return None
 
 
 
