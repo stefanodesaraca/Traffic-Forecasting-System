@@ -27,19 +27,7 @@ def fetch_traffic_measurement_points(client: Client):
                 }
               }
             }
-            trafficRegistrationType
-            direction {
-              fromAccordingToRoadLink
-              fromAccordingToMetering
-              toAccordingToRoadLink
-              toAccordingToMetering
-            }
-            commissions {
-              lanes {
-                laneNumberAccordingToRoadLink
-                laneNumberAccordingToMetering
-              }
-            }
+            trafficRegistrationType            
             dataTimeSpan {
               firstData
               firstDataWithQualityMetrics

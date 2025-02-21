@@ -24,12 +24,21 @@ def manage_ops(functionality: str):
     return None
 
 
-def download_data():
+def download_data(functionality: str):
 
-    print("Downloading data for the active operation...")
+    if functionality == "2.1":
 
-    ops_name = read_active_ops_file()
-    traffic_measurement_points_to_json(ops_name)
+        print("Downloading traffic measurement points information for the active operation...")
+
+        ops_name = read_active_ops_file()
+        traffic_measurement_points_to_json(ops_name)
+
+    if functionality == "2.2":
+
+        print("Downloading traffic volumes data for every measurement point for the active operation...")
+
+        ops_name = read_active_ops_file()
+        traffic_volumes_data_to_json(ops_name)
 
 
     return None
@@ -66,7 +75,9 @@ def main():
     1.1 Create an operation
     1.2 Set an operation as active (current one)
     1.3 Check the active operation name
- 2. Download traffic volumes data (Trafikkdata API)
+ 2. Download data (Trafikkdata API)
+    2.1 Traffic measurement points information
+    2.2 Traffic volumes for every measurement point
  3. Forecast
     3.1 Set forecasting target datetime
     3.2 Forecast warmup
@@ -94,8 +105,11 @@ def main():
         if option == "1.3":
             manage_ops("1.3")
 
-        if option == "2":
-            download_data()
+        if option == "2.1":
+            download_data("2.1")
+
+        if option == "2.2":
+            download_data("2.2")
 
         elif option == "0":
             exit()

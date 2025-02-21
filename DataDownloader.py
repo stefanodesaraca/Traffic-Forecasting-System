@@ -21,14 +21,24 @@ def traffic_measurement_points_to_json(ops_name: str):
 
     return None
 
-def traffic_data_to_json():
 
-    #client = start_client()
+def traffic_volumes_data_to_json(ops_name: str):
+
+    client = start_client()
+
+    #Read traffic measurement points json file
+
+    #TODO FETCH ALL IDs, FOR EVERY ID AN API REQUEST FOR TRAFFIC VOLUMES DATA
+    #TODO GATHER ALL DATA POINTS AND RESPECTIVE DATA INTO A SINGLE JSON FILE
+
+    with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_measurement_points.json", "r") as tmps_r:
+        tmps = json.load(tmps_r)
+
+    print(tmps)
 
     #fetch_traffic_volumes_for_tmp_id(client)
 
-    print("TODO")
-
+    return None
 
 
 
