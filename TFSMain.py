@@ -35,6 +35,10 @@ def download_data(functionality: str):
 
     if functionality == "2.2":
 
+        time_start = input("Insert starting datetime (of the time frame which you're interested in)")
+        time_end = input("Insert ending datetime (of the time frame which you're interested in)")
+
+
         print("Downloading traffic volumes data for every measurement point for the active operation...")
 
         ops_name = read_active_ops_file()

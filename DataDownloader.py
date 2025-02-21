@@ -1,6 +1,9 @@
 import json
 import os
 from DataFetcher import *
+from warnings import simplefilter
+
+simplefilter("ignore")
 
 ops_folder = "ops"
 cwd = os.getcwd()
@@ -22,7 +25,7 @@ def traffic_measurement_points_to_json(ops_name: str):
     return None
 
 
-def traffic_volumes_data_to_json(ops_name: str):
+def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
 
     client = start_client()
 
@@ -34,9 +37,22 @@ def traffic_volumes_data_to_json(ops_name: str):
     with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_measurement_points.json", "r") as tmps_r:
         tmps = json.load(tmps_r)
 
-    print(tmps)
 
-    #fetch_traffic_volumes_for_tmp_id(client)
+    ids = []
+
+    trafficRegistrationPoints = tmps["trafficRegistrationPoints"]
+
+    for trp in trafficRegistrationPoints:
+        ids.append(trp["id"])
+
+    #print(ids)
+
+
+    for i in ids:
+        fetch_traffic_volumes_for_tmp_id(client=client, traffic_measurement_point=i, time_start=time_start, time_end=time_end)
+
+
+    print("\n\n")
 
     return None
 
