@@ -103,7 +103,7 @@ def fetch_traffic_volumes_for_tmp_id(client: Client, traffic_measurement_point: 
     }}""")
 
     traffic_volumes = client.execute(tv_query)
-    print(traffic_volumes)
+    #print(traffic_volumes)
 
     return traffic_volumes
 

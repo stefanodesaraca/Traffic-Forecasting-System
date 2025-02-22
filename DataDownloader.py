@@ -59,22 +59,18 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
             exit()
 
 
-
-    requestChunkSize = np.array_split(ids, int(math.sqrt(len(ids))))
+    requestChunkSize = int(math.sqrt(len(ids))) #The chunk size of each request cycle will be equal to the square root of the total number of ids
+    requestChunks = np.array_split(ids, requestChunkSize)
 
     #Checking for duplicates in the ids list
     #print(len(ids), "|", len(set(ids)))
 
-    print("Requests Block Size: ", requestChunkSize)
+    #print("Requests chunks: ", requestChunks)
 
     tv = {} #Traffic Volumes
 
-    for ids_chunk in requestChunkSize:
+    for ids_chunk in tqdm(requestChunks, total=len(requestChunks)):
         tv.update(download_ids_chunk(ids_chunk)) #The download_ids_chunk returns a dictionary with a set of ids and respective traffic volumes data
-        try:
-            os.wait() #Waiting for the completion of the fetch of each single data chunk to avoid running into the TimeoutError
-        except AttributeError: #To avoid raising an error when the last chunk of data will be downloaded and there will be no more processes to wait
-            pass
 
     print(tv)
 
