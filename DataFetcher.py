@@ -50,60 +50,60 @@ def fetch_traffic_measurement_points(client: Client):
 
 def fetch_traffic_volumes_for_tmp_id(client: Client, traffic_measurement_point: str, time_start: str, time_end: str):
 
-    tv_query = gql('''{
-      trafficData(trafficRegistrationPointId: ''' + traffic_measurement_point + ''') {
-        volume {
-          byHour(from:''' + time_start + ',' + 'to:' + time_end + ''') {
-            edges {
-              node {
-                from
-                to
-                total {
-                  volumeNumbers {
-                    volume
-                  }
-                  coverage {
-                    percentage
-                  }
-                }
-                byLane {
-                  lane {
-                    laneNumberAccordingToRoadLink
-                    laneNumberAccordingToMetering
-                  }
-                  total {
-                    coverage {
-                      percentage
-                    }
-                    volumeNumbers {
-                      volume
-                    }
-                  }
-                }
-                byDirection {
-                  heading
-                  total {
-                    coverage {
-                      percentage
-                    }
-                    volumeNumbers {
-                      volume
-                    }
-                  }
-                }
-              }
-            }
-            pageInfo {
-              hasNextPage
-              endCursor
-            }
-          }
-        }
-      }
-    }
-    ''')
+    tv_query = gql(f"""{{
+        trafficData(trafficRegistrationPointId: "{traffic_measurement_point}") {{
+            volume {{
+                byHour(from: "{time_start}", to: "{time_end}") {{
+                    edges {{
+                        node {{
+                            from
+                            to
+                            total {{
+                                volumeNumbers {{
+                                    volume
+                                }}
+                                coverage {{
+                                    percentage
+                                }}
+                            }}
+                            byLane {{
+                                lane {{
+                                    laneNumberAccordingToRoadLink
+                                    laneNumberAccordingToMetering
+                                }}
+                                total {{
+                                    coverage {{
+                                        percentage
+                                    }}
+                                    volumeNumbers {{
+                                        volume
+                                    }}
+                                }}
+                            }}
+                            byDirection {{
+                                heading
+                                total {{
+                                    coverage {{
+                                        percentage
+                                    }}
+                                    volumeNumbers {{
+                                        volume
+                                    }}
+                                }}
+                            }}
+                        }}
+                    }}
+                    pageInfo {{
+                        hasNextPage
+                        endCursor
+                    }}
+                }}
+            }}
+        }}
+    }}""")
 
     traffic_volumes = client.execute(tv_query)
+    print(traffic_volumes)
 
     return traffic_volumes
 

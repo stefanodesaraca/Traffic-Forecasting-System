@@ -1,7 +1,7 @@
 from OpsSettings import *
 from DataDownloader import *
+from TFSUtilities import *
 import time
-
 
 def manage_ops(functionality: str):
 
@@ -18,7 +18,7 @@ def manage_ops(functionality: str):
 
     else:
         print("Functionality not found, try again with a correct one")
-        print("Returning to the main menu...")
+        print("Returning to the main menu...\n\n")
         main()
         
     return None
@@ -35,14 +35,23 @@ def download_data(functionality: str):
 
     if functionality == "2.2":
 
-        time_start = input("Insert starting datetime (of the time frame which you're interested in)")
-        time_end = input("Insert ending datetime (of the time frame which you're interested in)")
+        time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH:MM:SS: ")
+        time_end = input("Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH:MM:SS: ")
 
+        if check_datetime(time_start) is True and check_datetime(time_end) is True:
+            pass
+        else:
+            print("Wrong datetime format, try again with a correct one")
+            print("Returning to the main menu...\n\n")
+            main()
+
+        time_start += ".000Z"
+        time_end += ".000Z"
 
         print("Downloading traffic volumes data for every measurement point for the active operation...")
 
         ops_name = read_active_ops_file()
-        traffic_volumes_data_to_json(ops_name)
+        traffic_volumes_data_to_json(ops_name, time_start=time_start, time_end=time_end)
 
 
     return None
