@@ -82,6 +82,7 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
         json.dump(tv, tv_w, indent=4)
 
     #TODO FIND A LIGHTER SOLUTION THAN JSON, SINCE JUST A MONTH OF DATA IS MORE OR LESS A GIGABYTE
+    #TODO AND TRY TO REDUCE THE NESTING IN THE JSON FILE TO SAVE MEMORY
 
     print("\n\n")
 
