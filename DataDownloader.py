@@ -72,7 +72,14 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
     for ids_chunk in tqdm(requestChunks, total=len(requestChunks)):
         tv.update(download_ids_chunk(ids_chunk)) #The download_ids_chunk returns a dictionary with a set of ids and respective traffic volumes data
 
-    print(tv)
+    #print(tv)
+
+    time_start = time_start[:18].replace(":", "_") #Keeping only the characters that were inputted by the user
+    time_end = time_end[:18].replace(":", "_")
+
+    #Exporting traffic volumes to a json file
+    with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes_S{time_start}_E{time_end}.json", "w") as tv_w:
+        json.dump(tv, tv_w, indent=4)
 
     print("\n\n")
 
