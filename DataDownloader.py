@@ -81,6 +81,8 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
     with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes_S{time_start}_E{time_end}.json", "w") as tv_w:
         json.dump(tv, tv_w, indent=4)
 
+    #TODO FIND A LIGHTER SOLUTION THAN JSON, SINCE JUST A MONTH OF DATA IS MORE OR LESS A GIGABYTE
+
     print("\n\n")
 
     return None
