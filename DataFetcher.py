@@ -9,13 +9,14 @@ def start_client():
     return client
 
 
+#The number 3 indicates the Oslo og Viken county, which only includes the Oslo municipality
 def fetch_traffic_measurement_points(client: Client):
 
     tmp_query = gql(
         '''
         {
           trafficRegistrationPoints(
-            searchQuery: {roadCategoryIds: [E, R, F, K, P], isOperational: true, trafficType: VEHICLE, registrationFrequency: CONTINUOUS}
+            searchQuery: {roadCategoryIds: [E, R, F, K, P], countyNumbers: [3], isOperational: true, trafficType: VEHICLE, registrationFrequency: CONTINUOUS}
           ) {
             id
             name
