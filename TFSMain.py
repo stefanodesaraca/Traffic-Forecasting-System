@@ -9,11 +9,11 @@ def manage_ops(functionality: str):
         ops_name = input("Insert new operation name: ")
         create_ops_folder(ops_name)
 
-    if functionality == "1.2":
+    elif functionality == "1.2":
         ops_name = input("Insert the operation to set as active: ")
         write_active_ops_file(ops_name)
 
-    if functionality == "1.3":
+    elif functionality == "1.3":
         print("Active operation: ", read_active_ops_file(), "\n\n")
 
     else:
@@ -40,7 +40,7 @@ def download_data(functionality: str):
             print("\033[91mCouldn't download traffic measurement points information for the active operation\033[0m")
 
 
-    if functionality == "2.2":
+    elif functionality == "2.2":
 
         time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH:MM:SS: ")
         time_end = input("Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH:MM:SS: ")

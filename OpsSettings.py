@@ -1,5 +1,5 @@
 import os
-#from emoji import demojize
+from cleantext import clean
 
 cwd = os.getcwd()
 
@@ -11,7 +11,7 @@ active_ops_filename = "active_ops"
 
 def clean_text(text: str):
 
-    #text = demojize(text, use_aliases=True)
+    text = clean(text, no_emoji=True, no_currency_symbols=True)
     text = text.replace(" ", "_")
     text = text.lower()
 
