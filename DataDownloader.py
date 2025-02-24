@@ -81,7 +81,7 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
 
     for tmp_id in ids:
         #Exporting traffic volumes to a json file, S stands for "Start" and E stands for "End". They represent the time frame in which the data was collected (for a specific traffic measurement point)
-        with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/{tmp_id}_volumes_S{time_start}_E{time_end}.json", "w") as tv_w:
+        with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{tmp_id}_volumes_S{time_start}_E{time_end}.json", "w") as tv_w:
             json.dump(tv[tmp_id], tv_w, indent=4)
 
     print("Data successfully written in memory\n")
