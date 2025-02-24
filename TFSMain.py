@@ -28,10 +28,17 @@ def download_data(functionality: str):
 
     if functionality == "2.1":
 
-        print("Downloading traffic measurement points information for the active operation...")
+        try:
+            print("Downloading traffic measurement points information for the active operation...")
 
-        ops_name = read_active_ops_file()
-        traffic_measurement_points_to_json(ops_name)
+            ops_name = read_active_ops_file()
+            traffic_measurement_points_to_json(ops_name)
+
+            print("Traffic measurement points information downloaded successfully\n\n")
+
+        except:
+            print("\033[91mCouldn't download traffic measurement points information for the active operation\033[0m")
+
 
     if functionality == "2.2":
 
@@ -112,16 +119,16 @@ def main():
         if option == "1.1":
             manage_ops("1.1")
 
-        if option == "1.2":
+        elif option == "1.2":
             manage_ops("1.2")
 
-        if option == "1.3":
+        elif option == "1.3":
             manage_ops("1.3")
 
-        if option == "2.1":
+        elif option == "2.1":
             download_data("2.1")
 
-        if option == "2.2":
+        elif option == "2.2":
             download_data("2.2")
 
         elif option == "0":
