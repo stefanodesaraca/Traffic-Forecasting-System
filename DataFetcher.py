@@ -27,6 +27,28 @@ def fetch_traffic_measurement_points(client: Client):
                   lon
                 }
               }
+              roadReference{
+                roadCategory{
+                  id
+                }
+              }
+              roadLinkSequence{
+                roadLinkSequenceId
+                relativePosition
+              }
+              county{
+                name
+                number
+                geographicNumber
+                countryPart{
+                  id
+                  name
+                }
+              }
+              municipality{
+                name
+                number
+              }
             }
             trafficRegistrationType            
             dataTimeSpan {

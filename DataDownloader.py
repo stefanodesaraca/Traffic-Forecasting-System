@@ -14,7 +14,7 @@ cwd = os.getcwd()
 
 def traffic_measurement_points_to_json(ops_name: str):
     """
-    The ops_name parameter is needed to identify the operation where the data needs to be downloaded.
+    The _ops_name parameter is needed to identify the operation where the data needs to be downloaded.
     This implies that the same data can be downloaded multiple times, but downloaded into different operation folders,
     so reducing the risk of data loss or corruption in case of malfunctions.
     """
