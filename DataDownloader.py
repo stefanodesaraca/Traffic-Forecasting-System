@@ -77,12 +77,14 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
     time_start = time_start[:18].replace(":", "_") #Keeping only the characters that were inputted by the user
     time_end = time_end[:18].replace(":", "_")
 
-    #Exporting traffic volumes to a json file
-    with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes_S{time_start}_E{time_end}.json", "w") as tv_w:
-        json.dump(tv, tv_w, indent=4)
+    print("Data collected successfully. Writing...")
 
-    #TODO FIND A LIGHTER SOLUTION THAN JSON, SINCE JUST A MONTH OF DATA IS MORE OR LESS A GIGABYTE
-    #TODO AND TRY TO REDUCE THE NESTING IN THE JSON FILE TO SAVE MEMORY
+    for tmp_id in ids:
+        #Exporting traffic volumes to a json file, S stands for "Start" and E stands for "End". They represent the time frame in which the data was collected (for a specific traffic measurement point)
+        with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/{tmp_id}_volumes_S{time_start}_E{time_end}.json", "w") as tv_w:
+            json.dump(tv[tmp_id], tv_w, indent=4)
+
+    print("Data successfully written in memory\n")
 
     print("\n\n")
 
