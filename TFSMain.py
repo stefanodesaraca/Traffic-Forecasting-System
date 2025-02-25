@@ -1,6 +1,7 @@
 from OpsSettings import *
 from DataDownloader import *
 from TFSUtilities import *
+from DataCleaning import *
 import time
 
 def manage_ops(functionality: str):
@@ -64,8 +65,14 @@ def download_data(functionality: str):
     return None
 
 
+def clean_data(functionality: str):
 
+    if functionality == "5.6.1":
 
+        cleaner = TrafficVolumesCleaner()
+        cleaner.execute_cleaning()
+
+    return None
 
 
 
@@ -111,25 +118,32 @@ def main():
     5.3 Erase all data about an operation
     5.4 Find best model for the current operation
     5.5 Analyze pre-existing road network graph
+    5.6 Clean data
+        5.6.1 Clean traffic volumes data
+        5.6.2 Clean average speed data
+    
  0. Exit""")
 
         option = input("Choice: ")
         print()
 
         if option == "1.1":
-            manage_ops("1.1")
+            manage_ops(option)
 
         elif option == "1.2":
-            manage_ops("1.2")
+            manage_ops(option)
 
         elif option == "1.3":
-            manage_ops("1.3")
+            manage_ops(option)
 
         elif option == "2.1":
-            download_data("2.1")
+            download_data(option)
 
         elif option == "2.2":
-            download_data("2.2")
+            download_data(option)
+
+        elif option == "5.6.1":
+            clean_data(option)
 
         elif option == "0":
             exit()

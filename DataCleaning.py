@@ -12,7 +12,7 @@ class Cleaner:
 
     def __init__(self):
         self._cwd = os.getcwd()
-        self._ops_folder = read_active_ops_file()
+        self._ops_folder = "ops"
         self._ops_name = read_active_ops_file()
 
 
@@ -67,11 +67,14 @@ class TrafficVolumesCleaner(Cleaner):
             print("   > Volume average daily by season: ", data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"])
             print("   > Volume average daily by month: ", data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"])
 
+            data = dd.DataFrame(data)
 
-        #TODO CONTINUE HERE WITH JUST A PD.DESCRIBE() OF THE DATA
+            print(data.describe())
+
 
 
         elif verbose is False:
+
             print("******** Traffic Registration Point Information ********")
 
             print("ID: ", data["id"])
@@ -89,7 +92,7 @@ class TrafficVolumesCleaner(Cleaner):
         #Importing a single json file to be cleaned
         volumes = self.import_data(file)
 
-
+        self.data_overview(volumes, verbose=True)
 
 
 
@@ -100,13 +103,14 @@ class TrafficVolumesCleaner(Cleaner):
 
     def execute_cleaning(self):
 
+        traffic_volumes_folder_path = f"{self._cwd}/{self._ops_folder}/{self._ops_name}/{self._ops_name}_data/traffic_volumes/raw_traffic_volumes/"
+
         #Identifying all the raw files
-        volume_files = os.listdir(f"{self._cwd}/{self._ops_folder}/{self._ops_name}/{self._ops_name}_data/traffic_volumes/raw_traffic_volumes")
+        volume_files = os.listdir(traffic_volumes_folder_path)
 
-        print("Raw traffic volumes files: ", volume_files)
+        print("Raw traffic volumes files: ", volume_files, "\n\n")
 
-
-        self.cleaning_pipeline()
+        self.cleaning_pipeline(traffic_volumes_folder_path + volume_files[0])
 
 
         return None
