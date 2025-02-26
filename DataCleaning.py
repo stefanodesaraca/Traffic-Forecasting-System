@@ -159,9 +159,10 @@ class TrafficVolumesCleaner(Cleaner):
                 direction_structured.update({heading: {"volume": direction_volume,
                                                        "direction_coverage": direction_coverage}
                                                                                                 })
+                #TODO THE SAME PRINCIPLE AS BEFORE APPLIES HERE, SAVE ALL THE AVAILABLE DIRECTIONS IN THE TRP'S METADATA FILE
 
 
-        return None #TODO RETURN CLEANED DATA
+        return None #TODO RETURN CLEANED DATA IN THREE DIFFERENT DATAFRAMES AS DESCRIBED ON THE PAPER NOTEBOOK
 
 
 
