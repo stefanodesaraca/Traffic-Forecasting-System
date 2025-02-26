@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 import os
 import dask.dataframe as dd
+import pandas as pd
 
 
 
@@ -50,8 +51,6 @@ class TrafficVolumesCleaner(Cleaner):
     #This function is only to give the user an overview of the data which we're currently cleaning, and some specific information about the TRP (Traffic Registration Point) which has collected it
     def data_overview(self, trp_data, volumes_data: dict, verbose: bool):
 
-        volumes_data = volumes_data["trafficData"]
-
         trp_data = trp_data["trafficRegistrationPoints"][0]
 
         if verbose is True:
@@ -80,15 +79,14 @@ class TrafficVolumesCleaner(Cleaner):
             print("   > Volume average daily by year: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByYear"])
             print("   > Volume average daily by season: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"])
             print("   > Volume average daily by month: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"])
+
             print("\n")
 
-
-            volumes_data = dd.DataFrame(volumes_data)
 
             print(volumes_data)
 
 
-            print("--------------------------------------------------------")
+            print("--------------------------------------------------------\n\n")
 
 
 
@@ -99,7 +97,24 @@ class TrafficVolumesCleaner(Cleaner):
             print("ID: ", trp_data["id"])
             print("Name: ", trp_data["name"])
 
+            print("--------------------------------------------------------\n\n")
+
+
         return None
+
+
+
+    def clean_traffic_volumes_data(self, volumes_data):
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -112,13 +127,9 @@ class TrafficVolumesCleaner(Cleaner):
         volumes = self.import_data(file)
 
         #print(trp_file)
-
         #print(volumes)
 
         self.data_overview(trp_data=trp_file, volumes_data=volumes, verbose=True)
-
-
-
 
 
         return None
@@ -127,19 +138,18 @@ class TrafficVolumesCleaner(Cleaner):
     def execute_cleaning(self):
 
         traffic_volumes_folder_path = f"{self._cwd}/{self._ops_folder}/{self._ops_name}/{self._ops_name}_data/traffic_volumes/raw_traffic_volumes/"
+        traffic_registration_points_path = self.import_TRPs(f"{self._cwd}/{self._ops_folder}/{self._ops_name}/{self._ops_name}_data/traffic_measurement_points.json")
 
-        #Identifying all the raw files
+
+        #Identifying all the raw traffic volume files
         volume_files = os.listdir(traffic_volumes_folder_path)
-
         print("Raw traffic volumes files: ", volume_files, "\n\n")
 
-
-        traffic_registration_points = self.import_TRPs(f"{self._cwd}/{self._ops_folder}/{self._ops_name}/{self._ops_name}_data/traffic_measurement_points.json")
 
         #TODO TEST HERE WITH [:2]
         for volume_f in volume_files[:2]:
             volumes_file_path = traffic_volumes_folder_path + volume_f
-            self.cleaning_pipeline(trp_file=traffic_registration_points, file=volumes_file_path) #String concatenation here
+            self.cleaning_pipeline(trp_file=traffic_registration_points_path, file=volumes_file_path) #String concatenation here
 
 
         return None
