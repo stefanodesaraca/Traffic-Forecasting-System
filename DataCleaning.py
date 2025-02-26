@@ -36,7 +36,7 @@ class Cleaner:
     #General definition of the data_overview() function. This will take two different forms: the traffic volumes one and the average speed one.
     #Thus, the generic "data" parameter will become the volumes_data or the avg_speed_data one
     @staticmethod
-    def data_overview(trp_data: dict, data: dict, verbose: bool):
+    def data_overview(trp_data, data: dict, verbose: bool):
         return data
 
 
@@ -48,9 +48,11 @@ class TrafficVolumesCleaner(Cleaner):
 
 
     #This function is only to give the user an overview of the data which we're currently cleaning, and some specific information about the TRP (Traffic Registration Point) which has collected it
-    def data_overview(self, trp_data: dict, volumes_data: dict, verbose: bool):
+    def data_overview(self, trp_data, volumes_data: dict, verbose: bool):
 
         volumes_data = volumes_data["trafficData"]
+
+        trp_data = trp_data["trafficRegistrationPoints"][0]
 
         if verbose is True:
 
@@ -59,12 +61,13 @@ class TrafficVolumesCleaner(Cleaner):
             print("ID: ", trp_data["id"])
             print("Name: ", trp_data["name"])
             print("Road category: ", trp_data["location"]["roadReference"]["roadCategory"]["id"])
-            print("Coordinates -> ", "Lat: ", volumes_data["location"]["latLon"]["lat"], "Lon: ", trp_data["location"]["latLon"]["lon"])
+            print("Coordinates: ")
+            print(" - Lat: ", trp_data["location"]["coordinates"]["latLon"]["lat"])
+            print(" - Lon: ", trp_data["location"]["coordinates"]["latLon"]["lon"])
             print("County name: ", trp_data["location"]["county"]["name"])
             print("County number: ", trp_data["location"]["county"]["number"])
             print("Geographic number: ", trp_data["location"]["county"]["geographicNumber"])
             print("Country part: ", trp_data["location"]["county"]["countryPart"]["name"])
-            print("Municipality ID: ", trp_data["location"]["municipality"]["id"])
             print("Municipality name: ", trp_data["location"]["municipality"]["name"])
 
             print("Traffic registration type: ", trp_data["trafficRegistrationType"])
@@ -77,10 +80,15 @@ class TrafficVolumesCleaner(Cleaner):
             print("   > Volume average daily by year: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByYear"])
             print("   > Volume average daily by season: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"])
             print("   > Volume average daily by month: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"])
+            print("\n")
+
 
             volumes_data = dd.DataFrame(volumes_data)
 
-            print(volumes_data.describe())
+            print(volumes_data)
+
+
+            print("--------------------------------------------------------")
 
 
 
@@ -98,14 +106,16 @@ class TrafficVolumesCleaner(Cleaner):
     #TODO THIS WILL EXPORT ALL THE CLEANED DATA INTO SEPARATED FILES AND CLEAN EACH FILE INDIVIDUALLY THROUGH THE PIPELINE.
     # IN THE DATA EXPLORATION FILE WE'LL CREATE A FOR LOOP AND USE THE cleaning_pipeline() FUNCTION TO CLEAN EACH FILE.
     # THIS PROCESS WILL BE REPEATED BOTH FOR TRAFFIC VOLUMES AND AVERAGE SPEED, EACH ONE WITH THEIR OWN CUSTOM CLEANING PIPELINE
-    def cleaning_pipeline(self, file: str):
+    def cleaning_pipeline(self, trp_file: str, file: str):
 
         #Importing a single json file to be cleaned
         volumes = self.import_data(file)
 
-        print(volumes)
+        #print(trp_file)
 
-        self.data_overview(volumes, verbose=True)
+        #print(volumes)
+
+        self.data_overview(trp_data=trp_file, volumes_data=volumes, verbose=True)
 
 
 
@@ -128,7 +138,8 @@ class TrafficVolumesCleaner(Cleaner):
 
         #TODO TEST HERE WITH [:2]
         for volume_f in volume_files[:2]:
-            self.cleaning_pipeline(traffic_volumes_folder_path + volume_f) #String concatenation here
+            volumes_file_path = traffic_volumes_folder_path + volume_f
+            self.cleaning_pipeline(trp_file=traffic_registration_points, file=volumes_file_path) #String concatenation here
 
 
         return None
