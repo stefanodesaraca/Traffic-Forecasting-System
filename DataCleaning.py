@@ -104,10 +104,64 @@ class TrafficVolumesCleaner(Cleaner):
 
 
 
-    def clean_traffic_volumes_data(self, volumes_data):
+    @staticmethod
+    def clean_traffic_volumes_data(volumes_payload):
+
+        nodes = volumes_payload["trafficData"]["volume"]["byHour"]["edges"]
+
+        for node in nodes:
+            recording_start_datetime = node["from"]
+            recording_end_datetime = node["to"]
+
+            # ----------------------- Total volumes section -----------------------
+            total_volume = node["total"]["volumeNumbers"]["volume"]
+            coverage_perc = node["total"]["coverage"]["percentage"]
+
+            #   ----------------------- By lane section -----------------------
+
+            lanes_data = node["byLane"]
 
 
+            lanes = [] #Keeping track of all the lanes available to find the total number of lanes for each TRP (Traffic Registration Point)
+            lanes_structured = {} #Structured data to create dataframe from a dict of dicts
 
+
+            #Every lane's data is kept isolated from the other lanes' data, so a for cycle is needed
+            for lane in lanes_data:
+                road_link_lane_number = lane["lane"]["laneNumberAccordingToRoadLink"]
+                lane_volume = lane["lane"]["total"]["volumeNumbers"]["volume"]
+                lane_coverage = lane["lane"]["total"]["coverage"]["percentage"]
+
+                lanes_structured.update({road_link_lane_number: {"volume": lane_volume,
+                                                                 "lane_coverage": lane_coverage}
+                                                                                                })
+
+                lanes.append(road_link_lane_number)
+
+            total_lanes = max(lanes) #To get the maximum number of lanes. This is needed in the future for the dataframes creation and to be inserted as additional data into the graph nodes
+            #TODO WRITE A METADATA FILE FOR EACH TRP, SAVE THEM IN A SPECIFIC FOLDER IN THE GRAPH'S ONE (IN THE ops FOLDER)
+
+            #   ----------------------- By direction section -----------------------
+
+            by_direction_data = node["byDirection"]
+
+
+            heading_directions = []  #Keeping track of all the directions available for each TRP (Traffic Registration Point)
+            direction_structured = {}
+
+
+            # Every direction's data is kept isolated from the other directions' data, so a for cycle is needed
+            for direction in by_direction_data:
+                heading = direction["heading"]
+                direction_volume = direction["heading"]["total"]["volumeNumbers"]["volume"]
+                direction_coverage = direction["heading"]["total"]["coverage"]["percentage"]
+
+                direction_structured.update({heading: {"volume": direction_volume,
+                                                       "direction_coverage": direction_coverage}
+                                                                                                })
+
+
+        return None #TODO RETURN CLEANED DATA
 
 
 
