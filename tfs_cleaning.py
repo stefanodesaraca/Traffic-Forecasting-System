@@ -114,15 +114,15 @@ class TrafficVolumesCleaner(Cleaner):
 
         # ------------------ Finding all unique days in which registrations took place ------------------
 
-        registration_datetimes = [] #To find all the unique days
+        registration_dates = [] #To find all the unique days
 
         for n in nodes:
             registration_dt = n["from"][-6:] #Only keeping the datetime without the +00:00 at the end
             print("Registration DT: ", registration_dt)
-            registration_datetimes.append(registration_dt)
+            registration_dates.append(registration_dt)
 
-        registration_datetimes = set(registration_datetimes) #Removing duplicates
-
+        registration_dates = set(registration_dates) #Removing duplicates
+        print("Number of unique registration days: ", len(registration_dates))
 
 
         # ------------------ Extracting the data from JSON file and converting it into tabular format ------------------
@@ -131,6 +131,20 @@ class TrafficVolumesCleaner(Cleaner):
         by_hour_structured = [] #This will later become a list of dictionaries to create the by_hour dataframe we're going to export and use in the future
         by_lane_structured = [] #This will later become a list of dictionaries to create the by_lane dataframe we're going to export and use in the future
         by_direction_structured = [] #This will later become a list of dictionaries to create the by_direction dataframe we're going to export and use in the future
+
+        data_indexes = [] #This list will make every registration's day dictionary trackable to be able to insert the data into it
+
+        #ud = unique day
+        for idx, ud in enumerate(registration_dates):
+            data_indexes.append({ud: idx})
+
+            #Creating as many dictionaries as there are registration days, so each registration day will have its own dictionary with its specific data
+            by_hour_structured.append({})
+            by_lane_structured.append({})
+            by_direction_structured.append({})
+
+        print(data_indexes)
+
 
         for node in nodes:
             #This is the datetime which will be representative of a volume, specifically, there will be multiple datetimes with the same day
@@ -145,6 +159,8 @@ class TrafficVolumesCleaner(Cleaner):
             # ----------------------- Total volumes section -----------------------
             total_volume = node["total"]["volumeNumbers"]["volume"]
             coverage_perc = node["total"]["coverage"]["percentage"]
+
+
 
 
 
