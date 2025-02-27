@@ -1,6 +1,7 @@
 from tfs_ops_settings import *
 import numpy as np
 import json
+import datetime
 from datetime import datetime
 import os
 import dask.dataframe as dd
@@ -40,7 +41,7 @@ class Cleaner:
         return data
 
 
-
+#TODO THE ONLY PARAMETER WHICH WILL BE NEEDED BY THE TrafficVolumesCleaner CLASS IS THE trp id, ONE AT A TIME
 class TrafficVolumesCleaner(Cleaner):
 
     def __init__(self):
@@ -106,19 +107,46 @@ class TrafficVolumesCleaner(Cleaner):
     @staticmethod
     def clean_traffic_volumes_data(volumes_payload):
 
+        # ------------------ Data payload extraction ------------------
+
         nodes = volumes_payload["trafficData"]["volume"]["byHour"]["edges"]
 
-        nodes_structured_data = {}
 
+        # ------------------ Finding all unique days in which registrations took place ------------------
+
+        registration_datetimes = [] #To find all the unique days
+
+        for n in nodes:
+            registration_dt = n["from"][-6:] #Only keeping the datetime without the +00:00 at the end
+            print("Registration DT: ", registration_dt)
+            registration_datetimes.append(registration_dt)
+
+        registration_datetimes = set(registration_datetimes) #Removing duplicates
+
+
+
+        # ------------------ Extracting the data from JSON file and converting it into tabular format ------------------
+
+
+        by_hour_structured = [] #This will later become a list of dictionaries to create the by_hour dataframe we're going to export and use in the future
+        by_lane_structured = [] #This will later become a list of dictionaries to create the by_lane dataframe we're going to export and use in the future
+        by_direction_structured = [] #This will later become a list of dictionaries to create the by_direction dataframe we're going to export and use in the future
 
         for node in nodes:
+            #This is the datetime which will be representative of a volume, specifically, there will be multiple datetimes with the same day
+            # to address this fact we'll just re-format the data to keep track of the day, but also maintain the volume values for each hour
+            registration_datetime = node["from"][-6:] #Only keeping the datetime without the +00:00 at the end
 
-            recording_start_datetime = node["from"]
-            recording_end_datetime = node["to"]
+            registration_datetime = datetime.strptime(registration_datetime, "%Y-%m-%dT%H:%M:%S")
+            day = registration_datetime.day
+            hour = registration_datetime.hour
+
 
             # ----------------------- Total volumes section -----------------------
             total_volume = node["total"]["volumeNumbers"]["volume"]
             coverage_perc = node["total"]["coverage"]["percentage"]
+
+
 
             #   ----------------------- By lane section -----------------------
 
