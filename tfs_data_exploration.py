@@ -1,6 +1,6 @@
-import DataCleaning
-from OpsSettings import *
-from DataCleaning import *
+import tfs_cleaning
+from tfs_ops_settings import *
+from tfs_cleaning import *
 import numpy as np
 import json
 from datetime import datetime

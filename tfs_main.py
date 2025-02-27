@@ -1,7 +1,7 @@
-from OpsSettings import *
-from DataDownloader import *
-from TFSUtilities import *
-from DataCleaning import *
+from tfs_ops_settings import *
+from tfs_data_downloader import *
+from tfs_utilities import *
+from tfs_cleaning import *
 import time
 
 def manage_ops(functionality: str):

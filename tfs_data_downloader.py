@@ -1,6 +1,6 @@
 import json
 import os
-from DataFetcher import *
+from tfs_data_fetcher import *
 from warnings import simplefilter
 import math
 import numpy as np

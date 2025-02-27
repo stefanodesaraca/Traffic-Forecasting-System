@@ -1,5 +1,4 @@
-import OpsSettings
-from OpsSettings import *
+from tfs_ops_settings import *
 import numpy as np
 import json
 from datetime import datetime
@@ -109,7 +108,11 @@ class TrafficVolumesCleaner(Cleaner):
 
         nodes = volumes_payload["trafficData"]["volume"]["byHour"]["edges"]
 
+        nodes_structured_data = {}
+
+
         for node in nodes:
+
             recording_start_datetime = node["from"]
             recording_end_datetime = node["to"]
 
@@ -160,6 +163,13 @@ class TrafficVolumesCleaner(Cleaner):
                                                        "direction_coverage": direction_coverage}
                                                                                                 })
                 #TODO THE SAME PRINCIPLE AS BEFORE APPLIES HERE, SAVE ALL THE AVAILABLE DIRECTIONS IN THE TRP'S METADATA FILE
+
+
+
+
+
+
+        #TODO CREATE DATAFRAMES HERE (OUTSIDE THE MAIN for node in nodes FOR CYCLE), MEMORIZE DATA OUTSIDE THE CYCLE AND BE AWARE OF THE DATES PROBLEM
 
 
         return None #TODO RETURN CLEANED DATA IN THREE DIFFERENT DATAFRAMES AS DESCRIBED ON THE PAPER NOTEBOOK
