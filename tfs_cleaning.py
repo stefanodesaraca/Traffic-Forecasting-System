@@ -110,6 +110,7 @@ class TrafficVolumesCleaner(Cleaner):
         # ------------------ Data payload extraction ------------------
 
         nodes = volumes_payload["trafficData"]["volume"]["byHour"]["edges"]
+        number_of_nodes = len(nodes)
 
 
         # ------------------ Finding all unique days in which registrations took place ------------------
@@ -132,21 +133,30 @@ class TrafficVolumesCleaner(Cleaner):
         by_lane_structured = [] #This will later become a list of dictionaries to create the by_lane dataframe we're going to export and use in the future
         by_direction_structured = [] #This will later become a list of dictionaries to create the by_direction dataframe we're going to export and use in the future
 
+
         data_indexes = {} #This dictionary will make every registration's day dictionary trackable to be able to insert the data into it
 
         #ud = unique day
         for idx, ud in enumerate(registration_dates):
-            data_indexes.update({ud: idx})
+            data_indexes.update({ud: idx}) #Every key-value pair represents {unique date: by_hour/lane/direction_structured list cell index}
 
             #Creating as many dictionaries as there are registration days, so each registration day will have its own dictionary with its specific data
             by_hour_structured.append({})
-            by_lane_structured.append({})
-            by_direction_structured.append({})
 
         print(data_indexes)
 
 
+        #Every lane has its own volumes and coverage for the same node, hence the same datetime.
+        #Since a dataframe is bidimensional we must find a solution to keep track of the lanes individual volumes and coverage, but still changing the data structure to tabular
+        # the solution is to have every row of the dataframe be one lane's data, and have one field which indicates the date
+        # so multiple rows will have the same date, but different lanes
+        by_lane_index = 0
+
+
         for node in nodes:
+
+            # ---------------------- Fetching registration datetime ----------------------
+
             #This is the datetime which will be representative of a volume, specifically, there will be multiple datetimes with the same day
             # to address this fact we'll just re-format the data to keep track of the day, but also maintain the volume values for each hour
             registration_datetime = node["from"][-6:] #Only keeping the datetime without the +00:00 at the end
@@ -155,48 +165,48 @@ class TrafficVolumesCleaner(Cleaner):
             day = registration_datetime.day
             hour = registration_datetime.hour
 
-            by_x_structured_index = data_indexes[day] #We'll obtain the index of the list cell where the dictionary for this specific date lies
+
+            # ---------------------- Finding the by_hour_structured list cell where the data for the current node will be inserted ----------------------
+
+            by_hour_idx = data_indexes[day] #We'll obtain the index of the list cell where the dictionary for this specific date lies
 
 
             # ----------------------- Total volumes section -----------------------
             total_volume = node["total"]["volumeNumbers"]["volume"]
             coverage_perc = node["total"]["coverage"]["percentage"]
 
-            by_hour_structured[by_x_structured_index].update({f"v{hour}": total_volume})
-            by_hour_structured[by_x_structured_index].update({f"cvg{hour}": coverage_perc})
+            by_hour_structured[by_hour_idx].update({f"v{hour}": total_volume}) # <-- Inserting the total volumes (for the specific hour) data into the dictionary previously created in the by_hour_structured list
+            by_hour_structured[by_hour_idx].update({f"cvg{hour}": coverage_perc}) # <-- Inserting the coverage data (for the specific hour) into the dictionary previously created in the by_hour_structured list
 
 
             #   ----------------------- By lane section -----------------------
 
-            lanes_data = node["byLane"]
+            lanes_data = node["byLane"] #Extracting byLane data
+            lanes = [] #Storing the lane numbers to find the maximum number of lanes for the specific TRP
 
-            lanes = [] #Keeping track of all the lanes available to find the total number of lanes for each TRP (Traffic Registration Point)
-            lanes_structured = {} #Structured data to create dataframe from a dict of dicts
-
-
-            #Every lane's data is kept isolated from the other lanes' data, so a for cycle is needed
+            #Every lane's data is kept isolated from the other lanes' data, so a for cycle is needed to extract all the data from each lane's section
             for lane in lanes_data:
                 road_link_lane_number = lane["lane"]["laneNumberAccordingToRoadLink"]
                 lane_volume = lane["lane"]["total"]["volumeNumbers"]["volume"]
                 lane_coverage = lane["lane"]["total"]["coverage"]["percentage"]
 
-                lanes_structured.update({road_link_lane_number: {"volume": lane_volume,
-                                                                 "lane_coverage": lane_coverage}
-                                                                                                })
-
                 lanes.append(road_link_lane_number)
 
-            total_lanes = max(lanes) #To get the maximum number of lanes. This is needed in the future for the dataframes creation and to be inserted as additional data into the graph nodes
-            #TODO WRITE A METADATA FILE FOR EACH TRP, SAVE THEM IN A SPECIFIC FOLDER IN THE GRAPH'S ONE (IN THE ops FOLDER)
+                by_lane_structured[by_lane_index].update({by_lane_index: {"date": day,
+                                                                          f"lane": f"l{road_link_lane_number}",
+                                                                          f"v{hour}": lane_volume,
+                                                                          f"lane_cvg{hour}": lane_coverage}
+                                                                                                            })
+
+                by_lane_index += 1
+
 
             #   ----------------------- By direction section -----------------------
 
             by_direction_data = node["byDirection"]
 
 
-            heading_directions = []  #Keeping track of all the directions available for each TRP (Traffic Registration Point)
-            direction_structured = {}
-
+            heading_directions = []  #Keeping track of the directions available for each TRP (Traffic Registration Point)
 
             # Every direction's data is kept isolated from the other directions' data, so a for cycle is needed
             for direction in by_direction_data:
@@ -204,14 +214,20 @@ class TrafficVolumesCleaner(Cleaner):
                 direction_volume = direction["heading"]["total"]["volumeNumbers"]["volume"]
                 direction_coverage = direction["heading"]["total"]["coverage"]["percentage"]
 
-                direction_structured.update({heading: {"volume": direction_volume,
+                by_direction_structured.append({heading: {"volume": direction_volume,
                                                        "direction_coverage": direction_coverage}
                                                                                                 })
                 #TODO THE SAME PRINCIPLE AS BEFORE APPLIES HERE, SAVE ALL THE AVAILABLE DIRECTIONS IN THE TRP'S METADATA FILE
 
 
 
+        total_lanes = max([dct[x]["lane"] for x, dct in enumerate(by_lane_structured)]) #Finding the number of lanes for the specific TRP
+        #This could be inserted as additional data into the graph nodes
+        #TODO WRITE A METADATA FILE FOR EACH TRP, SAVE THEM IN A SPECIFIC FOLDER IN THE GRAPH'S ONE (IN THE ops FOLDER)
 
+        print("Total lanes: ", total_lanes)
+        print("Theoretical number of registrations (total_lanes * number of nodes): ", total_lanes*number_of_nodes)
+        print("Real number of registrations (length of the by_lane_structured) list: ", len(by_lane_structured))
 
 
         #TODO CREATE DATAFRAMES HERE (OUTSIDE THE MAIN for node in nodes FOR CYCLE), MEMORIZE DATA OUTSIDE THE CYCLE AND BE AWARE OF THE DATES PROBLEM
