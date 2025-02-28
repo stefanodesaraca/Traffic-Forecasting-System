@@ -132,11 +132,11 @@ class TrafficVolumesCleaner(Cleaner):
         by_lane_structured = [] #This will later become a list of dictionaries to create the by_lane dataframe we're going to export and use in the future
         by_direction_structured = [] #This will later become a list of dictionaries to create the by_direction dataframe we're going to export and use in the future
 
-        data_indexes = [] #This list will make every registration's day dictionary trackable to be able to insert the data into it
+        data_indexes = {} #This dictionary will make every registration's day dictionary trackable to be able to insert the data into it
 
         #ud = unique day
         for idx, ud in enumerate(registration_dates):
-            data_indexes.append({ud: idx})
+            data_indexes.update({ud: idx})
 
             #Creating as many dictionaries as there are registration days, so each registration day will have its own dictionary with its specific data
             by_hour_structured.append({})
@@ -155,19 +155,20 @@ class TrafficVolumesCleaner(Cleaner):
             day = registration_datetime.day
             hour = registration_datetime.hour
 
+            by_x_structured_index = data_indexes[day] #We'll obtain the index of the list cell where the dictionary for this specific date lies
+
 
             # ----------------------- Total volumes section -----------------------
             total_volume = node["total"]["volumeNumbers"]["volume"]
             coverage_perc = node["total"]["coverage"]["percentage"]
 
-
-
+            by_hour_structured[by_x_structured_index].update({f"v{hour}": total_volume})
+            by_hour_structured[by_x_structured_index].update({f"cvg{hour}": coverage_perc})
 
 
             #   ----------------------- By lane section -----------------------
 
             lanes_data = node["byLane"]
-
 
             lanes = [] #Keeping track of all the lanes available to find the total number of lanes for each TRP (Traffic Registration Point)
             lanes_structured = {} #Structured data to create dataframe from a dict of dicts
