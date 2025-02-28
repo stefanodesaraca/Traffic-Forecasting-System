@@ -169,8 +169,10 @@ class TrafficVolumesCleaner(Cleaner):
             registration_datetime = node["node"]["from"][:-6] #Only keeping the datetime without the +00:00 at the end
 
             registration_datetime = datetime.strptime(registration_datetime, "%Y-%m-%dT%H:%M:%S")
-            day = registration_datetime.day
-            hour = registration_datetime.hour
+            day = registration_datetime.strftime("%d")
+            hour = registration_datetime.strftime("%H")
+
+            print(registration_datetime)
 
             print(day)
             print(hour)
