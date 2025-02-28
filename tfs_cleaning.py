@@ -185,8 +185,8 @@ class TrafficVolumesCleaner(Cleaner):
 
 
             # ----------------------- Total volumes section -----------------------
-            total_volume = node["total"]["volumeNumbers"]["volume"]
-            coverage_perc = node["total"]["coverage"]["percentage"]
+            total_volume = node["node"]["total"]["volumeNumbers"]["volume"]
+            coverage_perc = node["node"]["total"]["coverage"]["percentage"]
 
             by_hour_structured[by_hour_idx].update({f"v{hour}": total_volume}) # <-- Inserting the total volumes (for the specific hour) data into the dictionary previously created in the by_hour_structured list
             by_hour_structured[by_hour_idx].update({f"cvg{hour}": coverage_perc}) # <-- Inserting the coverage data (for the specific hour) into the dictionary previously created in the by_hour_structured list
@@ -194,7 +194,7 @@ class TrafficVolumesCleaner(Cleaner):
 
             #   ----------------------- By lane section -----------------------
 
-            lanes_data = node["byLane"] #Extracting byLane data
+            lanes_data = node["node"]["byLane"] #Extracting byLane data
             lanes = [] #Storing the lane numbers to find the maximum number of lanes for the specific TRP
 
             #Every lane's data is kept isolated from the other lanes' data, so a for cycle is needed to extract all the data from each lane's section
