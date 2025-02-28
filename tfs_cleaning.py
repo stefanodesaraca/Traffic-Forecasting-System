@@ -152,6 +152,10 @@ class TrafficVolumesCleaner(Cleaner):
         # so multiple rows will have the same date, but different lanes
         by_lane_index = 0
 
+        #The same principle as by_lane_index applies here. Since there are multiple headings we'll have to create an index for each row in the dataframe
+        #Again, multiple rows will have the same date, but different headings
+        by_direction_index = 0
+
 
         for node in nodes:
 
@@ -204,9 +208,7 @@ class TrafficVolumesCleaner(Cleaner):
             #   ----------------------- By direction section -----------------------
 
             by_direction_data = node["byDirection"]
-
-
-            heading_directions = []  #Keeping track of the directions available for each TRP (Traffic Registration Point)
+            heading_directions = []  #Keeping track of the directions available for the specific TRP (Traffic Registration Point)
 
             # Every direction's data is kept isolated from the other directions' data, so a for cycle is needed
             for direction in by_direction_data:
@@ -214,20 +216,26 @@ class TrafficVolumesCleaner(Cleaner):
                 direction_volume = direction["heading"]["total"]["volumeNumbers"]["volume"]
                 direction_coverage = direction["heading"]["total"]["coverage"]["percentage"]
 
-                by_direction_structured.append({heading: {"volume": direction_volume,
-                                                       "direction_coverage": direction_coverage}
-                                                                                                })
+                by_direction_structured.append({by_direction_index: {"heading": heading,
+                                                                     f"v{hour}": direction_volume,
+                                                                     f"direction_cvg{hour}": direction_coverage}
+                                                                                                                 })
+
+                by_direction_index += 1
+
                 #TODO THE SAME PRINCIPLE AS BEFORE APPLIES HERE, SAVE ALL THE AVAILABLE DIRECTIONS IN THE TRP'S METADATA FILE
 
 
-
-        total_lanes = max([dct[x]["lane"] for x, dct in enumerate(by_lane_structured)]) #Finding the number of lanes for the specific TRP
+        total_lanes = max(by_lane_structured[0]["lane"]) #Finding the number of lanes for the specific TRP (we'll just check the first element since every data node has all lanes' data registered for every hour. In case there's no traffic the values will just be null)
         #This could be inserted as additional data into the graph nodes
         #TODO WRITE A METADATA FILE FOR EACH TRP, SAVE THEM IN A SPECIFIC FOLDER IN THE GRAPH'S ONE (IN THE ops FOLDER)
 
         print("Total lanes: ", total_lanes)
         print("Theoretical number of registrations (total_lanes * number of nodes): ", total_lanes*number_of_nodes)
         print("Real number of registrations (length of the by_lane_structured) list: ", len(by_lane_structured))
+
+        #We'll have an overview on all the available directions for the specific TRP
+        print("Available directions (headings): ", set(by_direction_structured[0]["heading"])) #Same principle as for total_lanes applies here
 
 
         #TODO CREATE DATAFRAMES HERE (OUTSIDE THE MAIN for node in nodes FOR CYCLE), MEMORIZE DATA OUTSIDE THE CYCLE AND BE AWARE OF THE DATES PROBLEM
