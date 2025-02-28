@@ -6,7 +6,7 @@ from datetime import datetime
 import os
 import dask.dataframe as dd
 import pandas as pd
-
+import pprint
 
 
 class Cleaner:
@@ -82,9 +82,7 @@ class TrafficVolumesCleaner(Cleaner):
 
             print("\n")
 
-
-            print(volumes_data)
-
+            #print(volumes_data)
 
             print("--------------------------------------------------------\n\n")
 
@@ -112,14 +110,19 @@ class TrafficVolumesCleaner(Cleaner):
         nodes = volumes_payload["trafficData"]["volume"]["byHour"]["edges"]
         number_of_nodes = len(nodes)
 
+        #print(nodes)
+
 
         # ------------------ Finding all unique days in which registrations took place ------------------
 
         registration_dates = [] #To find all the unique days
 
         for n in nodes:
-            registration_dt = n["from"][-6:] #Only keeping the datetime without the +00:00 at the end
-            print("Registration DT: ", registration_dt)
+
+            #print(n)
+
+            registration_dt = n["node"]["from"][:-6] #Only keeping the datetime without the +00:00 at the end
+            #print("Registration DT: ", registration_dt)
             registration_dates.append(registration_dt)
 
         registration_dates = set(registration_dates) #Removing duplicates
@@ -163,11 +166,14 @@ class TrafficVolumesCleaner(Cleaner):
 
             #This is the datetime which will be representative of a volume, specifically, there will be multiple datetimes with the same day
             # to address this fact we'll just re-format the data to keep track of the day, but also maintain the volume values for each hour
-            registration_datetime = node["from"][-6:] #Only keeping the datetime without the +00:00 at the end
+            registration_datetime = node["node"]["from"][:-6] #Only keeping the datetime without the +00:00 at the end
 
             registration_datetime = datetime.strptime(registration_datetime, "%Y-%m-%dT%H:%M:%S")
             day = registration_datetime.day
             hour = registration_datetime.hour
+
+            print(day)
+            print(hour)
 
 
             # ---------------------- Finding the by_hour_structured list cell where the data for the current node will be inserted ----------------------
@@ -238,6 +244,21 @@ class TrafficVolumesCleaner(Cleaner):
         print("Available directions (headings): ", set(by_direction_structured[0]["heading"])) #Same principle as for total_lanes applies here
 
 
+        print("----------------- By Hour Structured -----------------")
+        pprint.pp(by_hour_structured)
+
+        print("----------------- By Lane Structured -----------------")
+
+        pprint.pp(by_lane_structured)
+
+        print("----------------- By Direction Structured -----------------")
+
+        pprint.pp(by_direction_structured)
+
+
+
+
+
         #TODO CREATE DATAFRAMES HERE (OUTSIDE THE MAIN for node in nodes FOR CYCLE), MEMORIZE DATA OUTSIDE THE CYCLE AND BE AWARE OF THE DATES PROBLEM
 
 
@@ -264,6 +285,8 @@ class TrafficVolumesCleaner(Cleaner):
         #print(volumes)
 
         self.data_overview(trp_data=trp_file, volumes_data=volumes, verbose=True)
+
+        self.clean_traffic_volumes_data(volumes)
 
 
         return None
