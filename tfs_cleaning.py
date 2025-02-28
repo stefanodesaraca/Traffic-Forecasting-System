@@ -125,7 +125,8 @@ class TrafficVolumesCleaner(Cleaner):
             #print("Registration DT: ", registration_dt)
             registration_dates.append(registration_dt)
 
-        registration_dates = set(registration_dates) #Removing duplicates
+        registration_dates = set(registration_dates) #Removing duplicates and keeping the time as well. This will be needed to extract the hour too
+        unique_registration_dates = set([r_date[:10] for r_date in registration_dates]) #Removing duplicates, this one will only keep the first 10 characters of the date, which comprehend just the date without the time. This is needed to know which are the unique days when data has been recorded
         print("Number of unique registration days: ", len(registration_dates))
 
 
@@ -140,7 +141,7 @@ class TrafficVolumesCleaner(Cleaner):
         data_indexes = {} #This dictionary will make every registration's day dictionary trackable to be able to insert the data into it
 
         #ud = unique day
-        for idx, ud in enumerate(registration_dates):
+        for idx, ud in enumerate(unique_registration_dates):
             data_indexes.update({ud: idx}) #Every key-value pair represents {unique date: by_hour/lane/direction_structured list cell index}
 
             #Creating as many dictionaries as there are registration days, so each registration day will have its own dictionary with its specific data
@@ -169,10 +170,10 @@ class TrafficVolumesCleaner(Cleaner):
             registration_datetime = node["node"]["from"][:-6] #Only keeping the datetime without the +00:00 at the end
 
             registration_datetime = datetime.strptime(registration_datetime, "%Y-%m-%dT%H:%M:%S")
-            day = registration_datetime.strftime("%d")
+            day = registration_datetime.strftime("%Y-%m-%d")
             hour = registration_datetime.strftime("%H")
 
-            print(registration_datetime)
+            #print(registration_datetime)
 
             print(day)
             print(hour)
