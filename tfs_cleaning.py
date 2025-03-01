@@ -105,12 +105,34 @@ class TrafficVolumesCleaner(Cleaner):
     @staticmethod
     def clean_traffic_volumes_data(volumes_payload):
 
+        by_hour_structured = [] #This will later become a list of dictionaries to create the by_hour dataframe we're going to export and use in the future
+        by_lane_structured = [] #This will later become a list of dictionaries to create the by_lane dataframe we're going to export and use in the future
+        by_direction_structured = [] #This will later become a list of dictionaries to create the by_direction dataframe we're going to export and use in the future
+
+
         # ------------------ Data payload extraction ------------------
 
         nodes = volumes_payload["trafficData"]["volume"]["byHour"]["edges"]
         number_of_nodes = len(nodes)
 
         #print(nodes)
+
+
+        # ------------------ Finding the number of lanes available for the TRP taken into consideration ------------------
+
+        sample_node = nodes[0]["node"]["byLane"]
+        n_lanes = max([ln["lane"]["laneNumberAccordingToRoadLink"] for ln in sample_node]) #Determining the total number of lanes for the TRP taken into consideration
+        print("Number of lanes: ", n_lanes)
+
+        #The number of lanes is calculated because, as opposed to by_hour_structured, where the list index will be the row index in the dataframe,
+        # in the by_lane and by_direction dataframes dates and lane numbers could be repeated, thus there isn't a unique dict key which could be used to
+        # identify the right dictionary where to write volumes and coverage data
+        # So, we'll create afterward a unique identifier which will be made like: date + "l" + lane number. This will make possible to identify each single dictionary in the list of dicts (by_lane_structured)
+        # and consequently put the right data in it.
+        # This is also made to address the fact that a node could contain data from slightly more than one day
+
+        #This could be inserted as additional data into the graph nodes
+        #TODO WRITE A METADATA FILE FOR EACH TRP, SAVE THEM IN A SPECIFIC FOLDER IN THE GRAPH'S ONE (IN THE ops FOLDER)
 
 
         # ------------------ Finding all unique days in which registrations took place ------------------
@@ -132,30 +154,32 @@ class TrafficVolumesCleaner(Cleaner):
 
         # ------------------ Extracting the data from JSON file and converting it into tabular format ------------------
 
+        by_hour_data_indexes = {} #This dictionary will make every registration's day dictionary trackable to be able to insert the data into it
+        by_lane_data_indexes = {}
 
-        by_hour_structured = [] #This will later become a list of dictionaries to create the by_hour dataframe we're going to export and use in the future
-        by_lane_structured = [] #This will later become a list of dictionaries to create the by_lane dataframe we're going to export and use in the future
-        by_direction_structured = [] #This will later become a list of dictionaries to create the by_direction dataframe we're going to export and use in the future
-
-
-        data_indexes = {} #This dictionary will make every registration's day dictionary trackable to be able to insert the data into it
+        l_idx_cnt = 0 #Lane index counter
 
         #ud = unique day
         for idx, ud in enumerate(unique_registration_dates):
-            data_indexes.update({ud: idx}) #Every key-value pair represents {unique date: by_hour/lane/direction_structured list cell index}
+            by_hour_data_indexes.update({ud: idx}) #Every key-value pair represents {unique date: by_hour/lane/direction_structured list cell index}
 
             #Creating as many dictionaries as there are registration days, so each registration day will have its own dictionary with its specific data
             by_hour_structured.append({})
 
-        print("Data indexes: ", data_indexes)
+            # It's necessary to execute this step here because two kinds of data are necessary to ensure that the correct number of dictionary and the correct keys are created
+            # 1. A node could contain data from slightly more than one day (for example 1 or 2 hours from the prior one and the rest for the specific day)
+            # 2. Knowing the number of lanes before lets us define specific indexes for the by_lane_structured list of dict so that we can ensure that the data for a specific date-lane combination goes into its dedicated dictionary
+            for l_number in range(1, n_lanes+1): #It's necessary to start from 1 since the lanes are numbered from 1 to n (l_number = lane number)
+                by_lane_structured.append({f"{ud}l{l_number}": None}) #Appending a dict to fill out with data later
+                by_lane_data_indexes.update({f"{ud}l{l_number}": l_idx_cnt})
+
+                l_idx_cnt += 1
+
+        print("By hour indexes: ", by_hour_data_indexes)
+        print("By lane indexes: ", by_lane_data_indexes)
         print("By lane structured: ", by_lane_structured)
         print("By direction structured: ", by_direction_structured)
 
-        #Every lane has its own volumes and coverage for the same node, hence the same datetime.
-        #Since a dataframe is bidimensional we must find a solution to keep track of the lanes individual volumes and coverage, but still changing the data structure to tabular
-        # the solution is to have every row of the dataframe be one lane's data, and have one field which indicates the date
-        # so multiple rows will have the same date, but different lanes
-        by_lane_index = 0
 
         #The same principle as by_lane_index applies here. Since there are multiple headings we'll have to create an index for each row in the dataframe
         #Again, multiple rows will have the same date, but different headings
@@ -182,7 +206,7 @@ class TrafficVolumesCleaner(Cleaner):
 
             # ---------------------- Finding the by_hour_structured list cell where the data for the current node will be inserted ----------------------
 
-            by_hour_idx = data_indexes[day] #We'll obtain the index of the list cell where the dictionary for this specific date lies
+            by_hour_idx = by_hour_data_indexes[day] #We'll obtain the index of the list cell where the dictionary for this specific date lies
 
 
             # ----------------------- Total volumes section -----------------------
@@ -192,11 +216,16 @@ class TrafficVolumesCleaner(Cleaner):
             by_hour_structured[by_hour_idx].update({f"v{hour}": total_volume}) # <-- Inserting the total volumes (for the specific hour) data into the dictionary previously created in the by_hour_structured list
             by_hour_structured[by_hour_idx].update({f"cvg{hour}": coverage_perc}) # <-- Inserting the coverage data (for the specific hour) into the dictionary previously created in the by_hour_structured list
 
+            #print("By hour structured", by_hour_structured)
+
+            #TODO ADD DAY?
+
 
             #   ----------------------- By lane section -----------------------
 
             lanes_data = node["node"]["byLane"] #Extracting byLane data
             lanes = [] #Storing the lane numbers to find the maximum number of lanes for the specific TRP
+
 
             #Every lane's data is kept isolated from the other lanes' data, so a for cycle is needed to extract all the data from each lane's section
             for lane in lanes_data:
@@ -206,16 +235,14 @@ class TrafficVolumesCleaner(Cleaner):
 
                 lanes.append(road_link_lane_number)
 
-                by_lane_structured[by_lane_index].update({by_lane_index: {"date": day,
-                                                                          f"lane": f"l{road_link_lane_number}",
-                                                                          f"v{hour}": lane_volume,
-                                                                          f"lane_cvg{hour}": lane_coverage}
+                date_lane_index = str(day) + "l" + str(road_link_lane_number)
+                by_lane_index = by_lane_data_indexes[date_lane_index]
+
+                by_lane_structured[by_lane_index].update({date_lane_index: {"date": day,
+                                                                            f"lane": f"l{road_link_lane_number}",
+                                                                            f"v{hour}": lane_volume,
+                                                                            f"lane_cvg{hour}": lane_coverage}
                                                                                                             })
-
-                by_lane_index += 1
-
-                print(by_lane_structured)
-                #print(by_lane_index)
 
 
             #   ----------------------- By direction section -----------------------
@@ -238,17 +265,6 @@ class TrafficVolumesCleaner(Cleaner):
 
                 #TODO THE SAME PRINCIPLE AS BEFORE APPLIES HERE, SAVE ALL THE AVAILABLE DIRECTIONS IN THE TRP'S METADATA FILE
 
-
-        total_lanes = max(by_lane_structured[0]["lane"]) #Finding the number of lanes for the specific TRP (we'll just check the first element since every data node has all lanes' data registered for every hour. In case there's no traffic the values will just be null)
-        #This could be inserted as additional data into the graph nodes
-        #TODO WRITE A METADATA FILE FOR EACH TRP, SAVE THEM IN A SPECIFIC FOLDER IN THE GRAPH'S ONE (IN THE ops FOLDER)
-
-        print("Total lanes: ", total_lanes)
-        print("Theoretical number of registrations (total_lanes * number of nodes): ", total_lanes*number_of_nodes)
-        print("Real number of registrations (length of the by_lane_structured) list: ", len(by_lane_structured))
-
-        #We'll have an overview on all the available directions for the specific TRP
-        print("Available directions (headings): ", set(by_direction_structured[0]["heading"])) #Same principle as for total_lanes applies here
 
 
         print("----------------- By Hour Structured -----------------")
