@@ -147,7 +147,8 @@ class TrafficVolumesCleaner(Cleaner):
             #Creating as many dictionaries as there are registration days, so each registration day will have its own dictionary with its specific data
             by_hour_structured.append({})
 
-        print(data_indexes)
+        print("Data indexes: ", data_indexes)
+        print("By lane structured: ", by_lane_structured)
 
 
         #Every lane has its own volumes and coverage for the same node, hence the same datetime.
@@ -200,18 +201,22 @@ class TrafficVolumesCleaner(Cleaner):
             #Every lane's data is kept isolated from the other lanes' data, so a for cycle is needed to extract all the data from each lane's section
             for lane in lanes_data:
                 road_link_lane_number = lane["lane"]["laneNumberAccordingToRoadLink"]
-                lane_volume = lane["lane"]["total"]["volumeNumbers"]["volume"]
-                lane_coverage = lane["lane"]["total"]["coverage"]["percentage"]
+                lane_volume = lane["total"]["volumeNumbers"]["volume"]
+                lane_coverage = lane["total"]["coverage"]["percentage"]
 
                 lanes.append(road_link_lane_number)
 
-                by_lane_structured[by_lane_index].update({by_lane_index: {"date": day,
-                                                                          f"lane": f"l{road_link_lane_number}",
-                                                                          f"v{hour}": lane_volume,
-                                                                          f"lane_cvg{hour}": lane_coverage}
+
+                by_lane_structured.append({by_lane_index: {"date": day,
+                                                          f"lane": f"l{road_link_lane_number}",
+                                                          f"v{hour}": lane_volume,
+                                                          f"lane_cvg{hour}": lane_coverage}
                                                                                                             })
 
                 by_lane_index += 1
+
+                #print(by_lane_structured)
+                #print(by_lane_index)
 
 
             #   ----------------------- By direction section -----------------------
