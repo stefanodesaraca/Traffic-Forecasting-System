@@ -149,7 +149,7 @@ class TrafficVolumesCleaner(Cleaner):
 
         print("Data indexes: ", data_indexes)
         print("By lane structured: ", by_lane_structured)
-
+        print("By direction structured: ", by_direction_structured)
 
         #Every lane has its own volumes and coverage for the same node, hence the same datetime.
         #Since a dataframe is bidimensional we must find a solution to keep track of the lanes individual volumes and coverage, but still changing the data structure to tabular
@@ -176,8 +176,8 @@ class TrafficVolumesCleaner(Cleaner):
 
             #print(registration_datetime)
 
-            print(day)
-            print(hour)
+            #print(day)
+            #print(hour)
 
 
             # ---------------------- Finding the by_hour_structured list cell where the data for the current node will be inserted ----------------------
@@ -206,34 +206,33 @@ class TrafficVolumesCleaner(Cleaner):
 
                 lanes.append(road_link_lane_number)
 
-
-                by_lane_structured.append({by_lane_index: {"date": day,
-                                                          f"lane": f"l{road_link_lane_number}",
-                                                          f"v{hour}": lane_volume,
-                                                          f"lane_cvg{hour}": lane_coverage}
+                by_lane_structured[by_lane_index].update({by_lane_index: {"date": day,
+                                                                          f"lane": f"l{road_link_lane_number}",
+                                                                          f"v{hour}": lane_volume,
+                                                                          f"lane_cvg{hour}": lane_coverage}
                                                                                                             })
 
                 by_lane_index += 1
 
-                #print(by_lane_structured)
+                print(by_lane_structured)
                 #print(by_lane_index)
 
 
             #   ----------------------- By direction section -----------------------
 
-            by_direction_data = node["byDirection"]
+            by_direction_data = node["node"]["byDirection"]
             heading_directions = []  #Keeping track of the directions available for the specific TRP (Traffic Registration Point)
 
             # Every direction's data is kept isolated from the other directions' data, so a for cycle is needed
             for direction in by_direction_data:
                 heading = direction["heading"]
-                direction_volume = direction["heading"]["total"]["volumeNumbers"]["volume"]
-                direction_coverage = direction["heading"]["total"]["coverage"]["percentage"]
+                direction_volume = direction["total"]["volumeNumbers"]["volume"]
+                direction_coverage = direction["total"]["coverage"]["percentage"]
 
                 by_direction_structured.append({by_direction_index: {"heading": heading,
                                                                      f"v{hour}": direction_volume,
                                                                      f"direction_cvg{hour}": direction_coverage}
-                                                                                                                 })
+                                                                                                                })
 
                 by_direction_index += 1
 
