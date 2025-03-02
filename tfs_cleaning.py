@@ -243,11 +243,16 @@ class TrafficVolumesCleaner(Cleaner):
                 date_lane_index = str(day) + "l" + str(road_link_lane_number)
                 by_lane_index = by_lane_data_indexes[date_lane_index]
 
-                by_lane_structured[by_lane_index].update({date_lane_index: {"date": day,
-                                                                            f"lane": f"l{road_link_lane_number}",
-                                                                            f"v{hour}": lane_volume,
-                                                                            f"lane_cvg{hour}": lane_coverage}
-                                                                                                            })
+                by_lane_structured[by_lane_index]["date"] = day
+                by_lane_structured[by_lane_index]["lane"] = f"l{road_link_lane_number}"
+                by_lane_structured[by_lane_index][f"v{hour}"] = lane_volume
+                by_lane_structured[by_lane_index][f"lane_cvg{hour}"] = lane_coverage
+
+                #by_lane_structured[by_lane_index].update({date_lane_index: {"date": day,
+                #                                                            f"lane": f"l{road_link_lane_number}",
+                #                                                            f"v{hour}": lane_volume,
+                #                                                            f"lane_cvg{hour}": lane_coverage}
+                #                                                                                            })
 
 
             #   ----------------------- By direction section -----------------------
@@ -273,15 +278,16 @@ class TrafficVolumesCleaner(Cleaner):
 
 
         print("----------------- By Hour Structured -----------------")
-        pprint.pp(by_hour_structured)
+        #pprint.pp(by_hour_structured)
+        print("\n\n\n")
 
         print("----------------- By Lane Structured -----------------")
-
-        pprint.pp(by_lane_structured)
+        #pprint.pp(by_lane_structured)
+        print("\n\n\n")
 
         print("----------------- By Direction Structured -----------------")
-
-        pprint.pp(by_direction_structured)
+        #pprint.pp(by_direction_structured)
+        print("\n\n\n")
 
 
 
