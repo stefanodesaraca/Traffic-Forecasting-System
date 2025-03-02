@@ -51,7 +51,11 @@ class TrafficVolumesCleaner(Cleaner):
     #This function is only to give the user an overview of the data which we're currently cleaning, and some specific information about the TRP (Traffic Registration Point) which has collected it
     def data_overview(self, trp_data, volumes_data: dict, verbose: bool):
 
-        trp_data = trp_data["trafficRegistrationPoints"][0]
+        #print(volumes_data)
+
+        trp_id = volumes_data["trafficData"]["trafficRegistrationPoint"]["id"]
+        trp_data = [i for i in trp_data["trafficRegistrationPoints"] if i["id"] == trp_id] #Finding the data for the specific TRP taken in consideration by iterating on all the TRPs available in the trp_file
+        trp_data = trp_data[0]
 
         if verbose is True:
 
@@ -176,6 +180,7 @@ class TrafficVolumesCleaner(Cleaner):
                 l_idx_cnt += 1
 
         print("By hour indexes: ", by_hour_data_indexes)
+        print("By hour structured: ", by_hour_structured)
         print("By lane indexes: ", by_lane_data_indexes)
         print("By lane structured: ", by_lane_structured)
         print("By direction structured: ", by_direction_structured)
@@ -299,15 +304,15 @@ class TrafficVolumesCleaner(Cleaner):
     #TODO THIS WILL EXPORT ALL THE CLEANED DATA INTO SEPARATED FILES AND CLEAN EACH FILE INDIVIDUALLY THROUGH THE PIPELINE.
     # IN THE DATA EXPLORATION FILE WE'LL CREATE A FOR LOOP AND USE THE cleaning_pipeline() FUNCTION TO CLEAN EACH FILE.
     # THIS PROCESS WILL BE REPEATED BOTH FOR TRAFFIC VOLUMES AND AVERAGE SPEED, EACH ONE WITH THEIR OWN CUSTOM CLEANING PIPELINE
-    def cleaning_pipeline(self, trp_file: str, file: str):
+    def cleaning_pipeline(self, trp_file_path: str, volumes_file_path: str):
 
         #Importing a single json file to be cleaned
-        volumes = self.import_data(file)
+        volumes = self.import_data(volumes_file_path)
 
         #print(trp_file)
         #print(volumes)
 
-        self.data_overview(trp_data=trp_file, volumes_data=volumes, verbose=True)
+        self.data_overview(trp_data=trp_file_path, volumes_data=volumes, verbose=True)
 
         self.clean_traffic_volumes_data(volumes)
 
@@ -329,7 +334,9 @@ class TrafficVolumesCleaner(Cleaner):
         #TODO TEST HERE WITH [:2]
         for volume_f in volume_files[:2]:
             volumes_file_path = traffic_volumes_folder_path + volume_f
-            self.cleaning_pipeline(trp_file=traffic_registration_points_path, file=volumes_file_path) #String concatenation here
+            self.cleaning_pipeline(trp_file_path=traffic_registration_points_path, volumes_file_path=volumes_file_path) #String concatenation here
+
+        #TODO BRING ALL OF THE ITERATION OVER FILES OUTSIDE OF THE tfs_cleaning FILE
 
 
         return None

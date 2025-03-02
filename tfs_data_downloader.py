@@ -93,6 +93,10 @@ def fetch_traffic_volumes_for_tmp_id(client: Client, traffic_measurement_point: 
 
     tv_query = gql(f"""{{
         trafficData(trafficRegistrationPointId: "{traffic_measurement_point}") {{
+        trafficRegistrationPoint{{
+              id
+              name
+            }}
             volume {{
                 byHour(from: "{time_start}", to: "{time_end}") {{
                     edges {{
