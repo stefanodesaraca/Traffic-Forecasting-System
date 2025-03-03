@@ -122,7 +122,7 @@ class TrafficVolumesCleaner(Cleaner):
         #print(nodes)
 
         if number_of_nodes == 0:
-            print(f"\033[91mNo data found for TRP: {volumes_payload["trafficData"]["trafficRegistrationPoint"]["id"]}\033[0m")
+            print(f"\033[91mNo data found for TRP: {volumes_payload["trafficData"]["trafficRegistrationPoint"]["id"]}\033[0m\n\n")
 
             return None
 
@@ -231,7 +231,7 @@ class TrafficVolumesCleaner(Cleaner):
 
 
                 # ----------------------- Total volumes section -----------------------
-                total_volume = node["node"]["total"]["volumeNumbers"]["volume"]
+                total_volume = node["node"]["total"]["volumeNumbers"]["volume"] if node["node"]["total"]["volumeNumbers"] is not None else None #In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
                 coverage_perc = node["node"]["total"]["coverage"]["percentage"]
 
                 by_hour_structured[by_hour_idx]["date"] = day #Adding or updating the "date" key for each row
@@ -248,8 +248,9 @@ class TrafficVolumesCleaner(Cleaner):
 
                 #Every lane's data is kept isolated from the other lanes' data, so a for cycle is needed to extract all the data from each lane's section
                 for lane in lanes_data:
+                    #print(lane)
                     road_link_lane_number = lane["lane"]["laneNumberAccordingToRoadLink"]
-                    lane_volume = lane["total"]["volumeNumbers"]["volume"]
+                    lane_volume = lane["total"]["volumeNumbers"]["volume"] if lane["total"]["volumeNumbers"] is not None else None #In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
                     lane_coverage = lane["total"]["coverage"]["percentage"]
 
                     lanes.append(road_link_lane_number)
@@ -272,7 +273,7 @@ class TrafficVolumesCleaner(Cleaner):
                 # Every direction's data is kept isolated from the other directions' data, so a for cycle is needed
                 for direction_section in by_direction_data:
                     heading = direction_section["heading"]
-                    direction_volume = direction_section["total"]["volumeNumbers"]["volume"]
+                    direction_volume = direction_section["total"]["volumeNumbers"]["volume"] if direction_section["total"]["volumeNumbers"] is not None else None #In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
                     direction_coverage = direction_section["total"]["coverage"]["percentage"]
 
                     date_direction_index = str(day) + "h" + str(heading) #Combination of day and direction (heading)
