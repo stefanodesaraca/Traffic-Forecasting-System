@@ -288,21 +288,6 @@ class TrafficVolumesCleaner(Cleaner):
                     #TODO THE SAME PRINCIPLE AS BEFORE APPLIES HERE, SAVE ALL THE AVAILABLE DIRECTIONS IN THE TRP'S METADATA FILE
 
 
-            print("\n\n\n----------------- By Hour Structured -----------------")
-            pprint.pp(by_hour_structured)
-            #print(by_hour_structured)
-
-            print("\n\n\n----------------- By Lane Structured -----------------")
-            pprint.pp(by_lane_structured)
-            #print(by_lane_structured)
-
-            print("\n\n\n----------------- By Direction Structured -----------------")
-            pprint.pp(by_direction_structured)
-            #print(by_direction_structured)
-            #print("\n\n\n")
-
-            print("\n\n\n")
-
 
             # ------------------ Ensuring that every dictionary in by_hour/by_lane/by_direction_structured has the same number of key-value pairs ------------------
 
@@ -336,9 +321,15 @@ class TrafficVolumesCleaner(Cleaner):
             #print(by_hour_cvg_keys_to_add, "\n\n")
 
 
-            # ------------------ Adding missing key-value pairs to by_hour_structured ------------------
+            # ------------------ Adding missing volume key-value pairs to by_hour_structured ------------------
 
+            #Adding missing volume keys
             for list_idx, bh_to_add_elements in by_hour_volume_keys_to_add.items():
+                bh_to_add_elements = {el: None for el in bh_to_add_elements} #Adding the missing keys as keys and None as value
+                by_hour_structured[list_idx].update(bh_to_add_elements)
+
+            #Adding missing coverage keys
+            for list_idx, bh_to_add_elements in by_hour_cvg_keys_to_add.items():
                 bh_to_add_elements = {el: None for el in bh_to_add_elements} #Adding the missing keys as keys and None as value
                 by_hour_structured[list_idx].update(bh_to_add_elements)
 
@@ -363,7 +354,18 @@ class TrafficVolumesCleaner(Cleaner):
 
             # ------------------ Adding missing key-value pairs to by_lane_structured ------------------
 
+            #Adding missing volume keys
             for list_idx, bl_to_add_elements in by_lane_volume_keys_to_add.items():
+                bl_to_add_elements = {el: None for el in bl_to_add_elements} #Adding the missing keys as keys and None as value
+
+                for el in by_lane_structured:
+                    if by_lane_structured.index(el) == list_idx:
+                        bl_loc_key = list(el.keys())[0]
+
+                        by_lane_structured[list_idx][bl_loc_key].update(bl_to_add_elements)
+
+            #Adding missing coverage keys
+            for list_idx, bl_to_add_elements in by_lane_cvg_keys_to_add.items():
                 bl_to_add_elements = {el: None for el in bl_to_add_elements} #Adding the missing keys as keys and None as value
 
                 for el in by_lane_structured:
@@ -390,6 +392,7 @@ class TrafficVolumesCleaner(Cleaner):
 
             # ------------------ Adding missing key-value pairs to by_direction_structured ------------------
 
+            #Adding missing volume keys
             for list_idx, bd_to_add_elements in by_direction_volume_keys_to_add.items():
                 bd_to_add_elements = {el: None for el in bd_to_add_elements}  # Adding the missing keys as keys and None as value
 
@@ -399,9 +402,31 @@ class TrafficVolumesCleaner(Cleaner):
 
                         by_direction_structured[list_idx][bd_loc_key].update(bd_to_add_elements)
 
+            #Adding missing coverage keys
+            for list_idx, bd_to_add_elements in by_direction_cvg_keys_to_add.items():
+                bd_to_add_elements = {el: None for el in bd_to_add_elements}  # Adding the missing keys as keys and None as value
+
+                for el in by_direction_structured:
+                    if by_direction_structured.index(el) == list_idx:
+                        bd_loc_key = list(el.keys())[0]
+
+                        by_direction_structured[list_idx][bd_loc_key].update(bd_to_add_elements)
 
 
+            print("\n\n\n----------------- By Hour Structured -----------------")
+            pprint.pp(by_hour_structured)
+            # print(by_hour_structured)
 
+            print("\n\n\n----------------- By Lane Structured -----------------")
+            pprint.pp(by_lane_structured)
+            # print(by_lane_structured)
+
+            print("\n\n\n----------------- By Direction Structured -----------------")
+            pprint.pp(by_direction_structured)
+            # print(by_direction_structured)
+            # print("\n\n\n")
+
+            print("\n\n\n")
 
 
             return None #TODO RETURN CLEANED DATA IN THREE DIFFERENT DATAFRAMES AS DESCRIBED ON THE PAPER NOTEBOOK
