@@ -174,13 +174,13 @@ class TrafficVolumesCleaner(Cleaner):
             # 1. A node could contain data from slightly more than one day (for example 1 or 2 hours from the prior one and the rest for the specific day)
             # 2. Knowing the number of lanes before lets us define specific indexes for the by_lane_structured list of dict so that we can ensure that the data for a specific date-lane combination goes into its dedicated dictionary
             for l_number in range(1, n_lanes+1): #It's necessary to start from 1 since the lanes are numbered from 1 to n (l_number = lane number)
-                by_lane_structured.append({f"{ud}l{l_number}": None}) #Appending a dict to fill out with data later
+                by_lane_structured.append({f"{ud}l{l_number}": {}}) #Appending a dict to fill out with data later
                 by_lane_data_indexes.update({f"{ud}l{l_number}": l_idx_cnt})
 
                 l_idx_cnt += 1
 
         print("By hour indexes: ", by_hour_data_indexes)
-        print("By hour structured: ", by_hour_structured)
+        print("By hour structured: ", by_hour_structured) #It's normal that the list contains only empty dictionaries since they're later going to be filled with data
         print("By lane indexes: ", by_lane_data_indexes)
         print("By lane structured: ", by_lane_structured)
         print("By direction structured: ", by_direction_structured)
@@ -243,10 +243,10 @@ class TrafficVolumesCleaner(Cleaner):
 
                 # ------- Creating or updating new keys for the dictionary which contains the ith-day and jth-lane data -------
 
-                by_lane_structured[by_lane_index]["date"] = day
-                by_lane_structured[by_lane_index]["lane"] = f"l{road_link_lane_number}"
-                by_lane_structured[by_lane_index][f"v{hour}"] = lane_volume
-                by_lane_structured[by_lane_index][f"lane_cvg{hour}"] = lane_coverage
+                by_lane_structured[by_lane_index][date_lane_index]["date"] = day
+                by_lane_structured[by_lane_index][date_lane_index]["lane"] = f"l{road_link_lane_number}"
+                by_lane_structured[by_lane_index][date_lane_index][f"v{hour}"] = lane_volume
+                by_lane_structured[by_lane_index][date_lane_index][f"lane_cvg{hour}"] = lane_coverage
 
 
             #   ----------------------- By direction section -----------------------
@@ -271,14 +271,14 @@ class TrafficVolumesCleaner(Cleaner):
 
 
 
-        print("----------------- By Hour Structured -----------------")
-        pprint.pp(by_hour_structured)
-        print(by_hour_structured)
+        print("\n\n\n----------------- By Hour Structured -----------------")
+        #pprint.pp(by_hour_structured)
+        #print(by_hour_structured)
         print("\n\n\n")
 
         print("----------------- By Lane Structured -----------------")
-        #pprint.pp(by_lane_structured)
-        #print(by_lane_structured)
+        pprint.pp(by_lane_structured)
+        print(by_lane_structured)
         print("\n\n\n")
 
         print("----------------- By Direction Structured -----------------")
