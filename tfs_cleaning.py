@@ -326,13 +326,21 @@ class TrafficVolumesCleaner(Cleaner):
             by_hour_volume_keys_to_add = {element: [to_add for to_add in by_x_structured_volume_keys if to_add not in keys] for element, keys in by_hour_structured_keys.items()}
             by_hour_cvg_keys_to_add = {element: [to_add for to_add in by_hour_coverage_keys if to_add not in keys] for element, keys in by_hour_structured_keys.items()}
 
+            by_hour_volume_keys_to_add = {bh_idx: bh_to_add_element for bh_idx, bh_to_add_element in by_hour_volume_keys_to_add.items() if len(bh_to_add_element) != 0} #Only keeping non-empty key-value pairs. So basically we're only keeping the dictionary pairs which actually contain elements to add
+            by_hour_cvg_keys_to_add = {bh_idx: bh_to_add_element for bh_idx, bh_to_add_element in by_hour_cvg_keys_to_add.items() if len(bh_to_add_element) != 0} #Only keeping non-empty key-value pairs. So basically we're only keeping the dictionary pairs which actually contain elements to add
+
             #print("By hour volume keys to add: ")
             #print(by_hour_volume_keys_to_add)
 
             #print("By hour coverage keys to add: ")
             #print(by_hour_cvg_keys_to_add, "\n\n")
 
-            #TODO ADD KEYS AND None AS VALUES
+
+            # ------------------ Adding missing key-value pairs to by_hour_structured ------------------
+
+            for list_idx, bh_to_add_elements in by_hour_volume_keys_to_add.items():
+                bh_to_add_elements = {el: None for el in bh_to_add_elements} #Adding the missing keys as keys and None as value
+                by_hour_structured[list_idx].update(bh_to_add_elements)
 
 
             # ------------------ by_lane_structured check ------------------
@@ -343,11 +351,26 @@ class TrafficVolumesCleaner(Cleaner):
             by_lane_volume_keys_to_add = {element: [to_add for to_add in by_x_structured_volume_keys if to_add not in keys] for element, keys in by_lane_structured_keys.items()}
             by_lane_cvg_keys_to_add = {element: [to_add for to_add in by_lane_coverage_keys if to_add not in keys] for element, keys in by_lane_structured_keys.items()}
 
+            by_lane_volume_keys_to_add = {bl_idx: bl_to_add_element for bl_idx, bl_to_add_element in by_lane_volume_keys_to_add.items() if len(bl_to_add_element) != 0} #Only keeping non-empty key-value pairs. So basically we're only keeping the dictionary pairs which actually contain elements to add
+            by_lane_cvg_keys_to_add = {bl_idx: bl_to_add_element for bl_idx, bl_to_add_element in by_lane_cvg_keys_to_add.items() if len(bl_to_add_element) != 0} #Only keeping non-empty key-value pairs. So basically we're only keeping the dictionary pairs which actually contain elements to add
+
             #print("By lane volume keys to add: ")
             #print(by_lane_volume_keys_to_add)
 
             #print("By lane coverage keys to add: ")
             #print(by_lane_cvg_keys_to_add, "\n\n")
+
+
+            # ------------------ Adding missing key-value pairs to by_lane_structured ------------------
+
+            for list_idx, bl_to_add_elements in by_lane_volume_keys_to_add.items():
+                bl_to_add_elements = {el: None for el in bl_to_add_elements} #Adding the missing keys as keys and None as value
+
+                for el in by_lane_structured:
+                    if by_lane_structured.index(el) == list_idx:
+                        bl_loc_key = list(el.keys())[0]
+
+                        by_lane_structured[list_idx][bl_loc_key].update(bl_to_add_elements)
 
 
             # ------------------ by_direction_structured check ------------------
@@ -360,10 +383,21 @@ class TrafficVolumesCleaner(Cleaner):
 
             #print("By direction volume keys to add: ")
             #print(by_direction_volume_keys_to_add)
+
             #print("By direction coverage keys to add: ")
             #print(by_direction_cvg_keys_to_add, "\n\n")
 
 
+            # ------------------ Adding missing key-value pairs to by_direction_structured ------------------
+
+            for list_idx, bd_to_add_elements in by_direction_volume_keys_to_add.items():
+                bd_to_add_elements = {el: None for el in bd_to_add_elements}  # Adding the missing keys as keys and None as value
+
+                for el in by_direction_structured:
+                    if by_direction_structured.index(el) == list_idx:
+                        bd_loc_key = list(el.keys())[0]
+
+                        by_direction_structured[list_idx][bd_loc_key].update(bd_to_add_elements)
 
 
 
