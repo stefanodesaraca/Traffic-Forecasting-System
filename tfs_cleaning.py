@@ -320,7 +320,6 @@ class TrafficVolumesCleaner(Cleaner):
             # ------------------ by_hour_structured check ------------------
 
             #bh_dict = by hour dictionary
-
             by_hour_structured_keys = {by_hour_structured.index(list_element): list(list_element.keys()) for list_element in by_hour_structured}
             by_hour_keys_to_add = {element: [to_add for to_add in by_x_structured_volume_keys if to_add not in keys] for element, keys in by_hour_structured_keys.items()}
 
