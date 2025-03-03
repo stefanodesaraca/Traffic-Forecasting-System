@@ -429,6 +429,14 @@ class TrafficVolumesCleaner(Cleaner):
             print("\n\n\n")
 
 
+            #TODO REMOVE THE by_lane_structured and by_direction_structured KEYS LIKE YYYY-MM-DDlX or YYYY-MM-DDhX
+
+
+            #TODO SORTING THE DICTIONARY KEYS ISN'T IMPORTANT, WE CAN JUST LET PANDAS DO IT WITH THE "columns" ATTRIBUTE WHEN CREATING THE DF. https://stackoverflow.com/questions/75441918/dataframe-from-list-of-dicts-with-relative-order-of-keys-maintained-in-columns
+
+
+
+
             return None #TODO RETURN CLEANED DATA IN THREE DIFFERENT DATAFRAMES AS DESCRIBED ON THE PAPER NOTEBOOK
 
 
