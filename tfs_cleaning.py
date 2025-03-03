@@ -4,7 +4,6 @@ import json
 import datetime
 from datetime import datetime
 import os
-import dask.dataframe as dd
 import pandas as pd
 import pprint
 
@@ -124,8 +123,8 @@ class TrafficVolumesCleaner(Cleaner):
 
         # ------------------ Finding the number of lanes available for the TRP taken into consideration ------------------
 
-        sample_node = nodes[0]["node"]["byLane"]
-        n_lanes = max([ln["lane"]["laneNumberAccordingToRoadLink"] for ln in sample_node]) #Determining the total number of lanes for the TRP taken into consideration
+        lane_sample_node = nodes[0]["node"]["byLane"]
+        n_lanes = max([ln["lane"]["laneNumberAccordingToRoadLink"] for ln in lane_sample_node]) #Determining the total number of lanes for the TRP taken into consideration
         print("Number of lanes: ", n_lanes)
 
         #The number of lanes is calculated because, as opposed to by_hour_structured, where the list index will be the row index in the dataframe,
@@ -137,6 +136,12 @@ class TrafficVolumesCleaner(Cleaner):
 
         #This could be inserted as additional data into the graph nodes
         #TODO WRITE A METADATA FILE FOR EACH TRP, SAVE THEM IN A SPECIFIC FOLDER IN THE GRAPH'S ONE (IN THE ops FOLDER)
+
+
+        # ------------------ Finding all the available directions for the TRP ------------------
+
+        direction_sample_node = nodes[0]["node"]["byDirection"]
+        directions = [d["heading"] for d in direction_sample_node]
 
 
         # ------------------ Finding all unique days in which registrations took place ------------------
@@ -160,8 +165,10 @@ class TrafficVolumesCleaner(Cleaner):
 
         by_hour_data_indexes = {} #This dictionary will make every registration's day dictionary trackable to be able to insert the data into it
         by_lane_data_indexes = {}
+        by_direction_data_indexes = {}
 
         l_idx_cnt = 0 #Lane index counter
+        d_idx_cnt = 0 #Direction index counter
 
         #ud = unique day
         for idx, ud in enumerate(unique_registration_dates):
@@ -179,16 +186,18 @@ class TrafficVolumesCleaner(Cleaner):
 
                 l_idx_cnt += 1
 
-        print("By hour indexes: ", by_hour_data_indexes)
+            for dr in directions:
+                by_direction_structured.append({f"{ud}h{dr}": {}})
+                by_direction_data_indexes.update({f"{ud}h{dr}": d_idx_cnt})
+
+                d_idx_cnt += 1
+
+        print("By hour data indexes: ", by_hour_data_indexes)
         print("By hour structured: ", by_hour_structured) #It's normal that the list contains only empty dictionaries since they're later going to be filled with data
-        print("By lane indexes: ", by_lane_data_indexes)
+        print("By lane data data indexes: ", by_lane_data_indexes)
         print("By lane structured: ", by_lane_structured)
         print("By direction structured: ", by_direction_structured)
-
-
-        #The same principle as by_lane_index applies here. Since there are multiple headings we'll have to create an index for each row in the dataframe
-        #Again, multiple rows will have the same date, but different headings
-        by_direction_index = 0
+        print("By direction data indexes: ", by_direction_data_indexes)
 
 
         for node in nodes:
@@ -252,37 +261,36 @@ class TrafficVolumesCleaner(Cleaner):
             #   ----------------------- By direction section -----------------------
 
             by_direction_data = node["node"]["byDirection"]
-            heading_directions = []  #Keeping track of the directions available for the specific TRP (Traffic Registration Point)
 
             # Every direction's data is kept isolated from the other directions' data, so a for cycle is needed
-            for direction in by_direction_data:
-                heading = direction["heading"]
-                direction_volume = direction["total"]["volumeNumbers"]["volume"]
-                direction_coverage = direction["total"]["coverage"]["percentage"]
+            for direction_section in by_direction_data:
+                heading = direction_section["heading"]
+                direction_volume = direction_section["total"]["volumeNumbers"]["volume"]
+                direction_coverage = direction_section["total"]["coverage"]["percentage"]
 
-                by_direction_structured.append({by_direction_index: {"heading": heading,
-                                                                     f"v{hour}": direction_volume,
-                                                                     f"direction_cvg{hour}": direction_coverage}
-                                                                                                                })
+                date_direction_index = str(day) + "h" + str(heading) #Combination of day and direction (heading)
+                by_direction_index = by_direction_data_indexes[date_direction_index]
 
-                by_direction_index += 1
+                by_direction_structured[by_direction_index][date_direction_index]["date"] = day
+                by_direction_structured[by_direction_index][date_direction_index]["heading"] = heading
+                by_direction_structured[by_direction_index][date_direction_index][f"v{hour}"] = direction_volume
+                by_direction_structured[by_direction_index][date_direction_index][f"direction_cvg{hour}"] = direction_coverage
+
 
                 #TODO THE SAME PRINCIPLE AS BEFORE APPLIES HERE, SAVE ALL THE AVAILABLE DIRECTIONS IN THE TRP'S METADATA FILE
 
 
 
-        print("\n\n\n----------------- By Hour Structured -----------------")
+        #print("\n\n\n----------------- By Hour Structured -----------------")
         #pprint.pp(by_hour_structured)
         #print(by_hour_structured)
-        print("\n\n\n")
 
-        print("----------------- By Lane Structured -----------------")
-        pprint.pp(by_lane_structured)
-        print(by_lane_structured)
-        print("\n\n\n")
+        #print("\n\n\n----------------- By Lane Structured -----------------")
+        #pprint.pp(by_lane_structured)
+        #print(by_lane_structured)
 
-        print("----------------- By Direction Structured -----------------")
-        #pprint.pp(by_direction_structured)
+        print("\n\n\n----------------- By Direction Structured -----------------")
+        pprint.pp(by_direction_structured)
         print("\n\n\n")
 
 
