@@ -288,24 +288,63 @@ class TrafficVolumesCleaner(Cleaner):
                     #TODO THE SAME PRINCIPLE AS BEFORE APPLIES HERE, SAVE ALL THE AVAILABLE DIRECTIONS IN THE TRP'S METADATA FILE
 
 
-            #print("\n\n\n----------------- By Hour Structured -----------------")
-            #pprint.pp(by_hour_structured)
+            print("\n\n\n----------------- By Hour Structured -----------------")
+            pprint.pp(by_hour_structured)
             #print(by_hour_structured)
 
-            #print("\n\n\n----------------- By Lane Structured -----------------")
-            #pprint.pp(by_lane_structured)
+            print("\n\n\n----------------- By Lane Structured -----------------")
+            pprint.pp(by_lane_structured)
             #print(by_lane_structured)
 
             print("\n\n\n----------------- By Direction Structured -----------------")
-            #pprint.pp(by_direction_structured)
+            pprint.pp(by_direction_structured)
             #print(by_direction_structured)
+            #print("\n\n\n")
+
             print("\n\n\n")
 
 
+            # ------------------ Ensuring that every dictionary in by_hour/by_lane/by_direction_structured has the same number of key-value pairs ------------------
+
+
+            hours = [f"{i:02}" for i in range(24)] #Generating 24 elements starting from 00 to 23
+            by_x_structured_volume_keys = [f"v{i:02}" for i in range(24)] #These can be used both for by_hour_structured, by_lane_structured and for by_direction_structured
+
+            print(by_x_structured_volume_keys)
+
+            by_hour_structured_coverage_keys = [f"cvg{i:02}" for i in range(24)]
+            by_lane_structured_coverage_keys = [f"lane_cvg{i:02}" for i in range(24)]
+            by_direction_structured_coverage_keys = [f"direction_cvg{i:02}" for i in range(24)]
+
+
+            # ------------------ by_hour_structured check ------------------
+
+            #bh_dict = by hour dictionary
+
+            by_hour_structured_keys = {by_hour_structured.index(list_element): list(list_element.keys()) for list_element in by_hour_structured}
+            by_hour_keys_to_add = {element: [to_add for to_add in by_x_structured_volume_keys if to_add not in keys] for element, keys in by_hour_structured_keys.items()}
+
+            print(by_hour_keys_to_add)
+
+            #TODO ADD KEYS
+
+
+            # ------------------ by_lane_structured check ------------------
+
+
+            by_lane_structured_keys = {list_element: list_element.values() for list_element in by_lane_structured}
+            print(type(by_lane_structured_keys))
 
 
 
-            #TODO CREATE DATAFRAMES HERE (OUTSIDE THE MAIN for node in nodes FOR CYCLE), MEMORIZE DATA OUTSIDE THE CYCLE AND BE AWARE OF THE DATES PROBLEM
+
+
+
+
+
+
+
+
 
 
             return None #TODO RETURN CLEANED DATA IN THREE DIFFERENT DATAFRAMES AS DESCRIBED ON THE PAPER NOTEBOOK
@@ -350,7 +389,7 @@ class TrafficVolumesCleaner(Cleaner):
 
 
         #TODO TEST HERE WITH [:2]
-        for volume_f in volume_files:
+        for volume_f in volume_files[:2]:
             volumes_file_path = traffic_volumes_folder_path + volume_f
             self.cleaning_pipeline(trp_file_path=traffic_registration_points_path, volumes_file_path=volumes_file_path) #String concatenation here
 
