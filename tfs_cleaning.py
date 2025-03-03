@@ -326,7 +326,6 @@ class TrafficVolumesCleaner(Cleaner):
             by_hour_volume_keys_to_add = {element: [to_add for to_add in by_x_structured_volume_keys if to_add not in keys] for element, keys in by_hour_structured_keys.items()}
             by_hour_cvg_keys_to_add = {element: [to_add for to_add in by_hour_coverage_keys if to_add not in keys] for element, keys in by_hour_structured_keys.items()}
 
-
             #print("By hour volume keys to add: ")
             #print(by_hour_volume_keys_to_add)
 
@@ -356,14 +355,13 @@ class TrafficVolumesCleaner(Cleaner):
             by_direction_structured_keys = {by_direction_structured.index(list_element): list(list_element.values()) for list_element in by_direction_structured}
             by_direction_structured_keys = {e: list(k[0].keys()) for e, k in by_direction_structured_keys.items()}
 
-            print(by_direction_structured_keys)
-
-
             by_direction_volume_keys_to_add = {element: [to_add for to_add in by_x_structured_volume_keys if to_add not in keys] for element, keys in by_direction_structured_keys.items()}
             by_direction_cvg_keys_to_add = {element: [to_add for to_add in by_direction_coverage_keys if to_add not in keys] for element, keys in by_direction_structured_keys.items()}
 
-            print(by_direction_volume_keys_to_add)
-            print(by_direction_cvg_keys_to_add, "\n\n")
+            #print("By direction volume keys to add: ")
+            #print(by_direction_volume_keys_to_add)
+            #print("By direction coverage keys to add: ")
+            #print(by_direction_cvg_keys_to_add, "\n\n")
 
 
 
