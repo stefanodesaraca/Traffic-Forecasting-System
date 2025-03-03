@@ -310,34 +310,60 @@ class TrafficVolumesCleaner(Cleaner):
             hours = [f"{i:02}" for i in range(24)] #Generating 24 elements starting from 00 to 23
             by_x_structured_volume_keys = [f"v{i:02}" for i in range(24)] #These can be used both for by_hour_structured, by_lane_structured and for by_direction_structured
 
-            print(by_x_structured_volume_keys)
+            #print(by_x_structured_volume_keys)
 
-            by_hour_structured_coverage_keys = [f"cvg{i:02}" for i in range(24)]
-            by_lane_structured_coverage_keys = [f"lane_cvg{i:02}" for i in range(24)]
-            by_direction_structured_coverage_keys = [f"direction_cvg{i:02}" for i in range(24)]
+            by_hour_coverage_keys = [f"cvg{i:02}" for i in range(24)]
+            by_lane_coverage_keys = [f"lane_cvg{i:02}" for i in range(24)]
+            by_direction_coverage_keys = [f"direction_cvg{i:02}" for i in range(24)]
 
 
             # ------------------ by_hour_structured check ------------------
 
             #bh_dict = by hour dictionary
+            #Creating a dictionary made by the list indexes of the by_hour_structured list and verifying which keys are missing in each element of the list (which is a dictionary) and thus, their values as well
             by_hour_structured_keys = {by_hour_structured.index(list_element): list(list_element.keys()) for list_element in by_hour_structured}
-            by_hour_keys_to_add = {element: [to_add for to_add in by_x_structured_volume_keys if to_add not in keys] for element, keys in by_hour_structured_keys.items()}
 
-            print(by_hour_keys_to_add)
+            by_hour_volume_keys_to_add = {element: [to_add for to_add in by_x_structured_volume_keys if to_add not in keys] for element, keys in by_hour_structured_keys.items()}
+            by_hour_cvg_keys_to_add = {element: [to_add for to_add in by_hour_coverage_keys if to_add not in keys] for element, keys in by_hour_structured_keys.items()}
 
-            #TODO ADD KEYS
+
+            #print("By hour volume keys to add: ")
+            #print(by_hour_volume_keys_to_add)
+
+            #print("By hour coverage keys to add: ")
+            #print(by_hour_cvg_keys_to_add, "\n\n")
+
+            #TODO ADD KEYS AND None AS VALUES
 
 
             # ------------------ by_lane_structured check ------------------
 
+            by_lane_structured_keys = {by_lane_structured.index(list_element): list(list_element.values()) for list_element in by_lane_structured}
+            by_lane_structured_keys = {e: list(k[0].keys()) for e, k in by_lane_structured_keys.items()}
 
-            by_lane_structured_keys = {list_element: list_element.values() for list_element in by_lane_structured}
-            print(type(by_lane_structured_keys))
+            by_lane_volume_keys_to_add = {element: [to_add for to_add in by_x_structured_volume_keys if to_add not in keys] for element, keys in by_lane_structured_keys.items()}
+            by_lane_cvg_keys_to_add = {element: [to_add for to_add in by_lane_coverage_keys if to_add not in keys] for element, keys in by_lane_structured_keys.items()}
+
+            #print("By lane volume keys to add: ")
+            #print(by_lane_volume_keys_to_add)
+
+            #print("By lane coverage keys to add: ")
+            #print(by_lane_cvg_keys_to_add, "\n\n")
 
 
+            # ------------------ by_direction_structured check ------------------
+
+            by_direction_structured_keys = {by_direction_structured.index(list_element): list(list_element.values()) for list_element in by_direction_structured}
+            by_direction_structured_keys = {e: list(k[0].keys()) for e, k in by_direction_structured_keys.items()}
+
+            print(by_direction_structured_keys)
 
 
+            by_direction_volume_keys_to_add = {element: [to_add for to_add in by_x_structured_volume_keys if to_add not in keys] for element, keys in by_direction_structured_keys.items()}
+            by_direction_cvg_keys_to_add = {element: [to_add for to_add in by_direction_coverage_keys if to_add not in keys] for element, keys in by_direction_structured_keys.items()}
 
+            print(by_direction_volume_keys_to_add)
+            print(by_direction_cvg_keys_to_add, "\n\n")
 
 
 
