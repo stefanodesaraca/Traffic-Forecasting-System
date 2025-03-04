@@ -73,7 +73,8 @@ def clean_data(functionality: str):
         traffic_volumes_file_list = get_traffic_volume_file_list()
         cleaner = TrafficVolumesCleaner()
 
-        for file in traffic_volumes_file_list:
+        #TODO TO TEST WE'RE ONLY USING THE FIRST TWO TRAFFIC VOLUME FILES WITH [:2]
+        for file in traffic_volumes_file_list[:2]:
             cleaner.execute_cleaning(traffic_volumes_folder + file)
 
     return None

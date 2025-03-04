@@ -8,6 +8,9 @@ import os
 import pandas as pd
 import pprint
 
+pd.set_option('display.max_rows', None)
+pd.set_option('display.max_columns', None)
+
 
 class Cleaner:
 
@@ -23,7 +26,6 @@ class Cleaner:
         return data
 
 
-#TODO THE ONLY PARAMETER WHICH WILL BE NEEDED BY THE TrafficVolumesCleaner CLASS IS THE trp id, ONE AT A TIME
 class TrafficVolumesCleaner(Cleaner):
 
     def __init__(self):
@@ -39,7 +41,7 @@ class TrafficVolumesCleaner(Cleaner):
         trp_data = [i for i in trp_data["trafficRegistrationPoints"] if i["id"] == trp_id] #Finding the data for the specific TRP taken in consideration by iterating on all the TRPs available in the trp_file
         trp_data = trp_data[0]
 
-        print(trp_data)
+        #print(trp_data)
 
         if verbose is True:
 
@@ -92,7 +94,7 @@ class TrafficVolumesCleaner(Cleaner):
 
 
     @staticmethod
-    def clean_traffic_volumes_data(volumes_payload):
+    def restructure_traffic_volumes_data(volumes_payload):
 
         by_hour_structured = [] #This will later become a list of dictionaries to create the by_hour dataframe we're going to export and use in the future
         by_lane_structured = [] #This will later become a list of dictionaries to create the by_lane dataframe we're going to export and use in the future
@@ -496,45 +498,43 @@ class TrafficVolumesCleaner(Cleaner):
             #print(by_hour_structured)
 
             by_hour_df = pd.DataFrame(by_hour_structured)
+            by_hour_df = by_hour_df.reindex(sorted(by_hour_df.columns), axis=1)
             print(by_hour_df)
 
 
-            print("\n\n----------------- By Lane Structured -----------------")
+            #print("\n\n----------------- By Lane Structured -----------------")
             #pprint.pp(by_lane_structured)
             #print(by_lane_structured)
 
-            by_lane_df = pd.DataFrame(by_lane_structured)
-            print(by_lane_df)
+            #by_lane_df = pd.DataFrame(by_lane_structured)
+            #by_lane_df = by_lane_df.reindex(sorted(by_lane_df.columns), axis=1)
+            #print(by_lane_df)
 
 
-            print("\n\n----------------- By Direction Structured -----------------")
+            #print("\n\n----------------- By Direction Structured -----------------")
             #pprint.pp(by_direction_structured)
             #print(by_direction_structured)
 
-            by_direction_df = pd.DataFrame(by_direction_structured)
-            print(by_direction_df)
-
-
-            #print("\n\n")
+            #by_direction_df = pd.DataFrame(by_direction_structured)
+            #by_direction_df = by_direction_df.reindex(sorted(by_direction_df.columns), axis=1)
+            #print(by_direction_df)
 
             print("\n\n")
 
+            return by_hour_df, "by_lane_df", "by_direction_df" #TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, BUT FOR NOW IT'S BETTER TO SAVE PERFORMANCES AND MEMORY BY JUST RETURNING TWO STRINGS AND NOT EVEN CREATING THE DFs
 
 
+    #This function is design only to clean by_hour data since that's the data we're going to use for the main purposes of this project
+    @staticmethod
+    def clean_traffic_volumes_data(by_hour_df: pd.DataFrame):
+
+        #Short dataframe overview
+        print(by_hour_df.describe())
 
 
+        print("\n\n")
 
-            #TODO SORTING THE DICTIONARY KEYS ISN'T IMPORTANT, WE CAN JUST LET PANDAS DO IT WITH THE "columns" ATTRIBUTE WHEN CREATING THE DF. https://stackoverflow.com/questions/75441918/dataframe-from-list-of-dicts-with-relative-order-of-keys-maintained-in-columns
-
-
-
-
-            return None #TODO RETURN CLEANED DATA IN THREE DIFFERENT DATAFRAMES AS DESCRIBED ON THE PAPER NOTEBOOK
-
-
-
-
-
+        return None #TODO RETURN THE CLEANED DATAFRAMES TO THEN BE EXPORTED BY ANOTHER FUNCTION
 
 
 
@@ -543,20 +543,24 @@ class TrafficVolumesCleaner(Cleaner):
     #TODO THIS WILL EXPORT ALL THE CLEANED DATA INTO SEPARATED FILES AND CLEAN EACH FILE INDIVIDUALLY THROUGH THE PIPELINE.
     # IN THE DATA EXPLORATION FILE WE'LL CREATE A FOR LOOP AND USE THE cleaning_pipeline() FUNCTION TO CLEAN EACH FILE.
     # THIS PROCESS WILL BE REPEATED BOTH FOR TRAFFIC VOLUMES AND AVERAGE SPEED, EACH ONE WITH THEIR OWN CUSTOM CLEANING PIPELINE
-    def cleaning_pipeline(self, trp_file_path: str, volumes_file_path: str):
+    def cleaning_pipeline(self, volumes_file_path: str):
 
         volumes = import_volumes_data(volumes_file_path)
         trp_data = import_TRPs_info()
 
-        self.data_overview(trp_data=trp_data, volumes_data=volumes, verbose=True)
-        self.clean_traffic_volumes_data(volumes)
+        self.data_overview(trp_data=trp_data, volumes_data=volumes, verbose=False) #TODO SET AS True IN THE FUTURE
+        by_hour_df, _, _ = self.restructure_traffic_volumes_data(volumes) #TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, IN THAT CASE WE'LL REPLACE THE _, _ WITH by_lane_df, by_direction_df
+
+        self.clean_traffic_volumes_data(by_hour_df)
+
+        #TODO CLEAN THE DATA CONTAINED IN THE DATAFRAMES
 
         return None
 
 
     def execute_cleaning(self, volumes_file_path: str):
 
-        self.cleaning_pipeline(trp_file_path=traffic_registration_points_path, volumes_file_path=volumes_file_path)
+        self.cleaning_pipeline(volumes_file_path=volumes_file_path)
 
         return None
 
