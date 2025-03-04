@@ -486,23 +486,19 @@ class TrafficVolumesCleaner(Cleaner):
     # THIS PROCESS WILL BE REPEATED BOTH FOR TRAFFIC VOLUMES AND AVERAGE SPEED, EACH ONE WITH THEIR OWN CUSTOM CLEANING PIPELINE
     def cleaning_pipeline(self, trp_file_path: str, volumes_file_path: str):
 
-        #Importing a single json file to be cleaned
-        volumes = self.import_data(volumes_file_path)
-
-        #print(trp_file)
-        #print(volumes)
+        volumes = import_volumes_data(volumes_file_path)
 
         self.data_overview(trp_data=trp_file_path, volumes_data=volumes, verbose=True)
 
-        self.clean_traffic_volumes_data(volumes)
+        self.clean_traffic_volumes_data()
 
 
         return None
 
 
-    def execute_cleaning(self, file_path: str):
+    def execute_cleaning(self, volumes_file_path: str):
 
-        self.cleaning_pipeline(trp_file_path=traffic_registration_points_path, volumes_file_path=file_path)
+        self.cleaning_pipeline(trp_file_path=traffic_registration_points_path, volumes_file_path=volumes_file_path)
 
         return None
 

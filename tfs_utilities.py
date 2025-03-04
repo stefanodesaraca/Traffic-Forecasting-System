@@ -18,7 +18,7 @@ def import_TRPs_info():
         return trp_info
 
 
-def import_data(file):
+def import_volumes_data(file):
     with open(file, "r") as f:
         data = json.load(f)
 
