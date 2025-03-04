@@ -1,4 +1,5 @@
 from tfs_ops_settings import *
+from tfs_utilities import *
 import numpy as np
 import json
 import datetime
@@ -14,24 +15,6 @@ class Cleaner:
         self._cwd = os.getcwd()
         self._ops_folder = "ops"
         self._ops_name = read_active_ops_file()
-
-
-    @staticmethod
-    def import_TRPs(file):
-        with open(file, "r") as TRPs:
-
-            trp_info = json.load(TRPs)
-
-            return trp_info
-
-
-    @staticmethod
-    def import_data(file):
-        with open(file, "r") as f:
-            data = json.load(f)
-
-        return data
-
 
     #General definition of the data_overview() function. This will take two different forms: the traffic volumes one and the average speed one.
     #Thus, the generic "data" parameter will become the volumes_data or the avg_speed_data one
@@ -446,6 +429,8 @@ class TrafficVolumesCleaner(Cleaner):
 
 
 
+            # ------------------ Dataframes creation and printing ------------------
+
 
             print("\n\n----------------- By Hour Structured -----------------")
             #pprint.pp(by_hour_structured)
@@ -515,24 +500,9 @@ class TrafficVolumesCleaner(Cleaner):
         return None
 
 
-    def execute_cleaning(self):
+    def execute_cleaning(self, file_path: str):
 
-        traffic_volumes_folder_path = f"{self._cwd}/{self._ops_folder}/{self._ops_name}/{self._ops_name}_data/traffic_volumes/raw_traffic_volumes/"
-        traffic_registration_points_path = self.import_TRPs(f"{self._cwd}/{self._ops_folder}/{self._ops_name}/{self._ops_name}_data/traffic_measurement_points.json")
-
-
-        #Identifying all the raw traffic volume files
-        volume_files = os.listdir(traffic_volumes_folder_path)
-        print("Raw traffic volumes files: ", volume_files, "\n\n")
-
-
-        #TODO TEST HERE WITH [:2]
-        for volume_f in volume_files[:2]:
-            volumes_file_path = traffic_volumes_folder_path + volume_f
-            self.cleaning_pipeline(trp_file_path=traffic_registration_points_path, volumes_file_path=volumes_file_path) #String concatenation here
-
-        #TODO BRING ALL OF THE ITERATION OVER FILES OUTSIDE OF THE tfs_cleaning FILE
-
+        self.cleaning_pipeline(trp_file_path=traffic_registration_points_path, volumes_file_path=file_path) #String concatenation here
 
         return None
 
