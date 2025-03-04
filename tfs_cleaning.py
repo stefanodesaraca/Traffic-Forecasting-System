@@ -502,7 +502,7 @@ class TrafficVolumesCleaner(Cleaner):
 
     def execute_cleaning(self, file_path: str):
 
-        self.cleaning_pipeline(trp_file_path=traffic_registration_points_path, volumes_file_path=file_path) #String concatenation here
+        self.cleaning_pipeline(trp_file_path=traffic_registration_points_path, volumes_file_path=file_path)
 
         return None
 
