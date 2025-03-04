@@ -413,6 +413,40 @@ class TrafficVolumesCleaner(Cleaner):
                         by_direction_structured[list_idx][bd_loc_key].update(bd_to_add_elements)
 
 
+
+            # ------------------ Inserting additional indexes of by_lane_structured and by_direction_structured as key removing them ------------------
+            #Doing so we'll transform by_lane_structured and by_direction_structured from lists of dict of dict to a simpler lists of dict
+
+            # ------------------ Inserting the record_indexes as key-vale pairs into the dictionaries ------------------
+
+            for by_lane_element in by_lane_structured:
+                by_lane_element_list_idx = by_lane_structured.index(by_lane_element)
+                by_lane_record_idx = list(by_lane_element.keys())[0] #Obtaining the "record_index", which is the string that represents the dictionary which contains the data for a specific day and lane
+
+                by_lane_structured[by_lane_element_list_idx][by_lane_record_idx]["by_lane_record_index"] = by_lane_record_idx
+
+
+            for by_direction_element in by_direction_structured:
+                by_direction_element_list_idx = by_direction_structured.index(by_direction_element)
+                by_direction_record_idx = list(by_direction_element.keys())[0] #Obtaining the "record_index", which is the string that represents the dictionary which contains the data for a specific day and lane
+
+                by_direction_structured[by_direction_element_list_idx][by_direction_record_idx]["by_direction_record_index"] = by_direction_record_idx
+
+
+            # ------------------ Removing the record_indexes and transforming the old lists of dict of dict to simpler lists of dict ------------------
+
+
+            for element in by_lane_structured:
+                by_lane_element_list_idx = by_lane_structured.index(element)
+                by_lane_structured[by_lane_element_list_idx] = list(element.values())[0]
+
+            for element in by_direction_structured:
+                by_direction_element_list_idx = by_direction_structured.index(element)
+                by_direction_structured[by_direction_element_list_idx] = list(element.values())[0]
+
+
+
+
             print("\n\n\n----------------- By Hour Structured -----------------")
             pprint.pp(by_hour_structured)
             # print(by_hour_structured)
@@ -427,6 +461,19 @@ class TrafficVolumesCleaner(Cleaner):
             # print("\n\n\n")
 
             print("\n\n\n")
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
             #TODO REMOVE THE by_lane_structured and by_direction_structured KEYS LIKE YYYY-MM-DDlX or YYYY-MM-DDhX
