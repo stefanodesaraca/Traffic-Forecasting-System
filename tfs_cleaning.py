@@ -447,36 +447,37 @@ class TrafficVolumesCleaner(Cleaner):
 
 
 
-            print("\n\n\n----------------- By Hour Structured -----------------")
-            pprint.pp(by_hour_structured)
-            # print(by_hour_structured)
+            print("\n\n----------------- By Hour Structured -----------------")
+            #pprint.pp(by_hour_structured)
+            #print(by_hour_structured)
 
-            print("\n\n\n----------------- By Lane Structured -----------------")
-            pprint.pp(by_lane_structured)
-            # print(by_lane_structured)
-
-            print("\n\n\n----------------- By Direction Structured -----------------")
-            pprint.pp(by_direction_structured)
-            # print(by_direction_structured)
-            # print("\n\n\n")
-
-            print("\n\n\n")
+            by_hour_df = pd.DataFrame(by_hour_structured)
+            print(by_hour_df)
 
 
+            print("\n\n----------------- By Lane Structured -----------------")
+            #pprint.pp(by_lane_structured)
+            #print(by_lane_structured)
+
+            by_lane_df = pd.DataFrame(by_lane_structured)
+            print(by_lane_df)
+
+
+            print("\n\n----------------- By Direction Structured -----------------")
+            #pprint.pp(by_direction_structured)
+            #print(by_direction_structured)
+
+            by_direction_df = pd.DataFrame(by_direction_structured)
+            print(by_direction_df)
+
+
+            #print("\n\n")
+
+            print("\n\n")
 
 
 
 
-
-
-
-
-
-
-
-
-
-            #TODO REMOVE THE by_lane_structured and by_direction_structured KEYS LIKE YYYY-MM-DDlX or YYYY-MM-DDhX
 
 
             #TODO SORTING THE DICTIONARY KEYS ISN'T IMPORTANT, WE CAN JUST LET PANDAS DO IT WITH THE "columns" ATTRIBUTE WHEN CREATING THE DF. https://stackoverflow.com/questions/75441918/dataframe-from-list-of-dicts-with-relative-order-of-keys-maintained-in-columns
