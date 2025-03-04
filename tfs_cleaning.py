@@ -39,6 +39,8 @@ class TrafficVolumesCleaner(Cleaner):
         trp_data = [i for i in trp_data["trafficRegistrationPoints"] if i["id"] == trp_id] #Finding the data for the specific TRP taken in consideration by iterating on all the TRPs available in the trp_file
         trp_data = trp_data[0]
 
+        print(trp_data)
+
         if verbose is True:
 
             print("******** Traffic Registration Point Information ********")
@@ -487,11 +489,10 @@ class TrafficVolumesCleaner(Cleaner):
     def cleaning_pipeline(self, trp_file_path: str, volumes_file_path: str):
 
         volumes = import_volumes_data(volumes_file_path)
+        trp_data = import_TRPs_info()
 
-        self.data_overview(trp_data=trp_file_path, volumes_data=volumes, verbose=True)
-
+        self.data_overview(trp_data=trp_data, volumes_data=volumes, verbose=True)
         self.clean_traffic_volumes_data(volumes)
-
 
         return None
 

@@ -69,8 +69,12 @@ def clean_data(functionality: str):
 
     if functionality == "5.6.1":
 
+        traffic_volumes_folder = traffic_volumes_folder_path
+        traffic_volumes_file_list = get_traffic_volume_file_list()
         cleaner = TrafficVolumesCleaner()
-        cleaner.execute_cleaning()
+
+        for file in traffic_volumes_file_list:
+            cleaner.execute_cleaning(traffic_volumes_folder + file)
 
     return None
 
