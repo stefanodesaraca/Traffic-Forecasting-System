@@ -390,19 +390,20 @@ class TrafficVolumesCleaner(Cleaner):
             # - Adding missing volume keys -
             #This is a particularly difficult step of the whole process, so we'll describe it step by step in the code
             #1. We'll create as for by_hour_structured a dict with the missing keys and None as their values
-            for list_idx, to_add_elements in by_lane_volume_keys_to_add.items():
+            for list_idx, to_add_elements in by_lane_volume_keys_to_add.items(): # <- VOLUME MISSING KEYS
                 to_add_elements = {el: None for el in to_add_elements} #Adding the missing keys as keys and None as value
 
                 #2. We'll iterate over every element of the by_lane_structured, verify if it's in the list of the by_lane_structured elements which have missing keys
                 # if so, we'll fetch the location of the sub-dictionary which has missing keys and insert them (with None as values) with the .update method
                 for el in by_lane_structured:
-                    if by_lane_structured.index(el) == list_idx:
-                        bl_loc_key = list(el.keys())[0]
+                    if by_lane_structured.index(el) == list_idx: #If this if statement is true then the element el of by_lane_structured has missing keys
+                        bl_loc_key = list(el.keys())[0] #Finding the record index for the dictionary with missing keys
 
                         by_lane_structured[list_idx][bl_loc_key].update(to_add_elements)
 
-            #Adding missing coverage keys
-            for list_idx, to_add_elements in by_lane_cvg_keys_to_add.items():
+            #- Adding missing coverage keys -
+            #2.1 Same principle as above applies here, but for for coverage keys
+            for list_idx, to_add_elements in by_lane_cvg_keys_to_add.items(): # <- COVERAGE MISSING KEYS
                 to_add_elements = {el: None for el in to_add_elements} #Adding the missing keys as keys and None as value
 
                 for el in by_lane_structured:
@@ -413,6 +414,9 @@ class TrafficVolumesCleaner(Cleaner):
 
 
             # ------------------ by_direction_structured check ------------------
+
+            #The same process described in the by_lane_structured section applies here since by_direction_structured is a list of dict of dict too
+            #The logic is the same, the only things that change are the variables name
 
             by_direction_structured_keys = {by_direction_structured.index(list_element): list(list_element.values()) for list_element in by_direction_structured}
             by_direction_structured_keys = {e: list(k[0].keys()) for e, k in by_direction_structured_keys.items()}
@@ -429,25 +433,26 @@ class TrafficVolumesCleaner(Cleaner):
 
             # ------------------ Adding missing key-value pairs to by_direction_structured ------------------
 
-            #Adding missing volume keys
-            for list_idx, bd_to_add_elements in by_direction_volume_keys_to_add.items():
-                bd_to_add_elements = {el: None for el in bd_to_add_elements}  # Adding the missing keys as keys and None as value
+            # - Adding missing volume keys -
+            #Same principles as before apply here
+            for list_idx, to_add_elements in by_direction_volume_keys_to_add.items():
+                to_add_elements = {el: None for el in to_add_elements}  # Adding the missing keys as keys and None as value
 
                 for el in by_direction_structured:
                     if by_direction_structured.index(el) == list_idx:
                         bd_loc_key = list(el.keys())[0]
 
-                        by_direction_structured[list_idx][bd_loc_key].update(bd_to_add_elements)
+                        by_direction_structured[list_idx][bd_loc_key].update(to_add_elements)
 
-            #Adding missing coverage keys
-            for list_idx, bd_to_add_elements in by_direction_cvg_keys_to_add.items():
-                bd_to_add_elements = {el: None for el in bd_to_add_elements}  # Adding the missing keys as keys and None as value
+            # - Adding missing coverage keys -
+            for list_idx, to_add_elements in by_direction_cvg_keys_to_add.items():
+                to_add_elements = {el: None for el in to_add_elements}  # Adding the missing keys as keys and None as value
 
                 for el in by_direction_structured:
                     if by_direction_structured.index(el) == list_idx:
                         bd_loc_key = list(el.keys())[0]
 
-                        by_direction_structured[list_idx][bd_loc_key].update(bd_to_add_elements)
+                        by_direction_structured[list_idx][bd_loc_key].update(to_add_elements)
 
 
 
