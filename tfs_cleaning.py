@@ -490,7 +490,7 @@ class TrafficVolumesCleaner(Cleaner):
 
         self.data_overview(trp_data=trp_file_path, volumes_data=volumes, verbose=True)
 
-        self.clean_traffic_volumes_data()
+        self.clean_traffic_volumes_data(volumes)
 
 
         return None
