@@ -282,20 +282,44 @@ class TrafficVolumesCleaner(Cleaner):
 
             #print(by_x_structured_volume_keys)
 
+            #These are all the coverage keys that should exist when a measurement point has coverage data for all hours
             by_hour_coverage_keys = [f"cvg{i:02}" for i in range(24)]
             by_lane_coverage_keys = [f"lane_cvg{i:02}" for i in range(24)]
             by_direction_coverage_keys = [f"direction_cvg{i:02}" for i in range(24)]
 
+            #To better understand what a volume or a coverage key look like let's make some example:
+            # - Volume keys: v00, v01, v02, ..., v22, v23, v24
+            # - Coverage keys: cvg00, cvg01, cvg02, ..., cvg22, cvg23, cvg24
+
+            #There are variations of key names for coverage, so:
+            # - by_lane coverage keys: lane_cvg00, lane_cvg01, lane_cvg02, ..., lane_cvg22, lane_cvg23, lane_cvg24
+            # - by_direction coverage keys: direction_cvg00, direction_cvg01, direction_cvg02, ..., direction_cvg22, direction_cvg23, direction_cvg24
+
+
 
             # ------------------ by_hour_structured check ------------------
 
-            #bh_dict = by hour dictionary
-            #Creating a dictionary made by the list indexes of the by_hour_structured list and verifying which keys are missing in each element of the list (which is a dictionary) and thus, their values as well
+            #by_hour_structured is a list of dict
+            #Each dict has keys and values, which correspond to either volume or coverage for a certain hour
+            #In some cases data for specific hours could be missing, thus we want to ensure that, even if data is missing, we'll have those keys anyways
+            #This is because when creating the dataframes we must ensure that the number of keys (and so of columns in the future df) is the same for each dictionary (every dictionary will become a record of the df)
+            #Every dictionary in by_hour_structured is an element of the list (since by_hour_structured is a list of dict)
+            #To ensure we'll have the same keys and number of keys for each dictionary in by_hour_structured we'll create another dict with the list index as key and a list of the keys available as values
             by_hour_structured_keys = {by_hour_structured.index(list_element): list(list_element.keys()) for list_element in by_hour_structured}
 
+
+            #The next step in tidying up the by_hours_structured list of dict is to determine which keys are missing in each element of the list
+            #We can do so with a dict comprehension coupled with a list comprehension (both for better performances)
+            #The idea is: we'll create a dict which takes the by_hour_structured list index of each element as key and we'll insert the keys which aren't included in by_x_structured_volume_keys as values
+            #This way we'll have the list index of every element and all missing keys (if any)
+            #We'll execute this process both for volume and coverage keys
             by_hour_volume_keys_to_add = {element: [to_add for to_add in by_x_structured_volume_keys if to_add not in keys] for element, keys in by_hour_structured_keys.items()}
             by_hour_cvg_keys_to_add = {element: [to_add for to_add in by_hour_coverage_keys if to_add not in keys] for element, keys in by_hour_structured_keys.items()}
 
+
+            #During the process of identifying the missing keys we create a list for each element, but since not all of them have missing keys there could be empty lists as well
+            #Thus, we can address this problem by simply removing all key-value pairs where the value is an empty list
+            #Again, we'll repeat this process both for the volume and coverage missing keys dictionaries
             by_hour_volume_keys_to_add = {bh_idx: bh_to_add_element for bh_idx, bh_to_add_element in by_hour_volume_keys_to_add.items() if len(bh_to_add_element) != 0} #Only keeping non-empty key-value pairs. So basically we're only keeping the dictionary pairs which actually contain elements to add
             by_hour_cvg_keys_to_add = {bh_idx: bh_to_add_element for bh_idx, bh_to_add_element in by_hour_cvg_keys_to_add.items() if len(bh_to_add_element) != 0} #Only keeping non-empty key-value pairs. So basically we're only keeping the dictionary pairs which actually contain elements to add
 
@@ -308,25 +332,49 @@ class TrafficVolumesCleaner(Cleaner):
 
             # ------------------ Adding missing volume key-value pairs to by_hour_structured ------------------
 
-            #Adding missing volume keys
-            for list_idx, bh_to_add_elements in by_hour_volume_keys_to_add.items():
-                bh_to_add_elements = {el: None for el in bh_to_add_elements} #Adding the missing keys as keys and None as value
-                by_hour_structured[list_idx].update(bh_to_add_elements)
+            # - Adding missing volume keys -
+            #Now that we have the missing keys for each list element in a specific dictionary (by_hour_volume_keys_to_add) we can just iterate over it
+            # with a for cycle with the .items() method
+            #For each element we'll create a dictionary with all the missing keys as keys and None as values
+            #Then we'll just use the .update() method and insert it in the correct list element in by_hour_structured using the list_idx
+            for list_idx, to_add_elements in by_hour_volume_keys_to_add.items():
+                to_add_elements = {el: None for el in to_add_elements} #Adding the missing keys as keys and None as value
+                by_hour_structured[list_idx].update(to_add_elements)
 
-            #Adding missing coverage keys
-            for list_idx, bh_to_add_elements in by_hour_cvg_keys_to_add.items():
-                bh_to_add_elements = {el: None for el in bh_to_add_elements} #Adding the missing keys as keys and None as value
-                by_hour_structured[list_idx].update(bh_to_add_elements)
+            # - Adding missing coverage keys -
+            #Same process as before, but with coverage keys
+            for list_idx, to_add_elements in by_hour_cvg_keys_to_add.items():
+                to_add_elements = {el: None for el in to_add_elements} #Adding the missing keys as keys and None as value
+                by_hour_structured[list_idx].update(to_add_elements)
+
+
+            #Keep in mind that the processes to identify missing keys until now were applied only for the by_hour_structured list of dict, now we'll have to repeat them
+            # with some tweaks for the by_lane_structured and by_direction_structured lists
+
 
 
             # ------------------ by_lane_structured check ------------------
 
-            by_lane_structured_keys = {by_lane_structured.index(list_element): list(list_element.values()) for list_element in by_lane_structured}
-            by_lane_structured_keys = {e: list(k[0].keys()) for e, k in by_lane_structured_keys.items()}
+            #by_lane_structured is a list of dict of dict, this means that every element of the list contains one key-value pair where the
+            # key is a unique identifier (record index) of the list element (formatted like YYYY-MM-DDlX) and the value is a dictionary which is made by
+            # many key-value pairs where the keys are either traffic volumes or coverage and the values contain the corresponding data
 
+
+            #Since as we already said by_lane_structured is a list of dict of dict we must first of all able to access every part of the data structure
+            #To determine the relationship between the list element, record index (YYYY-MM-DDlX) and the keys and values which actually represent the volumes data by lane
+            # we'll create a dictionary which is composed by the list index of each element and the record index
+            #Then we'll replace each value (so, the record index) with the keys available for the sub-dictionary
+            #Essentially what we're doing is: we're taking the record index to access the keys of the sub-dictionary and replace the record index with the fetched keys afterwards
+            #By doing so, we'll have a dictionary with the by_lane_structured list indexes as keys and the available data keys (as a list, one for each by_lane_structured list element) as values
+            by_lane_structured_keys = {by_lane_structured.index(list_element): list(list_element.values()) for list_element in by_lane_structured}
+            by_lane_structured_keys = {e: list(k[0].keys()) for e, k in by_lane_structured_keys.items()} #Replacing record indexes with the available keys for the by_lane_structured sub-dicts
+
+            #Once determined the keys available we'll execute a process identical to the one described previously in the by_hour_section
+            #We'll determine, again, the keys to add (the missing keys, both volume and coverage ones)
             by_lane_volume_keys_to_add = {element: [to_add for to_add in by_x_structured_volume_keys if to_add not in keys] for element, keys in by_lane_structured_keys.items()}
             by_lane_cvg_keys_to_add = {element: [to_add for to_add in by_lane_coverage_keys if to_add not in keys] for element, keys in by_lane_structured_keys.items()}
 
+            #Once again we'll remove all the elements of the dictionary which have empty missing keys lists
             by_lane_volume_keys_to_add = {bl_idx: bl_to_add_element for bl_idx, bl_to_add_element in by_lane_volume_keys_to_add.items() if len(bl_to_add_element) != 0} #Only keeping non-empty key-value pairs. So basically we're only keeping the dictionary pairs which actually contain elements to add
             by_lane_cvg_keys_to_add = {bl_idx: bl_to_add_element for bl_idx, bl_to_add_element in by_lane_cvg_keys_to_add.items() if len(bl_to_add_element) != 0} #Only keeping non-empty key-value pairs. So basically we're only keeping the dictionary pairs which actually contain elements to add
 
@@ -339,25 +387,29 @@ class TrafficVolumesCleaner(Cleaner):
 
             # ------------------ Adding missing key-value pairs to by_lane_structured ------------------
 
-            #Adding missing volume keys
-            for list_idx, bl_to_add_elements in by_lane_volume_keys_to_add.items():
-                bl_to_add_elements = {el: None for el in bl_to_add_elements} #Adding the missing keys as keys and None as value
+            # - Adding missing volume keys -
+            #This is a particularly difficult step of the whole process, so we'll describe it step by step in the code
+            #1. We'll create as for by_hour_structured a dict with the missing keys and None as their values
+            for list_idx, to_add_elements in by_lane_volume_keys_to_add.items():
+                to_add_elements = {el: None for el in to_add_elements} #Adding the missing keys as keys and None as value
 
+                #2. We'll iterate over every element of the by_lane_structured, verify if it's in the list of the by_lane_structured elements which have missing keys
+                # if so, we'll fetch the location of the sub-dictionary which has missing keys and insert them (with None as values) with the .update method
                 for el in by_lane_structured:
                     if by_lane_structured.index(el) == list_idx:
                         bl_loc_key = list(el.keys())[0]
 
-                        by_lane_structured[list_idx][bl_loc_key].update(bl_to_add_elements)
+                        by_lane_structured[list_idx][bl_loc_key].update(to_add_elements)
 
             #Adding missing coverage keys
-            for list_idx, bl_to_add_elements in by_lane_cvg_keys_to_add.items():
-                bl_to_add_elements = {el: None for el in bl_to_add_elements} #Adding the missing keys as keys and None as value
+            for list_idx, to_add_elements in by_lane_cvg_keys_to_add.items():
+                to_add_elements = {el: None for el in to_add_elements} #Adding the missing keys as keys and None as value
 
                 for el in by_lane_structured:
                     if by_lane_structured.index(el) == list_idx:
                         bl_loc_key = list(el.keys())[0]
 
-                        by_lane_structured[list_idx][bl_loc_key].update(bl_to_add_elements)
+                        by_lane_structured[list_idx][bl_loc_key].update(to_add_elements)
 
 
             # ------------------ by_direction_structured check ------------------
