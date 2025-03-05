@@ -5,13 +5,15 @@ from tfs_ops_settings import *
 
 cwd = os.getcwd()
 ops_folder = "ops"
-ops_name = read_active_ops_file()
 
-traffic_registration_points_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_measurement_points.json"
-traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
+
+def get_active_ops_name():
+    ops_name = read_active_ops_file()
+    return ops_name
 
 
 def import_TRPs_info():
+    traffic_registration_points_path = get_traffic_registration_points_file_path()
     with open(traffic_registration_points_path, "r") as TRPs:
         trp_info = json.load(TRPs)
 
@@ -25,7 +27,23 @@ def import_volumes_data(file):
     return data
 
 
+def get_traffic_registration_points_file_path():
+    ops_name = get_active_ops_name()
+    traffic_registration_points_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_measurement_points.json"
+    return traffic_registration_points_path
+
+
+def get_traffic_volumes_folder_path():
+    ops_name = get_active_ops_name()
+    traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
+    return traffic_volumes_folder_path
+
+
 def get_traffic_volume_file_list():
+
+    ops_name = get_active_ops_name()
+
+    traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
 
     # Identifying all the raw traffic volume files
     volume_files = os.listdir(traffic_volumes_folder_path)
