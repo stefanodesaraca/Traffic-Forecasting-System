@@ -404,7 +404,7 @@ class TrafficVolumesCleaner(Cleaner):
                         by_lane_structured[list_idx][bl_loc_key].update(to_add_elements)
 
             #- Adding missing coverage keys -
-            #2.1 Same principle as above applies here, but for for coverage keys
+            #2.1 Same principle as above applies here, but for coverage keys
             for list_idx, to_add_elements in by_lane_cvg_keys_to_add.items(): # <- COVERAGE MISSING KEYS
                 to_add_elements = {el: None for el in to_add_elements} #Adding the missing keys as keys and None as value
 
@@ -528,9 +528,16 @@ class TrafficVolumesCleaner(Cleaner):
     @staticmethod
     def clean_traffic_volumes_data(by_hour_df: pd.DataFrame):
 
-        #Short dataframe overview
-        print(by_hour_df.describe())
+        volume_columns = [f"v{i:02}" for i in range(24)]
+        coverage_columns = [f"cvg{i:02}" for i in range(24)]
 
+        #Short dataframe overview
+        print("Short overview on the dataframe: \n", by_hour_df.describe())
+
+        # ------------------ Data types transformation ------------------
+
+        print("Data types: \n")
+        print(by_hour_df.dtypes)
 
 
         print("\n\n")
