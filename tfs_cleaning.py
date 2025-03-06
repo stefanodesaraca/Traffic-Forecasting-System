@@ -32,6 +32,8 @@ class Cleaner:
     def data_overview(trp_data, data: dict, verbose: bool):
         return data
 
+
+    #Executing multiple imputation to get rid of NaNs using the MICE method (Multiple Imputation by Chained Equations)
     @staticmethod
     def impute_missing_values(data: pd.DataFrame):
 
@@ -39,10 +41,6 @@ class Cleaner:
 
         mice_imputer = IterativeImputer(estimator=lr, random_state=100, verbose=0, imputation_order="arabic", initial_strategy="mean") #Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
         data = pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns) #Fitting the imputer and processing all the data columns except the date one
-
-
-
-        print("DATASET: ", data)
 
         return data
 
@@ -588,7 +586,7 @@ class TrafficVolumesCleaner(Cleaner):
 
 
 
-        print(by_hour_df)
+        print(by_hour_df, "\n")
 
 
 
