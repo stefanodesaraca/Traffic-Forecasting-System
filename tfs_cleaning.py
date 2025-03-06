@@ -8,11 +8,9 @@ import os
 import pandas as pd
 import pprint
 
-from sklearn.linear_model import LinearRegression, Lasso
-from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
-from sklearn.preprocessing import normalize
 
 
 pd.set_option('display.max_rows', None)
@@ -52,14 +50,22 @@ class TrafficVolumesCleaner(Cleaner):
         super().__init__()
 
 
+    @staticmethod
+    def retrieve_trp_data_from_volumes_file(trp_data, volumes_data: dict):
+
+        trp_id = volumes_data["trafficData"]["trafficRegistrationPoint"]["id"]
+        trp_data = [i for i in trp_data["trafficRegistrationPoints"] if i["id"] == trp_id]  # Finding the data for the specific TRP taken in consideration by iterating on all the TRPs available in the trp_file
+        trp_data = trp_data[0]
+
+        return trp_data
+
+
     #This function is only to give the user an overview of the data which we're currently cleaning, and some specific information about the TRP (Traffic Registration Point) which has collected it
     def data_overview(self, trp_data, volumes_data: dict, verbose: bool):
 
         #print(volumes_data)
 
-        trp_id = volumes_data["trafficData"]["trafficRegistrationPoint"]["id"]
-        trp_data = [i for i in trp_data["trafficRegistrationPoints"] if i["id"] == trp_id] #Finding the data for the specific TRP taken in consideration by iterating on all the TRPs available in the trp_file
-        trp_data = trp_data[0]
+        trp_data = self.retrieve_trp_data_from_volumes_file(trp_data, volumes_data)
 
         #print(trp_data)
 
@@ -549,7 +555,6 @@ class TrafficVolumesCleaner(Cleaner):
     def clean_traffic_volumes_data(by_hour_df: pd.DataFrame):
 
         volume_columns = [f"v{i:02}" for i in range(24)]
-        coverage_columns = [f"cvg{i:02}" for i in range(24)]
 
         #Short dataframe overview
         #print("Short overview on the dataframe: \n", by_hour_df.describe())
@@ -560,35 +565,20 @@ class TrafficVolumesCleaner(Cleaner):
 
         # ------------------ Execute multiple imputation with MICE (Multiple Imputation by Chain of Equations) ------------------
 
-
-
-
-
-
-
-
-
-
-        # ------------------ Data types transformation ------------------
-
-        dates = by_hour_df["date"] #Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
+        dates = by_hour_df["date"]  # Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
 
         cleaner = Cleaner()
         by_hour_df = cleaner.impute_missing_values(by_hour_df.drop("date", axis=1))
 
         by_hour_df["date"] = dates
 
+
+        # ------------------ Data types transformation ------------------
+
         for col in volume_columns:
             by_hour_df[col] = by_hour_df[col].astype("int")
 
-        #for col in volume_columns:
-            #by_hour_df[col] = by_hour_df[col].apply(back_convert_to_nan)
-
-
-
         print(by_hour_df, "\n")
-
-
 
         print("Data types: ")
         print(by_hour_df.dtypes)
@@ -596,7 +586,31 @@ class TrafficVolumesCleaner(Cleaner):
 
         print("\n\n")
 
-        return None #TODO RETURN THE CLEANED DATAFRAMES TO THEN BE EXPORTED BY ANOTHER FUNCTION
+        return by_hour_df
+
+
+    def export_traffic_volumes_data(self, by_hour: pd.DataFrame, volumes_file_path, trp_data):
+
+        file_name = volumes_file_path.split("/")[-1]
+
+        clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
+        trp_id = trp_data["id"]
+
+        file_path = clean_traffic_volumes_folder_path + file_name + "C"
+        print(file_path)
+
+        try:
+            by_hour.to_csv(file_path) #TODO INSERT THE TRP ID, DATES, ETC. PLUS A C WHICH STANDS FOR "CLEANED"
+        except:
+            print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
+
+
+
+        return None
+
+
+
+
 
 
 
@@ -613,7 +627,12 @@ class TrafficVolumesCleaner(Cleaner):
         self.data_overview(trp_data=trp_data, volumes_data=volumes, verbose=False) #TODO SET AS True IN THE FUTURE
         by_hour_df, _, _ = self.restructure_traffic_volumes_data(volumes) #TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, IN THAT CASE WE'LL REPLACE THE _, _ WITH by_lane_df, by_direction_df
 
-        self.clean_traffic_volumes_data(by_hour_df)
+        by_hour_df = self.clean_traffic_volumes_data(by_hour_df)
+
+        self.export_traffic_volumes_data(by_hour_df, volumes_file_path, self.retrieve_trp_data_from_volumes_file(trp_data, volumes))
+
+
+
 
         #TODO CLEAN THE DATA CONTAINED IN THE DATAFRAMES
 

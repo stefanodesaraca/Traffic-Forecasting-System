@@ -33,10 +33,16 @@ def get_traffic_registration_points_file_path():
     return traffic_registration_points_path
 
 
-def get_traffic_volumes_folder_path():
+def get_raw_traffic_volumes_folder_path():
     ops_name = get_active_ops_name()
-    traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
-    return traffic_volumes_folder_path
+    raw_traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
+    return raw_traffic_volumes_folder_path
+
+
+def get_clean_traffic_volumes_folder_path():
+    ops_name = get_active_ops_name()
+    clean_traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/"
+    return clean_traffic_volumes_folder_path
 
 
 def get_traffic_volume_file_list():
