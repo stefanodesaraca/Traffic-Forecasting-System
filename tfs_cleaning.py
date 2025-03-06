@@ -121,9 +121,7 @@ class TrafficVolumesCleaner(Cleaner):
         return None
 
 
-
-    @staticmethod
-    def restructure_traffic_volumes_data(volumes_payload):
+    def restructure_traffic_volumes_data(self, volumes_payload):
 
         by_hour_structured = [] #This will later become a list of dictionaries to create the by_hour dataframe we're going to export and use in the future
         by_lane_structured = [] #This will later become a list of dictionaries to create the by_lane dataframe we're going to export and use in the future
@@ -522,13 +520,13 @@ class TrafficVolumesCleaner(Cleaner):
             # ------------------ Dataframes creation and printing ------------------
 
 
-            print("\n\n----------------- By Hour Structured -----------------")
+            #print("\n\n----------------- By Hour Structured -----------------")
             #pprint.pp(by_hour_structured)
             #print(by_hour_structured)
 
             by_hour_df = pd.DataFrame(by_hour_structured)
             by_hour_df = by_hour_df.reindex(sorted(by_hour_df.columns), axis=1)
-            print(by_hour_df)
+            #print(by_hour_df)
 
 
             #print("\n\n----------------- By Lane Structured -----------------")
@@ -553,9 +551,10 @@ class TrafficVolumesCleaner(Cleaner):
             return by_hour_df, "by_lane_df", "by_direction_df" #TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, BUT FOR NOW IT'S BETTER TO SAVE PERFORMANCES AND MEMORY BY JUST RETURNING TWO STRINGS AND NOT EVEN CREATING THE DFs
 
 
+
     #This function is design only to clean by_hour data since that's the data we're going to use for the main purposes of this project
     @staticmethod
-    def clean_traffic_volumes_data(by_hour_df: pd.DataFrame):
+    def clean_traffic_volumes_data(by_hour_df: [pd.DataFrame | str]):
 
         volume_columns = [f"v{i:02}" for i in range(24)]
 
@@ -575,16 +574,15 @@ class TrafficVolumesCleaner(Cleaner):
 
         by_hour_df["date"] = dates
 
-
         # ------------------ Data types transformation ------------------
 
         for col in volume_columns:
             by_hour_df[col] = by_hour_df[col].astype("int")
 
-        print(by_hour_df, "\n")
+        #print(by_hour_df, "\n")
 
-        print("Data types: ")
-        print(by_hour_df.dtypes)
+        #print("Data types: ")
+        #print(by_hour_df.dtypes)
 
 
         print("\n\n")
@@ -592,7 +590,7 @@ class TrafficVolumesCleaner(Cleaner):
         return by_hour_df
 
 
-    def export_traffic_volumes_data(self, by_hour: pd.DataFrame, volumes_file_path, trp_data):
+    def export_traffic_volumes_data(self, by_hour: [pd.DataFrame | str], volumes_file_path, trp_data):
 
         file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv")
 
@@ -600,14 +598,12 @@ class TrafficVolumesCleaner(Cleaner):
         trp_id = trp_data["id"]
 
         file_path = clean_traffic_volumes_folder_path + file_name #C stands for "cleaned"
-        print(file_path)
+        #print(file_path)
 
         try:
             by_hour.to_csv(file_path)
         except:
             print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
-
-
 
         return None
 
@@ -620,9 +616,11 @@ class TrafficVolumesCleaner(Cleaner):
         self.data_overview(trp_data=trp_data, volumes_data=volumes, verbose=False)
         by_hour_df, _, _ = self.restructure_traffic_volumes_data(volumes) #TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, IN THAT CASE WE'LL REPLACE THE _, _ WITH by_lane_df, by_direction_df
 
-        by_hour_df = self.clean_traffic_volumes_data(by_hour_df)
+        #TODO TRPs WITH NO DATA WON'T BE INCLUDED IN THE ROAD NETWORK CREATION SINCE THEY WON'T RETURN A DATAFRAME (BECAUSE THEY DON'T HAVE DATA TO STORE IN A DF)
 
+        by_hour_df = self.clean_traffic_volumes_data(by_hour_df)
         self.export_traffic_volumes_data(by_hour_df, volumes_file_path, self.retrieve_trp_data_from_volumes_file(trp_data, volumes))
+
 
         return None
 
