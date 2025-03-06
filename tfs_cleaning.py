@@ -8,6 +8,13 @@ import os
 import pandas as pd
 import pprint
 
+from sklearn.linear_model import LinearRegression, Lasso
+from sklearn.model_selection import train_test_split
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
+from sklearn.preprocessing import normalize
+
+
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 
@@ -24,6 +31,21 @@ class Cleaner:
     @staticmethod
     def data_overview(trp_data, data: dict, verbose: bool):
         return data
+
+    @staticmethod
+    def impute_missing_values(data: pd.DataFrame):
+
+        lr = LinearRegression(n_jobs=-1)
+
+        mice_imputer = IterativeImputer(estimator=lr, random_state=100, verbose=0, imputation_order="arabic", initial_strategy="mean") #Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
+        data = pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns) #Fitting the imputer and processing all the data columns except the date one
+
+
+
+        print("DATASET: ", data)
+
+        return data
+
 
 
 class TrafficVolumesCleaner(Cleaner):
@@ -532,11 +554,45 @@ class TrafficVolumesCleaner(Cleaner):
         coverage_columns = [f"cvg{i:02}" for i in range(24)]
 
         #Short dataframe overview
-        print("Short overview on the dataframe: \n", by_hour_df.describe())
+        #print("Short overview on the dataframe: \n", by_hour_df.describe())
+
+        #Checking dataframe columns
+        #print("Dataframe columns: \n", by_hour_df.columns, "\n")
+
+
+        # ------------------ Execute multiple imputation with MICE (Multiple Imputation by Chain of Equations) ------------------
+
+
+
+
+
+
+
+
+
 
         # ------------------ Data types transformation ------------------
 
-        print("Data types: \n")
+        dates = by_hour_df["date"] #Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
+
+        cleaner = Cleaner()
+        by_hour_df = cleaner.impute_missing_values(by_hour_df.drop("date", axis=1))
+
+        by_hour_df["date"] = dates
+
+        for col in volume_columns:
+            by_hour_df[col] = by_hour_df[col].astype("int")
+
+        #for col in volume_columns:
+            #by_hour_df[col] = by_hour_df[col].apply(back_convert_to_nan)
+
+
+
+        print(by_hour_df)
+
+
+
+        print("Data types: ")
         print(by_hour_df.dtypes)
 
 
