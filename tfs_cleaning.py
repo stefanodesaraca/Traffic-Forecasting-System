@@ -34,6 +34,9 @@ class Cleaner:
     #Executing multiple imputation to get rid of NaNs using the MICE method (Multiple Imputation by Chained Equations)
     @staticmethod
     def impute_missing_values(data: pd.DataFrame):
+        '''
+        This function should only be supplied with numerical columns-only dataframes
+        '''
 
         lr = LinearRegression(n_jobs=-1)
 
@@ -609,32 +612,17 @@ class TrafficVolumesCleaner(Cleaner):
         return None
 
 
-
-
-
-
-
-
-
-    #TODO THIS WILL EXPORT ALL THE CLEANED DATA INTO SEPARATED FILES AND CLEAN EACH FILE INDIVIDUALLY THROUGH THE PIPELINE.
-    # IN THE DATA EXPLORATION FILE WE'LL CREATE A FOR LOOP AND USE THE cleaning_pipeline() FUNCTION TO CLEAN EACH FILE.
-    # THIS PROCESS WILL BE REPEATED BOTH FOR TRAFFIC VOLUMES AND AVERAGE SPEED, EACH ONE WITH THEIR OWN CUSTOM CLEANING PIPELINE
     def cleaning_pipeline(self, volumes_file_path: str):
 
         volumes = import_volumes_data(volumes_file_path)
         trp_data = import_TRPs_info()
 
-        self.data_overview(trp_data=trp_data, volumes_data=volumes, verbose=False) #TODO SET AS True IN THE FUTURE
+        self.data_overview(trp_data=trp_data, volumes_data=volumes, verbose=False)
         by_hour_df, _, _ = self.restructure_traffic_volumes_data(volumes) #TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, IN THAT CASE WE'LL REPLACE THE _, _ WITH by_lane_df, by_direction_df
 
         by_hour_df = self.clean_traffic_volumes_data(by_hour_df)
 
         self.export_traffic_volumes_data(by_hour_df, volumes_file_path, self.retrieve_trp_data_from_volumes_file(trp_data, volumes))
-
-
-
-
-        #TODO CLEAN THE DATA CONTAINED IN THE DATAFRAMES
 
         return None
 
@@ -647,10 +635,18 @@ class TrafficVolumesCleaner(Cleaner):
 
 
 
+class AverageSpeedCleaner(Cleaner):
 
+    def __init__(self):
+        super().__init__()
 
+    @staticmethod
+    def retrieve_trp_data_from_avg_speed_file(trp_data, avg_speed_data):
 
+        #TODO THE TRP ID IS THE FIRST COLUMN IN EVERY FILE
+        #TODO CHECK VERY CAREFULLY THE FIRST AND LAST DATES FOR EVERY FILE
 
+        return None
 
 
 
