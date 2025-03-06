@@ -591,16 +591,16 @@ class TrafficVolumesCleaner(Cleaner):
 
     def export_traffic_volumes_data(self, by_hour: pd.DataFrame, volumes_file_path, trp_data):
 
-        file_name = volumes_file_path.split("/")[-1]
+        file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv")
 
         clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
         trp_id = trp_data["id"]
 
-        file_path = clean_traffic_volumes_folder_path + file_name + "C"
+        file_path = clean_traffic_volumes_folder_path + file_name #C stands for "cleaned"
         print(file_path)
 
         try:
-            by_hour.to_csv(file_path) #TODO INSERT THE TRP ID, DATES, ETC. PLUS A C WHICH STANDS FOR "CLEANED"
+            by_hour.to_csv(file_path)
         except:
             print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
 
