@@ -76,6 +76,18 @@ def clean_data(functionality: str):
         for file in traffic_volumes_file_list:
             cleaner.execute_cleaning(traffic_volumes_folder + file)
 
+    elif functionality == "5.6.2":
+
+        average_speed_folder = get_raw_average_speed_folder_path()
+        average_speed_file_list = get_raw_avg_speed_file_list()
+
+        cleaner = AverageSpeedCleaner()
+
+        #TODO TESTING WITH ONLY THE FIRST TWO FILES WITH [:2]
+        for file in average_speed_file_list[:2]:
+            cleaner
+
+
     return None
 
 

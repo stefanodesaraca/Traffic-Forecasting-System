@@ -48,7 +48,6 @@ def get_clean_traffic_volumes_folder_path():
 def get_traffic_volume_file_list():
 
     ops_name = get_active_ops_name()
-
     traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
 
     # Identifying all the raw traffic volume files
@@ -58,10 +57,16 @@ def get_traffic_volume_file_list():
     return volume_files
 
 
-def get_avg_speed_file_list():
+def get_raw_average_speed_folder_path():
+    ops_name = get_active_ops_name()
+    average_speed_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/"
+
+    return average_speed_folder_path
+
+
+def get_raw_avg_speed_file_list():
 
     ops_name = get_active_ops_name()
-
     average_speed_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/"
 
     # Identifying all the raw average speed files

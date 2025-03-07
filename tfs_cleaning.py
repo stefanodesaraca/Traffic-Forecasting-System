@@ -651,12 +651,11 @@ class AverageSpeedCleaner(Cleaner):
         super().__init__()
 
 
-    @staticmethod
-    def retrieve_trp_data_from_avg_speed_file(trp_data, avg_speed_data):
+    def retrieve_trp_data_from_avg_speed_file(self, trp_data, avg_speed_file):
 
+        trp_data = self.retrieve_trp_data_from_avg_speed_file()
 
-
-
+        #TODO RETRIEVE DATA FROM THE FILENAME OR COLUMN VALUE (PANDAS)?
 
         #TODO THE TRP ID IS THE FIRST COLUMN IN EVERY FILE
         #TODO CHECK VERY CAREFULLY THE FIRST AND LAST DATES FOR EVERY FILE
@@ -665,8 +664,10 @@ class AverageSpeedCleaner(Cleaner):
 
 
 
+    def execute_cleaning(self):
 
 
+        return None
 
 
 
