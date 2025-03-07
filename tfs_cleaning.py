@@ -1,3 +1,5 @@
+from pandas.conftest import skipna
+
 from tfs_ops_settings import *
 from tfs_utilities import *
 import numpy as np
@@ -40,7 +42,7 @@ class Cleaner:
 
         lr = LinearRegression(n_jobs=-1)
 
-        mice_imputer = IterativeImputer(estimator=lr, random_state=100, verbose=0, imputation_order="arabic", initial_strategy="mean") #Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
+        mice_imputer = IterativeImputer(estimator=lr, random_state=100, verbose=0, imputation_order="arabic", initial_strategy="median") #Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
         data = pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns) #Fitting the imputer and processing all the data columns except the date one
 
         return data
@@ -51,6 +53,12 @@ class TrafficVolumesCleaner(Cleaner):
 
     def __init__(self):
         super().__init__()
+
+
+    @staticmethod
+    def retrieve_volume_columns():
+        volume_columns = [f"v{i:02}" for i in range(24)]
+        return volume_columns
 
 
     @staticmethod
@@ -172,7 +180,7 @@ class TrafficVolumesCleaner(Cleaner):
 
             registration_dates = set(registration_dates) #Removing duplicates and keeping the time as well. This will be needed to extract the hour too
             unique_registration_dates = set([r_date[:10] for r_date in registration_dates]) #Removing duplicates, this one will only keep the first 10 characters of the date, which comprehend just the date without the time. This is needed to know which are the unique days when data has been recorded
-            print("Number of unique registration days: ", len(registration_dates))
+            print("Number of unique registration dates: ", len(unique_registration_dates))
 
 
             # ------------------ Extracting the data from JSON file and converting it into tabular format ------------------
@@ -300,7 +308,7 @@ class TrafficVolumesCleaner(Cleaner):
 
 
             hours = [f"{i:02}" for i in range(24)] #Generating 24 elements starting from 00 to 23
-            by_x_structured_volume_keys = [f"v{i:02}" for i in range(24)] #These can be used both for by_hour_structured, by_lane_structured and for by_direction_structured
+            by_x_structured_volume_keys = self.retrieve_volume_columns() #These can be used both for by_hour_structured, by_lane_structured and for by_direction_structured
 
             #print(by_x_structured_volume_keys)
 
@@ -545,10 +553,9 @@ class TrafficVolumesCleaner(Cleaner):
 
 
     #This function is design only to clean by_hour data since that's the data we're going to use for the main purposes of this project
-    @staticmethod
-    def clean_traffic_volumes_data(by_hour_df: pd.DataFrame):
+    def clean_traffic_volumes_data(self, by_hour_df: pd.DataFrame):
 
-        volume_columns = [f"v{i:02}" for i in range(24)]
+        volume_columns = self.retrieve_volume_columns()
 
         #Short dataframe overview
         #print("Short overview on the dataframe: \n", by_hour_df.describe())
@@ -556,26 +563,31 @@ class TrafficVolumesCleaner(Cleaner):
         #Checking dataframe columns
         #print("Dataframe columns: \n", by_hour_df.columns, "\n")
 
+        #If all values aren't 0 then execute multiple imputation to fill NaNs:
+        if all(by_hour_df.eq(0).all(axis=0, skipna=True)) is False:
 
-        # ------------------ Execute multiple imputation with MICE (Multiple Imputation by Chain of Equations) ------------------
+            # ------------------ Execute multiple imputation with MICE (Multiple Imputation by Chain of Equations) ------------------
 
-        dates = by_hour_df["date"]  # Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
+            dates = by_hour_df["date"]  # Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
 
-        cleaner = Cleaner()
-        by_hour_df = cleaner.impute_missing_values(by_hour_df.drop("date", axis=1))
+            cleaner = Cleaner()
+            by_hour_df = cleaner.impute_missing_values(by_hour_df.drop("date", axis=1))
 
-        by_hour_df["date"] = dates
+            by_hour_df["date"] = dates
+
+        elif all(by_hour_df.eq(0).all(axis=0, skipna=True)) is True:
+            pass
+
 
         # ------------------ Data types transformation ------------------
 
         for col in volume_columns:
             by_hour_df[col] = by_hour_df[col].astype("int")
 
-        #print(by_hour_df, "\n")
+        # print(by_hour_df, "\n")
 
-        #print("Data types: ")
-        #print(by_hour_df.dtypes)
-
+        # print("Data types: ")
+        # print(by_hour_df.dtypes)
 
         print("\n\n")
 
@@ -609,13 +621,14 @@ class TrafficVolumesCleaner(Cleaner):
         self.data_overview(trp_data=trp_data, volumes_data=volumes, verbose=False)
         by_hour_df = self.restructure_traffic_volumes_data(volumes) #TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, IN THAT CASE WE'LL REPLACE THE _, _ WITH by_lane_df, by_direction_df
 
-        #TODO TRPs WITH NO DATA WON'T BE INCLUDED IN THE ROAD NETWORK CREATION SINCE THEY WON'T RETURN A DATAFRAME (BECAUSE THEY DON'T HAVE DATA TO STORE IN A DF)
+        #TODO TO-NOTE TRPs WITH NO DATA WON'T BE INCLUDED IN THE ROAD NETWORK CREATION SINCE THEY WON'T RETURN A DATAFRAME (BECAUSE THEY DON'T HAVE DATA TO STORE IN A DF)
 
         if by_hour_df is not None:
             by_hour_df = self.clean_traffic_volumes_data(by_hour_df)
             self.export_traffic_volumes_data(by_hour_df, volumes_file_path, self.retrieve_trp_data_from_volumes_file(trp_data, volumes))
         elif by_hour_df is None:
             pass #A warning for empty nodes is given during the restructuring section
+
 
         print("--------------------------------------------------------\n\n")
 
