@@ -58,6 +58,19 @@ def get_traffic_volume_file_list():
     return volume_files
 
 
+def get_avg_speed_file_list():
+
+    ops_name = get_active_ops_name()
+
+    average_speed_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/"
+
+    # Identifying all the raw average speed files
+    average_speed_files = os.listdir(average_speed_folder_path)
+    print("Average speed files: ", average_speed_files, "\n\n")
+
+    return average_speed_files
+
+
 def check_datetime(dt: str):
 
     try:

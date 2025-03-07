@@ -1,5 +1,3 @@
-from pandas.conftest import skipna
-
 from tfs_ops_settings import *
 from tfs_utilities import *
 import numpy as np
@@ -652,8 +650,13 @@ class AverageSpeedCleaner(Cleaner):
     def __init__(self):
         super().__init__()
 
+
     @staticmethod
     def retrieve_trp_data_from_avg_speed_file(trp_data, avg_speed_data):
+
+
+
+
 
         #TODO THE TRP ID IS THE FIRST COLUMN IN EVERY FILE
         #TODO CHECK VERY CAREFULLY THE FIRST AND LAST DATES FOR EVERY FILE
