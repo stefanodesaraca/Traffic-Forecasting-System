@@ -104,19 +104,12 @@ class TrafficVolumesCleaner(Cleaner):
 
             #print(volumes_data)
 
-            print("--------------------------------------------------------\n\n")
-
-
-
         elif verbose is False:
 
             print("******** Traffic Registration Point Information ********")
 
             print("ID: ", trp_data["id"])
             print("Name: ", trp_data["name"])
-
-            print("--------------------------------------------------------\n\n")
-
 
         return None
 
@@ -546,15 +539,14 @@ class TrafficVolumesCleaner(Cleaner):
             #by_direction_df = by_direction_df.reindex(sorted(by_direction_df.columns), axis=1)
             #print(by_direction_df)
 
-            print("\n\n")
+            #print("\n\n")
 
-            return by_hour_df, "by_lane_df", "by_direction_df" #TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, BUT FOR NOW IT'S BETTER TO SAVE PERFORMANCES AND MEMORY BY JUST RETURNING TWO STRINGS AND NOT EVEN CREATING THE DFs
-
+            return by_hour_df #TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, BUT FOR NOW IT'S BETTER TO SAVE PERFORMANCES AND MEMORY BY JUST RETURNING TWO STRINGS AND NOT EVEN CREATING THE DFs
 
 
     #This function is design only to clean by_hour data since that's the data we're going to use for the main purposes of this project
     @staticmethod
-    def clean_traffic_volumes_data(by_hour_df: [pd.DataFrame | str]):
+    def clean_traffic_volumes_data(by_hour_df: pd.DataFrame):
 
         volume_columns = [f"v{i:02}" for i in range(24)]
 
@@ -590,7 +582,7 @@ class TrafficVolumesCleaner(Cleaner):
         return by_hour_df
 
 
-    def export_traffic_volumes_data(self, by_hour: [pd.DataFrame | str], volumes_file_path, trp_data):
+    def export_traffic_volumes_data(self, by_hour: pd.DataFrame, volumes_file_path, trp_data):
 
         file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv")
 
@@ -602,6 +594,7 @@ class TrafficVolumesCleaner(Cleaner):
 
         try:
             by_hour.to_csv(file_path)
+            print(f"TRP: {trp_id} data exported correctly\n\n")
         except:
             print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
 
@@ -614,13 +607,17 @@ class TrafficVolumesCleaner(Cleaner):
         trp_data = import_TRPs_info()
 
         self.data_overview(trp_data=trp_data, volumes_data=volumes, verbose=False)
-        by_hour_df, _, _ = self.restructure_traffic_volumes_data(volumes) #TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, IN THAT CASE WE'LL REPLACE THE _, _ WITH by_lane_df, by_direction_df
+        by_hour_df = self.restructure_traffic_volumes_data(volumes) #TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, IN THAT CASE WE'LL REPLACE THE _, _ WITH by_lane_df, by_direction_df
 
         #TODO TRPs WITH NO DATA WON'T BE INCLUDED IN THE ROAD NETWORK CREATION SINCE THEY WON'T RETURN A DATAFRAME (BECAUSE THEY DON'T HAVE DATA TO STORE IN A DF)
 
-        by_hour_df = self.clean_traffic_volumes_data(by_hour_df)
-        self.export_traffic_volumes_data(by_hour_df, volumes_file_path, self.retrieve_trp_data_from_volumes_file(trp_data, volumes))
+        if by_hour_df is not None:
+            by_hour_df = self.clean_traffic_volumes_data(by_hour_df)
+            self.export_traffic_volumes_data(by_hour_df, volumes_file_path, self.retrieve_trp_data_from_volumes_file(trp_data, volumes))
+        elif by_hour_df is None:
+            pass #A warning for empty nodes is given during the restructuring section
 
+        print("--------------------------------------------------------\n\n")
 
         return None
 
