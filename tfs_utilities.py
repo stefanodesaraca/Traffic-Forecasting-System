@@ -1,6 +1,7 @@
 from datetime import datetime
 import os
 import json
+import pandas as pd
 from tfs_ops_settings import *
 
 cwd = os.getcwd()
@@ -24,6 +25,11 @@ def import_volumes_data(file):
     with open(file, "r") as f:
         data = json.load(f)
 
+    return data
+
+
+def import_avg_speed_data(file):
+    data = pd.read_csv(file, sep=";", engine="c")
     return data
 
 

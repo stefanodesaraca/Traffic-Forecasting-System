@@ -651,11 +651,29 @@ class AverageSpeedCleaner(Cleaner):
         super().__init__()
 
 
-    def retrieve_trp_data_from_avg_speed_file(self, trp_data, avg_speed_file):
+    @staticmethod
+    def retrieve_trp_id_from_avg_speed_file(filename: str):
 
-        trp_data = self.retrieve_trp_data_from_avg_speed_file()
+        trp_id = filename.split("_")[0]
 
-        #TODO RETRIEVE DATA FROM THE FILENAME OR COLUMN VALUE (PANDAS)?
+        return trp_id
+
+
+    def retrieve_trp_data_from_avg_speed_file(self, avg_speed_filename):
+
+        avg_speed_folder_path = get_raw_average_speed_folder_path() #Getting the raw average speed folder path
+        trp_id = self.retrieve_trp_id_from_avg_speed_file(avg_speed_folder_path + avg_speed_filename) #Combining the raw average speed folder path with the filename of the file we want to check out
+        trp_info = import_TRPs_info() #All TRPs data retrieval
+
+        trp_data = [i for i in trp_info["trafficRegistrationPoints"] if i["id"] == trp_id]  # Finding the data for the specific TRP taken in consideration by iterating on all the TRPs available in the trp_file
+        trp_data = trp_data[0]
+
+        print("TRP ID: ", trp_data["id"])
+
+
+
+
+
 
         #TODO THE TRP ID IS THE FIRST COLUMN IN EVERY FILE
         #TODO CHECK VERY CAREFULLY THE FIRST AND LAST DATES FOR EVERY FILE
