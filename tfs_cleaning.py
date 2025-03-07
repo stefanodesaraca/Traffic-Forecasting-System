@@ -564,19 +564,20 @@ class TrafficVolumesCleaner(Cleaner):
         #print("Dataframe columns: \n", by_hour_df.columns, "\n")
 
         #If all values aren't 0 then execute multiple imputation to fill NaNs:
-        if all(by_hour_df.eq(0).all(axis=0, skipna=True)) is False:
 
-            # ------------------ Execute multiple imputation with MICE (Multiple Imputation by Chain of Equations) ------------------
+        # ------------------ Execute multiple imputation with MICE (Multiple Imputation by Chain of Equations) ------------------
 
-            dates = by_hour_df["date"]  # Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
+        dates = by_hour_df["date"]  # Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
 
+        try:
             cleaner = Cleaner()
             by_hour_df = cleaner.impute_missing_values(by_hour_df.drop("date", axis=1))
 
             by_hour_df["date"] = dates
 
-        elif all(by_hour_df.eq(0).all(axis=0, skipna=True)) is True:
-            pass
+        except ValueError:
+            print("\03391mValue error raised. Continuing with the cleaning\0330m")
+            return None
 
 
         # ------------------ Data types transformation ------------------
@@ -607,7 +608,7 @@ class TrafficVolumesCleaner(Cleaner):
         try:
             by_hour.to_csv(file_path)
             print(f"TRP: {trp_id} data exported correctly\n\n")
-        except:
+        except AttributeError:
             print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
 
         return None
@@ -625,7 +626,10 @@ class TrafficVolumesCleaner(Cleaner):
 
         if by_hour_df is not None:
             by_hour_df = self.clean_traffic_volumes_data(by_hour_df)
-            self.export_traffic_volumes_data(by_hour_df, volumes_file_path, self.retrieve_trp_data_from_volumes_file(trp_data, volumes))
+
+            if by_hour_df is not None:
+                self.export_traffic_volumes_data(by_hour_df, volumes_file_path, self.retrieve_trp_data_from_volumes_file(trp_data, volumes))
+
         elif by_hour_df is None:
             pass #A warning for empty nodes is given during the restructuring section
 
