@@ -699,7 +699,7 @@ class AverageSpeedCleaner(Cleaner):
 
     def clean_avg_speed_data(self, avg_speed_data):
 
-
+        print(avg_speed_data.head(15))
 
 
 
