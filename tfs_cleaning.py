@@ -697,16 +697,34 @@ class AverageSpeedCleaner(Cleaner):
         return None
 
 
-    def execute_cleaning(self, avg_speed_file_path, avg_speed_file_name): #TODO IDEALLY THIS SHOULD BE A FILE NAME NOT FILE PATH, OTHERWISE THE retrieve_trp_id_from_avg_speed_file FUNCTION WON'T WORK
+    def clean_avg_speed_data(self, avg_speed_data):
+
+
+
+
+
+
+
+
+
+
+        return None
+
+
+
+    def execute_cleaning(self, file_path, file_name):
         '''
         The avg_speed_file_path parameter is the path to the average speed file the user wants to analyze
         The avg_speed_file_name parameter is just the name of the file, needed for secondary purposes or functionalities
 
         '''
 
-        trp_data = self.retrieve_trp_data_from_avg_speed_file(avg_speed_file_name)
+        trp_data = self.retrieve_trp_data_from_avg_speed_file(avg_speed_filename=file_name)
+        average_speed_data = import_avg_speed_data(file_path=file_path)
 
         self.data_overview(trp_data, verbose=True)
+
+        self.clean_avg_speed_data(average_speed_data)
 
         #TODO CHECK VERY CAREFULLY THE FIRST AND LAST DATES FOR EVERY FILE
 

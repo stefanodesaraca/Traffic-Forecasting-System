@@ -113,11 +113,11 @@ def get_raw_avg_speed_file_list():
     return average_speed_files
 
 
-def import_avg_speed_data(file):
+def import_avg_speed_data(file_path):
     '''
     This function returns the average speed data for a specific TRP
     '''
-    data = pd.read_csv(file, sep=";", engine="c")
+    data = pd.read_csv(file_path, sep=";", engine="c")
     return data
 
 
