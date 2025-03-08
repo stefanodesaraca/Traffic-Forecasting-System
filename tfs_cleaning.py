@@ -715,7 +715,6 @@ class AverageSpeedCleaner(Cleaner):
 
         print(avg_speed_data.describe())
 
-        print(avg_speed_data.head(15))
 
         avg_speed_data = avg_speed_data.drop(columns=["traffic_volume", "lane"], axis=1)
 
@@ -731,9 +730,12 @@ class AverageSpeedCleaner(Cleaner):
         avg_speed_data["percentile_85"] = avg_speed_data["percentile_85"].astype("float")  # Converting the percentile_85 column to float data type
         avg_speed_data["percentile_85"] = avg_speed_data["percentile_85"]
 
+        avg_speed_data["hour_start"] = avg_speed_data["hour_start"].apply(lambda x: x[:2]) #Keeping only the first two characters (which represent only the hour data)
+
         print(avg_speed_data.isna().sum())
         print(avg_speed_data.dtypes)
 
+        print(avg_speed_data.head(15))
 
 
 
