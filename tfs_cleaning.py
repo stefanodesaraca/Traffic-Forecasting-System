@@ -54,12 +54,6 @@ class TrafficVolumesCleaner(Cleaner):
 
 
     @staticmethod
-    def retrieve_volume_columns():
-        volume_columns = [f"v{i:02}" for i in range(24)]
-        return volume_columns
-
-
-    @staticmethod
     def retrieve_trp_data_from_volumes_file(trp_data, volumes_data: dict):
 
         trp_id = volumes_data["trafficData"]["trafficRegistrationPoint"]["id"]
@@ -306,7 +300,7 @@ class TrafficVolumesCleaner(Cleaner):
 
 
             hours = [f"{i:02}" for i in range(24)] #Generating 24 elements starting from 00 to 23
-            by_x_structured_volume_keys = self.retrieve_volume_columns() #These can be used both for by_hour_structured, by_lane_structured and for by_direction_structured
+            by_x_structured_volume_keys = retrieve_volume_columns() #These can be used both for by_hour_structured, by_lane_structured and for by_direction_structured
 
             #print(by_x_structured_volume_keys)
 
@@ -553,7 +547,7 @@ class TrafficVolumesCleaner(Cleaner):
     #This function is design only to clean by_hour data since that's the data we're going to use for the main purposes of this project
     def clean_traffic_volumes_data(self, by_hour_df: pd.DataFrame):
 
-        volume_columns = self.retrieve_volume_columns()
+        volume_columns = retrieve_volume_columns()
 
         #Short dataframe overview
         #print("Short overview on the dataframe: \n", by_hour_df.describe())

@@ -82,6 +82,11 @@ def import_volumes_data(file):
     return data
 
 
+def retrieve_volume_columns():
+    volume_columns = [f"v{i:02}" for i in range(24)]
+    return volume_columns
+
+
 # ==================== Average Speed Utilities ====================
 
 def get_raw_average_speed_folder_path():
