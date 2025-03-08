@@ -737,6 +737,7 @@ class AverageSpeedCleaner(Cleaner):
 
         print(avg_speed_data.head(15))
 
+        #TODO FOLLOW THE STEPS DESCRIBED IN THE NOTEBOOK
 
 
 
