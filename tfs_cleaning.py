@@ -8,7 +8,7 @@ import os
 import pandas as pd
 import pprint
 
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import Lasso
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 
@@ -38,7 +38,7 @@ class Cleaner:
         This function should only be supplied with numerical columns-only dataframes
         '''
 
-        lr = LinearRegression(n_jobs=-1)
+        lr = Lasso(random_state=100) #Using Lasso regression (L1 Penalization) to get better results in case of non-informative columns present in the data (coverage data, because their values all the same)
 
         mice_imputer = IterativeImputer(estimator=lr, random_state=100, verbose=0, imputation_order="arabic", initial_strategy="median") #Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
         data = pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns) #Fitting the imputer and processing all the data columns except the date one
@@ -667,30 +667,40 @@ class AverageSpeedCleaner(Cleaner):
         # Since the prints below are all the same (except for one) we could technically create a workaround to avoid having to repeat these lines, but it would complicate a lot something way simpler (just prints).
         # Thus, for readability purposes we're gonna repeat the same prints (except for one) as in the TrafficVolumeCleaner class
 
-        print("******** Traffic Registration Point Information ********")
+        if verbose is True:
 
-        print("ID: ", trp_data["id"])
-        print("Name: ", trp_data["name"])
-        print("Road category: ", trp_data["location"]["roadReference"]["roadCategory"]["id"])
-        print("Coordinates: ")
-        print(" - Lat: ", trp_data["location"]["coordinates"]["latLon"]["lat"])
-        print(" - Lon: ", trp_data["location"]["coordinates"]["latLon"]["lon"])
-        print("County name: ", trp_data["location"]["county"]["name"])
-        print("County number: ", trp_data["location"]["county"]["number"])
-        print("Geographic number: ", trp_data["location"]["county"]["geographicNumber"])
-        print("Country part: ", trp_data["location"]["county"]["countryPart"]["name"])
-        print("Municipality name: ", trp_data["location"]["municipality"]["name"])
+            print("******** Traffic Registration Point Information ********")
 
-        print("Traffic registration type: ", trp_data["trafficRegistrationType"])
-        print("Data time span: ")
-        print(" - First data: ", trp_data["dataTimeSpan"]["firstData"])
-        print(" - First data with quality metrics: ", trp_data["dataTimeSpan"]["firstDataWithQualityMetrics"])
-        print(" - Latest data: ")
-        print("   > Volume by day: ", trp_data["dataTimeSpan"]["latestData"]["volumeByDay"])
-        print("   > Volume by hour: ", trp_data["dataTimeSpan"]["latestData"]["volumeByHour"])
-        print("   > Volume average daily by year: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByYear"])
-        print("   > Volume average daily by season: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"])
-        print("   > Volume average daily by month: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"])
+            print("ID: ", trp_data["id"])
+            print("Name: ", trp_data["name"])
+            print("Road category: ", trp_data["location"]["roadReference"]["roadCategory"]["id"])
+            print("Coordinates: ")
+            print(" - Lat: ", trp_data["location"]["coordinates"]["latLon"]["lat"])
+            print(" - Lon: ", trp_data["location"]["coordinates"]["latLon"]["lon"])
+            print("County name: ", trp_data["location"]["county"]["name"])
+            print("County number: ", trp_data["location"]["county"]["number"])
+            print("Geographic number: ", trp_data["location"]["county"]["geographicNumber"])
+            print("Country part: ", trp_data["location"]["county"]["countryPart"]["name"])
+            print("Municipality name: ", trp_data["location"]["municipality"]["name"])
+
+            print("Traffic registration type: ", trp_data["trafficRegistrationType"])
+            print("Data time span: ")
+            print(" - First data: ", trp_data["dataTimeSpan"]["firstData"])
+            print(" - First data with quality metrics: ", trp_data["dataTimeSpan"]["firstDataWithQualityMetrics"])
+            print(" - Latest data: ")
+            print("   > Volume by day: ", trp_data["dataTimeSpan"]["latestData"]["volumeByDay"])
+            print("   > Volume by hour: ", trp_data["dataTimeSpan"]["latestData"]["volumeByHour"])
+            print("   > Volume average daily by year: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByYear"])
+            print("   > Volume average daily by season: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"])
+            print("   > Volume average daily by month: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"])
+
+
+        elif verbose is False:
+
+            print("******** Traffic Registration Point Information ********")
+
+            print("ID: ", trp_data["id"])
+            print("Name: ", trp_data["name"])
 
         print("\n\n")
 
@@ -699,7 +709,73 @@ class AverageSpeedCleaner(Cleaner):
 
     def clean_avg_speed_data(self, avg_speed_data):
 
+        print(list(avg_speed_data.columns))
+        print(avg_speed_data.dtypes)
+        print(avg_speed_data.isna().sum())
+
+        print(avg_speed_data.describe())
+
         print(avg_speed_data.head(15))
+
+        avg_speed_data = avg_speed_data.drop(columns=["traffic_volume", "lane"], axis=1)
+
+        avg_speed_data["coverage"] = avg_speed_data["coverage"].apply(lambda x: x.replace(",", ".")) #Replacing commas with dots
+        avg_speed_data["coverage"] = avg_speed_data["coverage"].astype("float") #Converting the coverage column to float data type
+        avg_speed_data["coverage"] = avg_speed_data["coverage"]*100 #Transforming the coverage values from 0.0 to 1.0 to 0 to 100 (percent)
+
+        avg_speed_data["mean_speed"] = avg_speed_data["mean_speed"].replace(",", ".", regex=True) #The regex=True parameter is necessary, otherwise the function, for some reason, won't be able to perform the replacement
+        avg_speed_data["mean_speed"] = avg_speed_data["mean_speed"].astype("float") #Converting the mean_speed column to float data type
+        avg_speed_data["mean_speed"] = avg_speed_data["mean_speed"]
+
+        avg_speed_data["percentile_85"] = avg_speed_data["percentile_85"].replace(",", ".", regex=True) #The regex=True parameter is necessary, otherwise the function, for some reason, won't be able to perform the replacement
+        avg_speed_data["percentile_85"] = avg_speed_data["percentile_85"].astype("float")  # Converting the percentile_85 column to float data type
+        avg_speed_data["percentile_85"] = avg_speed_data["percentile_85"]
+
+        print(avg_speed_data.isna().sum())
+        print(avg_speed_data.dtypes)
+
+
+
+
+
+        # ------------------ Initial data types transformation ------------------
+
+        avg_speed_data["trp_id"] = avg_speed_data["trp_id"].astype("str")
+        avg_speed_data["date"] = pd.to_datetime(avg_speed_data["date"])
+        avg_speed_data["hour_start"] = avg_speed_data["hour_start"].astype("str") #This is done to then extract hour values only from the string using string splitting
+
+
+        # ------------------ Multiple imputation to fill NaN values ------------------
+
+        non_mice_cols = ["trp_id", "traffic_volume", "lane", "date", "hour_start"]
+        df_non_mice_cols = avg_speed_data[non_mice_cols] #To merge them later into the NaN filled dataframe
+
+        avg_speed_data = avg_speed_data.drop(columns=non_mice_cols, axis=1) #Columns to not include for Multiple Imputation By Chained Equations (MICE)
+
+        cleaner = Cleaner()
+        avg_speed_data = cleaner.impute_missing_values(avg_speed_data)
+
+        print("Multiple imputation on average speed data executed successfully")
+        print(avg_speed_data.isna().sum())
+
+
+
+
+        #TODO TO CLEAN AFTER MULTIPLE IMPUTATION
+        #TODO ADD AT THE END OF TESTING THE TRY EXCEPT CONSTRUCT TO MANAGE POTENTIAL NEW OR KNOWN ERRORS
+
+
+
+
+
+        print(avg_speed_data.head(15))
+
+
+        #TODO IMPUTE NUMERICAL ONLY COLUMNS
+
+
+
+
 
 
 
