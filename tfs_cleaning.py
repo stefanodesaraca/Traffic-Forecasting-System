@@ -660,8 +660,8 @@ class AverageSpeedCleaner(Cleaner):
         trp_data = [i for i in trp_data["trafficRegistrationPoints"] if i["id"] == trp_id]  #Finding the data for the specific TRP taken in consideration by iterating on all the TRPs available in the trp_file
         trp_data = trp_data[0]
 
-
-        #TODO BRING THESE PRINTS AND FUNCTIONALITIES FROM BOTH THIS FUNCTION AND THE ONES IN THE TrafficVolumesCleaner TO THE data_overview IN THE CLEANER CLASS
+        #Since the prints below are all the same (except for one) we could technically create a workaround to avoid having to repeat these lines, but it would complicate a lot something way simpler (just prints).
+        #Thus, for readability purposes we're gonna repeat the same prints (except for one) as in the TrafficVolumeCleaner class
 
         print("******** Traffic Registration Point Information ********")
 
