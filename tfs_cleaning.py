@@ -661,11 +661,32 @@ class AverageSpeedCleaner(Cleaner):
         trp_data = trp_data[0]
 
 
-        print(trp_id)
-        print(trp_data)
+        #TODO BRING THESE PRINTS AND FUNCTIONALITIES FROM BOTH THIS FUNCTION AND THE ONES IN THE TrafficVolumesCleaner TO THE data_overview IN THE CLEANER CLASS
 
-        print("TRP ID: ", trp_data["id"])
+        print("******** Traffic Registration Point Information ********")
 
+        print("ID: ", trp_data["id"])
+        print("Name: ", trp_data["name"])
+        print("Road category: ", trp_data["location"]["roadReference"]["roadCategory"]["id"])
+        print("Coordinates: ")
+        print(" - Lat: ", trp_data["location"]["coordinates"]["latLon"]["lat"])
+        print(" - Lon: ", trp_data["location"]["coordinates"]["latLon"]["lon"])
+        print("County name: ", trp_data["location"]["county"]["name"])
+        print("County number: ", trp_data["location"]["county"]["number"])
+        print("Geographic number: ", trp_data["location"]["county"]["geographicNumber"])
+        print("Country part: ", trp_data["location"]["county"]["countryPart"]["name"])
+        print("Municipality name: ", trp_data["location"]["municipality"]["name"])
+
+        print("Traffic registration type: ", trp_data["trafficRegistrationType"])
+        print("Data time span: ")
+        print(" - First data: ", trp_data["dataTimeSpan"]["firstData"])
+        print(" - First data with quality metrics: ", trp_data["dataTimeSpan"]["firstDataWithQualityMetrics"])
+        print(" - Latest data: ")
+        print("   > Volume by day: ", trp_data["dataTimeSpan"]["latestData"]["volumeByDay"])
+        print("   > Volume by hour: ", trp_data["dataTimeSpan"]["latestData"]["volumeByHour"])
+        print("   > Volume average daily by year: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByYear"])
+        print("   > Volume average daily by season: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"])
+        print("   > Volume average daily by month: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"])
 
 
 
