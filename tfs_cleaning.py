@@ -615,7 +615,7 @@ class TrafficVolumesCleaner(Cleaner):
     def cleaning_pipeline(self, volumes_file_path: str):
 
         volumes = import_volumes_data(volumes_file_path)
-        trp_data = import_TRPs_info()
+        trp_data = import_TRPs_data()
 
         self.data_overview(trp_data=trp_data, volumes_data=volumes, verbose=False)
         by_hour_df = self.restructure_traffic_volumes_data(volumes) #TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, IN THAT CASE WE'LL REPLACE THE _, _ WITH by_lane_df, by_direction_df
@@ -663,9 +663,9 @@ class AverageSpeedCleaner(Cleaner):
 
         avg_speed_folder_path = get_raw_average_speed_folder_path() #Getting the raw average speed folder path
         trp_id = self.retrieve_trp_id_from_avg_speed_file(avg_speed_folder_path + avg_speed_filename) #Combining the raw average speed folder path with the filename of the file we want to check out
-        trp_info = import_TRPs_info() #All TRPs data retrieval
+        trp_info = import_TRPs_data()  #All TRPs data retrieval
 
-        trp_data = [i for i in trp_info["trafficRegistrationPoints"] if i["id"] == trp_id]  # Finding the data for the specific TRP taken in consideration by iterating on all the TRPs available in the trp_file
+        trp_data = [i for i in trp_info["trafficRegistrationPoints"] if i["id"] == trp_id]  #Finding the data for the specific TRP taken in consideration by iterating on all the TRPs available in the trp_file
         trp_data = trp_data[0]
 
         print("TRP ID: ", trp_data["id"])
@@ -681,8 +681,15 @@ class AverageSpeedCleaner(Cleaner):
         return None
 
 
+    def data_overview(self):
+
+
+        return None
+
 
     def execute_cleaning(self):
+
+
 
 
         return None

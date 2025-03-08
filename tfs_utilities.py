@@ -8,12 +8,19 @@ cwd = os.getcwd()
 ops_folder = "ops"
 
 
+# ==================== Ops Utilities ====================
+
 def get_active_ops_name():
     ops_name = read_active_ops_file()
     return ops_name
 
 
-def import_TRPs_info():
+# ==================== TRP Utilities ====================
+
+def import_TRPs_data():
+    '''
+    This function returns json data about all TRPs (downloaded previously)
+    '''
     traffic_registration_points_path = get_traffic_registration_points_file_path()
     with open(traffic_registration_points_path, "r") as TRPs:
         trp_info = json.load(TRPs)
@@ -21,37 +28,39 @@ def import_TRPs_info():
         return trp_info
 
 
-def import_volumes_data(file):
-    with open(file, "r") as f:
-        data = json.load(f)
-
-    return data
-
-
-def import_avg_speed_data(file):
-    data = pd.read_csv(file, sep=";", engine="c")
-    return data
-
-
 def get_traffic_registration_points_file_path():
+    '''
+    This function returns the path to the traffic_measurement_points.json file which contains all TRPs' data (downloaded previously)
+    '''
     ops_name = get_active_ops_name()
     traffic_registration_points_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_measurement_points.json"
     return traffic_registration_points_path
 
 
+# ==================== Volumes Utilities ====================
+
 def get_raw_traffic_volumes_folder_path():
+    '''
+    This function returns the path to the raw_traffic_volumes folder where all the raw traffic volume files are located
+    '''
     ops_name = get_active_ops_name()
     raw_traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
     return raw_traffic_volumes_folder_path
 
 
 def get_clean_traffic_volumes_folder_path():
+    '''
+    This function returns the path for the clean_traffic_volumes folder where all the cleaned traffic volumes data files are located
+    '''
     ops_name = get_active_ops_name()
     clean_traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/"
     return clean_traffic_volumes_folder_path
 
 
 def get_traffic_volume_file_list():
+    '''
+    This function returns the name of every file contained in the raw_traffic_volumes folder, so every specific TRP's volumes
+    '''
 
     ops_name = get_active_ops_name()
     traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
@@ -63,7 +72,22 @@ def get_traffic_volume_file_list():
     return volume_files
 
 
+def import_volumes_data(file):
+    '''
+    This function returns json traffic volumes data about a specific TRP
+    '''
+    with open(file, "r") as f:
+        data = json.load(f)
+
+    return data
+
+
+# ==================== Average Speed Utilities ====================
+
 def get_raw_average_speed_folder_path():
+    '''
+    This function returns the path for the raw_average_speed folder where all the average speed files are located. Each file contains the average speeds for one TRP
+    '''
     ops_name = get_active_ops_name()
     average_speed_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/"
 
@@ -71,7 +95,9 @@ def get_raw_average_speed_folder_path():
 
 
 def get_raw_avg_speed_file_list():
-
+    '''
+    This function returns the name of every file contained in the raw_average_speed folder
+    '''
     ops_name = get_active_ops_name()
     average_speed_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/"
 
@@ -81,6 +107,16 @@ def get_raw_avg_speed_file_list():
 
     return average_speed_files
 
+
+def import_avg_speed_data(file):
+    '''
+    This function returns the average speed data for a specific TRP
+    '''
+    data = pd.read_csv(file, sep=";", engine="c")
+    return data
+
+
+# ==================== Auxiliary Utilities ====================
 
 def check_datetime(dt: str):
 
