@@ -85,7 +85,7 @@ def clean_data(functionality: str):
 
         #TODO TESTING WITH ONLY THE FIRST TWO FILES WITH [:2]
         for file in average_speed_file_list[:2]:
-            cleaner.execute_cleaning(average_speed_folder + file)
+            cleaner.execute_cleaning(avg_speed_file_path=average_speed_folder + file, avg_speed_file_name=file)
 
 
     return None
@@ -159,6 +159,9 @@ def main():
             download_data(option)
 
         elif option == "5.6.1":
+            clean_data(option)
+
+        elif option == "5.6.2":
             clean_data(option)
 
         elif option == "0":
