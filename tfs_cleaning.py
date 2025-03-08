@@ -660,8 +660,12 @@ class AverageSpeedCleaner(Cleaner):
         trp_data = [i for i in trp_data["trafficRegistrationPoints"] if i["id"] == trp_id]  #Finding the data for the specific TRP taken in consideration by iterating on all the TRPs available in the trp_file
         trp_data = trp_data[0]
 
-        #Since the prints below are all the same (except for one) we could technically create a workaround to avoid having to repeat these lines, but it would complicate a lot something way simpler (just prints).
-        #Thus, for readability purposes we're gonna repeat the same prints (except for one) as in the TrafficVolumeCleaner class
+        return trp_data
+
+
+    def data_overview(self, trp_data, verbose: bool):
+        # Since the prints below are all the same (except for one) we could technically create a workaround to avoid having to repeat these lines, but it would complicate a lot something way simpler (just prints).
+        # Thus, for readability purposes we're gonna repeat the same prints (except for one) as in the TrafficVolumeCleaner class
 
         print("******** Traffic Registration Point Information ********")
 
@@ -688,22 +692,7 @@ class AverageSpeedCleaner(Cleaner):
         print("   > Volume average daily by season: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"])
         print("   > Volume average daily by month: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"])
 
-
-
-
         print("\n\n")
-
-
-
-
-        #TODO THE TRP ID IS THE FIRST COLUMN IN EVERY FILE
-        #TODO CHECK VERY CAREFULLY THE FIRST AND LAST DATES FOR EVERY FILE
-
-        return None
-
-
-    def data_overview(self, trp_data, verbose: bool):
-
 
         return None
 
@@ -718,6 +707,9 @@ class AverageSpeedCleaner(Cleaner):
         trp_data = self.retrieve_trp_data_from_avg_speed_file(avg_speed_file_name)
 
         self.data_overview(trp_data, verbose=True)
+
+        #TODO CHECK VERY CAREFULLY THE FIRST AND LAST DATES FOR EVERY FILE
+
 
 
         return None
