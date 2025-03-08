@@ -647,20 +647,20 @@ class AverageSpeedCleaner(Cleaner):
 
     @staticmethod
     def retrieve_trp_id_from_avg_speed_file(filename: str):
-
         trp_id = filename.split("_")[0]
-
         return trp_id
 
 
     def retrieve_trp_data_from_avg_speed_file(self, avg_speed_filename):
 
         avg_speed_folder_path = get_raw_average_speed_folder_path() #Getting the raw average speed folder path
-        trp_id = self.retrieve_trp_id_from_avg_speed_file(avg_speed_folder_path + avg_speed_filename) #Combining the raw average speed folder path with the filename of the file we want to check out
+        trp_id = self.retrieve_trp_id_from_avg_speed_file(avg_speed_filename) #Combining the raw average speed folder path with the filename of the file we want to check out
         trp_info = import_TRPs_data()  #All TRPs data retrieval
 
         trp_data = [i for i in trp_info["trafficRegistrationPoints"] if i["id"] == trp_id]  #Finding the data for the specific TRP taken in consideration by iterating on all the TRPs available in the trp_file
         trp_data = trp_data[0]
+
+        print(trp_data)
 
         print("TRP ID: ", trp_data["id"])
 
@@ -675,15 +675,20 @@ class AverageSpeedCleaner(Cleaner):
         return None
 
 
-    def data_overview(self):
+    def data_overview(self, trp_data, verbose: bool):
 
 
         return None
 
 
-    def execute_cleaning(self):
+    def execute_cleaning(self, avg_speed_file):
+        '''
+        The avg_speed_file parameter is the path to the average speed file the user wants to analyze
+        '''
 
+        trp_data = self.retrieve_trp_data_from_avg_speed_file(avg_speed_file)
 
+        self.data_overview(trp_data, verbose=True)
 
 
         return None

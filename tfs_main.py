@@ -85,7 +85,7 @@ def clean_data(functionality: str):
 
         #TODO TESTING WITH ONLY THE FIRST TWO FILES WITH [:2]
         for file in average_speed_file_list[:2]:
-            cleaner
+            cleaner.execute_cleaning(average_speed_folder + file)
 
 
     return None
