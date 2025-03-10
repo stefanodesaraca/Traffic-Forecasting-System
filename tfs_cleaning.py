@@ -709,13 +709,6 @@ class AverageSpeedCleaner(Cleaner):
 
     def clean_avg_speed_data(self, avg_speed_data):
 
-        print(list(avg_speed_data.columns))
-        print(avg_speed_data.dtypes)
-        print(avg_speed_data.isna().sum())
-
-        print(avg_speed_data.describe())
-
-
         avg_speed_data = avg_speed_data.drop(columns=["traffic_volume", "lane"], axis=1)
 
         avg_speed_data["coverage"] = avg_speed_data["coverage"].apply(lambda x: x.replace(",", ".")) #Replacing commas with dots
@@ -732,14 +725,8 @@ class AverageSpeedCleaner(Cleaner):
 
         avg_speed_data["hour_start"] = avg_speed_data["hour_start"].apply(lambda x: x[:2]) #Keeping only the first two characters (which represent only the hour data)
 
-        print(avg_speed_data.isna().sum())
-        print(avg_speed_data.dtypes)
-
-        print(avg_speed_data.head(15))
-
-        #TODO FOLLOW THE STEPS DESCRIBED IN THE NOTEBOOK
-
-
+        #print(avg_speed_data.isna().sum())
+        #print(avg_speed_data.dtypes)
 
         # ------------------ Initial data types transformation ------------------
 
@@ -755,36 +742,25 @@ class AverageSpeedCleaner(Cleaner):
 
         avg_speed_data = avg_speed_data.drop(columns=non_mice_cols, axis=1) #Columns to not include for Multiple Imputation By Chained Equations (MICE)
 
-        cleaner = Cleaner()
-        avg_speed_data = cleaner.impute_missing_values(avg_speed_data)
+        try:
+            cleaner = Cleaner()
+            avg_speed_data = cleaner.impute_missing_values(avg_speed_data)
 
-        print("Multiple imputation on average speed data executed successfully")
-        print(avg_speed_data.isna().sum())
+            print("Multiple imputation on average speed data executed successfully\n\n")
 
+            #print(avg_speed_data.isna().sum())
 
+        except ValueError:
+            print("\03391mValue error raised. Continuing with the cleaning\0330m")
+            return None
 
+        #Merging not numerical columns back into the MICEed dataframe
+        avg_speed_data["trp_id"] = df_non_mice_cols["trp_id"]
+        avg_speed_data["date"] = df_non_mice_cols["date"]
+        avg_speed_data["hour_start"] = df_non_mice_cols["hour_start"]
 
-        #TODO TO CLEAN AFTER MULTIPLE IMPUTATION
-        #TODO ADD AT THE END OF TESTING THE TRY EXCEPT CONSTRUCT TO MANAGE POTENTIAL NEW OR KNOWN ERRORS
-
-
-
-
-
-        print(avg_speed_data.head(15))
-
-
-        #TODO IMPUTE NUMERICAL ONLY COLUMNS
-
-
-
-
-
-
-
-
-
-
+        print(avg_speed_data.head(15), "\n")
+        print(avg_speed_data.describe(), "\n")
 
 
         return None
