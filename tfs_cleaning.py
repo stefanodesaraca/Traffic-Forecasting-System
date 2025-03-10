@@ -776,37 +776,33 @@ class AverageSpeedCleaner(Cleaner):
         #Also, generalizing the lanes data wouldn't make much sense because the lanes in each street may have completely different data, not because of the traffic behaviour, but because of the location of the TRP itself
         #If we were to create a model for each TRP, then it could make some sense, but that's not the goal of this project
 
+        #agg_data will be a list of dict which we'll use to create a dataframe afterward
+        agg_data = []
 
-        agg_speeds_by_day_hour = {}
-        agg_p85_by_day_hour = {}
-        agg_coverage_by_day_hour = {}
-
-
-        #TODO REMOVE THE [:2] AFTER TESTING
         for ud in avg_speed_data["date"].unique()[:2]:
 
             day_data = avg_speed_data.query(f"date == '{ud}'")
             #print(day_data)
 
-            hourly_speed_data = {}
-            hourly_p85_data = {}
-            hourly_coverage_data = {}
+            #hourly_data will be a temporary dictionary which contains the data for the ud (unique day) taken in consideration during the execution of for loop
+            #The data will be added during the nested loop below
+            hourly_data = {"date": ud}
 
             for h in day_data["hour_start"].unique():
                 #Using the median to have a more robust indicator which won't be influenced by outliers as much as the mean
-                hourly_speed_data[h] = np.round(np.median(day_data[["mean_speed", "hour_start"]].query(f"hour_start == '{h}'")["mean_speed"]), decimals=2)
-                hourly_p85_data[h] = np.round(np.median(day_data[["percentile_85", "hour_start"]].query(f"hour_start == '{h}'")["percentile_85"]), decimals=2)
-                hourly_coverage_data[h] = np.round(np.median(day_data[["coverage", "hour_start"]].query(f"hour_start == '{h}'")["coverage"]), decimals=2)
+                hourly_data[f"mean_speed{h}"] = np.round(np.median(day_data[["mean_speed", "hour_start"]].query(f"hour_start == '{h}'")["mean_speed"]), decimals=2)
+                hourly_data[f"p85_{h}"] = np.round(np.median(day_data[["percentile_85", "hour_start"]].query(f"hour_start == '{h}'")["percentile_85"]), decimals=2)
+                hourly_data[f"cvg{h}"] = np.round(np.median(day_data[["coverage", "hour_start"]].query(f"hour_start == '{h}'")["coverage"]), decimals=2)
 
+            agg_data.append(hourly_data)
 
-            agg_speeds_by_day_hour[ud] = hourly_speed_data
-            agg_p85_by_day_hour[ud] = hourly_p85_data
-            agg_coverage_by_day_hour[ud] = hourly_coverage_data
+        #print(agg_data)
 
-        print("agg_speeds_by_day_hour: ", agg_speeds_by_day_hour)
-        print("agg_p85_by_day_hour: ", agg_p85_by_day_hour)
-        print("agg_coverage_by_day_hour: ", agg_coverage_by_day_hour)
+        #The old avg_data dataframe will be overwritten by this new one which will have all the previous data, but with a new structure
+        avg_speed_data = pd.DataFrame(agg_data)
+        avg_speed_data = avg_speed_data.reindex(sorted(avg_speed_data.columns), axis=1)
 
+        print(avg_speed_data.head(15))
 
 
 
