@@ -717,11 +717,9 @@ class AverageSpeedCleaner(Cleaner):
 
         avg_speed_data["mean_speed"] = avg_speed_data["mean_speed"].replace(",", ".", regex=True) #The regex=True parameter is necessary, otherwise the function, for some reason, won't be able to perform the replacement
         avg_speed_data["mean_speed"] = avg_speed_data["mean_speed"].astype("float") #Converting the mean_speed column to float data type
-        avg_speed_data["mean_speed"] = avg_speed_data["mean_speed"]
 
         avg_speed_data["percentile_85"] = avg_speed_data["percentile_85"].replace(",", ".", regex=True) #The regex=True parameter is necessary, otherwise the function, for some reason, won't be able to perform the replacement
         avg_speed_data["percentile_85"] = avg_speed_data["percentile_85"].astype("float")  # Converting the percentile_85 column to float data type
-        avg_speed_data["percentile_85"] = avg_speed_data["percentile_85"]
 
         avg_speed_data["hour_start"] = avg_speed_data["hour_start"].apply(lambda x: x[:2]) #Keeping only the first two characters (which represent only the hour data)
 
@@ -759,8 +757,62 @@ class AverageSpeedCleaner(Cleaner):
         avg_speed_data["date"] = df_non_mice_cols["date"]
         avg_speed_data["hour_start"] = df_non_mice_cols["hour_start"]
 
-        print(avg_speed_data.head(15), "\n")
-        print(avg_speed_data.describe(), "\n")
+        print("Dataframe overview: \n", avg_speed_data.head(15), "\n")
+        print("Basic descriptive statistics on the dataframe: \n", avg_speed_data.describe(), "\n")
+
+
+        #Determining the days range of the data
+        t_min = avg_speed_data["date"].min()
+        t_max = avg_speed_data["date"].max()
+
+        print("First day of data registration: ", t_min)
+        print("Last day of data registration: ", t_max)
+
+
+        # ------------------ Restructuring the data ------------------
+        #Here we'll restructure the data into a more convenient, efficient and readable format
+        #The mean_speed will be defined by hour and not by hour AND lane.
+        #This is because the purpose of this project is to create a predictive ml/statistical model for each type of road
+        #Also, generalizing the lanes data wouldn't make much sense because the lanes in each street may have completely different data, not because of the traffic behaviour, but because of the location of the TRP itself
+        #If we were to create a model for each TRP, then it could make some sense, but that's not the goal of this project
+
+
+        agg_speeds_by_day_hour = {}
+        agg_p85_by_day_hour = {}
+        agg_coverage_by_day_hour = {}
+
+
+        #TODO REMOVE THE [:2] AFTER TESTING
+        for ud in avg_speed_data["date"].unique()[:2]:
+
+            day_data = avg_speed_data.query(f"date == '{ud}'")
+            #print(day_data)
+
+            hourly_speed_data = {}
+            hourly_p85_data = {}
+            hourly_coverage_data = {}
+
+            for h in day_data["hour_start"].unique():
+                #Using the median to have a more robust indicator which won't be influenced by outliers as much as the mean
+                hourly_speed_data[h] = np.round(np.median(day_data[["mean_speed", "hour_start"]].query(f"hour_start == '{h}'")["mean_speed"]), decimals=2)
+                hourly_p85_data[h] = np.round(np.median(day_data[["percentile_85", "hour_start"]].query(f"hour_start == '{h}'")["percentile_85"]), decimals=2)
+                hourly_coverage_data[h] = np.round(np.median(day_data[["coverage", "hour_start"]].query(f"hour_start == '{h}'")["coverage"]), decimals=2)
+
+
+            agg_speeds_by_day_hour[ud] = hourly_speed_data
+            agg_p85_by_day_hour[ud] = hourly_p85_data
+            agg_coverage_by_day_hour[ud] = hourly_coverage_data
+
+        print("agg_speeds_by_day_hour: ", agg_speeds_by_day_hour)
+        print("agg_p85_by_day_hour: ", agg_p85_by_day_hour)
+        print("agg_coverage_by_day_hour: ", agg_coverage_by_day_hour)
+
+
+
+
+
+
+
 
 
         return None
