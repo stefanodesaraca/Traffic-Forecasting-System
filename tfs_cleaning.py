@@ -750,7 +750,7 @@ class AverageSpeedCleaner(Cleaner):
 
         # ------------------ Multiple imputation to fill NaN values ------------------
 
-        non_mice_cols = ["trp_id", "traffic_volume", "lane", "date", "hour_start"]
+        non_mice_cols = ["trp_id", "date", "hour_start"]
         df_non_mice_cols = avg_speed_data[non_mice_cols] #To merge them later into the NaN filled dataframe
 
         avg_speed_data = avg_speed_data.drop(columns=non_mice_cols, axis=1) #Columns to not include for Multiple Imputation By Chained Equations (MICE)
