@@ -337,36 +337,35 @@ class TrafficVolumesCleaner(Cleaner):
 
 
 
-
-
             # ------------------ Dataframes creation and printing ------------------
 
 
-            print("\n\n----------------- By Hour Structured -----------------")
+            #print("\n\n----------------- By Hour Structured -----------------")
             #pprint.pp(by_hour_structured)
             #print(by_hour_structured)
 
             by_hour_df = pd.DataFrame(by_hour_structured)
-            by_hour_df = by_hour_df.reindex(sorted(by_hour_df.columns), axis=1)
-            print(by_hour_df.head(15))
+            by_hour_df = by_hour_df.sort_values(by=["hour", "day", "month", "year"], ascending=True)
+            #by_hour_df = by_hour_df.reindex(sorted(by_hour_df.columns), axis=1)
+            #print(by_hour_df.head(15))
 
 
-            print("\n\n----------------- By Lane Structured -----------------")
+            #print("\n\n----------------- By Lane Structured -----------------")
             #pprint.pp(by_lane_structured)
             #print(by_lane_structured)
 
-            by_lane_df = pd.DataFrame(by_lane_structured)
-            by_lane_df = by_lane_df.reindex(sorted(by_lane_df.columns), axis=1)
-            print(by_lane_df.head(15))
+            #by_lane_df = pd.DataFrame(by_lane_structured)
+            #by_lane_df = by_lane_df.reindex(sorted(by_lane_df.columns), axis=1)
+            #print(by_lane_df.head(15))
 
 
-            print("\n\n----------------- By Direction Structured -----------------")
+            #print("\n\n----------------- By Direction Structured -----------------")
             #pprint.pp(by_direction_structured)
             #print(by_direction_structured)
 
-            by_direction_df = pd.DataFrame(by_direction_structured)
-            by_direction_df = by_direction_df.reindex(sorted(by_direction_df.columns), axis=1)
-            print(by_direction_df.head(15))
+            #by_direction_df = pd.DataFrame(by_direction_structured)
+            #by_direction_df = by_direction_df.reindex(sorted(by_direction_df.columns), axis=1)
+            #print(by_direction_df.head(15))
 
             #print("\n\n")
 
@@ -376,8 +375,6 @@ class TrafficVolumesCleaner(Cleaner):
     #This function is design only to clean by_hour data since that's the data we're going to use for the main purposes of this project
     def clean_traffic_volumes_data(self, by_hour_df: pd.DataFrame):
 
-        volume_columns = retrieve_theoretical_hours_columns()
-
         #Short dataframe overview
         #print("Short overview on the dataframe: \n", by_hour_df.describe())
 
@@ -386,15 +383,17 @@ class TrafficVolumesCleaner(Cleaner):
 
         #If all values aren't 0 then execute multiple imputation to fill NaNs:
 
+
         # ------------------ Execute multiple imputation with MICE (Multiple Imputation by Chain of Equations) ------------------
 
-        dates = by_hour_df["date"]  # Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
+        non_mice_columns = by_hour_df[["trp_id"]]  # Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
 
         try:
             cleaner = Cleaner()
-            by_hour_df = cleaner.impute_missing_values(by_hour_df.drop("date", axis=1))
+            by_hour_df = cleaner.impute_missing_values(by_hour_df.drop(non_mice_columns.columns, axis=1))
 
-            by_hour_df["date"] = dates
+            for nm_col in non_mice_columns.columns:
+                by_hour_df[nm_col] = non_mice_columns[nm_col]
 
         except ValueError:
             print("\03391mValue error raised. Continuing with the cleaning\0330m")
@@ -403,13 +402,17 @@ class TrafficVolumesCleaner(Cleaner):
 
         # ------------------ Data types transformation ------------------
 
-        for col in volume_columns:
-            by_hour_df[col] = by_hour_df[col].astype("int")
+        by_hour_df["year"] = by_hour_df["year"].astype("int")
+        by_hour_df["month"] = by_hour_df["month"].astype("int")
+        by_hour_df["day"] = by_hour_df["day"].astype("int")
+        by_hour_df["hour"] = by_hour_df["hour"].astype("int")
+        by_hour_df["volume"] = by_hour_df["volume"].astype("int")
 
-        # print(by_hour_df, "\n")
 
-        # print("Data types: ")
-        # print(by_hour_df.dtypes)
+        print(by_hour_df, "\n")
+
+        print("Data types: ")
+        print(by_hour_df.dtypes)
 
         print("\n\n")
 
