@@ -184,19 +184,49 @@ class TrafficVolumesCleaner(Cleaner):
 
             # ------------------ Finding all unique days in which registrations took place ------------------
 
-            registration_dates = [] #To find all the unique days
 
-            for n in nodes:
-
-                #print(n)
-
-                registration_dt = n["node"]["from"][:-6] #Only keeping the datetime without the +00:00 at the end
-                #print("Registration DT: ", registration_dt)
-                registration_dates.append(registration_dt)
+            registration_dates = [n["node"]["from"][:-6] for n in nodes] #Only keeping the datetime without the +00:00 at the end
 
             registration_dates = set(registration_dates) #Removing duplicates and keeping the time as well. This will be needed to extract the hour too
             unique_registration_dates = set([r_date[:10] for r_date in registration_dates]) #Removing duplicates, this one will only keep the first 10 characters of the date, which comprehend just the date without the time. This is needed to know which are the unique days when data has been recorded
             print("Number of unique registration dates: ", len(unique_registration_dates))
+
+
+            # TODO CHECK THERE ARE NO MISSING DATES, HOURS AND SO ON
+            # TODO RETRIEVE ALL THEORETICAL HOURS WITH THE SPECIFIC FUNCTION CREATED
+            # TODO EXECUTE A CHECK ON ALL NODES OF THE TRP'S VOLUME DATA (VOLUMES FILE), CHECK WHICH DATES, HOURS, ETC. ARE MISSING AND CREATE THE MISSING ROWS (WITH MULTIPLE LISTS (ONE FOR EACH VARIABLE)) TO ADD BEFORE(!) THE START OF THE FOR CYCLE BELOW!
+            # TODO WHEN ALL THE ROWS HAVE BEEN CREATED AND INSERTED IN THE FOR CYCLE BELOW, SORT THE ROWS BY YEAR, MONTH, DAY, HOUR IN DESCENDING ORDER
+
+            #print(registration_dates)
+
+            available_day_hours = {d: [] for d in unique_registration_dates}
+
+            for rd in registration_dates:
+                available_day_hours[rd[:10]].append(datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H"))
+
+            print(available_day_hours)
+
+            theoretical_hours = retrieve_theoretical_hours_columns()
+
+            missing_hours = {d: [h for h in theoretical_hours if h not in available_day_hours[d]] for d in available_day_hours.keys()}
+            print(missing_hours)
+
+
+            first_registration_date = min(unique_registration_dates)
+            last_registration_date = max(unique_registration_dates)
+
+            print("First registration day available: ", first_registration_date)
+            print("Last registration day available: ", last_registration_date)
+
+            theoretical_days_available = pd.date_range(start=first_registration_date, end=last_registration_date, freq="d")
+
+            missing_days = [d for d in theoretical_days_available if d not in unique_registration_dates]
+            print("Missing days: ", missing_days)
+
+
+
+
+
 
 
             # ------------------ Extracting the data from JSON file and converting it into tabular format ------------------
@@ -219,14 +249,6 @@ class TrafficVolumesCleaner(Cleaner):
 
                 #print(day)
                 #print(hour)
-
-
-                #TODO CHECK THERE ARE NO MISSING DATES, HOURS AND SO ON
-                #TODO GENERATE DATE RANGE WITH DATETIME AND LIST COMPREHENSION
-                #TODO RETRIEVE ALL THEORETICAL HOURS WITH THE SPECIFIC FUNCTION CREATED
-                #TODO EXECUTE A CHECK ON ALL NODES OF THE TRP'S VOLUME DATA (VOLUMES FILE), CHECK WHICH DATES, HOURS, ETC. ARE MISSING AND CREATE THE MISSING ROWS (WITH MULTIPLE LISTS (ONE FOR EACH VARIABLE)) TO ADD BEFORE(!) THE START OF THE FOR CYCLE BELOW!
-                #TODO WHEN ALL THE ROWS HAVE BEEN CREATED AND INSERTED IN THE FOR CYCLE BELOW, SORT THE ROWS BY YEAR, MONTH, DAY, HOUR IN DESCENDING ORDER
-
 
                 # ----------------------- Total volumes section -----------------------
 
@@ -290,7 +312,7 @@ class TrafficVolumesCleaner(Cleaner):
 
 
             hours = [f"{i:02}" for i in range(24)] #Generating 24 elements starting from 00 to 23
-            by_x_structured_volume_keys = retrieve_volume_columns() #These can be used both for by_hour_structured, by_lane_structured and for by_direction_structured
+            by_x_structured_volume_keys = retrieve_theoretical_hours_columns()  #These can be used both for by_hour_structured, by_lane_structured and for by_direction_structured
 
             #print(by_x_structured_volume_keys)
 
@@ -537,7 +559,7 @@ class TrafficVolumesCleaner(Cleaner):
     #This function is design only to clean by_hour data since that's the data we're going to use for the main purposes of this project
     def clean_traffic_volumes_data(self, by_hour_df: pd.DataFrame):
 
-        volume_columns = retrieve_volume_columns()
+        volume_columns = retrieve_theoretical_hours_columns()
 
         #Short dataframe overview
         #print("Short overview on the dataframe: \n", by_hour_df.describe())

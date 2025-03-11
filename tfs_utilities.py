@@ -82,9 +82,9 @@ def import_volumes_data(file):
     return data
 
 
-def retrieve_volume_columns():
-    volume_columns = [f"v{i:02}" for i in range(24)]
-    return volume_columns
+def retrieve_theoretical_hours_columns():
+    hours = [f"{i:02}" for i in range(24)]
+    return hours
 
 
 # ==================== Average Speed Utilities ====================

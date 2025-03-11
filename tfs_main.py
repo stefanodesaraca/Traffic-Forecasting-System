@@ -73,7 +73,8 @@ def clean_data(functionality: str):
         traffic_volumes_file_list = get_traffic_volume_file_list()
         cleaner = TrafficVolumesCleaner()
 
-        for file in traffic_volumes_file_list:
+        #TODO REMOVE THE [:2] AFTER TESTING
+        for file in traffic_volumes_file_list[:2]:
             cleaner.execute_cleaning(traffic_volumes_folder + file)
 
     elif functionality == "5.6.2":
