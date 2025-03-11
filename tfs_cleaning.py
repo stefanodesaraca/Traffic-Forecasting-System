@@ -116,7 +116,13 @@ class TrafficVolumesCleaner(Cleaner):
 
     def restructure_traffic_volumes_data(self, volumes_payload):
 
-        by_hour_structured = [] #This will later become a list of dictionaries to create the by_hour dataframe we're going to export and use in the future
+        by_hour_structured = {"trp_id": [],
+                              "volume": [],
+                              "coverage": [],
+                              "year": [],
+                              "month": [],
+                              "day": [],
+                              "hour": []}
         by_lane_structured = [] #This will later become a list of dictionaries to create the by_lane dataframe we're going to export and use in the future
         by_direction_structured = [] #This will later become a list of dictionaries to create the by_direction dataframe we're going to export and use in the future
 
@@ -177,7 +183,6 @@ class TrafficVolumesCleaner(Cleaner):
 
             # ------------------ Extracting the data from JSON file and converting it into tabular format ------------------
 
-            by_hour_data_indexes = {} #This dictionary will make every registration's day dictionary trackable to be able to insert the data into it
             by_lane_data_indexes = {}
             by_direction_data_indexes = {}
 
@@ -186,10 +191,6 @@ class TrafficVolumesCleaner(Cleaner):
 
             #ud = unique day
             for idx, ud in enumerate(unique_registration_dates):
-                by_hour_data_indexes.update({ud: idx}) #Every key-value pair represents {unique date: by_hour/lane/direction_structured list cell index}
-
-                #Creating as many dictionaries as there are registration days, so each registration day will have its own dictionary with its specific data
-                by_hour_structured.append({})
 
                 # It's necessary to execute this step here because two kinds of data are necessary to ensure that the correct number of dictionary and the correct keys are created
                 # 1. A node could contain data from slightly more than one day (for example 1 or 2 hours from the prior one and the rest for the specific day)
@@ -223,6 +224,8 @@ class TrafficVolumesCleaner(Cleaner):
                 registration_datetime = node["node"]["from"][:-6] #Only keeping the datetime without the +00:00 at the end
 
                 registration_datetime = datetime.strptime(registration_datetime, "%Y-%m-%dT%H:%M:%S")
+                year = registration_datetime.strftime("%Y")
+                month = registration_datetime.strftime("%m")
                 day = registration_datetime.strftime("%Y-%m-%d")
                 hour = registration_datetime.strftime("%H")
 
@@ -232,19 +235,16 @@ class TrafficVolumesCleaner(Cleaner):
                 #print(hour)
 
 
-                # ---------------------- Finding the by_hour_structured list cell where the data for the current node will be inserted ----------------------
-
-                by_hour_idx = by_hour_data_indexes[day] #We'll obtain the index of the list cell where the dictionary for this specific date lies
-
-
                 # ----------------------- Total volumes section -----------------------
                 total_volume = node["node"]["total"]["volumeNumbers"]["volume"] if node["node"]["total"]["volumeNumbers"] is not None else None #In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
                 coverage_perc = node["node"]["total"]["coverage"]["percentage"]
 
-                by_hour_structured[by_hour_idx]["date"] = day #Adding or updating the "date" key for each row
-
-                by_hour_structured[by_hour_idx].update({f"v{hour}": total_volume, # <-- Inserting the total volumes (for the specific hour) data into the dictionary previously created in the by_hour_structured list
-                                                        f"cvg{hour}": coverage_perc}) # <-- Inserting the coverage data (for the specific hour) into the dictionary previously created in the by_hour_structured list
+                by_hour_structured["year"].append(year)
+                by_hour_structured["month"].append(month)
+                by_hour_structured["day"].append(day)
+                by_hour_structured["hour"].append(hour)
+                by_hour_structured["volume"].append(total_volume)
+                by_hour_structured["coverage"].append(coverage_perc)
 
 
                 #   ----------------------- By lane section -----------------------
