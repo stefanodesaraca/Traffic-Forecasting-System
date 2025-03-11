@@ -123,8 +123,24 @@ class TrafficVolumesCleaner(Cleaner):
                               "month": [],
                               "day": [],
                               "hour": []}
-        by_lane_structured = [] #This will later become a list of dictionaries to create the by_lane dataframe we're going to export and use in the future
-        by_direction_structured = [] #This will later become a list of dictionaries to create the by_direction dataframe we're going to export and use in the future
+
+        by_lane_structured = {"trp_id": [],
+                              "volume": [],
+                              "coverage": [],
+                              "year": [],
+                              "month": [],
+                              "day": [],
+                              "hour": [],
+                              "lane": []}
+
+        by_direction_structured = {"trp_id": [],
+                                   "volume": [],
+                                   "coverage": [],
+                                   "year": [],
+                                   "month": [],
+                                   "day": [],
+                                   "hour": [],
+                                   "direction": []}
 
 
         # ------------------ Data payload extraction ------------------
@@ -163,6 +179,8 @@ class TrafficVolumesCleaner(Cleaner):
             direction_sample_node = nodes[0]["node"]["byDirection"]
             directions = [d["heading"] for d in direction_sample_node]
 
+            print("Directions available: ", directions)
+
 
             # ------------------ Finding all unique days in which registrations took place ------------------
 
@@ -182,38 +200,6 @@ class TrafficVolumesCleaner(Cleaner):
 
 
             # ------------------ Extracting the data from JSON file and converting it into tabular format ------------------
-
-            by_lane_data_indexes = {}
-            by_direction_data_indexes = {}
-
-            l_idx_cnt = 0 #Lane index counter
-            d_idx_cnt = 0 #Direction index counter
-
-            #ud = unique day
-            for idx, ud in enumerate(unique_registration_dates):
-
-                # It's necessary to execute this step here because two kinds of data are necessary to ensure that the correct number of dictionary and the correct keys are created
-                # 1. A node could contain data from slightly more than one day (for example 1 or 2 hours from the prior one and the rest for the specific day)
-                # 2. Knowing the number of lanes before lets us define specific indexes for the by_lane_structured list of dict so that we can ensure that the data for a specific date-lane combination goes into its dedicated dictionary
-                for l_number in range(1, n_lanes+1): #It's necessary to start from 1 since the lanes are numbered from 1 to n (l_number = lane number)
-                    by_lane_structured.append({f"{ud}l{l_number}": {}}) #Appending a dict to fill out with data later
-                    by_lane_data_indexes.update({f"{ud}l{l_number}": l_idx_cnt})
-
-                    l_idx_cnt += 1
-
-                for dr in directions:
-                    by_direction_structured.append({f"{ud}h{dr}": {}})
-                    by_direction_data_indexes.update({f"{ud}h{dr}": d_idx_cnt})
-
-                    d_idx_cnt += 1
-
-            #print("By hour data indexes: ", by_hour_data_indexes)
-            #print("By hour structured: ", by_hour_structured) #It's normal that the list contains only empty dictionaries since they're later going to be filled with data
-            #print("By lane data indexes: ", by_lane_data_indexes)
-            #print("By lane structured: ", by_lane_structured)
-            #print("By direction structured: ", by_direction_structured)
-            #print("By direction data indexes: ", by_direction_data_indexes)
-
 
             for node in nodes:
 
@@ -236,6 +222,7 @@ class TrafficVolumesCleaner(Cleaner):
 
 
                 # ----------------------- Total volumes section -----------------------
+
                 total_volume = node["node"]["total"]["volumeNumbers"]["volume"] if node["node"]["total"]["volumeNumbers"] is not None else None #In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
                 coverage_perc = node["node"]["total"]["coverage"]["percentage"]
 
@@ -250,27 +237,24 @@ class TrafficVolumesCleaner(Cleaner):
                 #   ----------------------- By lane section -----------------------
 
                 lanes_data = node["node"]["byLane"] #Extracting byLane data
-                lanes = [] #Storing the lane numbers to find the maximum number of lanes for the specific TRP
 
 
                 #Every lane's data is kept isolated from the other lanes' data, so a for cycle is needed to extract all the data from each lane's section
                 for lane in lanes_data:
-                    #print(lane)
+
                     road_link_lane_number = lane["lane"]["laneNumberAccordingToRoadLink"]
                     lane_volume = lane["total"]["volumeNumbers"]["volume"] if lane["total"]["volumeNumbers"] is not None else None #In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
                     lane_coverage = lane["total"]["coverage"]["percentage"]
 
-                    lanes.append(road_link_lane_number)
+                    # ------- XXXXXXX -------
 
-                    date_lane_index = str(day) + "l" + str(road_link_lane_number) #Combination of day and lane number
-                    by_lane_index = by_lane_data_indexes[date_lane_index]
-
-                    # ------- Creating or updating new keys for the dictionary which contains the ith-day and jth-lane data -------
-
-                    by_lane_structured[by_lane_index][date_lane_index]["date"] = day
-                    by_lane_structured[by_lane_index][date_lane_index]["lane"] = f"l{road_link_lane_number}"
-                    by_lane_structured[by_lane_index][date_lane_index][f"v{hour}"] = lane_volume
-                    by_lane_structured[by_lane_index][date_lane_index][f"lane_cvg{hour}"] = lane_coverage
+                    by_lane_structured["year"].append(year)
+                    by_lane_structured["month"].append(month)
+                    by_lane_structured["day"].append(day)
+                    by_lane_structured["hour"].append(hour)
+                    by_lane_structured["volume"].append(lane_volume)
+                    by_lane_structured["coverage"].append(lane_coverage)
+                    by_lane_structured["lane"].append(road_link_lane_number)
 
 
                 #   ----------------------- By direction section -----------------------
