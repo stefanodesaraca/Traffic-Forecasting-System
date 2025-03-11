@@ -148,6 +148,8 @@ class TrafficVolumesCleaner(Cleaner):
         nodes = volumes_payload["trafficData"]["volume"]["byHour"]["edges"]
         number_of_nodes = len(nodes)
 
+        trp_id = volumes_payload["trafficData"]["trafficRegistrationPoint"]["id"]
+
         #print(nodes)
 
         if number_of_nodes == 0:
@@ -193,8 +195,6 @@ class TrafficVolumesCleaner(Cleaner):
             print("Number of unique registration dates: ", len(unique_registration_dates))
 
 
-            # TODO CHECK THERE ARE NO MISSING DATES, HOURS AND SO ON
-            # TODO RETRIEVE ALL THEORETICAL HOURS WITH THE SPECIFIC FUNCTION CREATED
             # TODO EXECUTE A CHECK ON ALL NODES OF THE TRP'S VOLUME DATA (VOLUMES FILE), CHECK WHICH DATES, HOURS, ETC. ARE MISSING AND CREATE THE MISSING ROWS (WITH MULTIPLE LISTS (ONE FOR EACH VARIABLE)) TO ADD BEFORE(!) THE START OF THE FOR CYCLE BELOW!
             # TODO WHEN ALL THE ROWS HAVE BEEN CREATED AND INSERTED IN THE FOR CYCLE BELOW, SORT THE ROWS BY YEAR, MONTH, DAY, HOUR IN DESCENDING ORDER
 
@@ -208,8 +208,9 @@ class TrafficVolumesCleaner(Cleaner):
 
             theoretical_hours = retrieve_theoretical_hours_columns()
 
-            missing_hours = {d: [h for h in theoretical_hours if h not in available_day_hours[d]] for d in available_day_hours.keys()}
-            print("Missing hours for each day: ", missing_hours)
+            missing_hours_by_day = {d: [h for h in theoretical_hours if h not in available_day_hours[d]] for d in available_day_hours.keys()}
+            missing_hours_by_day = {d: l for d, l in missing_hours_by_day.items() if len(l) != 0} #Removing elements with empty lists
+            print("Missing hours for each day: ", missing_hours_by_day)
 
 
             first_registration_date = min(unique_registration_dates)
@@ -218,12 +219,27 @@ class TrafficVolumesCleaner(Cleaner):
             print("First registration day available: ", first_registration_date)
             print("Last registration day available: ", last_registration_date)
 
-
             theoretical_days_available = pd.date_range(start=first_registration_date, end=last_registration_date, freq="d")
             missing_days = [d for d in theoretical_days_available if str(d)[:10] not in unique_registration_dates]
 
             #print("Theoretical days available: ", [str(d)[:10] for d in theoretical_days_available])
             print("Missing days: ", missing_days)
+
+
+            for d, mh in missing_hours_by_day.items():
+                for h in mh:
+                    by_hour_structured["trp_id"].append(trp_id)
+                    by_hour_structured["volume"].append(None)
+                    by_hour_structured["coverage"].append(None)
+                    by_hour_structured["year"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%Y"))
+                    by_hour_structured["month"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%m"))
+                    by_hour_structured["day"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%d"))
+                    by_hour_structured["hour"].append(h)
+
+            #pprint.pprint(by_hour_structured)
+
+
+
 
 
 
@@ -244,7 +260,7 @@ class TrafficVolumesCleaner(Cleaner):
                 registration_datetime = datetime.strptime(registration_datetime, "%Y-%m-%dT%H:%M:%S")
                 year = registration_datetime.strftime("%Y")
                 month = registration_datetime.strftime("%m")
-                day = registration_datetime.strftime("%Y-%m-%d")
+                day = registration_datetime.strftime("%d")
                 hour = registration_datetime.strftime("%H")
 
                 #print(registration_datetime)
@@ -257,6 +273,7 @@ class TrafficVolumesCleaner(Cleaner):
                 total_volume = node["node"]["total"]["volumeNumbers"]["volume"] if node["node"]["total"]["volumeNumbers"] is not None else None #In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
                 coverage_perc = node["node"]["total"]["coverage"]["percentage"]
 
+                by_hour_structured["trp_id"].append(trp_id)
                 by_hour_structured["year"].append(year)
                 by_hour_structured["month"].append(month)
                 by_hour_structured["day"].append(day)
@@ -278,6 +295,7 @@ class TrafficVolumesCleaner(Cleaner):
 
                     # ------- XXXXXXX -------
 
+                    by_lane_structured["trp_id"].append(trp_id)
                     by_lane_structured["year"].append(year)
                     by_lane_structured["month"].append(month)
                     by_lane_structured["day"].append(day)
@@ -297,6 +315,7 @@ class TrafficVolumesCleaner(Cleaner):
                     direction_volume = direction_section["total"]["volumeNumbers"]["volume"] if direction_section["total"]["volumeNumbers"] is not None else None #In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
                     direction_coverage = direction_section["total"]["coverage"]["percentage"]
 
+                    by_direction_structured["trp_id"].append(trp_id)
                     by_direction_structured["year"].append(year)
                     by_direction_structured["month"].append(month)
                     by_direction_structured["day"].append(day)
@@ -310,248 +329,44 @@ class TrafficVolumesCleaner(Cleaner):
 
 
 
-            # ------------------ Ensuring that every dictionary in by_hour/by_lane/by_direction_structured has the same number of key-value pairs ------------------
+            # ------------------ Ensuring that XXXXXXXXXXXXXXX ------------------
 
 
-            hours = [f"{i:02}" for i in range(24)] #Generating 24 elements starting from 00 to 23
-            by_x_structured_volume_keys = retrieve_theoretical_hours_columns()  #These can be used both for by_hour_structured, by_lane_structured and for by_direction_structured
+            for k in by_hour_structured.keys():
+                print(f"List length for key: {k} = ", len(by_hour_structured[k]))
 
-            #print(by_x_structured_volume_keys)
 
-            #These are all the coverage keys that should exist when a measurement point has coverage data for all hours
-            by_hour_coverage_keys = [f"cvg{i:02}" for i in range(24)]
-            by_lane_coverage_keys = [f"lane_cvg{i:02}" for i in range(24)]
-            by_direction_coverage_keys = [f"direction_cvg{i:02}" for i in range(24)]
-
-            #To better understand what a volume or a coverage key look like let's make some example:
-            # - Volume keys: v00, v01, v02, ..., v22, v23, v24
-            # - Coverage keys: cvg00, cvg01, cvg02, ..., cvg22, cvg23, cvg24
-
-            #There are variations of key names for coverage, so:
-            # - by_lane coverage keys: lane_cvg00, lane_cvg01, lane_cvg02, ..., lane_cvg22, lane_cvg23, lane_cvg24
-            # - by_direction coverage keys: direction_cvg00, direction_cvg01, direction_cvg02, ..., direction_cvg22, direction_cvg23, direction_cvg24
-
-
-
-            # ------------------ by_hour_structured check ------------------
-
-            #by_hour_structured is a list of dict
-            #Each dict has keys and values, which correspond to either volume or coverage for a certain hour
-            #In some cases data for specific hours could be missing, thus we want to ensure that, even if data is missing, we'll have those keys anyways
-            #This is because when creating the dataframes we must ensure that the number of keys (and so of columns in the future df) is the same for each dictionary (every dictionary will become a record of the df)
-            #Every dictionary in by_hour_structured is an element of the list (since by_hour_structured is a list of dict)
-            #To ensure we'll have the same keys and number of keys for each dictionary in by_hour_structured we'll create another dict with the list index as key and a list of the keys available as values
-            by_hour_structured_keys = {by_hour_structured.index(list_element): list(list_element.keys()) for list_element in by_hour_structured}
-
-
-            #The next step in tidying up the by_hours_structured list of dict is to determine which keys are missing in each element of the list
-            #We can do so with a dict comprehension coupled with a list comprehension (both for better performances)
-            #The idea is: we'll create a dict which takes the by_hour_structured list index of each element as key and we'll insert the keys which aren't included in by_x_structured_volume_keys as values
-            #This way we'll have the list index of every element and all missing keys (if any)
-            #We'll execute this process both for volume and coverage keys
-            by_hour_volume_keys_to_add = {element: [to_add for to_add in by_x_structured_volume_keys if to_add not in keys] for element, keys in by_hour_structured_keys.items()}
-            by_hour_cvg_keys_to_add = {element: [to_add for to_add in by_hour_coverage_keys if to_add not in keys] for element, keys in by_hour_structured_keys.items()}
-
-
-            #During the process of identifying the missing keys we create a list for each element, but since not all of them have missing keys there could be empty lists as well
-            #Thus, we can address this problem by simply removing all key-value pairs where the value is an empty list
-            #Again, we'll repeat this process both for the volume and coverage missing keys dictionaries
-            by_hour_volume_keys_to_add = {bh_idx: bh_to_add_element for bh_idx, bh_to_add_element in by_hour_volume_keys_to_add.items() if len(bh_to_add_element) != 0} #Only keeping non-empty key-value pairs. So basically we're only keeping the dictionary pairs which actually contain elements to add
-            by_hour_cvg_keys_to_add = {bh_idx: bh_to_add_element for bh_idx, bh_to_add_element in by_hour_cvg_keys_to_add.items() if len(bh_to_add_element) != 0} #Only keeping non-empty key-value pairs. So basically we're only keeping the dictionary pairs which actually contain elements to add
-
-            #print("By hour volume keys to add: ")
-            #print(by_hour_volume_keys_to_add)
-
-            #print("By hour coverage keys to add: ")
-            #print(by_hour_cvg_keys_to_add, "\n\n")
-
-
-            # ------------------ Adding missing volume key-value pairs to by_hour_structured ------------------
-
-            # - Adding missing volume keys -
-            #Now that we have the missing keys for each list element in a specific dictionary (by_hour_volume_keys_to_add) we can just iterate over it
-            # with a for cycle with the .items() method
-            #For each element we'll create a dictionary with all the missing keys as keys and None as values
-            #Then we'll just use the .update() method and insert it in the correct list element in by_hour_structured using the list_idx
-            for list_idx, to_add_elements in by_hour_volume_keys_to_add.items():
-                to_add_elements = {el: None for el in to_add_elements} #Adding the missing keys as keys and None as value
-                by_hour_structured[list_idx].update(to_add_elements)
-
-            # - Adding missing coverage keys -
-            #Same process as before, but with coverage keys
-            for list_idx, to_add_elements in by_hour_cvg_keys_to_add.items():
-                to_add_elements = {el: None for el in to_add_elements} #Adding the missing keys as keys and None as value
-                by_hour_structured[list_idx].update(to_add_elements)
-
-
-            #Keep in mind that the processes to identify missing keys until now were applied only for the by_hour_structured list of dict, now we'll have to repeat them
-            # with some tweaks for the by_lane_structured and by_direction_structured lists
-
-
-
-            # ------------------ by_lane_structured check ------------------
-
-            #by_lane_structured is a list of dict of dict, this means that every element of the list contains one key-value pair where the
-            # key is a unique identifier (record index) of the list element (formatted like YYYY-MM-DDlX) and the value is a dictionary which is made by
-            # many key-value pairs where the keys are either traffic volumes or coverage and the values contain the corresponding data
-
-
-            #Since as we already said by_lane_structured is a list of dict of dict we must first of all able to access every part of the data structure
-            #To determine the relationship between the list element, record index (YYYY-MM-DDlX) and the keys and values which actually represent the volumes data by lane
-            # we'll create a dictionary which is composed by the list index of each element and the record index
-            #Then we'll replace each value (so, the record index) with the keys available for the sub-dictionary
-            #Essentially what we're doing is: we're taking the record index to access the keys of the sub-dictionary and replace the record index with the fetched keys afterwards
-            #By doing so, we'll have a dictionary with the by_lane_structured list indexes as keys and the available data keys (as a list, one for each by_lane_structured list element) as values
-            by_lane_structured_keys = {by_lane_structured.index(list_element): list(list_element.values()) for list_element in by_lane_structured}
-            by_lane_structured_keys = {e: list(k[0].keys()) for e, k in by_lane_structured_keys.items()} #Replacing record indexes with the available keys for the by_lane_structured sub-dicts
-
-            #Once determined the keys available we'll execute a process identical to the one described previously in the by_hour_section
-            #We'll determine, again, the keys to add (the missing keys, both volume and coverage ones)
-            by_lane_volume_keys_to_add = {element: [to_add for to_add in by_x_structured_volume_keys if to_add not in keys] for element, keys in by_lane_structured_keys.items()}
-            by_lane_cvg_keys_to_add = {element: [to_add for to_add in by_lane_coverage_keys if to_add not in keys] for element, keys in by_lane_structured_keys.items()}
-
-            #Once again we'll remove all the elements of the dictionary which have empty missing keys lists
-            by_lane_volume_keys_to_add = {bl_idx: bl_to_add_element for bl_idx, bl_to_add_element in by_lane_volume_keys_to_add.items() if len(bl_to_add_element) != 0} #Only keeping non-empty key-value pairs. So basically we're only keeping the dictionary pairs which actually contain elements to add
-            by_lane_cvg_keys_to_add = {bl_idx: bl_to_add_element for bl_idx, bl_to_add_element in by_lane_cvg_keys_to_add.items() if len(bl_to_add_element) != 0} #Only keeping non-empty key-value pairs. So basically we're only keeping the dictionary pairs which actually contain elements to add
-
-            #print("By lane volume keys to add: ")
-            #print(by_lane_volume_keys_to_add)
-
-            #print("By lane coverage keys to add: ")
-            #print(by_lane_cvg_keys_to_add, "\n\n")
-
-
-            # ------------------ Adding missing key-value pairs to by_lane_structured ------------------
-
-            # - Adding missing volume keys -
-            #This is a particularly difficult step of the whole process, so we'll describe it step by step in the code
-            #1. We'll create as for by_hour_structured a dict with the missing keys and None as their values
-            for list_idx, to_add_elements in by_lane_volume_keys_to_add.items(): # <- VOLUME MISSING KEYS
-                to_add_elements = {el: None for el in to_add_elements} #Adding the missing keys as keys and None as value
-
-                #2. We'll iterate over every element of the by_lane_structured, verify if it's in the list of the by_lane_structured elements which have missing keys
-                # if so, we'll fetch the location of the sub-dictionary which has missing keys and insert them (with None as values) with the .update method
-                for el in by_lane_structured:
-                    if by_lane_structured.index(el) == list_idx: #If this if statement is true then the element el of by_lane_structured has missing keys
-                        bl_loc_key = list(el.keys())[0] #Finding the record index for the dictionary with missing keys
-
-                        by_lane_structured[list_idx][bl_loc_key].update(to_add_elements)
-
-            #- Adding missing coverage keys -
-            #2.1 Same principle as above applies here, but for coverage keys
-            for list_idx, to_add_elements in by_lane_cvg_keys_to_add.items(): # <- COVERAGE MISSING KEYS
-                to_add_elements = {el: None for el in to_add_elements} #Adding the missing keys as keys and None as value
-
-                for el in by_lane_structured:
-                    if by_lane_structured.index(el) == list_idx:
-                        bl_loc_key = list(el.keys())[0]
-
-                        by_lane_structured[list_idx][bl_loc_key].update(to_add_elements)
-
-
-            # ------------------ by_direction_structured check ------------------
-
-            #The same process described in the by_lane_structured section applies here since by_direction_structured is a list of dict of dict too
-            #The logic is the same, the only things that change are the variables name
-
-            by_direction_structured_keys = {by_direction_structured.index(list_element): list(list_element.values()) for list_element in by_direction_structured}
-            by_direction_structured_keys = {e: list(k[0].keys()) for e, k in by_direction_structured_keys.items()}
-
-            by_direction_volume_keys_to_add = {element: [to_add for to_add in by_x_structured_volume_keys if to_add not in keys] for element, keys in by_direction_structured_keys.items()}
-            by_direction_cvg_keys_to_add = {element: [to_add for to_add in by_direction_coverage_keys if to_add not in keys] for element, keys in by_direction_structured_keys.items()}
-
-            #print("By direction volume keys to add: ")
-            #print(by_direction_volume_keys_to_add)
-
-            #print("By direction coverage keys to add: ")
-            #print(by_direction_cvg_keys_to_add, "\n\n")
-
-
-            # ------------------ Adding missing key-value pairs to by_direction_structured ------------------
-
-            # - Adding missing volume keys -
-            #Same principles as before apply here
-            for list_idx, to_add_elements in by_direction_volume_keys_to_add.items():
-                to_add_elements = {el: None for el in to_add_elements}  # Adding the missing keys as keys and None as value
-
-                for el in by_direction_structured:
-                    if by_direction_structured.index(el) == list_idx:
-                        bd_loc_key = list(el.keys())[0]
-
-                        by_direction_structured[list_idx][bd_loc_key].update(to_add_elements)
-
-            # - Adding missing coverage keys -
-            for list_idx, to_add_elements in by_direction_cvg_keys_to_add.items():
-                to_add_elements = {el: None for el in to_add_elements}  # Adding the missing keys as keys and None as value
-
-                for el in by_direction_structured:
-                    if by_direction_structured.index(el) == list_idx:
-                        bd_loc_key = list(el.keys())[0]
-
-                        by_direction_structured[list_idx][bd_loc_key].update(to_add_elements)
-
-
-
-            # ------------------ Inserting additional indexes of by_lane_structured and by_direction_structured as key removing them ------------------
-            #Doing so we'll transform by_lane_structured and by_direction_structured from lists of dict of dict to a simpler lists of dict
-
-            # ------------------ Inserting the record_indexes as key-vale pairs into the dictionaries ------------------
-
-            for by_lane_element in by_lane_structured:
-                by_lane_element_list_idx = by_lane_structured.index(by_lane_element)
-                by_lane_record_idx = list(by_lane_element.keys())[0] #Obtaining the "record_index", which is the string that represents the dictionary which contains the data for a specific day and lane
-
-                by_lane_structured[by_lane_element_list_idx][by_lane_record_idx]["by_lane_record_index"] = by_lane_record_idx
-
-
-            for by_direction_element in by_direction_structured:
-                by_direction_element_list_idx = by_direction_structured.index(by_direction_element)
-                by_direction_record_idx = list(by_direction_element.keys())[0] #Obtaining the "record_index", which is the string that represents the dictionary which contains the data for a specific day and lane
-
-                by_direction_structured[by_direction_element_list_idx][by_direction_record_idx]["by_direction_record_index"] = by_direction_record_idx
-
-
-            # ------------------ Removing the record_indexes and transforming the old lists of dict of dict to simpler lists of dict ------------------
-
-
-            for element in by_lane_structured:
-                by_lane_element_list_idx = by_lane_structured.index(element)
-                by_lane_structured[by_lane_element_list_idx] = list(element.values())[0]
-
-            for element in by_direction_structured:
-                by_direction_element_list_idx = by_direction_structured.index(element)
-                by_direction_structured[by_direction_element_list_idx] = list(element.values())[0]
 
 
 
             # ------------------ Dataframes creation and printing ------------------
 
 
-            #print("\n\n----------------- By Hour Structured -----------------")
+            print("\n\n----------------- By Hour Structured -----------------")
             #pprint.pp(by_hour_structured)
             #print(by_hour_structured)
 
             by_hour_df = pd.DataFrame(by_hour_structured)
             by_hour_df = by_hour_df.reindex(sorted(by_hour_df.columns), axis=1)
-            #print(by_hour_df)
+            print(by_hour_df.head(15))
 
 
-            #print("\n\n----------------- By Lane Structured -----------------")
+            print("\n\n----------------- By Lane Structured -----------------")
             #pprint.pp(by_lane_structured)
             #print(by_lane_structured)
 
-            #by_lane_df = pd.DataFrame(by_lane_structured)
-            #by_lane_df = by_lane_df.reindex(sorted(by_lane_df.columns), axis=1)
-            #print(by_lane_df)
+            by_lane_df = pd.DataFrame(by_lane_structured)
+            by_lane_df = by_lane_df.reindex(sorted(by_lane_df.columns), axis=1)
+            print(by_lane_df.head(15))
 
 
-            #print("\n\n----------------- By Direction Structured -----------------")
+            print("\n\n----------------- By Direction Structured -----------------")
             #pprint.pp(by_direction_structured)
             #print(by_direction_structured)
 
-            #by_direction_df = pd.DataFrame(by_direction_structured)
-            #by_direction_df = by_direction_df.reindex(sorted(by_direction_df.columns), axis=1)
-            #print(by_direction_df)
+            by_direction_df = pd.DataFrame(by_direction_structured)
+            by_direction_df = by_direction_df.reindex(sorted(by_direction_df.columns), axis=1)
+            print(by_direction_df.head(15))
 
             #print("\n\n")
 
