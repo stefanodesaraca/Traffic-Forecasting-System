@@ -409,7 +409,7 @@ class TrafficVolumesCleaner(Cleaner):
         by_hour_df["volume"] = by_hour_df["volume"].astype("int")
 
 
-        print(by_hour_df, "\n")
+        print(by_hour_df.head(15), "\n")
 
         print("Data types: ")
         print(by_hour_df.dtypes)
