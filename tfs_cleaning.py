@@ -543,7 +543,6 @@ class AverageSpeedCleaner(Cleaner):
         print("First day of data registration: ", t_min)
         print("Last day of data registration: ", t_max, "\n\n")
 
-        avg_speed_data = avg_speed_data.drop(columns=["traffic_volume", "lane"], axis=1)
 
         avg_speed_data["coverage"] = avg_speed_data["coverage"].apply(lambda x: x.replace(",", ".")) #Replacing commas with dots
         avg_speed_data["coverage"] = avg_speed_data["coverage"].astype("float") #Converting the coverage column to float data type
@@ -575,6 +574,8 @@ class AverageSpeedCleaner(Cleaner):
 
         avg_speed_data["hour_start"] = avg_speed_data["hour_start"].astype("int")
 
+        avg_speed_data = avg_speed_data.drop(columns=["traffic_volume", "lane", "date"], axis=1)
+
 
         # ------------------ Multiple imputation to fill NaN values ------------------
 
@@ -591,6 +592,12 @@ class AverageSpeedCleaner(Cleaner):
 
             #print(avg_speed_data.isna().sum())
 
+            avg_speed_data["year"] = avg_speed_data["year"].astype("int")
+            avg_speed_data["month"] = avg_speed_data["month"].astype("int")
+            avg_speed_data["day"] = avg_speed_data["day"].astype("int")
+
+            avg_speed_data["hour_start"] = avg_speed_data["hour_start"].astype("int")
+
         except ValueError:
             print("\03391mValue error raised. Continuing with the cleaning\0330m")
             return None
@@ -600,7 +607,7 @@ class AverageSpeedCleaner(Cleaner):
             avg_speed_data[nm_col] = df_non_mice_cols[nm_col]
 
         print("Dataframe overview: \n", avg_speed_data.head(15), "\n")
-        print("Basic descriptive statistics on the dataframe: \n", avg_speed_data.describe(), "\n")
+        print("Basic descriptive statistics on the dataframe: \n", avg_speed_data.drop(columns=["year", "month", "day", "hour_start"], axis=1).describe(), "\n")
 
 
         # ------------------ Restructuring the data ------------------
