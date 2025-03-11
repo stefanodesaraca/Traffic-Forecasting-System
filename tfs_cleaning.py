@@ -574,12 +574,12 @@ class AverageSpeedCleaner(Cleaner):
 
         avg_speed_data["hour_start"] = avg_speed_data["hour_start"].astype("int")
 
-        avg_speed_data = avg_speed_data.drop(columns=["traffic_volume", "lane", "date"], axis=1)
+        avg_speed_data = avg_speed_data.drop(columns=["traffic_volume", "lane"], axis=1)
 
 
         # ------------------ Multiple imputation to fill NaN values ------------------
 
-        non_mice_cols = ["trp_id"]
+        non_mice_cols = ["trp_id", "date"]
         df_non_mice_cols = avg_speed_data[non_mice_cols] #To merge them later into the NaN filled dataframe
 
         avg_speed_data = avg_speed_data.drop(columns=non_mice_cols, axis=1) #Columns to not include for Multiple Imputation By Chained Equations (MICE)
@@ -617,8 +617,15 @@ class AverageSpeedCleaner(Cleaner):
         #Also, generalizing the lanes data wouldn't make much sense because the lanes in each street may have completely different data, not because of the traffic behaviour, but because of the location of the TRP itself
         #If we were to create a model for each TRP, then it could make some sense, but that's not the goal of this project
 
-        #agg_data will be a list of dict which we'll use to create a dataframe afterward
-        agg_data = []
+        #agg_data will be a dict of lists which we'll use to create a dataframe afterward
+        agg_data = {"date": [],
+                    "year": [],
+                    "month": [],
+                    "day": [],
+                    "hour_start": [],
+                    "mean_speed": [],
+                    "percentile_85": [],
+                    "coverage": []}
 
         #TODO REMOVE THE [:2] AFTER TESTING
         for ud in avg_speed_data["date"].unique()[:2]:
@@ -626,17 +633,18 @@ class AverageSpeedCleaner(Cleaner):
             day_data = avg_speed_data.query(f"date == '{ud}'")
             #print(day_data)
 
-            #hourly_data will be a temporary dictionary which contains the data for the ud (unique day) taken in consideration during the execution of for loop
-            #The data will be added during the nested loop below
-            hourly_data = {"date": ud}
-
             for h in day_data["hour_start"].unique():
+                print(day_data[["mean_speed", "hour_start"]].query(f"hour_start == '{h}'")["mean_speed"]) #TODO WHY IS THIS AN EMPTY SERIES?
                 #Using the median to have a more robust indicator which won't be influenced by outliers as much as the mean
-                hourly_data[f"mean_speed{h}"] = np.round(np.median(day_data[["mean_speed", "hour_start"]].query(f"hour_start == '{h}'")["mean_speed"]), decimals=2)
-                hourly_data[f"p85_{h}"] = np.round(np.median(day_data[["percentile_85", "hour_start"]].query(f"hour_start == '{h}'")["percentile_85"]), decimals=2)
-                hourly_data[f"cvg{h}"] = np.round(np.median(day_data[["coverage", "hour_start"]].query(f"hour_start == '{h}'")["coverage"]), decimals=2)
+                agg_data["mean_speed"].append(np.round(np.median(day_data[["mean_speed", "hour_start"]].query(f"hour_start == '{h}'")["mean_speed"]), decimals=2))
+                agg_data["percentile_85"].append(np.round(np.median(day_data[["percentile_85", "hour_start"]].query(f"hour_start == '{h}'")["percentile_85"]), decimals=2))
+                agg_data["coverage"].append(np.round(np.median(day_data[["coverage", "hour_start"]].query(f"hour_start == '{h}'")["coverage"]), decimals=2))
+                agg_data["hour_start"].append(h)
+                agg_data["year"].append(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%Y"))
+                agg_data["month"].append(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%m"))
+                agg_data["day"].append(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%d"))
+                agg_data["date"].append(ud)
 
-            agg_data.append(hourly_data)
 
         #print(agg_data)
 
