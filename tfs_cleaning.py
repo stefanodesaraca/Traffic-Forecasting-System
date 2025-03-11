@@ -186,6 +186,7 @@ class TrafficVolumesCleaner(Cleaner):
 
 
             registration_dates = [n["node"]["from"][:-6] for n in nodes] #Only keeping the datetime without the +00:00 at the end
+            #print(registration_dates)
 
             registration_dates = set(registration_dates) #Removing duplicates and keeping the time as well. This will be needed to extract the hour too
             unique_registration_dates = set([r_date[:10] for r_date in registration_dates]) #Removing duplicates, this one will only keep the first 10 characters of the date, which comprehend just the date without the time. This is needed to know which are the unique days when data has been recorded
@@ -197,19 +198,18 @@ class TrafficVolumesCleaner(Cleaner):
             # TODO EXECUTE A CHECK ON ALL NODES OF THE TRP'S VOLUME DATA (VOLUMES FILE), CHECK WHICH DATES, HOURS, ETC. ARE MISSING AND CREATE THE MISSING ROWS (WITH MULTIPLE LISTS (ONE FOR EACH VARIABLE)) TO ADD BEFORE(!) THE START OF THE FOR CYCLE BELOW!
             # TODO WHEN ALL THE ROWS HAVE BEEN CREATED AND INSERTED IN THE FOR CYCLE BELOW, SORT THE ROWS BY YEAR, MONTH, DAY, HOUR IN DESCENDING ORDER
 
-            #print(registration_dates)
 
             available_day_hours = {d: [] for d in unique_registration_dates}
 
             for rd in registration_dates:
                 available_day_hours[rd[:10]].append(datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H"))
 
-            print(available_day_hours)
+            #print(available_day_hours)
 
             theoretical_hours = retrieve_theoretical_hours_columns()
 
             missing_hours = {d: [h for h in theoretical_hours if h not in available_day_hours[d]] for d in available_day_hours.keys()}
-            print(missing_hours)
+            print("Missing hours for each day: ", missing_hours)
 
 
             first_registration_date = min(unique_registration_dates)
@@ -218,9 +218,11 @@ class TrafficVolumesCleaner(Cleaner):
             print("First registration day available: ", first_registration_date)
             print("Last registration day available: ", last_registration_date)
 
-            theoretical_days_available = pd.date_range(start=first_registration_date, end=last_registration_date, freq="d")
 
-            missing_days = [d for d in theoretical_days_available if d not in unique_registration_dates]
+            theoretical_days_available = pd.date_range(start=first_registration_date, end=last_registration_date, freq="d")
+            missing_days = [d for d in theoretical_days_available if str(d)[:10] not in unique_registration_dates]
+
+            #print("Theoretical days available: ", [str(d)[:10] for d in theoretical_days_available])
             print("Missing days: ", missing_days)
 
 
