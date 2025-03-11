@@ -221,6 +221,13 @@ class TrafficVolumesCleaner(Cleaner):
                 #print(hour)
 
 
+                #TODO CHECK THERE ARE NO MISSING DATES, HOURS AND SO ON
+                #TODO GENERATE DATE RANGE WITH DATETIME AND LIST COMPREHENSION
+                #TODO RETRIEVE ALL THEORETICAL HOURS WITH THE SPECIFIC FUNCTION CREATED
+                #TODO EXECUTE A CHECK ON ALL NODES OF THE TRP'S VOLUME DATA (VOLUMES FILE), CHECK WHICH DATES, HOURS, ETC. ARE MISSING AND CREATE THE MISSING ROWS (WITH MULTIPLE LISTS (ONE FOR EACH VARIABLE)) TO ADD BEFORE(!) THE START OF THE FOR CYCLE BELOW!
+                #TODO WHEN ALL THE ROWS HAVE BEEN CREATED AND INSERTED IN THE FOR CYCLE BELOW, SORT THE ROWS BY YEAR, MONTH, DAY, HOUR IN DESCENDING ORDER
+
+
                 # ----------------------- Total volumes section -----------------------
 
                 total_volume = node["node"]["total"]["volumeNumbers"]["volume"] if node["node"]["total"]["volumeNumbers"] is not None else None #In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
