@@ -765,8 +765,10 @@ class AverageSpeedCleaner(Cleaner):
         t_min = avg_speed_data["date"].min()
         t_max = avg_speed_data["date"].max()
 
+
+        print("Registrations time-range: ")
         print("First day of data registration: ", t_min)
-        print("Last day of data registration: ", t_max)
+        print("Last day of data registration: ", t_max, "\n\n")
 
 
         # ------------------ Restructuring the data ------------------
@@ -779,6 +781,7 @@ class AverageSpeedCleaner(Cleaner):
         #agg_data will be a list of dict which we'll use to create a dataframe afterward
         agg_data = []
 
+        #TODO REMOVE THE [:2] AFTER TESTING
         for ud in avg_speed_data["date"].unique()[:2]:
 
             day_data = avg_speed_data.query(f"date == '{ud}'")
@@ -803,6 +806,8 @@ class AverageSpeedCleaner(Cleaner):
         avg_speed_data = avg_speed_data.reindex(sorted(avg_speed_data.columns), axis=1)
 
         print(avg_speed_data.head(15))
+
+
 
 
 
