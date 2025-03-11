@@ -238,7 +238,6 @@ class TrafficVolumesCleaner(Cleaner):
 
                 lanes_data = node["node"]["byLane"] #Extracting byLane data
 
-
                 #Every lane's data is kept isolated from the other lanes' data, so a for cycle is needed to extract all the data from each lane's section
                 for lane in lanes_data:
 
@@ -267,13 +266,13 @@ class TrafficVolumesCleaner(Cleaner):
                     direction_volume = direction_section["total"]["volumeNumbers"]["volume"] if direction_section["total"]["volumeNumbers"] is not None else None #In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
                     direction_coverage = direction_section["total"]["coverage"]["percentage"]
 
-                    date_direction_index = str(day) + "h" + str(heading) #Combination of day and direction (heading)
-                    by_direction_index = by_direction_data_indexes[date_direction_index]
-
-                    by_direction_structured[by_direction_index][date_direction_index]["date"] = day
-                    by_direction_structured[by_direction_index][date_direction_index]["heading"] = heading
-                    by_direction_structured[by_direction_index][date_direction_index][f"v{hour}"] = direction_volume
-                    by_direction_structured[by_direction_index][date_direction_index][f"direction_cvg{hour}"] = direction_coverage
+                    by_direction_structured["year"].append(year)
+                    by_direction_structured["month"].append(month)
+                    by_direction_structured["day"].append(day)
+                    by_direction_structured["hour"].append(hour)
+                    by_direction_structured["volume"].append(direction_volume)
+                    by_direction_structured["coverage"].append(direction_coverage)
+                    by_direction_structured["direction"].append(heading)
 
 
                     #TODO THE SAME PRINCIPLE AS BEFORE APPLIES HERE, SAVE ALL THE AVAILABLE DIRECTIONS IN THE TRP'S METADATA FILE
