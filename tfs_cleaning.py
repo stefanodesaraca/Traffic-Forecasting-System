@@ -239,14 +239,6 @@ class TrafficVolumesCleaner(Cleaner):
             #pprint.pprint(by_hour_structured)
 
 
-
-
-
-
-
-
-
-
             # ------------------ Extracting the data from JSON file and converting it into tabular format ------------------
 
             for node in nodes:
@@ -409,10 +401,12 @@ class TrafficVolumesCleaner(Cleaner):
         by_hour_df["volume"] = by_hour_df["volume"].astype("int")
 
 
-        print(by_hour_df.head(15), "\n")
+        print("By hour dataframe overview: \n", by_hour_df.head(15), "\n")
 
         print("Data types: ")
-        print(by_hour_df.dtypes)
+        print(by_hour_df.dtypes, "\n")
+
+        print("NaN sum: \n", by_hour_df.isna().sum())
 
         print("\n\n")
 
@@ -541,6 +535,14 @@ class AverageSpeedCleaner(Cleaner):
 
     def clean_avg_speed_data(self, avg_speed_data):
 
+        # Determining the days range of the data
+        t_min = pd.to_datetime(avg_speed_data["date"]).min()
+        t_max = pd.to_datetime(avg_speed_data["date"].max())
+
+        print("Registrations time-range: ")
+        print("First day of data registration: ", t_min)
+        print("Last day of data registration: ", t_max, "\n\n")
+
         avg_speed_data = avg_speed_data.drop(columns=["traffic_volume", "lane"], axis=1)
 
         avg_speed_data["coverage"] = avg_speed_data["coverage"].apply(lambda x: x.replace(",", ".")) #Replacing commas with dots
@@ -562,12 +564,21 @@ class AverageSpeedCleaner(Cleaner):
 
         avg_speed_data["trp_id"] = avg_speed_data["trp_id"].astype("str")
         avg_speed_data["date"] = pd.to_datetime(avg_speed_data["date"])
-        avg_speed_data["hour_start"] = avg_speed_data["hour_start"].astype("str") #This is done to then extract hour values only from the string using string splitting
+
+        avg_speed_data["year"] = avg_speed_data["date"].dt.year
+        avg_speed_data["month"] = avg_speed_data["date"].dt.month
+        avg_speed_data["day"] = avg_speed_data["date"].dt.day
+
+        avg_speed_data["year"] = avg_speed_data["year"].astype("int")
+        avg_speed_data["month"] = avg_speed_data["month"].astype("int")
+        avg_speed_data["day"] = avg_speed_data["day"].astype("int")
+
+        avg_speed_data["hour_start"] = avg_speed_data["hour_start"].astype("int")
 
 
         # ------------------ Multiple imputation to fill NaN values ------------------
 
-        non_mice_cols = ["trp_id", "date", "hour_start"]
+        non_mice_cols = ["trp_id"]
         df_non_mice_cols = avg_speed_data[non_mice_cols] #To merge them later into the NaN filled dataframe
 
         avg_speed_data = avg_speed_data.drop(columns=non_mice_cols, axis=1) #Columns to not include for Multiple Imputation By Chained Equations (MICE)
@@ -584,23 +595,12 @@ class AverageSpeedCleaner(Cleaner):
             print("\03391mValue error raised. Continuing with the cleaning\0330m")
             return None
 
-        #Merging not numerical columns back into the MICEed dataframe
-        avg_speed_data["trp_id"] = df_non_mice_cols["trp_id"]
-        avg_speed_data["date"] = df_non_mice_cols["date"]
-        avg_speed_data["hour_start"] = df_non_mice_cols["hour_start"]
+        #Merging non MICE columns back into the MICEed dataframe
+        for nm_col in non_mice_cols:
+            avg_speed_data[nm_col] = df_non_mice_cols[nm_col]
 
         print("Dataframe overview: \n", avg_speed_data.head(15), "\n")
         print("Basic descriptive statistics on the dataframe: \n", avg_speed_data.describe(), "\n")
-
-
-        #Determining the days range of the data
-        t_min = avg_speed_data["date"].min()
-        t_max = avg_speed_data["date"].max()
-
-
-        print("Registrations time-range: ")
-        print("First day of data registration: ", t_min)
-        print("Last day of data registration: ", t_max, "\n\n")
 
 
         # ------------------ Restructuring the data ------------------
