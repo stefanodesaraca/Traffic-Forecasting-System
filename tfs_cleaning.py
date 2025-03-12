@@ -535,6 +535,9 @@ class AverageSpeedCleaner(Cleaner):
 
     def clean_avg_speed_data(self, avg_speed_data):
 
+
+        #TODO ADDRESS FOR TOTALLY EMPTY FILES CASE (MICE)
+
         # Determining the days range of the data
         t_min = pd.to_datetime(avg_speed_data["date"]).min()
         t_max = pd.to_datetime(avg_speed_data["date"].max())
@@ -627,8 +630,7 @@ class AverageSpeedCleaner(Cleaner):
                     "percentile_85": [],
                     "coverage": []}
 
-        #TODO REMOVE THE [:2] AFTER TESTING
-        for ud in avg_speed_data["date"].unique()[:2]:
+        for ud in avg_speed_data["date"].unique():
 
             day_data = avg_speed_data.query(f"date == '{ud}'")
             #print(day_data)
@@ -653,9 +655,28 @@ class AverageSpeedCleaner(Cleaner):
         avg_speed_data = avg_speed_data.reindex(sorted(avg_speed_data.columns), axis=1)
 
         #print(avg_speed_data.head(15))
-        print(avg_speed_data.dtypes)
+        #print(avg_speed_data.dtypes)
 
         return avg_speed_data
+
+
+    def export_clean_avg_speed_data(self, avg_speed_data: pd.DataFrame):
+
+        trp_id = avg_speed_data["trp_id"][0]
+        print(trp_id)
+        clean_avg_data_folder_path = get_clean_average_speed_folder_path()
+
+        try:
+            avg_speed_data.to_csv(clean_avg_data_folder_path)
+        except:
+            print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
+
+
+        return None
+
+
+
+
 
 
 
@@ -671,9 +692,8 @@ class AverageSpeedCleaner(Cleaner):
 
         self.data_overview(trp_data, verbose=True)
 
-        self.clean_avg_speed_data(average_speed_data)
+        average_speed_data = self.clean_avg_speed_data(average_speed_data)
 
-        #TODO CHECK VERY CAREFULLY THE FIRST AND LAST DATES FOR EVERY FILE
 
 
 

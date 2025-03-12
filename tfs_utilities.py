@@ -99,6 +99,15 @@ def get_raw_average_speed_folder_path():
     return average_speed_folder_path
 
 
+def get_clean_average_speed_folder_path():
+    '''
+    This function returns the path for the clean_average_speed folder where all the cleaned average speed data files are located
+    '''
+    ops_name = get_active_ops_name()
+    clean_average_speed_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/clean_average_speed/"
+    return clean_average_speed_folder_path
+
+
 def get_raw_avg_speed_file_list():
     '''
     This function returns the name of every file contained in the raw_average_speed folder
