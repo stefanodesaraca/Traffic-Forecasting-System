@@ -538,6 +538,8 @@ class AverageSpeedCleaner(Cleaner):
 
         #TODO ADDRESS FOR TOTALLY EMPTY FILES CASE (MICE)
 
+        trp_id = str(avg_speed_data["trp_id"].unique()[0]) #There'll be only one value since each file only represents the data for one TRP only
+
         # Determining the days range of the data
         t_min = pd.to_datetime(avg_speed_data["date"]).min()
         t_max = pd.to_datetime(avg_speed_data["date"].max())
@@ -621,7 +623,8 @@ class AverageSpeedCleaner(Cleaner):
         #If we were to create a model for each TRP, then it could make some sense, but that's not the goal of this project
 
         #agg_data will be a dict of lists which we'll use to create a dataframe afterward
-        agg_data = {"date": [],
+        agg_data = {"trp_id": [],
+                    "date": [],
                     "year": [],
                     "month": [],
                     "day": [],
@@ -630,7 +633,8 @@ class AverageSpeedCleaner(Cleaner):
                     "percentile_85": [],
                     "coverage": []}
 
-        for ud in avg_speed_data["date"].unique():
+        #TODO TO TEST WITH [:2]
+        for ud in avg_speed_data["date"].unique()[:2]:
 
             day_data = avg_speed_data.query(f"date == '{ud}'")
             #print(day_data)
@@ -646,6 +650,7 @@ class AverageSpeedCleaner(Cleaner):
                 agg_data["month"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%m")))
                 agg_data["day"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%d")))
                 agg_data["date"].append(ud)
+                agg_data["trp_id"].append(trp_id)
 
 
         #print(agg_data)
@@ -657,20 +662,18 @@ class AverageSpeedCleaner(Cleaner):
         #print(avg_speed_data.head(15))
         #print(avg_speed_data.dtypes)
 
-        return avg_speed_data
+        return avg_speed_data, trp_id, str(t_max)[:10], str(t_min)[:10]
 
 
-    def export_clean_avg_speed_data(self, avg_speed_data: pd.DataFrame):
+    def export_clean_avg_speed_data(self, avg_speed_data: pd.DataFrame, trp_id: str, t_max: str, t_min: str):
 
-        trp_id = avg_speed_data["trp_id"][0]
-        print(trp_id)
         clean_avg_data_folder_path = get_clean_average_speed_folder_path()
 
         try:
-            avg_speed_data.to_csv(clean_avg_data_folder_path)
-            print(f"Average speed data for TRP: {trp_id} saved successfully")
+            avg_speed_data.to_csv(clean_avg_data_folder_path + trp_id + f"_S{t_min}_E{t_max}C") #S stands for Start (registration starting date), E stands for End and C for Clean
+            print(f"Average speed data for TRP: {trp_id} saved successfully\n\n")
         except:
-            print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
+            print(f"\033[91mCouldn't export TRP: {trp_id} volumes data\033[0m")
 
 
         return None
@@ -693,9 +696,9 @@ class AverageSpeedCleaner(Cleaner):
 
         self.data_overview(trp_data, verbose=True)
 
-        average_speed_data = self.clean_avg_speed_data(average_speed_data)
+        average_speed_data, trp_id, t_max, t_min = self.clean_avg_speed_data(average_speed_data)
 
-        self.export_clean_avg_speed_data(average_speed_data)
+        self.export_clean_avg_speed_data(average_speed_data, trp_id, t_max, t_min)
 
 
         return None
