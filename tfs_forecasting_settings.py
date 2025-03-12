@@ -2,7 +2,7 @@ from datetime import datetime
 import os
 
 target_datetime_filename = "target_datetime"
-dt_format = '%Y %m %d %H:%-M%-S'  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
+dt_format = "%Y-%m-%dT%H:%M:%S"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
 
 
 def write_forecasting_target_datetime():

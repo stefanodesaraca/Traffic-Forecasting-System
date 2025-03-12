@@ -1,8 +1,10 @@
 from tfs_ops_settings import *
 from tfs_data_downloader import *
+from tfs_forecasting_settings import *
 from tfs_utilities import *
 from tfs_cleaning import *
 import time
+from datetime import datetime
 
 def manage_ops(functionality: str):
 
@@ -90,7 +92,21 @@ def clean_data(functionality: str):
     return None
 
 
+def set_forecasting_options(functionality: str):
 
+    if functionality == "3.1.1":
+        write_forecasting_target_datetime()
+
+    elif functionality == "3.1.2":
+        read_forecasting_target_datetime()
+
+    elif functionality == "3.1.3":
+        del_forecasting_target_datetime()
+
+
+
+
+    return None
 
 
 
@@ -122,6 +138,9 @@ def main():
     2.2 Traffic volumes for every measurement point
  3. Forecast
     3.1 Set forecasting target datetime
+        3.1.1 Write forecasting target datetime
+        3.1.2 Read forecasting target datetime
+        3.1.3 Delete forecasting target datetime
     3.2 Forecast warmup
     3.3 Execute forecast
         3.3.1 One-Point Forecast
@@ -156,6 +175,15 @@ def main():
 
         elif option == "2.2":
             download_data(option)
+
+        elif option == "3.1.1":
+            set_forecasting_options(option)
+
+        elif option == "3.1.2":
+            set_forecasting_options(option)
+
+        elif option == "3.1.3":
+            set_forecasting_options(option)
 
         elif option == "5.6.1":
             clean_data(option)
