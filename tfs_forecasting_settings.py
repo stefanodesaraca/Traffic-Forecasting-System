@@ -7,20 +7,16 @@ dt_format = "%Y-%m-%dT%H:%M:%S"  # Datetime format, the hour (H) must be zero-pa
 
 def write_forecasting_target_datetime():
 
-    dt = input("Insert Target Datetime (YYYY-MM-DD hh:mm): ") #The month number must be zero-padded, for example: 01, 02, etc.
-
-    formatted_datetime = datetime.strptime(dt, dt_format)
-    print("Target Datetime: ", formatted_datetime)
+    dt = str(input("Insert Target Datetime (YYYY-MM-DD hh:mm): ")) #The month number must be zero-padded, for example: 01, 02, etc.
+    print("Target datetime set to: ", dt, "\n\n")
 
     with open(f"{target_datetime_filename}.txt", "w") as t_dt_writer:
-        t_dt_writer.write(str(formatted_datetime))
+        t_dt_writer.write(dt)
 
     return None
 
 
 def read_forecasting_target_datetime():
-
-    #target_dt = None
 
     try:
         with open(f"{target_datetime_filename}.txt", "r") as t_dt_reader:

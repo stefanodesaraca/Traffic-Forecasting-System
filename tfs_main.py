@@ -98,7 +98,7 @@ def set_forecasting_options(functionality: str):
         write_forecasting_target_datetime()
 
     elif functionality == "3.1.2":
-        read_forecasting_target_datetime()
+        print("Target datetime: ", read_forecasting_target_datetime(), "\n\n")
 
     elif functionality == "3.1.3":
         del_forecasting_target_datetime()
