@@ -668,6 +668,7 @@ class AverageSpeedCleaner(Cleaner):
 
         try:
             avg_speed_data.to_csv(clean_avg_data_folder_path)
+            print(f"Average speed data for TRP: {trp_id} saved successfully")
         except:
             print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
 
@@ -694,7 +695,7 @@ class AverageSpeedCleaner(Cleaner):
 
         average_speed_data = self.clean_avg_speed_data(average_speed_data)
 
-
+        self.export_clean_avg_speed_data(average_speed_data)
 
 
         return None
