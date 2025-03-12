@@ -633,6 +633,7 @@ class AverageSpeedCleaner(Cleaner):
                     "percentile_85": [],
                     "coverage": []}
 
+
         for ud in avg_speed_data["date"].unique():
 
             day_data = avg_speed_data.query(f"date == '{ud}'")
@@ -676,11 +677,6 @@ class AverageSpeedCleaner(Cleaner):
 
 
         return None
-
-
-
-
-
 
 
     def execute_cleaning(self, file_path, file_name):
