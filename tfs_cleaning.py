@@ -634,15 +634,15 @@ class AverageSpeedCleaner(Cleaner):
             #print(day_data)
 
             for h in day_data["hour_start"].unique():
-                print(day_data[["mean_speed", "hour_start"]].query(f"hour_start == {h}")["mean_speed"]) #TODO WHY IS THIS AN EMPTY SERIES?
+                #print(day_data[["mean_speed", "hour_start"]].query(f"hour_start == {h}")["mean_speed"])
                 #Using the median to have a more robust indicator which won't be influenced by outliers as much as the mean
                 agg_data["mean_speed"].append(np.round(np.median(day_data[["mean_speed", "hour_start"]].query(f"hour_start == {h}")["mean_speed"]), decimals=2))
                 agg_data["percentile_85"].append(np.round(np.median(day_data[["percentile_85", "hour_start"]].query(f"hour_start == {h}")["percentile_85"]), decimals=2))
                 agg_data["coverage"].append(np.round(np.median(day_data[["coverage", "hour_start"]].query(f"hour_start == {h}")["coverage"]), decimals=2))
                 agg_data["hour_start"].append(h)
-                agg_data["year"].append(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%Y"))
-                agg_data["month"].append(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%m"))
-                agg_data["day"].append(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%d"))
+                agg_data["year"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%Y")))
+                agg_data["month"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%m")))
+                agg_data["day"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%d")))
                 agg_data["date"].append(ud)
 
 
@@ -652,18 +652,10 @@ class AverageSpeedCleaner(Cleaner):
         avg_speed_data = pd.DataFrame(agg_data)
         avg_speed_data = avg_speed_data.reindex(sorted(avg_speed_data.columns), axis=1)
 
-        print(avg_speed_data.head(15))
+        #print(avg_speed_data.head(15))
+        print(avg_speed_data.dtypes)
 
-
-
-
-
-
-
-
-
-
-        return None
+        return avg_speed_data
 
 
 
