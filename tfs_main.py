@@ -103,13 +103,23 @@ def set_forecasting_options(functionality: str):
     elif functionality == "3.1.3":
         del_forecasting_target_datetime()
 
+    return None
+
+
+def execute_forecasting(functionality: str):
+
+    if functionality == "":
+
+        #TODO EXECUTE 1. PREPROCESSING, 2. VARIABLE SELECTION 3. MACHINE LEARNING, 4. FORECASTING REPORTS GENERATION
+
+        print("WRITE CODE HERE")
+
+
+
 
 
 
     return None
-
-
-
 
 
 
