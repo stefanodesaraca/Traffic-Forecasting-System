@@ -633,8 +633,7 @@ class AverageSpeedCleaner(Cleaner):
                     "percentile_85": [],
                     "coverage": []}
 
-        #TODO TO TEST WITH [:2]
-        for ud in avg_speed_data["date"].unique()[:2]:
+        for ud in avg_speed_data["date"].unique():
 
             day_data = avg_speed_data.query(f"date == '{ud}'")
             #print(day_data)
