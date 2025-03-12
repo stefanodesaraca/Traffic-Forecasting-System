@@ -73,8 +73,7 @@ def clean_data(functionality: str):
         traffic_volumes_file_list = get_traffic_volume_file_list()
         cleaner = TrafficVolumesCleaner()
 
-        #TODO REMOVE THE [:2] AFTER TESTING
-        for file in traffic_volumes_file_list[:2]:
+        for file in traffic_volumes_file_list:
             cleaner.execute_cleaning(traffic_volumes_folder + file)
 
     elif functionality == "5.6.2":
@@ -84,8 +83,7 @@ def clean_data(functionality: str):
 
         cleaner = AverageSpeedCleaner()
 
-        #TODO TESTING WITH ONLY THE FIRST TWO FILES WITH [:2]
-        for file in average_speed_file_list[:2]:
+        for file in average_speed_file_list:
             cleaner.execute_cleaning(file_path=average_speed_folder + file, file_name=file)
 
 

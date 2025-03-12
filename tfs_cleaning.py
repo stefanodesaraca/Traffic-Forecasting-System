@@ -324,8 +324,8 @@ class TrafficVolumesCleaner(Cleaner):
             # ------------------ Ensuring that XXXXXXXXXXXXXXX ------------------
 
 
-            for k in by_hour_structured.keys():
-                print(f"List length for key: {k} = ", len(by_hour_structured[k]))
+            #for k in by_hour_structured.keys():
+                #print(f"List length for key: {k} = ", len(by_hour_structured[k]))
 
 
 
@@ -401,12 +401,12 @@ class TrafficVolumesCleaner(Cleaner):
         by_hour_df["volume"] = by_hour_df["volume"].astype("int")
 
 
-        print("By hour dataframe overview: \n", by_hour_df.head(15), "\n")
+        #print("By hour dataframe overview: \n", by_hour_df.head(15), "\n")
 
-        print("Data types: ")
-        print(by_hour_df.dtypes, "\n")
+        #print("Data types: ")
+        #print(by_hour_df.dtypes, "\n")
 
-        print("NaN sum: \n", by_hour_df.isna().sum())
+        #print("NaN sum: \n", by_hour_df.isna().sum())
 
         print("\n\n")
 
