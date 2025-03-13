@@ -127,8 +127,6 @@ def execute_forecasting(functionality: str):
 
         #TODO EXECUTE 1. PREPROCESSING, 2. VARIABLE SELECTION 3. MACHINE LEARNING, 4. FORECASTING REPORTS GENERATION
 
-        print("WRITE CODE HERE")
-
 
 
 

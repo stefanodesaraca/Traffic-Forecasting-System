@@ -50,7 +50,6 @@ class TrafficVolumesForecaster:
         print(volumes.corr(numeric_only=True))
         print(volumes.cov(numeric_only=True))
 
-
         #TODO ENCODE CYCLICAL VARIABLES HERE
 
 
