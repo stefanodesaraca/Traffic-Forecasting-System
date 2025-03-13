@@ -27,6 +27,56 @@ warnings.filterwarnings("ignore")
 pd.set_option('display.max_columns', None)
 
 
+class TrafficVolumesForecaster:
+
+    def __init__(self, volumes_file_path):
+        self.volumes_file_path = volumes_file_path
+
+
+    def get_volumes_data(self):
+        volumes = pd.read_csv(self.volumes_file_path)
+        return volumes
+
+
+    #TODO CHANGE NAME HERE
+    def preprocessing_pipeline(self):
+
+        volumes = self.get_volumes_data()
+
+        print(volumes.columns)
+        print(volumes.dtypes)
+        print(volumes.shape)
+        print(volumes.corr(numeric_only=True))
+        print(volumes.cov(numeric_only=True))
+        print(volumes.kurtosis)
+
+
+        return None #TODO RETURN THE PREPROCESSED DATA
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

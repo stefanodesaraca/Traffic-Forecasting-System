@@ -1,8 +1,11 @@
+import os
+
 from tfs_ops_settings import *
 from tfs_data_downloader import *
 from tfs_forecasting_settings import *
 from tfs_utilities import *
 from tfs_cleaning import *
+from tfs_volumes_ml import *
 import time
 from datetime import datetime
 
@@ -109,6 +112,15 @@ def set_forecasting_options(functionality: str):
 def execute_forecasting(functionality: str):
 
     if functionality == "":
+
+        clean_traffic_volume_files = os.listdir(get_clean_traffic_volumes_folder_path())[:2] #TODO REMOVE [:2] AFTER TESTING
+
+        for v in clean_traffic_volume_files:
+            volumes_forecaster = TrafficVolumesForecaster(v)
+            volumes_forecaster.preprocessing_pipeline()
+
+
+
 
         #TODO EXECUTE 1. PREPROCESSING, 2. VARIABLE SELECTION 3. MACHINE LEARNING, 4. FORECASTING REPORTS GENERATION
 
