@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import pickle
 import joblib
 import warnings
@@ -27,6 +28,20 @@ warnings.filterwarnings("ignore")
 pd.set_option('display.max_columns', None)
 
 
+def sin_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]):
+    """
+    The timeframe indicates a number of days
+    """
+    return np.sin(data * (2. * np.pi / timeframe))
+
+def cos_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]):
+    """
+    The timeframe indicates a number of days
+    """
+    return np.cos((data-1)*(2.*np.pi/timeframe))
+
+
+
 class TrafficVolumesForecaster:
 
     def __init__(self, volumes_file_path):
@@ -48,9 +63,17 @@ class TrafficVolumesForecaster:
         print(volumes.isna().sum())
         print(volumes.shape)
         print(volumes.corr(numeric_only=True))
-        print(volumes.cov(numeric_only=True))
 
         #TODO ENCODE CYCLICAL VARIABLES HERE
+
+        # ------------------ Cyclical variables encoding ------------------
+
+
+        volumes["hour_sin"] = sin_transformer(data=volumes["hour"], timeframe=24)
+        volumes["hour_cos"] = sin_transformer(data=volumes["hour"], timeframe=24)
+
+        print(volumes)
+
 
 
         return None #TODO RETURN THE PREPROCESSED DATA
