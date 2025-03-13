@@ -51,6 +51,9 @@ class TrafficVolumesForecaster:
         print(volumes.kurtosis)
 
 
+        #TODO ENCODE CYCLICAL VARIABLES HERE
+
+
         return None #TODO RETURN THE PREPROCESSED DATA
 
 

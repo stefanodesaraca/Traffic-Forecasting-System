@@ -111,7 +111,7 @@ def set_forecasting_options(functionality: str):
 
 def execute_forecasting(functionality: str):
 
-    if functionality == "":
+    if functionality == "3.2":
 
         clean_traffic_volume_files = os.listdir(get_clean_traffic_volumes_folder_path())[:2] #TODO REMOVE [:2] AFTER TESTING
 
