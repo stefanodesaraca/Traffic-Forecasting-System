@@ -45,10 +45,10 @@ class TrafficVolumesForecaster:
 
         print(volumes.columns)
         print(volumes.dtypes)
+        print(volumes.isna().sum())
         print(volumes.shape)
         print(volumes.corr(numeric_only=True))
         print(volumes.cov(numeric_only=True))
-        print(volumes.kurtosis)
 
 
         #TODO ENCODE CYCLICAL VARIABLES HERE

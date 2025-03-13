@@ -424,7 +424,7 @@ class TrafficVolumesCleaner(Cleaner):
         #print(file_path)
 
         try:
-            by_hour.to_csv(file_path)
+            by_hour.to_csv(file_path, index=False)
             print(f"TRP: {trp_id} data exported correctly\n\n")
         except AttributeError:
             print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
@@ -670,7 +670,7 @@ class AverageSpeedCleaner(Cleaner):
         clean_avg_data_folder_path = get_clean_average_speed_folder_path()
 
         try:
-            avg_speed_data.to_csv(clean_avg_data_folder_path + trp_id + f"_S{t_min}_E{t_max}C") #S stands for Start (registration starting date), E stands for End and C for Clean
+            avg_speed_data.to_csv(clean_avg_data_folder_path + trp_id + f"_S{t_min}_E{t_max}C", index=False) #S stands for Start (registration starting date), E stands for End and C for Clean
             print(f"Average speed data for TRP: {trp_id} saved successfully\n\n")
         except:
             print(f"\033[91mCouldn't export TRP: {trp_id} volumes data\033[0m")

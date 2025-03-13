@@ -113,7 +113,10 @@ def execute_forecasting(functionality: str):
 
     if functionality == "3.2":
 
-        clean_traffic_volume_files = os.listdir(get_clean_traffic_volumes_folder_path())[:2] #TODO REMOVE [:2] AFTER TESTING
+        clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
+
+        clean_traffic_volume_files = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())][:2] #TODO REMOVE [:2] AFTER TESTING
+        print(clean_traffic_volume_files)
 
         for v in clean_traffic_volume_files:
             volumes_forecaster = TrafficVolumesForecaster(v)
@@ -206,6 +209,9 @@ def main():
 
         elif option == "3.1.3":
             set_forecasting_options(option)
+
+        elif option == "3.2":
+            execute_forecasting(option)
 
         elif option == "5.6.1":
             clean_data(option)
