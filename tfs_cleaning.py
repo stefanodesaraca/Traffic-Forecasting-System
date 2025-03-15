@@ -233,6 +233,7 @@ class TrafficVolumesCleaner(Cleaner):
                     by_hour_structured["coverage"].append(None)
                     by_hour_structured["year"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%Y"))
                     by_hour_structured["month"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%m"))
+                    by_hour_structured["week"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%V"))
                     by_hour_structured["day"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%d"))
                     by_hour_structured["hour"].append(h)
 
