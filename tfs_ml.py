@@ -68,7 +68,6 @@ class TrafficVolumesForecaster:
 
         # ------------------ Cyclical variables encoding ------------------
 
-
         volumes["hour_sin"] = sin_transformer(data=volumes["hour"], timeframe=24)
         volumes["hour_cos"] = sin_transformer(data=volumes["hour"], timeframe=24)
 
@@ -80,9 +79,6 @@ class TrafficVolumesForecaster:
 
         volumes["month_sin"] = sin_transformer(data=volumes["month"], timeframe=12)
         volumes["month_cos"] = sin_transformer(data=volumes["month"], timeframe=12)
-
-
-
 
 
 

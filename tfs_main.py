@@ -1,8 +1,8 @@
 import os
-
 from tfs_ops_settings import *
 from tfs_data_downloader import *
 from tfs_forecasting_settings import *
+from tfs_data_exploration import *
 from tfs_utilities import *
 from tfs_cleaning import *
 from tfs_ml import *
@@ -135,9 +135,19 @@ def execute_forecasting(functionality: str):
     return None
 
 
+def executeEDA():
+
+    clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
+
+    clean_traffic_volume_files = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())][:2]  # TODO REMOVE [:2] AFTER TESTING
+    print(clean_traffic_volume_files)
+
+    for v in clean_traffic_volume_files:
+        volumes = retrieve_volumes_data()
 
 
 
+    return None
 
 
 

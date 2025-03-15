@@ -12,6 +12,15 @@ import plotly.express as px
 import os
 
 
+def retrieve_volumes_data(file_path: str):
+
+    volumes = pd.read_csv(file_path)
+
+    print(volumes)
+
+
+
+    return None
 
 
 
