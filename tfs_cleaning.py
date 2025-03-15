@@ -577,7 +577,7 @@ class AverageSpeedCleaner(Cleaner):
 
         avg_speed_data["year"] = avg_speed_data["date"].dt.year
         avg_speed_data["month"] = avg_speed_data["date"].dt.month
-        avg_speed_data["week"] = avg_speed_data["date"].dt.week
+        avg_speed_data["week"] = avg_speed_data["date"].dt.isocalendar().week
         avg_speed_data["day"] = avg_speed_data["date"].dt.day
 
         avg_speed_data["year"] = avg_speed_data["year"].astype("int")
