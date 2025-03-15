@@ -253,6 +253,7 @@ class TrafficVolumesCleaner(Cleaner):
                 registration_datetime = datetime.strptime(registration_datetime, "%Y-%m-%dT%H:%M:%S")
                 year = registration_datetime.strftime("%Y")
                 month = registration_datetime.strftime("%m")
+                week = registration_datetime.strftime("%V")
                 day = registration_datetime.strftime("%d")
                 hour = registration_datetime.strftime("%H")
 
@@ -269,6 +270,7 @@ class TrafficVolumesCleaner(Cleaner):
                 by_hour_structured["trp_id"].append(trp_id)
                 by_hour_structured["year"].append(year)
                 by_hour_structured["month"].append(month)
+                by_hour_structured["week"].append(week)
                 by_hour_structured["day"].append(day)
                 by_hour_structured["hour"].append(hour)
                 by_hour_structured["volume"].append(total_volume)
@@ -291,6 +293,7 @@ class TrafficVolumesCleaner(Cleaner):
                     by_lane_structured["trp_id"].append(trp_id)
                     by_lane_structured["year"].append(year)
                     by_lane_structured["month"].append(month)
+                    by_lane_structured["week"].append(week)
                     by_lane_structured["day"].append(day)
                     by_lane_structured["hour"].append(hour)
                     by_lane_structured["volume"].append(lane_volume)
@@ -311,6 +314,7 @@ class TrafficVolumesCleaner(Cleaner):
                     by_direction_structured["trp_id"].append(trp_id)
                     by_direction_structured["year"].append(year)
                     by_direction_structured["month"].append(month)
+                    by_direction_structured["week"].append(week)
                     by_direction_structured["day"].append(day)
                     by_direction_structured["hour"].append(hour)
                     by_direction_structured["volume"].append(direction_volume)
@@ -397,6 +401,7 @@ class TrafficVolumesCleaner(Cleaner):
 
         by_hour_df["year"] = by_hour_df["year"].astype("int")
         by_hour_df["month"] = by_hour_df["month"].astype("int")
+        by_hour_df["week"] = by_hour_df["week"].astype("int")
         by_hour_df["day"] = by_hour_df["day"].astype("int")
         by_hour_df["hour"] = by_hour_df["hour"].astype("int")
         by_hour_df["volume"] = by_hour_df["volume"].astype("int")
@@ -572,10 +577,12 @@ class AverageSpeedCleaner(Cleaner):
 
         avg_speed_data["year"] = avg_speed_data["date"].dt.year
         avg_speed_data["month"] = avg_speed_data["date"].dt.month
+        avg_speed_data["week"] = avg_speed_data["date"].dt.week
         avg_speed_data["day"] = avg_speed_data["date"].dt.day
 
         avg_speed_data["year"] = avg_speed_data["year"].astype("int")
         avg_speed_data["month"] = avg_speed_data["month"].astype("int")
+        avg_speed_data["week"] = avg_speed_data["date"].astype("int")
         avg_speed_data["day"] = avg_speed_data["day"].astype("int")
 
         avg_speed_data["hour_start"] = avg_speed_data["hour_start"].astype("int")
@@ -598,8 +605,10 @@ class AverageSpeedCleaner(Cleaner):
 
             #print(avg_speed_data.isna().sum())
 
+            #These transformations here are necessary since after the multiple imputation every column's type becomes float
             avg_speed_data["year"] = avg_speed_data["year"].astype("int")
             avg_speed_data["month"] = avg_speed_data["month"].astype("int")
+            avg_speed_data["week"] = avg_speed_data["week"].astype("int")
             avg_speed_data["day"] = avg_speed_data["day"].astype("int")
 
             avg_speed_data["hour_start"] = avg_speed_data["hour_start"].astype("int")
@@ -613,7 +622,7 @@ class AverageSpeedCleaner(Cleaner):
             avg_speed_data[nm_col] = df_non_mice_cols[nm_col]
 
         print("Dataframe overview: \n", avg_speed_data.head(15), "\n")
-        print("Basic descriptive statistics on the dataframe: \n", avg_speed_data.drop(columns=["year", "month", "day", "hour_start"], axis=1).describe(), "\n")
+        print("Basic descriptive statistics on the dataframe: \n", avg_speed_data.drop(columns=["year", "month", "week", "day", "hour_start"], axis=1).describe(), "\n")
 
 
         # ------------------ Restructuring the data ------------------
@@ -628,6 +637,7 @@ class AverageSpeedCleaner(Cleaner):
                     "date": [],
                     "year": [],
                     "month": [],
+                    "week": [],
                     "day": [],
                     "hour_start": [],
                     "mean_speed": [],
@@ -649,6 +659,7 @@ class AverageSpeedCleaner(Cleaner):
                 agg_data["hour_start"].append(h)
                 agg_data["year"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%Y")))
                 agg_data["month"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%m")))
+                agg_data["week"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%V")))
                 agg_data["day"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%d")))
                 agg_data["date"].append(ud)
                 agg_data["trp_id"].append(trp_id)
