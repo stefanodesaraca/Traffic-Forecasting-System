@@ -6,6 +6,7 @@ from warnings import simplefilter
 import math
 import numpy as np
 from tqdm import tqdm
+from collections import ChainMap
 
 simplefilter("ignore")
 
@@ -28,7 +29,7 @@ def start_client():
 
 
 #The number 3 indicates the Oslo og Viken county, which only includes the Oslo municipality
-def fetch_traffic_measurement_points(client: Client):
+def fetch_traffic_registration_points(client: Client):
 
     tmp_query = gql(
         '''
@@ -89,63 +90,126 @@ def fetch_traffic_measurement_points(client: Client):
     return traffic_measurement_points
 
 
-def fetch_traffic_volumes_for_tmp_id(client: Client, traffic_measurement_point: str, time_start: str, time_end: str):
+def fetch_traffic_volumes_for_trp_id(client: Client, traffic_registration_point: str, time_start: str, time_end: str, last_end_cursor, next_page_query: bool):
 
-    tv_query = gql(f"""{{
-        trafficData(trafficRegistrationPointId: "{traffic_measurement_point}") {{
-        trafficRegistrationPoint{{
-              id
-              name
-            }}
-            volume {{
-                byHour(from: "{time_start}", to: "{time_end}") {{
-                    edges {{
-                        node {{
-                            from
-                            to
-                            total {{
-                                volumeNumbers {{
-                                    volume
-                                }}
-                                coverage {{
-                                    percentage
-                                }}
-                            }}
-                            byLane {{
-                                lane {{
-                                    laneNumberAccordingToRoadLink
-                                    laneNumberAccordingToMetering
-                                }}
+    tv_query = {}
+
+    if next_page_query is False:
+
+        tv_query = gql(f"""{{
+            trafficData(trafficRegistrationPointId: "{traffic_registration_point}") {{
+            trafficRegistrationPoint{{
+                  id
+                  name
+                }}
+                volume {{
+                    byHour(from: "{time_start}", to: "{time_end}") {{
+                        edges {{
+                            node {{
+                                from
+                                to
                                 total {{
-                                    coverage {{
-                                        percentage
-                                    }}
                                     volumeNumbers {{
                                         volume
                                     }}
-                                }}
-                            }}
-                            byDirection {{
-                                heading
-                                total {{
                                     coverage {{
                                         percentage
                                     }}
-                                    volumeNumbers {{
-                                        volume
+                                }}
+                                byLane {{
+                                    lane {{
+                                        laneNumberAccordingToRoadLink
+                                        laneNumberAccordingToMetering
+                                    }}
+                                    total {{
+                                        coverage {{
+                                            percentage
+                                        }}
+                                        volumeNumbers {{
+                                            volume
+                                        }}
+                                    }}
+                                }}
+                                byDirection {{
+                                    heading
+                                    total {{
+                                        coverage {{
+                                            percentage
+                                        }}
+                                        volumeNumbers {{
+                                            volume
+                                        }}
                                     }}
                                 }}
                             }}
                         }}
-                    }}
-                    pageInfo {{
-                        hasNextPage
-                        endCursor
+                        pageInfo {{
+                            hasNextPage
+                            endCursor
+                        }}
                     }}
                 }}
             }}
-        }}
-    }}""")
+        }}""")
+
+    elif next_page_query is True:
+
+        tv_query = gql(f"""{{
+                    trafficData(trafficRegistrationPointId: "{traffic_registration_point}") {{
+                    trafficRegistrationPoint{{
+                          id
+                          name
+                        }}
+                        volume {{
+                            byHour(from: "{time_start}", to: "{time_end}", after: "{last_end_cursor}") {{
+                                edges {{
+                                    node {{
+                                        from
+                                        to
+                                        total {{
+                                            volumeNumbers {{
+                                                volume
+                                            }}
+                                            coverage {{
+                                                percentage
+                                            }}
+                                        }}
+                                        byLane {{
+                                            lane {{
+                                                laneNumberAccordingToRoadLink
+                                                laneNumberAccordingToMetering
+                                            }}
+                                            total {{
+                                                coverage {{
+                                                    percentage
+                                                }}
+                                                volumeNumbers {{
+                                                    volume
+                                                }}
+                                            }}
+                                        }}
+                                        byDirection {{
+                                            heading
+                                            total {{
+                                                coverage {{
+                                                    percentage
+                                                }}
+                                                volumeNumbers {{
+                                                    volume
+                                                }}
+                                            }}
+                                        }}
+                                    }}
+                                }}
+                                pageInfo {{
+                                    hasNextPage
+                                    endCursor
+                                }}
+                            }}
+                        }}
+                    }}
+                }}""")
+
 
     traffic_volumes = client.execute(tv_query)
     #print(traffic_volumes)
@@ -204,7 +268,7 @@ def fetch_areas(client: Client):
 # --------------------------------- JSON Writing Section ---------------------------------
 
 
-def traffic_measurement_points_to_json(ops_name: str):
+def traffic_registration_points_to_json(ops_name: str):
     """
     The _ops_name parameter is needed to identify the operation where the data needs to be downloaded.
     This implies that the same data can be downloaded multiple times, but downloaded into different operation folders,
@@ -213,7 +277,7 @@ def traffic_measurement_points_to_json(ops_name: str):
 
     client = start_client()
 
-    TMPs = fetch_traffic_measurement_points(client)
+    TMPs = fetch_traffic_registration_points(client)
 
     with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_measurement_points.json", "w") as tmps_w:
         json.dump(TMPs, tmps_w, indent=4)
@@ -226,13 +290,13 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
     client = start_client()
 
     #Read traffic measurement points json file
-    with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_measurement_points.json", "r") as tmps_r:
-        tmps = json.load(tmps_r)
+    with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_measurement_points.json", "r") as trps_r:
+        trps = json.load(trps_r)
 
 
     ids = []
 
-    trafficRegistrationPoints = tmps["trafficRegistrationPoints"]
+    trafficRegistrationPoints = trps["trafficRegistrationPoints"]
 
     for trp in trafficRegistrationPoints:
         ids.append(trp["id"])
@@ -240,17 +304,46 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
     #print(ids)
 
 
-    def download_ids_chunk(chunk):
+    def download_trp_data(trp_id):
         try:
-            id_volumes = {}
-            for i in chunk:
-                id_volumes.update({i: fetch_traffic_volumes_for_tmp_id(client=client, traffic_measurement_point=i, time_start=time_start, time_end=time_end)})
-            return id_volumes
+
+            volumes = {}
+            query_result = {}
+
+            pages_counter = 0
+            end_cursor = ""
+
+            while end_cursor is not None:
+
+                if pages_counter == 0:
+                    query_result = fetch_traffic_volumes_for_trp_id(client=client, traffic_registration_point=trp_id, time_start=time_start, time_end=time_end, last_end_cursor=None, next_page_query=False)
+
+                    end_cursor = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]["endCursor"] if query_result["trafficData"]["volume"]["byHour"]["pageInfo"]["hasNextPage"] is True else end_cursor = None
+
+
+                elif pages_counter > 0:
+                    query_result = fetch_traffic_volumes_for_trp_id(client=client, traffic_registration_point=trp_id, time_start=time_start, time_end=time_end, last_end_cursor=end_cursor, next_page_query=False)
+
+                    end_cursor = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]["endCursor"] if query_result["trafficData"]["volume"]["byHour"]["pageInfo"]["hasNextPage"] is True else end_cursor = None
+
+                volumes.update({trp_id: query_result})
+
+            return volumes
+
         except TimeoutError:
             print("\033[91mTimeout Error Raised. Safely Exited the Program\033[0m")
             exit()
 
-        #TODO WATCH OUT FOR OUT OF MEMORY ERRORS, IF THE DATA IS TOO BIG FOR THE RAM THIS COULD CAUSE ERRORS
+
+
+
+
+
+
+
+
+
+
 
 
     requestChunkSize = int(math.sqrt(len(ids))) #The chunk size of each request cycle will be equal to the square root of the total number of ids
@@ -264,7 +357,7 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
     tv = {} #Traffic Volumes
 
     for ids_chunk in tqdm(requestChunks, total=len(requestChunks)):
-        tv.update(download_ids_chunk(ids_chunk)) #The download_ids_chunk returns a dictionary with a set of ids and respective traffic volumes data
+        tv.update(download_trp_data(ids_chunk)) #The download_ids_chunk returns a dictionary with a set of ids and respective traffic volumes data
 
     #print(tv)
 

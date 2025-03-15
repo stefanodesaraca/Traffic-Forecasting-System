@@ -38,7 +38,7 @@ def download_data(functionality: str):
             print("Downloading traffic measurement points information for the active operation...")
 
             ops_name = read_active_ops_file()
-            traffic_measurement_points_to_json(ops_name)
+            traffic_registration_points_to_json(ops_name)
 
             print("Traffic measurement points information downloaded successfully\n\n")
 
