@@ -7,6 +7,7 @@ import math
 import numpy as np
 from tqdm import tqdm
 from collections import ChainMap
+import pprint
 
 simplefilter("ignore")
 
@@ -318,15 +319,24 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
                 if pages_counter == 0:
                     query_result = fetch_traffic_volumes_for_trp_id(client=client, traffic_registration_point=trp_id, time_start=time_start, time_end=time_end, last_end_cursor=None, next_page_query=False)
 
-                    end_cursor = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]["endCursor"] if query_result["trafficData"]["volume"]["byHour"]["pageInfo"]["hasNextPage"] is True else end_cursor = None
+                    end_cursor = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]["endCursor"] if query_result["trafficData"]["volume"]["byHour"]["pageInfo"]["hasNextPage"] is True else None
+                    pages_counter += 1
+                    #print(end_cursor)
+
+                    volumes = query_result
 
 
                 elif pages_counter > 0:
-                    query_result = fetch_traffic_volumes_for_trp_id(client=client, traffic_registration_point=trp_id, time_start=time_start, time_end=time_end, last_end_cursor=end_cursor, next_page_query=False)
+                    query_result = fetch_traffic_volumes_for_trp_id(client=client, traffic_registration_point=trp_id, time_start=time_start, time_end=time_end, last_end_cursor=end_cursor, next_page_query=True)
 
-                    end_cursor = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]["endCursor"] if query_result["trafficData"]["volume"]["byHour"]["pageInfo"]["hasNextPage"] is True else end_cursor = None
+                    end_cursor = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]["endCursor"] if query_result["trafficData"]["volume"]["byHour"]["pageInfo"]["hasNextPage"] is True else None
+                    pages_counter += 1
+                    #print(end_cursor)
 
-                volumes.update({trp_id: query_result})
+
+                    volumes["trafficData"]["volume"]["byHour"]["edges"].extend(query_result["trafficData"]["volume"]["byHour"]["edges"])
+
+            #pprint.pprint(query_result)
 
             return volumes
 
@@ -339,39 +349,15 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
 
 
 
+    for i in tqdm(ids, total=len(ids)):
+        volumes_data = download_trp_data(i)
+        print(f"TRP: {i} data collected successfully. Writing...")
 
+        # Exporting traffic volumes to a json file, S stands for "Start" and E stands for "End". They represent the time frame in which the data was collected (for a specific traffic measurement point)
+        with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{i}_volumes_S{time_start[:18].replace(":", "_")}_E{time_end[:18].replace(":", "_")}.json", "w") as tv_w:
+            json.dump(volumes_data, tv_w, indent=4)
 
-
-
-
-
-
-    requestChunkSize = int(math.sqrt(len(ids))) #The chunk size of each request cycle will be equal to the square root of the total number of ids
-    requestChunks = np.array_split(ids, requestChunkSize)
-
-    #Checking for duplicates in the ids list
-    #print(len(ids), "|", len(set(ids)))
-
-    #print("Requests chunks: ", requestChunks)
-
-    tv = {} #Traffic Volumes
-
-    for ids_chunk in tqdm(requestChunks, total=len(requestChunks)):
-        tv.update(download_trp_data(ids_chunk)) #The download_ids_chunk returns a dictionary with a set of ids and respective traffic volumes data
-
-    #print(tv)
-
-    time_start = time_start[:18].replace(":", "_") #Keeping only the characters that were inputted by the user
-    time_end = time_end[:18].replace(":", "_")
-
-    print("Data collected successfully. Writing...")
-
-    for tmp_id in ids:
-        #Exporting traffic volumes to a json file, S stands for "Start" and E stands for "End". They represent the time frame in which the data was collected (for a specific traffic measurement point)
-        with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{tmp_id}_volumes_S{time_start}_E{time_end}.json", "w") as tv_w:
-            json.dump(tv[tmp_id], tv_w, indent=4)
-
-    print("Data successfully written in memory\n")
+        print("Data successfully written in memory\n")
 
     print("\n\n")
 
