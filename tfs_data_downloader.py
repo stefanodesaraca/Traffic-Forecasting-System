@@ -307,16 +307,16 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
 
 
     def download_trp_data(trp_id):
-        try:
 
-            volumes = {}
-            query_result = {}
+        volumes = {}
+        query_result = {}
 
-            pages_counter = 0
-            end_cursor = ""
+        pages_counter = 0
+        end_cursor = ""
 
-            while end_cursor is not None:
+        while end_cursor is not None:
 
+            try:
                 if pages_counter == 0:
                     query_result = fetch_traffic_volumes_for_trp_id(client=client, traffic_registration_point=trp_id, time_start=time_start, time_end=time_end, last_end_cursor=None, next_page_query=False)
 
@@ -337,14 +337,16 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
 
                     volumes["trafficData"]["volume"]["byHour"]["edges"].extend(query_result["trafficData"]["volume"]["byHour"]["edges"])
 
-            #pprint.pprint(query_result)
 
-            return volumes
+            except TimeoutError:
+                continue
+                #This error shouldn't be a problem, but it's important to manage it well.
+                #The error gets raised in the fetch_traffic_volumes_for_trp_id() function, so the end cursor won't get updated. Thus, if a TimeoutError gets raised the program will just start downloading data from where it stopped before
 
-        except TimeoutError:
-            print("\033[91mTimeout Error Raised. Safely Exited the Program\033[0m")
-            exit()
 
+        #pprint.pprint(query_result)
+
+        return volumes
 
 
 

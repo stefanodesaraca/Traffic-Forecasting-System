@@ -496,8 +496,8 @@ class AverageSpeedCleaner(Cleaner):
 
 
     def data_overview(self, trp_data, verbose: bool):
-        # Since the prints below are all the same (except for one) we could technically create a workaround to avoid having to repeat these lines, but it would complicate a lot something way simpler (just prints).
-        # Thus, for readability purposes we're gonna repeat the same prints (except for one) as in the TrafficVolumeCleaner class
+        # Since the prints below are all the same (except for one) we could technically create a workaround to avoid having to repeat these lines, but it would complicate a lot something that's way simpler (just prints).
+        # Thus, for readability purposes we're going to repeat the same prints (except for one) as in the TrafficVolumeCleaner class
 
         if verbose is True:
 
@@ -698,14 +698,18 @@ class AverageSpeedCleaner(Cleaner):
 
         '''
 
-        trp_data = self.retrieve_trp_data_from_avg_speed_file(avg_speed_filename=file_name)
-        average_speed_data = import_avg_speed_data(file_path=file_path)
+        try:
+            trp_data = self.retrieve_trp_data_from_avg_speed_file(avg_speed_filename=file_name)
+            average_speed_data = import_avg_speed_data(file_path=file_path)
 
-        self.data_overview(trp_data, verbose=True)
+            self.data_overview(trp_data, verbose=True)
 
-        average_speed_data, trp_id, t_max, t_min = self.clean_avg_speed_data(average_speed_data)
+            average_speed_data, trp_id, t_max, t_min = self.clean_avg_speed_data(average_speed_data)
 
-        self.export_clean_avg_speed_data(average_speed_data, trp_id, t_max, t_min)
+            self.export_clean_avg_speed_data(average_speed_data, trp_id, t_max, t_min)
+
+        except IndexError:
+            print(f"\033091mNo data available for file: {file_name}")
 
 
         return None
