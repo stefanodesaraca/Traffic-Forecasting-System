@@ -121,6 +121,7 @@ class TrafficVolumesCleaner(Cleaner):
                               "coverage": [],
                               "year": [],
                               "month": [],
+                              "week": [],
                               "day": [],
                               "hour": []}
 
@@ -129,6 +130,7 @@ class TrafficVolumesCleaner(Cleaner):
                               "coverage": [],
                               "year": [],
                               "month": [],
+                              "week": [],
                               "day": [],
                               "hour": [],
                               "lane": []}
@@ -138,6 +140,7 @@ class TrafficVolumesCleaner(Cleaner):
                                    "coverage": [],
                                    "year": [],
                                    "month": [],
+                                   "week": [],
                                    "day": [],
                                    "hour": [],
                                    "direction": []}
