@@ -135,7 +135,7 @@ def execute_forecasting(functionality: str):
     return None
 
 
-def executeEDA():
+def execute_eda():
 
     clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
 
@@ -143,8 +143,8 @@ def executeEDA():
     print(clean_traffic_volume_files)
 
     for v in clean_traffic_volume_files:
-        volumes = retrieve_volumes_data()
-
+        volumes = retrieve_volumes_data(v)
+        analyze_volumes(volumes)
 
 
     return None
@@ -220,6 +220,9 @@ def main():
 
         elif option == "3.2":
             execute_forecasting(option)
+
+        elif option == "5.2":
+            execute_eda()
 
         elif option == "5.6.1":
             clean_data(option)
