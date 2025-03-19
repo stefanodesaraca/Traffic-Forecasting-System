@@ -8,8 +8,78 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import dask as dd
 from scipy import stats
+import plotly
 import plotly.express as px
 import os
+import inspect
+from functools import wraps
+
+
+def savePlots(plotFunction):
+
+    def checkPlots(plotNames, plots):
+        if isinstance(plotNames, list) and isinstance(plots, list):
+            return True
+        else:
+            #print("\033[91mCheckPlots: object obtained are not lists\033[0m")
+            return False
+
+    def checkPlotsTypeAndSave(plotName, plots, filePath):
+        if isinstance(plots, (plt.Figure, plt.Axes, sns.axisgrid.FacetGrid, sns.axisgrid.PairGrid, list)):
+            plt.savefig(f"{filePath}{plotName}.png", dpi=300)
+            print(f"{plotName} Exported Correctly")
+
+        elif isinstance(plots, plotly.graph_objs._figure.Figure):
+            plots.write_html(f"{filePath}{plotName}.html")
+            print(f"{plotName} Exported Correctly")
+
+        else:
+            try:
+                plt.savefig(f"{filePath}{plotName}.png", dpi=300)
+                print(f"{plotName} Exported Correctly")
+            except:
+                print("\033[91mExporting the plots wasn't possible, the returned type is not included in the decorator function\033[0m")
+
+        return None
+
+    @wraps(plotFunction)
+    def wrapper(*args, **kwargs):
+
+        plotsNames, generatedPlots, filePath = plotFunction(*args, **kwargs)
+        #print("File path: " + filePath)
+
+        if checkPlots(plotsNames, generatedPlots) is True:
+
+            for plotName, plot in zip(plotsNames, generatedPlots):
+                checkPlotsTypeAndSave(plotName, plot, filePath)
+
+        elif checkPlots(plotsNames, generatedPlots) is False:
+            #print("Saving Single Graph...")
+            checkPlotsTypeAndSave(plotsNames, generatedPlots, filePath)
+
+        else:
+            print(f"\033[91mExporting the plots wasn't possible, here's the data types obtained by the decorator: PlotNames: {type(plotsNames)}, Generated Plots (could be a list of plots): {type(generatedPlots)}, File Path: {type(filePath)}\033[0m")
+
+        return None
+
+    return wrapper
+
+
+@savePlots
+def ShapiroWilkTest(targetFeatureName, data, shapiroWilkPlotsPath):
+
+    plotName = targetFeatureName + inspect.currentframe().f_code.co_name
+
+    print(f"Shapiro-Wilk Normality Test On \033[92m{targetFeatureName}\033[0m Target Feature")
+    _, SWH0PValue = stats.shapiro(data) #Executing the Shapiro-Wilk Normality Test - This method returns a 'scipy.stats._morestats.ShapiroResult' class object with two parameters inside, the second is the H0 P-Value
+    #print(type(stats.shapiro(data)))
+    print(f"Normality Probability (H0 Hypothesis P-Value): \033[92m{SWH0PValue}\033[0m")
+
+    fig, ax = plt.subplots()
+    SWQQPlot = stats.probplot(data, plot=ax)
+    ax.set_title(f"Probability Plot for {targetFeatureName}")
+
+    return plotName, SWQQPlot, shapiroWilkPlotsPath
 
 
 def retrieve_volumes_data(file_path: str):

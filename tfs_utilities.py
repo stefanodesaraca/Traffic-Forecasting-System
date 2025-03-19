@@ -139,3 +139,25 @@ def check_datetime(dt: str):
         return True
     except ValueError:
         return False
+
+
+def get_shapiro_wilk_plots_path():
+
+    ops_name = get_active_ops_name()
+
+    return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_shapiro_wilk_test"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
