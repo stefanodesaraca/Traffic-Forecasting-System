@@ -1,3 +1,4 @@
+import pandas as pd
 from scipy.ndimage import rotate
 
 import tfs_cleaning
@@ -137,11 +138,11 @@ def analyze_volumes(volumes: pd.DataFrame):
 
 
     print("Percentiles by year")
-    print(percentile_25_by_year, "\n")
-    print(percentile_50_by_year, "\n")
-    print(percentile_75_by_year, "\n")
-    print(percentile_95_by_year, "\n")
-    print(percentile_99_by_year, "\n")
+    print(percentile_25_by_year.rename(columns={"volume": "percentile_25"}), "\n")
+    print(percentile_50_by_year.rename(columns={"volume": "percentile_50"}), "\n")
+    print(percentile_75_by_year.rename(columns={"volume": "percentile_75"}), "\n")
+    print(percentile_95_by_year.rename(columns={"volume": "percentile_95"}), "\n")
+    print(percentile_99_by_year.rename(columns={"volume": "percentile_99"}), "\n")
     print("\n")
 
 
@@ -155,14 +156,15 @@ def analyze_volumes(volumes: pd.DataFrame):
     print("Volumes median: ", np.round(np.mean(volumes["volume"]), 2))
     print("Volumes standard deviation: ", np.round(np.std(volumes["volume"]), 2))
     print("Volumes standard variance: ", np.round(np.var(volumes["volume"]), 2))
+    print("\n")
+
 
     for y in sorted(outliers_by_year.keys()):
         print(f"Volumes mean for year {y}: ", np.round(np.mean(volumes[volumes["year"] == y]["volume"]), 2))
         print(f"Volumes median for year {y}: ", np.round(np.mean(volumes[volumes["year"] == y]["volume"]), 2))
         print(f"Volumes standard deviation for year {y}: ", np.round(np.std(volumes[volumes["year"] == y]["volume"]), 2))
         print(f"Volumes standard variance for year {y}: ", np.round(np.var(volumes[volumes["year"] == y]["volume"]), 2))
-
-    print("\n\n")
+        print("\n")
 
     #Checking if the data distribution is normal
     swt_path = get_shapiro_wilk_plots_path()
@@ -190,32 +192,30 @@ def analyze_volumes(volumes: pd.DataFrame):
 
     dates = [f"{y}-{m}-{d}" for y, m, d in zip(volumes["year"], volumes["month"], volumes["day"])]
 
+    volumes["date"] = pd.to_datetime(dates)
+
+
 
     @savePlots
     def distributions_line_by_time():
 
+        plot_path = get_eda_plots_folder_path()
 
-        plt.figure(figsize=(16, 9))
+        plt.figure(figsize=(16,9))
 
-        plt.plot(volumes[["volume", "day"]])
-
+        plt.plot("date", "volume", data=volumes.sort_values(by="date", ascending=True))
         plt.ylabel("Volume")
         plt.xlabel("Time (days)")
 
-        plt.xticks(volumes["day"])
-        plt.yticks(volumes["volume"])
-        plt.locator_params(axis='x', nbins=30)
-        plt.locator_params(axis='y', nbins=15)
+        plt.xticks(ticks=volumes["date"], labels=volumes["date"], rotation=45)
 
-        plt.show()
-
-        return "distributions_line_plot", plt, get_eda_plots_folder_path()
+        return f"{trp_id}_distributions_line_plot", plt, plot_path
 
 
 
 
     distributions_line_by_time()
-    plt.clf()
+    plt.cla()
 
 
 
