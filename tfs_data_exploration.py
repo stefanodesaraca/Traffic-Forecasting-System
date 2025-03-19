@@ -40,10 +40,7 @@ def analyze_volumes(volumes: pd.DataFrame):
     percentile_95_by_year = volumes.groupby(volumes["year"], as_index=False)["volume"].quantile(0.95)
     percentile_99_by_year = volumes.groupby(volumes["year"], as_index=False)["volume"].quantile(0.99)
 
-
-    outliers_by_year = {y: volumes[(volumes["volume"] > np.percentile(volumes[volumes["year"] == y]["volume"], 75)) & (volumes["year"] == y)] for y in volumes["year"].unique()} #Return all values which are greater than the 75th percentile and that are registered in the year taken in consideration (during the for loop in the dict comprehension)
-
-
+    outliers_by_year = {y: volumes[(volumes["volume"] > np.percentile(volumes[volumes["year"] == y]["volume"], 75)) & (volumes["volume"] < np.percentile(volumes[volumes["year"] == y]["volume"], 25)) & (volumes["year"] == y)] for y in volumes["year"].unique()} #Return all values which are greater than the 75th percentile and that are registered in the year taken in consideration (during the for loop in the dict comprehension)
 
 
     # --------------- Insights printing ---------------
@@ -61,6 +58,9 @@ def analyze_volumes(volumes: pd.DataFrame):
     print("99th percentile: ", percentile_99)
     print("\n")
 
+    print("Inter-Quartile Range (IQR) for the whole distribution (all years): ", percentile_75-percentile_25)
+    print("Quartile Deviation for the whole distribution (all years): ", percentile_75-percentile_25)
+
 
     print("Percentiles by year")
     print(percentile_25_by_year, "\n")
@@ -75,9 +75,6 @@ def analyze_volumes(volumes: pd.DataFrame):
     for y in sorted(outliers_by_year.keys()): print(f"Year: {y} | Outliers: {len(outliers_by_year[y])}")
 
     print("\n")
-
-
-
 
 
 
