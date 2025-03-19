@@ -197,25 +197,29 @@ def analyze_volumes(volumes: pd.DataFrame):
 
 
     @savePlots
-    def distributions_line_by_time():
+    def volume_trend_grouped_by_years():
 
         plot_path = get_eda_plots_folder_path()
 
         plt.figure(figsize=(16,9))
 
-        plt.plot("date", "volume", data=volumes.sort_values(by="date", ascending=True))
+        for y in sorted(volumes["year"].unique()):
+
+            year_data = volumes[volumes["year"] == y].groupby("date", as_index=False)["volume"].sum().sort_values(by="date", ascending=True)
+            print(year_data)
+            plt.plot("date", "volume", data=year_data)
+
         plt.ylabel("Volume")
         plt.xlabel("Time (days)")
 
-        plt.xticks(ticks=volumes["date"], labels=volumes["date"], rotation=45)
-
-        return f"{trp_id}_distributions_line_plot", plt, plot_path
+        plt.grid()
 
 
+        return f"{trp_id}_volume_trend_grouped_by_years", plt, plot_path
 
 
-    distributions_line_by_time()
-    plt.cla()
+    volume_trend_grouped_by_years()
+    plt.clf()
 
 
 
