@@ -70,14 +70,14 @@ def ShapiroWilkTest(targetFeatureName, data, shapiroWilkPlotsPath):
 
     plotName = targetFeatureName + inspect.currentframe().f_code.co_name
 
-    print(f"Shapiro-Wilk Normality Test On \033[92m{targetFeatureName}\033[0m Target Feature")
+    print(f"Shapiro-Wilk Normality test on {targetFeatureName}")
     _, SWH0PValue = stats.shapiro(data) #Executing the Shapiro-Wilk Normality Test - This method returns a 'scipy.stats._morestats.ShapiroResult' class object with two parameters inside, the second is the H0 P-Value
     #print(type(stats.shapiro(data)))
-    print(f"Normality Probability (H0 Hypothesis P-Value): \033[92m{SWH0PValue}\033[0m")
+    print(f"Normality probability (H0 Hypothesis P-Value): {SWH0PValue}")
 
     fig, ax = plt.subplots()
     SWQQPlot = stats.probplot(data, plot=ax)
-    ax.set_title(f"Probability Plot for {targetFeatureName}")
+    ax.set_title(f"Probability plot for {targetFeatureName}")
 
     return plotName, SWQQPlot, shapiroWilkPlotsPath
 
@@ -158,10 +158,13 @@ def analyze_volumes(volumes: pd.DataFrame):
         print(f"Volumes standard deviation for year {y}: ", np.std(volumes[volumes["year"] == y]["volume"]))
         print(f"Volumes standard variance for year {y}: ", np.var(volumes[volumes["year"] == y]["volume"]))
 
-
-
-
     print("\n\n")
+
+    #Checking if the data distribution is normal
+    swt_path = get_shapiro_wilk_plots_path()
+    ShapiroWilkTest("volume", volumes["volume"], swt_path)
+
+
 
 
     return None
