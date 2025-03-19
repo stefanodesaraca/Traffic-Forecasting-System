@@ -77,8 +77,16 @@ def analyze_volumes(volumes: pd.DataFrame):
     print("\n")
 
 
+    print("Volumes mean: ", np.mean(volumes["volume"]))
+    print("Volumes median: ", np.mean(volumes["volume"]))
+    print("Volumes standard deviation: ", np.std(volumes["volume"]))
+    print("Volumes standard variance: ", np.var(volumes["volume"]))
 
-
+    for y in sorted(outliers_by_year.keys()):
+        print(f"Volumes mean for year {y}: ", np.mean(volumes[volumes["year"] == y]["volume"]))
+        print(f"Volumes median for year {y}: ", np.mean(volumes[volumes["year"] == y]["volume"]))
+        print(f"Volumes standard deviation for year {y}: ", np.std(volumes[volumes["year"] == y]["volume"]))
+        print(f"Volumes standard variance for year {y}: ", np.var(volumes[volumes["year"] == y]["volume"]))
 
 
 
