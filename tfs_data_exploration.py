@@ -1,3 +1,5 @@
+from scipy.ndimage import rotate
+
 import tfs_cleaning
 from tfs_ops_settings import *
 from tfs_cleaning import *
@@ -5,9 +7,11 @@ import numpy as np
 import json
 from datetime import datetime
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import seaborn as sns
 import dask as dd
 from scipy import stats
+from scipy.stats import ttest_ind
 import plotly
 import plotly.express as px
 import os
@@ -141,28 +145,84 @@ def analyze_volumes(volumes: pd.DataFrame):
     print("\n")
 
 
-    print("Number of outliers (data over the 75th percentile for its year's data) by year")
-    for y in sorted(outliers_by_year.keys()): print(f"Year: {y} | Outliers: {len(outliers_by_year[y])}")
+    print("Number of outliers (data over the 75th percentile for its year's data) by year:")
+    for y in sorted(outliers_by_year.keys()): print(f"Year: {y} | Number of Outliers: {len(outliers_by_year[y])}")
 
     print("\n")
 
 
-    print("Volumes mean: ", np.mean(volumes["volume"]))
-    print("Volumes median: ", np.mean(volumes["volume"]))
-    print("Volumes standard deviation: ", np.std(volumes["volume"]))
-    print("Volumes standard variance: ", np.var(volumes["volume"]))
+    print("Volumes mean: ", np.round(np.mean(volumes["volume"]), 2))
+    print("Volumes median: ", np.round(np.mean(volumes["volume"]), 2))
+    print("Volumes standard deviation: ", np.round(np.std(volumes["volume"]), 2))
+    print("Volumes standard variance: ", np.round(np.var(volumes["volume"]), 2))
 
     for y in sorted(outliers_by_year.keys()):
-        print(f"Volumes mean for year {y}: ", np.mean(volumes[volumes["year"] == y]["volume"]))
-        print(f"Volumes median for year {y}: ", np.mean(volumes[volumes["year"] == y]["volume"]))
-        print(f"Volumes standard deviation for year {y}: ", np.std(volumes[volumes["year"] == y]["volume"]))
-        print(f"Volumes standard variance for year {y}: ", np.var(volumes[volumes["year"] == y]["volume"]))
+        print(f"Volumes mean for year {y}: ", np.round(np.mean(volumes[volumes["year"] == y]["volume"]), 2))
+        print(f"Volumes median for year {y}: ", np.round(np.mean(volumes[volumes["year"] == y]["volume"]), 2))
+        print(f"Volumes standard deviation for year {y}: ", np.round(np.std(volumes[volumes["year"] == y]["volume"]), 2))
+        print(f"Volumes standard variance for year {y}: ", np.round(np.var(volumes[volumes["year"] == y]["volume"]), 2))
 
     print("\n\n")
 
     #Checking if the data distribution is normal
     swt_path = get_shapiro_wilk_plots_path()
     ShapiroWilkTest("volume", volumes["volume"], swt_path)
+
+    plt.clf()
+
+    print("\n\n")
+
+
+    volume_hour_corr = np.corrcoef(volumes["volume"], volumes["hour"])
+    volume_day_corr = np.corrcoef(volumes["volume"], volumes["day"])
+    volume_week_corr = np.corrcoef(volumes["volume"], volumes["week"])
+    volume_month_corr = np.corrcoef(volumes["volume"], volumes["month"])
+    volume_year_corr = np.corrcoef(volumes["volume"], volumes["year"])
+
+
+    print("Correlations between variables:")
+    print("By hour: \n", volume_hour_corr, "\n")
+    print("By day: \n", volume_day_corr, "\n")
+    print("By week: \n", volume_week_corr, "\n")
+    print("By month: \n", volume_month_corr, "\n")
+    print("By year: \n", volume_year_corr, "\n")
+
+
+    dates = [f"{y}-{m}-{d}" for y, m, d in zip(volumes["year"], volumes["month"], volumes["day"])]
+
+
+    @savePlots
+    def distributions_line_by_time():
+
+
+        plt.figure(figsize=(16, 9))
+
+        plt.plot(volumes[["volume", "day"]])
+
+        plt.ylabel("Volume")
+        plt.xlabel("Time (days)")
+
+        plt.xticks(volumes["day"])
+        plt.yticks(volumes["volume"])
+        plt.locator_params(axis='x', nbins=30)
+        plt.locator_params(axis='y', nbins=15)
+
+        plt.show()
+
+        return "distributions_line_plot", plt, get_eda_plots_folder_path()
+
+
+
+
+    distributions_line_by_time()
+    plt.clf()
+
+
+
+
+
+
+
 
 
 

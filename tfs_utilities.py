@@ -145,9 +145,14 @@ def get_shapiro_wilk_plots_path():
 
     ops_name = get_active_ops_name()
 
-    return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_shapiro_wilk_test"
+    return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_shapiro_wilk_test/"
 
 
+def get_eda_plots_folder_path():
+
+    ops_name = get_active_ops_name()
+
+    return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_plots/"
 
 
 
