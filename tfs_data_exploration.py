@@ -222,7 +222,7 @@ def analyze_volumes(volumes: pd.DataFrame):
 
 
     @savePlots
-    def volume_trend_by_hour_day():
+    def volume_trend_by_week():
 
         plot_path = get_eda_plots_folder_path()
 
@@ -261,7 +261,7 @@ def analyze_volumes(volumes: pd.DataFrame):
     volume_trend_grouped_by_years()
     plt.clf()
 
-    volume_trend_by_hour_day()
+    volume_trend_by_week()
     plt.clf()
 
 
