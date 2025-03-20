@@ -207,7 +207,8 @@ def analyze_volumes(volumes: pd.DataFrame):
 
             year_data = volumes[volumes["year"] == y].groupby("date", as_index=False)["volume"].sum().sort_values(by="date", ascending=True)
             print(year_data)
-            plt.plot("date", "volume", data=year_data)
+            plt.plot(range(0, len(year_data)), "volume", data=year_data) #To make the plots overlap they must have the same exact data on the x axis.
+            #In this case for example they must have the same days number on the x axis so that matplotlib know where to plot the data and thus, this can overlap too if if has the same x axis value
 
         plt.ylabel("Volume")
         plt.xlabel("Time (days)")
