@@ -1,6 +1,4 @@
 import pandas as pd
-from scipy.ndimage import rotate
-
 import tfs_cleaning
 from tfs_ops_settings import *
 from tfs_cleaning import *
@@ -217,17 +215,54 @@ def analyze_volumes(volumes: pd.DataFrame):
 
         plt.title(f"Traffic volumes aggregated by day for different years | TRP: {trp_id}")
 
-        plt.grid()
+        plt.grid(axis="y")
 
 
         return f"{trp_id}_volume_trend_grouped_by_years", plt, plot_path
 
 
+    @savePlots
+    def volume_trend_by_hour_day():
+
+        plot_path = get_eda_plots_folder_path()
+
+        plt.figure(figsize=(16, 9))
+
+        for y in sorted(volumes["year"].unique()):
+            agg_data = volumes[volumes["year"] == y][["volume", "year", "week"]].groupby(["week"], as_index=False)["volume"].median().sort_values(by="week", ascending=True)
+
+            #print(year_data)
+            plt.plot(range(0, len(agg_data)), "volume", data=agg_data)
+
+        plt.ylabel("Volume")
+        plt.xlabel("Week")
+
+
+        plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
+
+        plt.title(f"Median traffic volumes aggregated by week for different years | TRP: {trp_id}")
+
+        plt.grid(axis="y")
+
+
+
+        return f"{trp_id}_volume_trend_by_hour_day", plt, plot_path
+
+
+
+
+
+
+
+
+
+
+
     volume_trend_grouped_by_years()
     plt.clf()
 
-
-
+    volume_trend_by_hour_day()
+    plt.clf()
 
 
 
