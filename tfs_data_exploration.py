@@ -229,10 +229,10 @@ def analyze_volumes(volumes: pd.DataFrame):
         plt.figure(figsize=(16, 9))
 
         for y in sorted(volumes["year"].unique()):
-            agg_data = volumes[volumes["year"] == y][["volume", "year", "week"]].groupby(["week"], as_index=False)["volume"].median().sort_values(by="week", ascending=True)
+            week_data = volumes[volumes["year"] == y][["volume", "year", "week"]].groupby(["week"], as_index=False)["volume"].median().sort_values(by="week", ascending=True)
 
-            #print(year_data)
-            plt.plot(range(0, len(agg_data)), "volume", data=agg_data)
+            #print(week_data)
+            plt.plot(range(0, len(week_data)), "volume", data=week_data)
 
         plt.ylabel("Volume")
         plt.xlabel("Week")
