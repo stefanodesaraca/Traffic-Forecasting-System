@@ -219,6 +219,7 @@ def analyze_volumes(volumes: pd.DataFrame):
 
         plt.grid()
 
+
         return f"{trp_id}_volume_trend_grouped_by_years", plt, plot_path
 
 
