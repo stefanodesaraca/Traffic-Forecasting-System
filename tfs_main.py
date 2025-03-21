@@ -140,7 +140,7 @@ def execute_eda():
     clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
     clean_average_speed_folder_path = get_clean_average_speed_folder_path()
 
-    clean_traffic_volume_files = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())][:2]  # TODO REMOVE [:2] AFTER TESTING
+    clean_traffic_volume_files = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())][:2]  #TODO REMOVE [:2] AFTER TESTING
     print("Clean traffic volume files: ", clean_traffic_volume_files, "\n")
 
     for v in clean_traffic_volume_files:
@@ -148,7 +148,7 @@ def execute_eda():
         analyze_volumes(volumes)
 
 
-    clean_average_speed_files = [clean_average_speed_folder_path + sf for sf in os.listdir(get_clean_average_speed_folder_path())][:2]
+    clean_average_speed_files = [clean_average_speed_folder_path + sf for sf in os.listdir(get_clean_average_speed_folder_path())][:2] #TODO REMOVE [:2] AFTER TESTING
     print("Clean average speed files: ", clean_average_speed_files, "\n")
 
     for s in clean_average_speed_files:

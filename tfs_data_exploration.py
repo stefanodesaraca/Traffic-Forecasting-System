@@ -121,17 +121,17 @@ def analyze_volumes(volumes: pd.DataFrame):
 
     # --------------- Insights printing ---------------
 
-    print(f"\n\n************* Exploratory Data Analysis for TRP: {trp_id} *************")
+    print(f"\n\n************* Traffic volumes - Exploratory Data Analysis for TRP: {trp_id} *************")
 
     print("TRP ID: ", trp_id, "\n")
     print("Data shape: ", data_shape)
 
     print("Percentiles for the whole distribution (all years): ")
-    print("25th percentile: ", percentile_25)
-    print("50th percentile: ", percentile_50)
-    print("75th percentile: ", percentile_75)
-    print("95th percentile: ", percentile_95)
-    print("99th percentile: ", percentile_99)
+    print("Traffic volume 25th percentile: ", percentile_25)
+    print("Traffic volume 50th percentile: ", percentile_50)
+    print("Traffic volume 75th percentile: ", percentile_75)
+    print("Traffic volume 95th percentile: ", percentile_95)
+    print("Traffic volume 99th percentile: ", percentile_99)
     print("\n")
 
     print("Inter-Quartile Range (IQR) for the whole distribution (all years): ", percentile_75-percentile_25)
@@ -183,7 +183,7 @@ def analyze_volumes(volumes: pd.DataFrame):
     volume_year_corr = np.corrcoef(volumes["volume"], volumes["year"])
 
 
-    print("Correlations between variables:")
+    print("Traffic volumes - Correlations between variables:")
     print("By hour: \n", volume_hour_corr, "\n")
     print("By day: \n", volume_day_corr, "\n")
     print("By week: \n", volume_week_corr, "\n")
@@ -285,7 +285,122 @@ def analyze_volumes(volumes: pd.DataFrame):
     return None
 
 
-def analyze_avg_speeds(avg_speed: pd.DataFrame):
+def analyze_avg_speeds(speeds: pd.DataFrame):
+
+    print(speeds.head(10))
+
+    # --------------- Calculations ---------------
+
+    trp_id = speeds["trp_id"][0]
+    data_shape = speeds.shape
+
+    percentile_25 = np.percentile(speeds["mean_speed"], 25)
+    percentile_50 = np.percentile(speeds["mean_speed"], 50)
+    percentile_75 = np.percentile(speeds["mean_speed"], 75)
+    percentile_95 = np.percentile(speeds["mean_speed"], 95)
+    percentile_99 = np.percentile(speeds["mean_speed"], 99)
+
+    percentile_25_by_year = speeds.groupby(speeds["year"], as_index=False)["mean_speed"].quantile(0.25)
+    percentile_50_by_year = speeds.groupby(speeds["year"], as_index=False)["mean_speed"].quantile(0.50)
+    percentile_75_by_year = speeds.groupby(speeds["year"], as_index=False)["mean_speed"].quantile(0.75)
+    percentile_95_by_year = speeds.groupby(speeds["year"], as_index=False)["mean_speed"].quantile(0.95)
+    percentile_99_by_year = speeds.groupby(speeds["year"], as_index=False)["mean_speed"].quantile(0.99)
+
+    outliers_by_year = {y: speeds[(speeds["mean_speed"] > np.percentile(speeds[speeds["year"] == y]["mean_speed"], 75)) & (speeds["volume"] < np.percentile(speeds[speeds["year"] == y]["mean_speed"], 25)) & (speeds["year"] == y)] for y in speeds["year"].unique()}  # Return all values which are greater than the 75th percentile and that are registered in the year taken in consideration (during the for loop in the dict comprehension)
+
+
+    # --------------- Insights printing ---------------
+
+    print(f"\n\n************* Average speeds - Exploratory Data Analysis for TRP: {trp_id} *************")
+
+    print("TRP ID: ", trp_id, "\n")
+    print("Data shape: ", data_shape)
+
+    print("Percentiles for the whole distribution (all years): ")
+    print("Average speed 25th percentile: ", percentile_25)
+    print("Average speed 50th percentile: ", percentile_50)
+    print("Average speed 75th percentile: ", percentile_75)
+    print("Average speed 95th percentile: ", percentile_95)
+    print("Average speed 99th percentile: ", percentile_99)
+    print("\n")
+
+    print("Inter-Quartile Range (IQR) for the whole distribution (all years): ", percentile_75 - percentile_25)
+    print("Quartile Deviation for the whole distribution (all years): ", percentile_75 - percentile_25)
+
+    print("Percentiles by year")
+    print(percentile_25_by_year.rename(columns={"mean_speed": "percentile_25"}), "\n")
+    print(percentile_50_by_year.rename(columns={"mean_speed": "percentile_50"}), "\n")
+    print(percentile_75_by_year.rename(columns={"mean_speed": "percentile_75"}), "\n")
+    print(percentile_95_by_year.rename(columns={"mean_speed": "percentile_95"}), "\n")
+    print(percentile_99_by_year.rename(columns={"mean_speed": "percentile_99"}), "\n")
+    print("\n")
+
+    print("Number of outliers (data over the 75th percentile for its year's data) by year:")
+    for y in sorted(outliers_by_year.keys()): print(f"Year: {y} | Number of Outliers: {len(outliers_by_year[y])}")
+
+    print("\n")
+
+
+    print("Average speeds mean: ", np.round(np.mean(speeds["mean_speed"]), 2))
+    print("Average speeds median: ", np.round(np.mean(speeds["mean_speed"]), 2))
+    print("Average speeds standard deviation: ", np.round(np.std(speeds["mean_speed"]), 2))
+    print("Average speeds standard variance: ", np.round(np.var(speeds["mean_speed"]), 2))
+    print("\n")
+
+    for y in sorted(outliers_by_year.keys()):
+        print(f"Average speeds mean for year {y}: ", np.round(np.mean(speeds[speeds["year"] == y]["mean_speed"]), 2))
+        print(f"Average speeds median for year {y}: ", np.round(np.mean(speeds[speeds["year"] == y]["mean_speed"]), 2))
+        print(f"Average speeds standard deviation for year {y}: ", np.round(np.std(speeds[speeds["year"] == y]["volume"]), 2))
+        print(f"Average speeds standard variance for year {y}: ", np.round(np.var(speeds[speeds["year"] == y]["mean_speed"]), 2))
+        print("\n")
+
+    # Checking if the data distribution is normal
+    swt_path = get_shapiro_wilk_plots_path()
+    ShapiroWilkTest("mean_speed", speeds["mean_speed"], swt_path)
+
+    plt.clf()
+
+    print("\n\n")
+
+    volume_hour_corr = np.corrcoef(speeds["mean_speed"], speeds["hour"])
+    volume_day_corr = np.corrcoef(speeds["mean_speed"], speeds["day"])
+    volume_week_corr = np.corrcoef(speeds["mean_speed"], speeds["week"])
+    volume_month_corr = np.corrcoef(speeds["mean_speed"], speeds["month"])
+    volume_year_corr = np.corrcoef(speeds["mean_speed"], speeds["year"])
+
+    print("Average speeds - Correlations between variables:")
+    print("By hour: \n", volume_hour_corr, "\n")
+    print("By day: \n", volume_day_corr, "\n")
+    print("By week: \n", volume_week_corr, "\n")
+    print("By month: \n", volume_month_corr, "\n")
+    print("By year: \n", volume_year_corr, "\n")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -301,7 +416,7 @@ def analyze_avg_speeds(avg_speed: pd.DataFrame):
 
 
 
-
+#TODO VERIFY THAT DATES STORED IN THE AVG SPEED FILES ARE "%Y-%m-%d" FORMAT AND NOT WITH / BETWEEN THE Y, M AND D
 
 
 
