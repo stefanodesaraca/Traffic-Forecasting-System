@@ -254,6 +254,7 @@ def analyze_volumes(volumes: pd.DataFrame):
 
 
         fig, axs = plt.subplots(len(volumes["year"].unique()), 1, figsize=(16, 9))
+        plt.suptitle(f"{trp_id} Volumes distribution by week and year")
 
         for idx, y in enumerate(sorted(volumes["year"].unique())):
 
@@ -263,10 +264,11 @@ def analyze_volumes(volumes: pd.DataFrame):
                 #print(volumes_grouped)
 
                 axs[idx].boxplot(x=volumes_grouped["volume"], positions=[w])
+                axs[idx].set_ylabel("Volumes")
+                axs[idx].set_xlabel("Weeks")
+                axs[idx].set_title(f"Traffic volumes distribution by week for {y}")
 
-
-        plt.show()
-
+        plt.subplots_adjust(hspace=0.5)
 
 
         return f"{trp_id}_volumes_distribution_by_week_and_year", plt, plot_path
