@@ -244,11 +244,14 @@ def analyze_volumes(volumes: pd.DataFrame):
         plt.grid(axis="y")
 
 
-
         return f"{trp_id}_volume_trend_by_hour_day", plt, plot_path
 
 
+    @savePlots
     def volumes_distribution_by_week_and_year():
+
+        plot_path = get_eda_plots_folder_path()
+
 
         fig, axs = plt.subplots(len(volumes["year"].unique()), 1, figsize=(16, 9))
 
@@ -266,19 +269,10 @@ def analyze_volumes(volumes: pd.DataFrame):
 
 
 
-        return None
+        return f"{trp_id}_volumes_distribution_by_week_and_year", plt, plot_path
 
 
-    volumes_distribution_by_week_and_year()
-
-
-
-
-
-
-
-
-    plots_list = [volume_trend_grouped_by_years, volume_trend_by_week]
+    plots_list = [volume_trend_grouped_by_years, volume_trend_by_week, volumes_distribution_by_week_and_year]
     all((plots_list[i](), plt.clf()) for i in range(len(plots_list)))
 
 
