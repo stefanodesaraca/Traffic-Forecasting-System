@@ -6,11 +6,8 @@ import numpy as np
 import json
 from datetime import datetime
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import seaborn as sns
-import dask as dd
 from scipy import stats
-from scipy.stats import ttest_ind
 import plotly
 import plotly.express as px
 import os
@@ -90,6 +87,13 @@ def retrieve_volumes_data(file_path: str):
     volumes = pd.read_csv(file_path)
 
     return volumes
+
+
+def retrieve_avg_speed_data(file_path: str):
+
+    speeds = pd.read_csv(file_path)
+
+    return speeds
 
 
 def analyze_volumes(volumes: pd.DataFrame):
@@ -281,7 +285,14 @@ def analyze_volumes(volumes: pd.DataFrame):
     return None
 
 
+def analyze_avg_speeds(avg_speed: pd.DataFrame):
 
+
+
+
+
+
+    return None
 
 
 
