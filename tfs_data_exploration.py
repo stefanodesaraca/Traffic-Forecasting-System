@@ -260,7 +260,7 @@ def analyze_volumes(volumes: pd.DataFrame):
             for w in sorted(volumes[volumes["year"] == y]["week"].unique()):
 
                 volumes_grouped = volumes[(volumes["year"] == y) & (volumes["week"] == w)]
-                print(volumes_grouped)
+                #print(volumes_grouped)
 
                 axs[idx].boxplot(x=volumes_grouped["volume"], positions=[w])
 
