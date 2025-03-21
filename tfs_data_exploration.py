@@ -115,7 +115,6 @@ def analyze_volumes(volumes: pd.DataFrame):
 
     outliers_by_year = {y: volumes[(volumes["volume"] > np.percentile(volumes[volumes["year"] == y]["volume"], 75)) & (volumes["volume"] < np.percentile(volumes[volumes["year"] == y]["volume"], 25)) & (volumes["year"] == y)] for y in volumes["year"].unique()} #Return all values which are greater than the 75th percentile and that are registered in the year taken in consideration (during the for loop in the dict comprehension)
 
-
     # --------------- Insights printing ---------------
 
     print(f"\n\n************* Exploratory Data Analysis for TRP: {trp_id} *************")
@@ -249,6 +248,28 @@ def analyze_volumes(volumes: pd.DataFrame):
         return f"{trp_id}_volume_trend_by_hour_day", plt, plot_path
 
 
+    def volumes_distribution_by_week_and_year():
+
+        fig, axs = plt.subplots(len(volumes["year"].unique()), 1, figsize=(16, 9))
+
+        for idx, y in enumerate(sorted(volumes["year"].unique())):
+
+            for w in sorted(volumes[volumes["year"] == y]["week"].unique()):
+
+                volumes_grouped = volumes[(volumes["year"] == y) & (volumes["week"] == w)]
+                print(volumes_grouped)
+
+                axs[idx].boxplot(x=volumes_grouped["volume"], positions=[w])
+
+
+        plt.show()
+
+
+
+        return None
+
+
+    volumes_distribution_by_week_and_year()
 
 
 
@@ -257,18 +278,8 @@ def analyze_volumes(volumes: pd.DataFrame):
 
 
 
-
-    volume_trend_grouped_by_years()
-    plt.clf()
-
-    volume_trend_by_week()
-    plt.clf()
-
-
-
-
-
-
+    plots_list = [volume_trend_grouped_by_years, volume_trend_by_week]
+    all((plots_list[i](), plt.clf()) for i in range(len(plots_list)))
 
 
     return None
