@@ -268,7 +268,7 @@ class TrafficVolumesCleaner(Cleaner):
                 # ----------------------- Total volumes section -----------------------
 
                 total_volume = node["node"]["total"]["volumeNumbers"]["volume"] if node["node"]["total"]["volumeNumbers"] is not None else None #In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
-                coverage_perc = node["node"]["total"]["coverage"]["percentage"] if node["node"]["total"]["coverage"]["percentage"] is not None else None #For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
+                coverage_perc = node["node"]["total"]["coverage"]["percentage"] if node["node"]["total"]["coverage"] is not None else None #For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
 
                 by_hour_structured["trp_id"].append(trp_id)
                 by_hour_structured["year"].append(year)
@@ -289,7 +289,7 @@ class TrafficVolumesCleaner(Cleaner):
 
                     road_link_lane_number = lane["lane"]["laneNumberAccordingToRoadLink"]
                     lane_volume = lane["total"]["volumeNumbers"]["volume"] if lane["total"]["volumeNumbers"] is not None else None #In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
-                    lane_coverage = lane["total"]["coverage"]["percentage"] if lane["total"]["coverage"]["percentage"] is not None else None
+                    lane_coverage = lane["total"]["coverage"]["percentage"] if lane["total"]["coverage"] is not None else None
 
                     # ------- XXXXXXX ------- TODO WRITE MISSING TITLES
 
@@ -312,7 +312,7 @@ class TrafficVolumesCleaner(Cleaner):
                 for direction_section in by_direction_data:
                     heading = direction_section["heading"]
                     direction_volume = direction_section["total"]["volumeNumbers"]["volume"] if direction_section["total"]["volumeNumbers"] is not None else None #In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
-                    direction_coverage = direction_section["total"]["coverage"]["percentage"] if direction_section["total"]["coverage"]["percentage"] is not None else None
+                    direction_coverage = direction_section["total"]["coverage"]["percentage"] if direction_section["total"]["coverage"] is not None else None
 
                     by_direction_structured["trp_id"].append(trp_id)
                     by_direction_structured["year"].append(year)
