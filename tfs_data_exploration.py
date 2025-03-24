@@ -14,6 +14,8 @@ import os
 import inspect
 from functools import wraps
 
+tab10 = sns.color_palette("tab10")
+
 
 def savePlots(plotFunction):
 
@@ -192,7 +194,7 @@ def analyze_volumes(volumes: pd.DataFrame):
 
     print("Traffic volumes - Correlations dataframe-wise (numerical variables only): ")
     print(volumes.corr(numeric_only=True), "\n")
-    
+
 
     dates = [f"{y}-{m}-{d}" for y, m, d in zip(volumes["year"], volumes["month"], volumes["day"])]
 
@@ -259,7 +261,6 @@ def analyze_volumes(volumes: pd.DataFrame):
 
         plot_path = get_eda_plots_folder_path()
 
-
         fig, axs = plt.subplots(len(volumes["year"].unique()), 1, figsize=(16, 9))
         plt.suptitle(f"{trp_id} Volumes distribution by week and year")
 
@@ -281,7 +282,18 @@ def analyze_volumes(volumes: pd.DataFrame):
         return f"{trp_id}_volumes_distribution_by_week_and_year", plt, plot_path
 
 
-    plots_list = [volume_trend_grouped_by_years, volume_trend_by_week, volumes_distribution_by_week_and_year]
+    def volumes_data_correlations_matrix():
+
+        plot_path = get_eda_plots_folder_path()
+
+
+        corr_matrix = sns.pairplot(volumes)
+        corr_matrix = corr_matrix.map_lower(sns.kdeplot, levels=4, color=".2")
+
+        return f"{trp_id}_correlations_matrix", plt, plot_path
+
+
+    plots_list = [volume_trend_grouped_by_years, volume_trend_by_week, volumes_distribution_by_week_and_year, volumes_data_correlations_matrix]
     all((plots_list[i](), plt.clf()) for i in range(len(plots_list)))
 
 
