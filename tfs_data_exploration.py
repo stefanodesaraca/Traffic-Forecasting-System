@@ -216,7 +216,7 @@ def analyze_volumes(volumes: pd.DataFrame):
 
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
 
-        plt.title(f"Traffic volumes aggregated by day for different years | TRP: {trp_id}")
+        plt.title(f"Traffic volumes aggregated (sum) by day for different years | TRP: {trp_id}")
 
         plt.grid(axis="y")
 
@@ -243,7 +243,7 @@ def analyze_volumes(volumes: pd.DataFrame):
 
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
 
-        plt.title(f"Median traffic volumes aggregated by week for different years | TRP: {trp_id}")
+        plt.title(f"Median traffic volumes aggregated (median) by week for different years | TRP: {trp_id}")
 
         plt.grid(axis="y")
 
@@ -377,6 +377,88 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
 
 
 
+    @savePlots
+    def speeds_trend_grouped_by_years():
+
+        plot_path = get_eda_plots_folder_path()
+
+        plt.figure(figsize=(16,9))
+
+        for y in sorted(speeds["year"].unique()):
+
+            year_data = speeds[speeds["year"] == y].groupby("date", as_index=False)["mean_speed"].mean().sort_values(by="date", ascending=True)
+            #print(year_data)
+            plt.plot(range(0, len(year_data)), "mean_speed", data=year_data) #To make the plots overlap they must have the same exact data on the x axis.
+
+        plt.ylabel("Average speed")
+        plt.xlabel("Time (days)")
+
+        plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
+
+        plt.title(f"Average speeds aggregated by day for different years | TRP: {trp_id}")
+
+        plt.grid(axis="y")
+
+
+        return f"{trp_id}_avg_speeds_trend_grouped_by_years", plt, plot_path
+
+
+    @savePlots
+    def speeds_trend_by_week():
+
+        plot_path = get_eda_plots_folder_path()
+
+        plt.figure(figsize=(16, 9))
+
+        for y in sorted(speeds["year"].unique()):
+            week_data = speeds[speeds["year"] == y][["mean_speed", "year", "mean_speed"]].groupby(["week"], as_index=False)["mean_speed"].median().sort_values(by="week", ascending=True)
+
+            #print(week_data)
+            plt.plot(range(0, len(week_data)), "mean_speed", data=week_data)
+
+        plt.ylabel("Median of the average speed")
+        plt.xlabel("Week")
+
+
+        plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
+
+        plt.title(f"Median of the average speeds by week for different years | TRP: {trp_id}")
+
+        plt.grid(axis="y")
+
+
+        return f"{trp_id}_avg_speed_trend_by_hour_day", plt, plot_path
+
+
+    @savePlots
+    def speeds_distribution_by_week_and_year():
+
+        plot_path = get_eda_plots_folder_path()
+
+
+        fig, axs = plt.subplots(len(speeds["year"].unique()), 1, figsize=(16, 9))
+        plt.suptitle(f"{trp_id} speeds distribution by week and year")
+
+        for idx, y in enumerate(sorted(speeds["year"].unique())):
+
+            for w in sorted(speeds[speeds["year"] == y]["week"].unique()):
+
+                speeds_grouped = speeds[(speeds["year"] == y) & (speeds["week"] == w)]
+                #print(speeds_grouped)
+
+                axs[idx].boxplot(x=speeds_grouped["mean_speed"], positions=[w])
+                axs[idx].set_ylabel("Average speed")
+                axs[idx].set_xlabel("Weeks")
+                axs[idx].set_title(f"Average speed distribution by week for {y}")
+
+        plt.subplots_adjust(hspace=0.5)
+
+
+        return f"{trp_id}_avg_speed_distribution_by_week_and_year", plt, plot_path
+
+
+    plots_list = [speeds_trend_grouped_by_years, speeds_trend_by_week, speeds_distribution_by_week_and_year]
+    all((plots_list[i](), plt.clf()) for i in range(len(plots_list)))
 
 
 
