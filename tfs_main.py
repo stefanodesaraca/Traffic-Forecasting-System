@@ -146,6 +146,7 @@ def execute_eda():
     for v in clean_traffic_volume_files[:2]: #TODO REMOVE [:2] AFTER TESTING
         volumes = retrieve_volumes_data(v)
         analyze_volumes(volumes)
+        test_volumes_data_for_multicollinearity(volumes)
 
 
     clean_average_speed_files = [clean_average_speed_folder_path + sf for sf in os.listdir(get_clean_average_speed_folder_path())]

@@ -8,6 +8,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
+import statsmodels.api as sm
 import plotly
 import plotly.express as px
 import os
@@ -126,7 +127,8 @@ def analyze_volumes(volumes: pd.DataFrame):
     print(f"\n\n************* Traffic volumes - Exploratory Data Analysis for TRP: {trp_id} *************")
 
     print("TRP ID: ", trp_id, "\n")
-    print("Data shape: ", data_shape)
+    print("Data shape: ", data_shape, "\n")
+    print("Data types: \n", volumes.dtypes, "\n")
 
     print("Percentiles for the whole distribution (all years): ")
     print("Traffic volume 25th percentile: ", percentile_25)
@@ -295,6 +297,8 @@ def analyze_volumes(volumes: pd.DataFrame):
     plots_list = [volume_trend_grouped_by_years, volume_trend_by_week, volumes_distribution_by_week_and_year, correlation_heatmap]
     all((plots_list[i](), plt.clf()) for i in range(len(plots_list)))
 
+    print("\n")
+
 
     return None
 
@@ -328,7 +332,8 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
     print(f"\n\n************* Average speeds - Exploratory Data Analysis for TRP: {trp_id} *************")
 
     print("TRP ID: ", trp_id, "\n")
-    print("Data shape: ", data_shape)
+    print("Data shape: ", data_shape, "\n")
+    print("Data types: \n", speeds.dtypes, "\n")
 
     print("Percentiles for the whole distribution (all years): ")
     print("Average speed 25th percentile: ", percentile_25)
@@ -473,6 +478,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
 
         return f"{trp_id}_avg_speed_distribution_by_week_and_year", plt, plot_path
 
+
     @savePlots
     def correlation_heatmap():
 
@@ -487,10 +493,43 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
     all((plots_list[i](), plt.clf()) for i in range(len(plots_list)))
 
 
+    print("\n")
+
     return None
 
 
+def test_volumes_data_for_multicollinearity(volumes: pd.DataFrame):
 
+    volumes = volumes.drop(columns=["volume", "trp_id", "date"]) #The "date" columns is created during the data exploration in the analyze_volumes() function
+    volumes_col_names = list(volumes.columns)
+    #print(volumes_col_names)
+
+    volumes_vif = {}
+
+    for i in range(len(volumes_col_names)):
+        y = volumes.iloc[:, volumes.columns == volumes_col_names[i]]
+        X = volumes.iloc[:, volumes.columns != volumes_col_names[i]]
+
+        model = sm.OLS(y, X)
+
+        model_results = model.fit()
+        r2 = model_results.rsquared
+
+        vif = round(1 / (1 - r2), 2)
+
+        volumes_vif[volumes_col_names[i]] = vif
+
+        print(f"R^2 value of variable: {volumes_col_names[i]} = ", r2)
+        print(f"VIF (Variance Inflation Factor) value of variable: {volumes_col_names[i]} = ", vif, "\n")
+
+
+    print("----------------- Traffic volumes - VIFs -----------------")
+
+    pprint.pprint(volumes_vif)
+    print("\n\n")
+
+
+    return None
 
 
 
