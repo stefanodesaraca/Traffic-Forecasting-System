@@ -306,7 +306,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
     percentile_95_by_year = speeds.groupby(speeds["year"], as_index=False)["mean_speed"].quantile(0.95)
     percentile_99_by_year = speeds.groupby(speeds["year"], as_index=False)["mean_speed"].quantile(0.99)
 
-    outliers_by_year = {y: speeds[(speeds["mean_speed"] > np.percentile(speeds[speeds["year"] == y]["mean_speed"], 75)) & (speeds["volume"] < np.percentile(speeds[speeds["year"] == y]["mean_speed"], 25)) & (speeds["year"] == y)] for y in speeds["year"].unique()}  # Return all values which are greater than the 75th percentile and that are registered in the year taken in consideration (during the for loop in the dict comprehension)
+    outliers_by_year = {y: speeds[(speeds["mean_speed"] > np.percentile(speeds[speeds["year"] == y]["mean_speed"], 75)) & (speeds["mean_speed"] < np.percentile(speeds[speeds["year"] == y]["mean_speed"], 25)) & (speeds["year"] == y)] for y in speeds["year"].unique()}  # Return all values which are greater than the 75th percentile and that are registered in the year taken in consideration (during the for loop in the dict comprehension)
 
 
     # --------------- Insights printing ---------------
@@ -350,7 +350,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
     for y in sorted(outliers_by_year.keys()):
         print(f"Average speeds mean for year {y}: ", np.round(np.mean(speeds[speeds["year"] == y]["mean_speed"]), 2))
         print(f"Average speeds median for year {y}: ", np.round(np.mean(speeds[speeds["year"] == y]["mean_speed"]), 2))
-        print(f"Average speeds standard deviation for year {y}: ", np.round(np.std(speeds[speeds["year"] == y]["volume"]), 2))
+        print(f"Average speeds standard deviation for year {y}: ", np.round(np.std(speeds[speeds["year"] == y]["mean_speed"]), 2))
         print(f"Average speeds standard variance for year {y}: ", np.round(np.var(speeds[speeds["year"] == y]["mean_speed"]), 2))
         print("\n")
 
@@ -362,7 +362,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
 
     print("\n\n")
 
-    volume_hour_corr = np.corrcoef(speeds["mean_speed"], speeds["hour"])
+    volume_hour_corr = np.corrcoef(speeds["mean_speed"], speeds["hour_start"])
     volume_day_corr = np.corrcoef(speeds["mean_speed"], speeds["day"])
     volume_week_corr = np.corrcoef(speeds["mean_speed"], speeds["week"])
     volume_month_corr = np.corrcoef(speeds["mean_speed"], speeds["month"])
