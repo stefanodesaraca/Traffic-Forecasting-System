@@ -190,6 +190,9 @@ def analyze_volumes(volumes: pd.DataFrame):
     print("By month: \n", volume_month_corr, "\n")
     print("By year: \n", volume_year_corr, "\n")
 
+    print("Traffic volumes - Correlations dataframe-wise (numerical variables only): ")
+    print(volumes.corr(numeric_only=True), "\n")
+    
 
     dates = [f"{y}-{m}-{d}" for y, m, d in zip(volumes["year"], volumes["month"], volumes["day"])]
 
@@ -362,18 +365,21 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
 
     print("\n\n")
 
-    volume_hour_corr = np.corrcoef(speeds["mean_speed"], speeds["hour_start"])
-    volume_day_corr = np.corrcoef(speeds["mean_speed"], speeds["day"])
-    volume_week_corr = np.corrcoef(speeds["mean_speed"], speeds["week"])
-    volume_month_corr = np.corrcoef(speeds["mean_speed"], speeds["month"])
-    volume_year_corr = np.corrcoef(speeds["mean_speed"], speeds["year"])
+    avg_speeds_hour_corr = np.corrcoef(speeds["mean_speed"], speeds["hour_start"])
+    avg_speeds_day_corr = np.corrcoef(speeds["mean_speed"], speeds["day"])
+    avg_speeds_week_corr = np.corrcoef(speeds["mean_speed"], speeds["week"])
+    avg_speeds_month_corr = np.corrcoef(speeds["mean_speed"], speeds["month"])
+    avg_speeds_year_corr = np.corrcoef(speeds["mean_speed"], speeds["year"])
 
     print("Average speeds - Correlations between variables:")
-    print("By hour: \n", volume_hour_corr, "\n")
-    print("By day: \n", volume_day_corr, "\n")
-    print("By week: \n", volume_week_corr, "\n")
-    print("By month: \n", volume_month_corr, "\n")
-    print("By year: \n", volume_year_corr, "\n")
+    print("By hour: \n", avg_speeds_hour_corr, "\n")
+    print("By day: \n", avg_speeds_day_corr, "\n")
+    print("By week: \n", avg_speeds_week_corr, "\n")
+    print("By month: \n", avg_speeds_month_corr, "\n")
+    print("By year: \n", avg_speeds_year_corr, "\n")
+
+    print("Average speeds - Correlations dataframe-wise (numerical variables only): ")
+    print(speeds.corr(numeric_only=True), "\n")
 
 
 
@@ -459,34 +465,6 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
 
     plots_list = [speeds_trend_grouped_by_years, speeds_trend_by_week, speeds_distribution_by_week_and_year]
     all((plots_list[i](), plt.clf()) for i in range(len(plots_list)))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
     return None

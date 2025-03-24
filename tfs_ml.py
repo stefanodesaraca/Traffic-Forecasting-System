@@ -58,12 +58,6 @@ class TrafficVolumesForecaster:
 
         volumes = self.get_volumes_data()
 
-        print(volumes.columns)
-        print(volumes.dtypes)
-        print(volumes.isna().sum())
-        print(volumes.shape)
-        print(volumes.corr(numeric_only=True))
-
         #TODO ENCODE CYCLICAL VARIABLES HERE
 
         # ------------------ Cyclical variables encoding ------------------
