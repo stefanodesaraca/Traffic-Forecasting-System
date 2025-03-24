@@ -282,7 +282,7 @@ def analyze_volumes(volumes: pd.DataFrame):
         return f"{trp_id}_volumes_distribution_by_week_and_year", plt, plot_path
 
 
-    plots_list = [volume_trend_grouped_by_years, volume_trend_by_week, volumes_distribution_by_week_and_year, volumes_data_correlations_matrix]
+    plots_list = [volume_trend_grouped_by_years, volume_trend_by_week, volumes_distribution_by_week_and_year]
     all((plots_list[i](), plt.clf()) for i in range(len(plots_list)))
 
 
