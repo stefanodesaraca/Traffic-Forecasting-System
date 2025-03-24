@@ -82,9 +82,7 @@ class TrafficVolumesForecaster:
 
 
 
-
-
-        print(volumes)
+        print(volumes.sample(10, random_state=100))
 
 
 

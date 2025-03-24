@@ -63,6 +63,7 @@ def create_ops_folder(ops_name: str):
     data_subfolders = ["traffic_volumes", "average_speed", "travel_times"]
     data_sub_subfolders = ["raw", "clean"] #To isolate raw data from the clean one
     eda_subfolders = [f"{ops_name}_shapiro_wilk_test", f"{ops_name}_plots"]
+    eda_sub_subfolders = ["traffic_volumes", "avg_speeds"]
     rn_graph_subfolders = [f"{ops_name}_edges", f"{ops_name}_arches", f"{ops_name}_graph_analysis", f"{ops_name}_shortest_paths"]
     ml_subfolders = [f"{ops_name}_models", f"{ops_name}_models_performance", f"{ops_name}_ml_reports"]
 
@@ -79,6 +80,9 @@ def create_ops_folder(ops_name: str):
 
     for e in eda_subfolders:
         os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{e}", exist_ok=True)
+
+        for esub in eda_sub_subfolders:
+            os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{e}/{esub}_eda_plots", exist_ok=True)
 
     # Graph subfolders
     for gsf in rn_graph_subfolders:

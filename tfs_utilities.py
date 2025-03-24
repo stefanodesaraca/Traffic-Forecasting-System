@@ -148,11 +148,22 @@ def get_shapiro_wilk_plots_path():
     return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_shapiro_wilk_test/"
 
 
-def get_eda_plots_folder_path():
+def get_eda_plots_folder_path(sub: str = None):
 
     ops_name = get_active_ops_name()
 
-    return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_plots/"
+    if sub == "volumes":
+        return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_plots/traffic_volumes_eda_plots"
+
+    elif sub == "avg_speeds":
+        return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_plots/avg_speeds_eda_plots"
+
+    elif sub is None:
+        return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_plots/"
+
+    else:
+        raise Exception("Wrong plots path")
+
 
 
 

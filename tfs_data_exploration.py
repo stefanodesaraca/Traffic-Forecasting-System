@@ -203,7 +203,7 @@ def analyze_volumes(volumes: pd.DataFrame):
 
 
     @savePlots
-    def volume_trend_grouped_by_years():
+    def volume_trend_grouped_by_years(sub="volumes"):
 
         plot_path = get_eda_plots_folder_path()
 
@@ -230,7 +230,7 @@ def analyze_volumes(volumes: pd.DataFrame):
 
 
     @savePlots
-    def volume_trend_by_week():
+    def volume_trend_by_week(sub="volumes"):
 
         plot_path = get_eda_plots_folder_path()
 
@@ -257,7 +257,7 @@ def analyze_volumes(volumes: pd.DataFrame):
 
 
     @savePlots
-    def volumes_distribution_by_week_and_year():
+    def volumes_distribution_by_week_and_year(sub="volumes"):
 
         plot_path = get_eda_plots_folder_path()
 
@@ -282,7 +282,17 @@ def analyze_volumes(volumes: pd.DataFrame):
         return f"{trp_id}_volumes_distribution_by_week_and_year", plt, plot_path
 
 
-    plots_list = [volume_trend_grouped_by_years, volume_trend_by_week, volumes_distribution_by_week_and_year]
+    @savePlots
+    def correlation_heatmap(sub="volumes"):
+
+        plots_path = get_eda_plots_folder_path()
+
+        corr_heatmap = sns.heatmap(volumes.corr(numeric_only=True), annot=True, fmt=".2f").set_title(f"Traffic volumes - TRP: {trp_id} - Correlation heatmap")
+
+        return f"{trp_id}_volumes_corr_heatmap", corr_heatmap, plots_path
+
+
+    plots_list = [volume_trend_grouped_by_years, volume_trend_by_week, volumes_distribution_by_week_and_year, correlation_heatmap]
     all((plots_list[i](), plt.clf()) for i in range(len(plots_list)))
 
 
@@ -385,7 +395,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
 
 
     @savePlots
-    def speeds_trend_grouped_by_years():
+    def speeds_trend_grouped_by_years(sub="avg_speeds"):
 
         plot_path = get_eda_plots_folder_path()
 
@@ -411,7 +421,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
 
 
     @savePlots
-    def speeds_trend_by_week():
+    def speeds_trend_by_week(sub="avg_speeds"):
 
         plot_path = get_eda_plots_folder_path()
 
@@ -438,7 +448,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
 
 
     @savePlots
-    def speeds_distribution_by_week_and_year():
+    def speeds_distribution_by_week_and_year(sub="avg_speeds"):
 
         plot_path = get_eda_plots_folder_path()
 
@@ -463,8 +473,17 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
 
         return f"{trp_id}_avg_speed_distribution_by_week_and_year", plt, plot_path
 
+    @savePlots
+    def correlation_heatmap(sub="avg_speeds"):
 
-    plots_list = [speeds_trend_grouped_by_years, speeds_trend_by_week, speeds_distribution_by_week_and_year]
+        plots_path = get_eda_plots_folder_path()
+
+        corr_heatmap = sns.heatmap(speeds.corr(numeric_only=True), annot=True, fmt=".2f").set_title(f"Traffic volumes - TRP: {trp_id} - Correlation heatmap")
+
+        return f"{trp_id}_avg_speed_corr_heatmap", corr_heatmap, plots_path
+
+
+    plots_list = [speeds_trend_grouped_by_years, speeds_trend_by_week, speeds_distribution_by_week_and_year, correlation_heatmap]
     all((plots_list[i](), plt.clf()) for i in range(len(plots_list)))
 
 
