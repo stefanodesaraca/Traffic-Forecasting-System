@@ -29,16 +29,16 @@ def savePlots(plotFunction):
     def checkPlotsTypeAndSave(plotName, plots, filePath):
         if isinstance(plots, (plt.Figure, plt.Axes, sns.axisgrid.FacetGrid, sns.axisgrid.PairGrid, list)):
             plt.savefig(f"{filePath}{plotName}.png", dpi=300)
-            print(f"{plotName} Exported Correctly")
+            print(f"{plotName} exported correctly")
 
         elif isinstance(plots, plotly.graph_objs._figure.Figure):
             plots.write_html(f"{filePath}{plotName}.html")
-            print(f"{plotName} Exported Correctly")
+            print(f"{plotName} exported correctly")
 
         else:
             try:
                 plt.savefig(f"{filePath}{plotName}.png", dpi=300)
-                print(f"{plotName} Exported Correctly")
+                print(f"{plotName} exported correctly")
             except:
                 print("\033[91mExporting the plots wasn't possible, the returned type is not included in the decorator function\033[0m")
 
@@ -293,7 +293,7 @@ def analyze_volumes(volumes: pd.DataFrame):
         return f"{trp_id}_correlations_matrix", plt, plot_path
 
 
-    plots_list = [volume_trend_grouped_by_years, volume_trend_by_week, volumes_distribution_by_week_and_year, volumes_data_correlations_matrix]
+    plots_list = [volume_trend_grouped_by_years, volume_trend_by_week, volumes_distribution_by_week_and_year]#, volumes_data_correlations_matrix]
     all((plots_list[i](), plt.clf()) for i in range(len(plots_list)))
 
 
@@ -429,7 +429,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
         plt.figure(figsize=(16, 9))
 
         for y in sorted(speeds["year"].unique()):
-            week_data = speeds[speeds["year"] == y][["mean_speed", "year", "mean_speed"]].groupby(["week"], as_index=False)["mean_speed"].median().sort_values(by="week", ascending=True)
+            week_data = speeds[speeds["year"] == y][["mean_speed", "year", "week"]].groupby(["week"], as_index=False)["mean_speed"].median().sort_values(by="week", ascending=True)
 
             #print(week_data)
             plt.plot(range(0, len(week_data)), "mean_speed", data=week_data)
