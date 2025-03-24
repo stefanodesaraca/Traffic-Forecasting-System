@@ -140,21 +140,29 @@ def execute_eda():
     clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
     clean_average_speed_folder_path = get_clean_average_speed_folder_path()
 
-    clean_traffic_volume_files = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())][:2]  #TODO REMOVE [:2] AFTER TESTING
+    clean_traffic_volume_files = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())]
     print("Clean traffic volume files: ", clean_traffic_volume_files, "\n")
 
-    for v in clean_traffic_volume_files:
+    for v in clean_traffic_volume_files[:2]: #TODO REMOVE [:2] AFTER TESTING
         volumes = retrieve_volumes_data(v)
         analyze_volumes(volumes)
 
 
-    clean_average_speed_files = [clean_average_speed_folder_path + sf for sf in os.listdir(get_clean_average_speed_folder_path())][:2] #TODO REMOVE [:2] AFTER TESTING
+    clean_average_speed_files = [clean_average_speed_folder_path + sf for sf in os.listdir(get_clean_average_speed_folder_path())]
     print("Clean average speed files: ", clean_average_speed_files, "\n")
 
-    for s in clean_average_speed_files:
+    for s in clean_average_speed_files[:2]: #TODO REMOVE [:2] AFTER TESTING
         speeds = retrieve_avg_speed_data(s)
         analyze_avg_speeds(speeds)
 
+
+    volumes_and_speeds = [vs for vs in clean_traffic_volume_files if vs.split("/")[-1].split("_")[0] in [v.split("/")[-1].split("_")[0] for v in clean_average_speed_files]] #Determinig the TRPs which have both traffic volumes and speed data
+
+    print("Clean volumes and average speeds files: ", volumes_and_speeds)
+    print("Number of clean volumes and average speeds files: ", len(volumes_and_speeds))
+
+
+    print("\n\n")
 
     return None
 
