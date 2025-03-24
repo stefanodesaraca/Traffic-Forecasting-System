@@ -493,8 +493,6 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
     all((plots_list[i](), plt.clf()) for i in range(len(plots_list)))
 
 
-    print("\n")
-
     return None
 
 
@@ -526,10 +524,51 @@ def test_volumes_data_for_multicollinearity(volumes: pd.DataFrame):
     print("----------------- Traffic volumes - VIFs -----------------")
 
     pprint.pprint(volumes_vif)
-    print("\n\n")
-
+    print()
 
     return None
+
+
+def test_avg_speeds_data_for_multicollinearity(speeds: pd.DataFrame):
+
+    speeds = speeds.drop(columns=["mean_speed", "percentile_85", "trp_id", "date"], axis=1)
+    speeds_col_names = list(speeds.columns)
+    #print(speeds_col_names)
+
+    speeds_vif = {}
+
+    for i in range(len(speeds_col_names)):
+        y = speeds.iloc[:, speeds.columns == speeds_col_names[i]]
+        X = speeds.iloc[:, speeds.columns != speeds_col_names[i]]
+
+        model = sm.OLS(y, X)
+
+        model_results = model.fit()
+        r2 = model_results.rsquared
+
+        vif = round(1 / (1 - r2), 2)
+
+        speeds_vif[speeds_col_names[i]] = vif
+
+        print(f"R^2 value of variable: {speeds_col_names[i]} = ", r2)
+        print(f"VIF (Variance Inflation Factor) value of variable: {speeds_col_names[i]} = ", vif, "\n")
+
+
+    print("----------------- Average speeds - VIFs -----------------")
+
+    pprint.pprint(speeds_vif)
+    print()
+
+    return None
+
+
+
+
+
+
+
+
+
 
 
 

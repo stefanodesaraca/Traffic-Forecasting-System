@@ -155,6 +155,7 @@ def execute_eda():
     for s in clean_average_speed_files[:2]: #TODO REMOVE [:2] AFTER TESTING
         speeds = retrieve_avg_speed_data(s)
         analyze_avg_speeds(speeds)
+        test_avg_speeds_data_for_multicollinearity(speeds)
 
 
     volumes_and_speeds = [vs for vs in clean_traffic_volume_files if vs.split("/")[-1].split("_")[0] in [v.split("/")[-1].split("_")[0] for v in clean_average_speed_files]] #Determinig the TRPs which have both traffic volumes and speed data
