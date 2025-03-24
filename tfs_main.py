@@ -158,7 +158,7 @@ def execute_eda():
 
     volumes_and_speeds = [vs for vs in clean_traffic_volume_files if vs.split("/")[-1].split("_")[0] in [v.split("/")[-1].split("_")[0] for v in clean_average_speed_files]] #Determinig the TRPs which have both traffic volumes and speed data
 
-    print("Clean volumes and average speeds files: ", volumes_and_speeds)
+    print("\n\nClean volumes and average speeds files: ", volumes_and_speeds)
     print("Number of clean volumes and average speeds files: ", len(volumes_and_speeds))
 
 
