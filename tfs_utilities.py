@@ -165,7 +165,18 @@ def get_eda_plots_folder_path(sub: str = None):
         raise Exception("Wrong plots path")
 
 
+def ZScore(df, column):
+    df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
 
+    #print("Number of outliers: ", len(df[(df["z_score"] < -3) & (df["z_score"] > 3)]))
+    print("Length before: ", len(df))
+
+    filtered_df = df[(df["z_score"] > -3) & (df["z_score"] < 3)]
+    filtered_df = filtered_df.drop(columns="z_score")
+
+    print("Length after: ", len(filtered_df))
+
+    return filtered_df
 
 
 

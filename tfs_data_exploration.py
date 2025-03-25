@@ -120,7 +120,7 @@ def analyze_volumes(volumes: pd.DataFrame):
     percentile_95_by_year = volumes.groupby(volumes["year"], as_index=False)["volume"].quantile(0.95)
     percentile_99_by_year = volumes.groupby(volumes["year"], as_index=False)["volume"].quantile(0.99)
 
-    outliers_by_year = {y: volumes[(volumes["volume"] > np.percentile(volumes[volumes["year"] == y]["volume"], 75)) & (volumes["volume"] < np.percentile(volumes[volumes["year"] == y]["volume"], 25)) & (volumes["year"] == y)] for y in volumes["year"].unique()} #Return all values which are greater than the 75th percentile and that are registered in the year taken in consideration (during the for loop in the dict comprehension)
+    external_values_by_year = {y: volumes[(volumes["volume"] > np.percentile(volumes[volumes["year"] == y]["volume"], 75)) & (volumes["volume"] < np.percentile(volumes[volumes["year"] == y]["volume"], 25)) & (volumes["year"] == y)] for y in volumes["year"].unique()} #Return all values which are greater than the 75th percentile and that are registered in the year taken in consideration (during the for loop in the dict comprehension)
 
     # --------------- Insights printing ---------------
 
@@ -151,8 +151,8 @@ def analyze_volumes(volumes: pd.DataFrame):
     print("\n")
 
 
-    print("Number of outliers (data over the 75th percentile for its year's data) by year:")
-    for y in sorted(outliers_by_year.keys()): print(f"Year: {y} | Number of Outliers: {len(outliers_by_year[y])}")
+    print("Number of external values (data over the 75th percentile for its year's data) by year:")
+    for y in sorted(external_values_by_year.keys()): print(f"Year: {y} | Number of external values: {len(external_values_by_year[y])}")
 
     print("\n")
 
@@ -164,7 +164,7 @@ def analyze_volumes(volumes: pd.DataFrame):
     print("\n")
 
 
-    for y in sorted(outliers_by_year.keys()):
+    for y in sorted(external_values_by_year.keys()):
         print(f"Volumes mean for year {y}: ", np.round(np.mean(volumes[volumes["year"] == y]["volume"]), 2))
         print(f"Volumes median for year {y}: ", np.round(np.mean(volumes[volumes["year"] == y]["volume"]), 2))
         print(f"Volumes standard deviation for year {y}: ", np.round(np.std(volumes[volumes["year"] == y]["volume"]), 2))
@@ -328,7 +328,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
     percentile_95_by_year = speeds.groupby(speeds["year"], as_index=False)["mean_speed"].quantile(0.95)
     percentile_99_by_year = speeds.groupby(speeds["year"], as_index=False)["mean_speed"].quantile(0.99)
 
-    outliers_by_year = {y: speeds[(speeds["mean_speed"] > np.percentile(speeds[speeds["year"] == y]["mean_speed"], 75)) & (speeds["mean_speed"] < np.percentile(speeds[speeds["year"] == y]["mean_speed"], 25)) & (speeds["year"] == y)] for y in speeds["year"].unique()}  # Return all values which are greater than the 75th percentile and that are registered in the year taken in consideration (during the for loop in the dict comprehension)
+    external_values_by_year = {y: speeds[(speeds["mean_speed"] > np.percentile(speeds[speeds["year"] == y]["mean_speed"], 75)) & (speeds["mean_speed"] < np.percentile(speeds[speeds["year"] == y]["mean_speed"], 25)) & (speeds["year"] == y)] for y in speeds["year"].unique()}  # Return all values which are greater than the 75th percentile and that are registered in the year taken in consideration (during the for loop in the dict comprehension)
 
 
     # --------------- Insights printing ---------------
@@ -358,8 +358,8 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
     print(percentile_99_by_year.rename(columns={"mean_speed": "percentile_99"}), "\n")
     print("\n")
 
-    print("Number of outliers (data over the 75th percentile for its year's data) by year:")
-    for y in sorted(outliers_by_year.keys()): print(f"Year: {y} | Number of Outliers: {len(outliers_by_year[y])}")
+    print("Number of external values (data over the 75th percentile for its year's data) by year:")
+    for y in sorted(external_values_by_year.keys()): print(f"Year: {y} | Number of external values: {len(external_values_by_year[y])}")
 
     print("\n")
 
@@ -370,7 +370,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
     print("Average speeds standard variance: ", np.round(np.var(speeds["mean_speed"]), 2))
     print("\n")
 
-    for y in sorted(outliers_by_year.keys()):
+    for y in sorted(external_values_by_year.keys()):
         print(f"Average speeds mean for year {y}: ", np.round(np.mean(speeds[speeds["year"] == y]["mean_speed"]), 2))
         print(f"Average speeds median for year {y}: ", np.round(np.mean(speeds[speeds["year"] == y]["mean_speed"]), 2))
         print(f"Average speeds standard deviation for year {y}: ", np.round(np.std(speeds[speeds["year"] == y]["mean_speed"]), 2))

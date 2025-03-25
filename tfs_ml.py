@@ -1,4 +1,5 @@
 from tfs_data_exploration import test_volumes_data_for_multicollinearity, test_avg_speeds_data_for_multicollinearity
+from tfs_utilities import ZScore
 import os
 import numpy as np
 import pickle
@@ -16,7 +17,7 @@ import joblib
 
 from feature_engine.creation import CyclicalFeatures
 
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
+from sklearn.preprocessing import MinMaxScaler, RobustScaler
 from sklearn.feature_selection import SelectFromModel
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, KFold, cross_val_score, train_test_split
 from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error
@@ -83,6 +84,9 @@ class TrafficVolumesForecaster:
         test_volumes_data_for_multicollinearity(volumes)
 
         print("\n\n")
+
+        #Execute Z-Score for outliers filtering
+        volumes = ZScore(volumes, "volume")
 
 
 
