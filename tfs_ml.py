@@ -1,5 +1,3 @@
-from bokeh.layouts import column
-
 from tfs_utilities import ZScore
 import os
 import numpy as np
@@ -20,8 +18,11 @@ import joblib
 from feature_engine.creation import CyclicalFeatures
 
 from dask_ml.preprocessing import MinMaxScaler
+from dask_ml.model_selection import train_test_split
+from dask_ml.ensemble import BlockwiseVotingRegressor
+
 from sklearn.feature_selection import SelectFromModel
-from sklearn.model_selection import GridSearchCV, StratifiedKFold, KFold, cross_val_score, train_test_split
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, KFold, cross_val_score, TimeSeriesSplit
 from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.linear_model import LinearRegression, Lasso
@@ -113,14 +114,29 @@ class TrafficVolumesForecaster:
         return volumes
 
 
+    @staticmethod
+    def split_data(volumes_preprocessed: dd.DataFrame):
+
+        X = volumes_preprocessed.drop(columns=["volume"])
+        y = volumes_preprocessed[["volume"]]
+
+        #print("X shape: ", X.shape, "\n")
+        #print("y shape: ", y.shape, "\n")
+
+        p_75 = int((len(y) / 100) * 75)
+
+        X_train = X.loc[:p_75].persist()
+        X_test = X.loc[p_75:].persist()
+
+        y_train = y.loc[:p_75].persist()
+        y_test = y.loc[p_75:].persist()
 
 
+        #print(X_train.tail(5), "\n", X_test.tail(5), "\n", y_train.tail(5), "\n", y_test.tail(5), "\n")
+        #print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
 
 
-
-
-
-
+        return X_train, X_test, y_train, y_test
 
 
 

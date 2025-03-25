@@ -120,12 +120,17 @@ def execute_forecasting(functionality: str):
 
         for v in clean_traffic_volume_files:
             volumes_forecaster = TrafficVolumesForecaster(v)
-            volumes_forecaster.volumes_ml_preprocessing_pipeline()
+            volumes_preprocessed = volumes_forecaster.volumes_ml_preprocessing_pipeline()
+
+            #We'll skip variable selection since there aren't many variables to choose as predictors
+
+            X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed)
 
 
 
 
-        #TODO EXECUTE 1. PREPROCESSING, 2. VARIABLE SELECTION 3. MACHINE LEARNING, 4. FORECASTING REPORTS GENERATION
+
+        #TODO 3. MACHINE LEARNING, 4. FORECASTING REPORTS GENERATION
 
 
 
@@ -143,7 +148,7 @@ def execute_eda():
     clean_traffic_volume_files = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())]
     print("Clean traffic volume files: ", clean_traffic_volume_files, "\n")
 
-    for v in clean_traffic_volume_files[:2]: #TODO REMOVE [:2] AFTER TESTING
+    for v in clean_traffic_volume_files:
         volumes = retrieve_volumes_data(v)
         analyze_volumes(volumes)
         test_volumes_data_for_multicollinearity(volumes)
@@ -152,7 +157,7 @@ def execute_eda():
     clean_average_speed_files = [clean_average_speed_folder_path + sf for sf in os.listdir(get_clean_average_speed_folder_path())]
     print("Clean average speed files: ", clean_average_speed_files, "\n")
 
-    for s in clean_average_speed_files[:2]: #TODO REMOVE [:2] AFTER TESTING
+    for s in clean_average_speed_files:
         speeds = retrieve_avg_speed_data(s)
         analyze_avg_speeds(speeds)
         test_avg_speeds_data_for_multicollinearity(speeds)
