@@ -1,7 +1,7 @@
+from tfs_data_exploration import test_volumes_data_for_multicollinearity, test_avg_speeds_data_for_multicollinearity
 import os
 import numpy as np
 import pickle
-import joblib
 import warnings
 from warnings import simplefilter
 from datetime import datetime
@@ -10,6 +10,9 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from scipy import stats
 from scipy.special import softmax
+
+from dask.distributed import Client
+import joblib
 
 from feature_engine.creation import CyclicalFeatures
 
@@ -74,11 +77,12 @@ class TrafficVolumesForecaster:
         volumes["month_sin"] = sin_transformer(data=volumes["month"], timeframe=12)
         volumes["month_cos"] = sin_transformer(data=volumes["month"], timeframe=12)
 
+        print("\n\n")
 
+        #Testing sin and cos processed columns for multicollinearity
+        test_volumes_data_for_multicollinearity(volumes)
 
-
-
-
+        print("\n\n")
 
 
 

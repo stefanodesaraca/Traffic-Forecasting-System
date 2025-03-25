@@ -297,6 +297,10 @@ def analyze_volumes(volumes: pd.DataFrame):
     plots_list = [volume_trend_grouped_by_years, volume_trend_by_week, volumes_distribution_by_week_and_year, correlation_heatmap]
     all((plots_list[i](), plt.clf()) for i in range(len(plots_list)))
 
+
+    volumes = volumes.drop(columns=["date"])
+
+
     print("\n")
 
 
@@ -498,7 +502,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
 
 def test_volumes_data_for_multicollinearity(volumes: pd.DataFrame):
 
-    volumes = volumes.drop(columns=["volume", "trp_id", "date"]) #The "date" columns is created during the data exploration in the analyze_volumes() function
+    volumes = volumes.drop(columns=["volume", "trp_id"])
     volumes_col_names = list(volumes.columns)
     #print(volumes_col_names)
 
