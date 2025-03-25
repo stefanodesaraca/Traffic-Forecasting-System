@@ -120,7 +120,7 @@ def execute_forecasting(functionality: str):
 
         for v in clean_traffic_volume_files:
             volumes_forecaster = TrafficVolumesForecaster(v)
-            volumes_forecaster.preprocessing_pipeline()
+            volumes_forecaster.volumes_ml_preprocessing_pipeline()
 
 
 

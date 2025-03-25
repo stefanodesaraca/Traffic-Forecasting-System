@@ -1,4 +1,5 @@
-from tfs_data_exploration import test_volumes_data_for_multicollinearity, test_avg_speeds_data_for_multicollinearity
+from bokeh.layouts import column
+
 from tfs_utilities import ZScore
 import os
 import numpy as np
@@ -18,7 +19,7 @@ import joblib
 
 from feature_engine.creation import CyclicalFeatures
 
-from sklearn.preprocessing import MinMaxScaler, RobustScaler
+from dask_ml.preprocessing import MinMaxScaler
 from sklearn.feature_selection import SelectFromModel
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, KFold, cross_val_score, train_test_split
 from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error
@@ -58,12 +59,9 @@ class TrafficVolumesForecaster:
         return volumes
 
 
-    #TODO CHANGE NAME HERE
-    def preprocessing_pipeline(self):
+    def volumes_ml_preprocessing_pipeline(self):
 
         volumes = self.get_volumes_data()
-
-        #TODO ENCODE CYCLICAL VARIABLES HERE
 
         # ------------------ Cyclical variables encoding ------------------
 
@@ -81,23 +79,38 @@ class TrafficVolumesForecaster:
 
         print("\n\n")
 
-        #Testing sin and cos processed columns for multicollinearity
-        #test_volumes_data_for_multicollinearity(volumes)
+        #------------------ Outliers filtering with Z-Score ------------------
 
-        print("\n\n")
-
-        #Execute Z-Score for outliers filtering
         volumes = ZScore(volumes, "volume")
 
         volumes = volumes.sort_values(by=["year", "month", "day"], ascending=True)
 
 
-        print(volumes.head(5))
-        print(volumes.tail(5))
+        # ------------------ Variables normalization ------------------
+
+        scaler = MinMaxScaler()
+        volumes[["volume", "coverage"]] = scaler.fit_transform(volumes[["volume", "coverage"]])
 
 
+        #------------------ Creating lag features ------------------
 
-        return None #TODO RETURN THE PREPROCESSED DATA
+        lag_column_names = ["volumes_lag1", "volumes_lag2", "volumes_lag3", "volumes_lag4", "volumes_lag5", "volumes_lag6", "volumes_lag7"]
+
+        for idx, n in enumerate(lag_column_names): volumes[n] = volumes["volume"].shift(idx + 1)
+
+        #print(volumes.head(10))
+        #print(volumes.dtypes)
+
+        volumes = volumes.drop(columns=["year", "month", "week", "day", "trp_id"], axis=1).persist()
+
+        #print("Volumes dataframe head: ")
+        #print(volumes.head(5), "\n")
+
+        #print("Volumes dataframe tail: ")
+        #print(volumes.tail(5), "\n")
+
+
+        return volumes
 
 
 
