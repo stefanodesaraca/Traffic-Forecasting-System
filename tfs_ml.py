@@ -82,7 +82,7 @@ class TrafficVolumesForecaster:
         print("\n\n")
 
         #Testing sin and cos processed columns for multicollinearity
-        test_volumes_data_for_multicollinearity(volumes)
+        #test_volumes_data_for_multicollinearity(volumes)
 
         print("\n\n")
 
@@ -92,8 +92,8 @@ class TrafficVolumesForecaster:
         volumes = volumes.sort_values(by=["year", "month", "day"], ascending=True)
 
 
-
-        print(volumes.sample(10, random_state=100))
+        print(volumes.head(5))
+        print(volumes.tail(5))
 
 
 
