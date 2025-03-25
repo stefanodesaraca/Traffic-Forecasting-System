@@ -156,7 +156,7 @@ class TrafficVolumesCleaner(Cleaner):
         #print(nodes)
 
         if number_of_nodes == 0:
-            print(f"\033[91mNo data found for TRP: {volumes_payload["trafficData"]["trafficRegistrationPoint"]["id"]}\033[0m\n\n")
+            print(f"\033[91mNo data found for TRP: {volumes_payload['trafficData']['trafficRegistrationPoint']['id']}\033[0m\n\n")
 
             return None
 

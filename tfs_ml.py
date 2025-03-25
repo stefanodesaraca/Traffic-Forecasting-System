@@ -7,6 +7,7 @@ import warnings
 from warnings import simplefilter
 from datetime import datetime
 import pandas as pd
+import dask.dataframe as dd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from scipy import stats
@@ -53,7 +54,7 @@ class TrafficVolumesForecaster:
 
 
     def get_volumes_data(self):
-        volumes = pd.read_csv(self.volumes_file_path)
+        volumes = dd.read_csv(self.volumes_file_path)
         return volumes
 
 
@@ -87,6 +88,8 @@ class TrafficVolumesForecaster:
 
         #Execute Z-Score for outliers filtering
         volumes = ZScore(volumes, "volume")
+
+        volumes = volumes.sort_values(by=["year", "month", "day"], ascending=True)
 
 
 
