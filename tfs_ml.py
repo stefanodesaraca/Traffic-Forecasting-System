@@ -141,7 +141,7 @@ class TrafficVolumesForecaster:
         model = model_names_and_functions[model_name]() #Finding the function which returns the model and executing it
 
         ml_folder_path = get_ml_models_folder_path()
-        model_filename = ops_name + model_name.lower()
+        model_filename = ops_name + "_" + model_name
 
 
         if model_name != "XGBRegressor":
@@ -154,6 +154,7 @@ class TrafficVolumesForecaster:
                 gridsearch.fit(X=X_train, y=y_train)
 
 
+            print(f"============== {model_name} grid search results ==============")
             print(pd.DataFrame(gridsearch.cv_results_), "\n")
 
             print("Best estimator: ", gridsearch.best_estimator_, "\n")
@@ -163,7 +164,6 @@ class TrafficVolumesForecaster:
             print("Best index: ", gridsearch.best_index_, "\n")
 
             #print(gridsearch.scorer_, "\n")
-
 
             client.close()
 
