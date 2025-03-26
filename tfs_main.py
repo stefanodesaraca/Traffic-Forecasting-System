@@ -6,6 +6,7 @@ from tfs_data_exploration import *
 from tfs_utilities import *
 from tfs_cleaning import *
 from tfs_ml import *
+from tfs_models import models_gridsearch_parameters
 import time
 from datetime import datetime
 
@@ -115,10 +116,12 @@ def execute_forecasting(functionality: str):
 
         clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
 
-        clean_traffic_volume_files = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())][:2] #TODO REMOVE [:2] AFTER TESTING
+        clean_traffic_volume_files = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())]
         print(clean_traffic_volume_files)
 
-        for v in clean_traffic_volume_files: #TODO AFTER TESTING -> COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THE FOR CYCLE
+        models = [m for m in models_gridsearch_parameters.keys()]
+
+        for v in clean_traffic_volume_files[:2]: #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
             volumes_forecaster = TrafficVolumesForecaster(v)
             volumes_preprocessed = volumes_forecaster.volumes_ml_preprocessing_pipeline()
 
@@ -126,7 +129,10 @@ def execute_forecasting(functionality: str):
 
             X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed)
 
-            volumes_forecaster.train_model(X_train, y_train,)
+            # -------------- Training phase --------------
+            for model in models: volumes_forecaster.train_model(X_train, y_train, model)
+
+            #TODO TEST MODELS HERE
 
 
 

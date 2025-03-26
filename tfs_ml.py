@@ -138,20 +138,34 @@ class TrafficVolumesForecaster:
 
         model_name = model.__class__.__name__
 
-        dask_client = Client(processes=False)
-
         blockwise_model = BlockwiseVotingRegressor(estimator=model)
         gridsearch = GridSearchCV(blockwise_model, param_grid=models_gridsearch_parameters[model_name], return_train_score=False, n_jobs=-1) #The models_gridsearch_parameters is obtained from the tfs_models file
 
 
         with joblib.parallel_backend('dask'):
-
-            gridsearch.fit()
-
+            gridsearch.fit(X=X_train, y=y_train)
 
 
+        print(gridsearch.cv_results_, "\n")
+
+        print(gridsearch.best_estimator_, "\n")
+        print(gridsearch.best_params_, "\n")
+        print(gridsearch.best_score_, "\n")
+
+        print(gridsearch.best_index_, "\n")
+
+        print(gridsearch.scorer_, "\n")
 
 
+
+
+
+
+
+
+
+
+        #TODO EXPORT TRAINED MODELS HERE WITH JOBLIB AND PICKLE
 
 
 
@@ -180,7 +194,7 @@ class TrafficVolumesForecaster:
     def test_models(self):
 
 
-
+        #TODO IMPORT MODELS HERE TO TEST THEM WITH TEST DATA
 
 
 
