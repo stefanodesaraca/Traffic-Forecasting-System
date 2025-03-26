@@ -134,16 +134,14 @@ class TrafficVolumesForecaster:
         return X_train, X_test, y_train, y_test
 
 
-    def train_model(self, X_train, y_train, model):
-
-        model_name = model.__class__.__name__
+    def train_model(self, X_train, y_train, model_name):
 
         parameters_grid = models_gridsearch_parameters[model_name]
+        model = model_names_and_functions[model_name]() #Finding the function which returns the model and executing it
 
-        blockwise_model = BlockwiseVotingRegressor(estimator=model)
-        gridsearch = GridSearchCV(blockwise_model, param_grid=parameters_grid, return_train_score=False, n_jobs=-1) #The models_gridsearch_parameters is obtained from the tfs_models file
+        gridsearch = GridSearchCV(model, param_grid=parameters_grid, return_train_score=False, n_jobs=-1) #The models_gridsearch_parameters is obtained from the tfs_models file
 
-
+        client = Client(processes=False)
         with joblib.parallel_backend('dask'):
             gridsearch.fit(X=X_train, y=y_train)
 
