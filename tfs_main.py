@@ -118,7 +118,7 @@ def execute_forecasting(functionality: str):
         clean_traffic_volume_files = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())][:2] #TODO REMOVE [:2] AFTER TESTING
         print(clean_traffic_volume_files)
 
-        for v in clean_traffic_volume_files:
+        for v in clean_traffic_volume_files: #TODO AFTER TESTING -> COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THE FOR CYCLE
             volumes_forecaster = TrafficVolumesForecaster(v)
             volumes_preprocessed = volumes_forecaster.volumes_ml_preprocessing_pipeline()
 
