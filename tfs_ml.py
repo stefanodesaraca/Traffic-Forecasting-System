@@ -1,4 +1,4 @@
-from tfs_utilities import ZScore
+from tfs_utilities import ZScore, get_active_ops_name, get_ml_models_folder_path
 from tfs_models import *
 import os
 import numpy as np
@@ -135,8 +135,14 @@ class TrafficVolumesForecaster:
 
     def train_model(self, X_train, y_train, model_name):
 
+        ops_name = get_active_ops_name()
+
         parameters_grid = models_gridsearch_parameters[model_name]
         model = model_names_and_functions[model_name]() #Finding the function which returns the model and executing it
+
+        ml_folder_path = get_ml_models_folder_path()
+        model_filename = ops_name + model_name.lower()
+
 
         if model_name != "XGBRegressor":
 
@@ -150,15 +156,22 @@ class TrafficVolumesForecaster:
 
             print(pd.DataFrame(gridsearch.cv_results_), "\n")
 
-            print(gridsearch.best_estimator_, "\n")
-            print(gridsearch.best_params_, "\n")
-            print(gridsearch.best_score_, "\n")
+            print("Best estimator: ", gridsearch.best_estimator_, "\n")
+            print("Best parameters: ", gridsearch.best_params_, "\n")
+            print("Best score: ", gridsearch.best_score_, "\n")
 
-            print(gridsearch.best_index_, "\n")
+            print("Best index: ", gridsearch.best_index_, "\n")
 
-            print(gridsearch.scorer_, "\n")
+            #print(gridsearch.scorer_, "\n")
+
 
             client.close()
+
+            joblib.dump(gridsearch.best_estimator_, ml_folder_path + model_filename + ".joblib")
+
+            with open(ml_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
+                pickle.dump(gridsearch.best_estimator_, ml_pkl_file)
+
 
         else:
 
@@ -167,6 +180,11 @@ class TrafficVolumesForecaster:
                 model.fit(X=X_train, y=y_train)
 
             client.close()
+
+            joblib.dump(model, ml_folder_path + model_filename + ".joblib")
+
+            with open(ml_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
+                pickle.dump(model, ml_pkl_file)
 
 
 

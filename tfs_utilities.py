@@ -165,6 +165,15 @@ def get_eda_plots_folder_path(sub: str = None):
         raise Exception("Wrong plots path")
 
 
+def get_ml_models_folder_path():
+
+    ops_name = get_active_ops_name()
+
+    ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/"
+
+    return ml_folder_path
+
+
 def ZScore(df, column):
     
     df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
