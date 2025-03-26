@@ -154,7 +154,7 @@ class TrafficVolumesForecaster:
                 gridsearch.fit(X=X_train, y=y_train)
 
 
-            print(f"============== {model_name} grid search results ==============")
+            print(f"============== {model_name} grid search results ==============\n")
             print(pd.DataFrame(gridsearch.cv_results_), "\n")
 
             print("Best estimator: ", gridsearch.best_estimator_, "\n")
