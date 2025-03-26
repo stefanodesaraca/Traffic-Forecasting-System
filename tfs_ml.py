@@ -161,7 +161,7 @@ class TrafficVolumesForecaster:
             print("Best parameters: ", gridsearch.best_params_)
             print("Best score: ", gridsearch.best_score_)
 
-            print("Best index: ", gridsearch.best_index_, "\n")
+            print("Best combination index (in the results dataframe): ", gridsearch.best_index_, "\n")
 
             #print(gridsearch.scorer_, "\n")
 
