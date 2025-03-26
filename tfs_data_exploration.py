@@ -4,6 +4,7 @@ import tfs_cleaning
 from tfs_ops_settings import *
 from tfs_cleaning import *
 import numpy as np
+from numpy.linalg import eigvals
 import json
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -144,7 +145,7 @@ def analyze_volumes(volumes: pd.DataFrame):
     print("Quartile Deviation for the whole distribution (all years): ", percentile_75-percentile_25)
 
 
-    print("Percentiles by year")
+    print("\nPercentiles by year")
     print(percentile_25_by_year.rename(columns={"volume": "percentile_25"}), "\n")
     print(percentile_50_by_year.rename(columns={"volume": "percentile_50"}), "\n")
     print(percentile_75_by_year.rename(columns={"volume": "percentile_75"}), "\n")
@@ -352,7 +353,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
     print("Inter-Quartile Range (IQR) for the whole distribution (all years): ", percentile_75 - percentile_25)
     print("Quartile Deviation for the whole distribution (all years): ", percentile_75 - percentile_25)
 
-    print("Percentiles by year")
+    print("\nPercentiles by year")
     print(percentile_25_by_year.rename(columns={"mean_speed": "percentile_25"}), "\n")
     print(percentile_50_by_year.rename(columns={"mean_speed": "percentile_50"}), "\n")
     print(percentile_75_by_year.rename(columns={"mean_speed": "percentile_75"}), "\n")
@@ -504,9 +505,13 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
 
 def test_volumes_data_for_multicollinearity(volumes: pd.DataFrame):
 
-    volumes = volumes.drop(columns=["volume", "trp_id"])
+    volumes = volumes.drop(columns=["volume", "date", "trp_id"])
     volumes_col_names = list(volumes.columns)
     #print(volumes_col_names)
+
+    print()
+
+    # ----------------- VIF -----------------
 
     volumes_vif = {}
 
@@ -531,6 +536,17 @@ def test_volumes_data_for_multicollinearity(volumes: pd.DataFrame):
 
     pprint.pprint(volumes_vif)
     print()
+
+    # ----------------- Condition index -----------------
+
+    volumes_corr_matrix = volumes.corr()
+
+    eigenvalues = eigvals(volumes_corr_matrix)
+    condition_index = max(eigenvalues) / min(eigenvalues)
+
+    print(f'Traffic volumes - Condition Index: {condition_index}\n\n')
+
+
 
     return None
 
@@ -564,6 +580,17 @@ def test_avg_speeds_data_for_multicollinearity(speeds: pd.DataFrame):
 
     pprint.pprint(speeds_vif)
     print()
+
+
+    # ----------------- Condition index -----------------
+
+    speeds_corr_matrix = speeds.corr()
+
+    eigenvalues = eigvals(speeds_corr_matrix)
+    condition_index = max(eigenvalues) / min(eigenvalues)
+
+    print(f'Average speeds - Condition Index: {condition_index}\n\n')
+
 
     return None
 
