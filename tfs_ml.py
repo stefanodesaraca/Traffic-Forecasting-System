@@ -17,6 +17,7 @@ import joblib
 
 from feature_engine.creation import CyclicalFeatures
 
+from dask_ml.ensemble import BlockwiseVotingRegressor
 from dask_ml.preprocessing import MinMaxScaler
 from dask_ml.model_selection import train_test_split
 
@@ -135,10 +136,11 @@ class TrafficVolumesForecaster:
         return X_train, X_test, y_train, y_test
 
 
-    def train_models(self):
+    def train_models(self, sub_estimator):
 
+        #TODO DISTRIBUTE WITH DASK AND CALL GET_X_MODEL METHOD
 
-
+        regressor = BlockwiseVotingRegressor(estimator=sub_estimator)
 
 
 

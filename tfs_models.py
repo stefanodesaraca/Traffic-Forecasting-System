@@ -1,4 +1,3 @@
-from dask_ml.ensemble import BlockwiseVotingRegressor
 
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor, BaggingRegressor, GradientBoostingRegressor, AdaBoostRegressor
@@ -8,50 +7,44 @@ from xgboost import XGBRegressor
 
 def get_blockwise_random_forest_regressor():
 
-    sub_estimator = RandomForestRegressor(n_estimators=200, n_jobs=-1, random_state=100)
-    blockwise_random_forest = BlockwiseVotingRegressor(estimator=sub_estimator)
+    random_forest = RandomForestRegressor(n_jobs=-1, random_state=100) #Has the max_depth, criterion (use squared_error, friedman_mse) n_estimators parameters
 
-    return blockwise_random_forest
+    return random_forest
 
 
 def get_blockwise_adaboost_regressor():
 
-    sub_estimator = AdaBoostRegressor(n_estimators=200, random_state=100)
-    blockwise_adaboost = BlockwiseVotingRegressor(estimator=sub_estimator)
+    ada_boost = AdaBoostRegressor(random_state=100) #Has the loss (use linear and square) and n_estimators parameters
 
-    return blockwise_adaboost
+    return ada_boost
 
 
 def get_blockwise_bagging_regressor():
 
-    sub_estimator = BaggingRegressor(n_estimators=200, n_jobs=-1, random_state=100)
-    blockwise_bagging = BlockwiseVotingRegressor(estimator=sub_estimator)
+    bagging = BaggingRegressor(n_jobs=-1, random_state=100) #Has n_estimators parameter
 
-    return blockwise_bagging
+    return bagging
 
 
 def get_blockwise_gradient_boosting_regressor():
 
-    sub_estimator = GradientBoostingRegressor(n_estimators=200, random_state=100)
-    blockwise_gradient_boosting = BlockwiseVotingRegressor(estimator=sub_estimator)
+    gradient_boosting = GradientBoostingRegressor(random_state=100) #Has the loss (use mean_squared_error and absolute_error), n_estimators, validation_fraction, n_iter_no_change, tol and max_depth parameters
 
-    return blockwise_gradient_boosting
+    return gradient_boosting
 
 
 def get_blockwise_decision_tree_regressor():
 
-    sub_estimator = DecisionTreeRegressor(random_state=100)
-    blockwise_decision_tree = BlockwiseVotingRegressor(estimator=sub_estimator)
+    decision_tree = DecisionTreeRegressor(random_state=100) #Has max_depth parameter
 
-    return blockwise_decision_tree
+    return decision_tree
 
 
 def get_blockwise_xgboost_regressor():
 
-    sub_estimator = XGBRegressor(random_state=100)
-    blockwise_xgboost = BlockwiseVotingRegressor(estimator=sub_estimator)
+    xgboost = XGBRegressor(random_state=100) #For early stopping we'll use the validation_fraction, n_iter_no_change, tol parameters
 
-    return blockwise_xgboost
+    return xgboost
 
 
 
