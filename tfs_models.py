@@ -70,15 +70,16 @@ models_gridsearch_parameters = {
 
 model_names_and_functions = {
     "RandomForestRegressor": get_random_forest_regressor,
-    "AdaBoostRegressor": get_adaboost_regressor,
     "BaggingRegressor": get_bagging_regressor,
-    "GradientBoostingRegressor": get_gradient_boosting_regressor,
     "DecisionTreeRegressor": get_decision_tree_regressor,
     "XGBRegressor": get_xgboost_regressor
     }
 
+#TODO TEMPORARELY REMOVED ADABOOST AND GRADIENTBOOST SINCE IT DOESN'T TAKE NaNs NATIVELY, TRY HistGradientBoosting IN THE FUTURE
 
 
+#"AdaBoostRegressor": get_adaboost_regressor,
+#"GradientBoostingRegressor": get_gradient_boosting_regressor,
 
 
 

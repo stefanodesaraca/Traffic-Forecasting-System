@@ -130,7 +130,7 @@ def execute_forecasting(functionality: str):
             X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed)
 
             # -------------- Training phase --------------
-            for model_name in models: volumes_forecaster.train_model(X_train, y_train, model_name=model_name)
+            for model_name in models: volumes_forecaster.train_model(X_train, y_train, model_name=model_name); print(f"{model_name} successfully trained")
 
             #TODO TEST MODELS HERE
 
