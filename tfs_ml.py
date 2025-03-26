@@ -157,9 +157,9 @@ class TrafficVolumesForecaster:
             print(f"============== {model_name} grid search results ==============\n")
             print(pd.DataFrame(gridsearch.cv_results_), "\n")
 
-            print("Best estimator: ", gridsearch.best_estimator_, "\n")
-            print("Best parameters: ", gridsearch.best_params_, "\n")
-            print("Best score: ", gridsearch.best_score_, "\n")
+            print("Best estimator: ", gridsearch.best_estimator_)
+            print("Best parameters: ", gridsearch.best_params_)
+            print("Best score: ", gridsearch.best_score_)
 
             print("Best index: ", gridsearch.best_index_, "\n")
 
