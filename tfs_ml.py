@@ -162,15 +162,9 @@ class TrafficVolumesForecaster:
 
         else:
 
-            print("Sono qui")
-
             client = Client(processes=False)
             with joblib.parallel_backend('dask'):
                 model.fit(X=X_train, y=y_train)
-
-            print("Fatto")
-
-            print(type(model)) #TODO THIS IS NEEDED RIGHT NOW, OTHERWISE THE GARBAGE COLLECTOR WILL DELETE IT SINCE IT DOESN'T FIND ANY MORE
 
             client.close()
 
