@@ -16,9 +16,8 @@ from scipy.special import softmax
 from dask.distributed import Client
 import joblib
 
-from dask_ml.ensemble import BlockwiseVotingRegressor
 from dask_ml.preprocessing import MinMaxScaler
-from dask_ml.model_selection import train_test_split, GridSearchCV
+from dask_ml.model_selection import GridSearchCV
 
 from sklearn.feature_selection import SelectFromModel
 from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error
@@ -139,29 +138,41 @@ class TrafficVolumesForecaster:
         parameters_grid = models_gridsearch_parameters[model_name]
         model = model_names_and_functions[model_name]() #Finding the function which returns the model and executing it
 
-        gridsearch = GridSearchCV(model, param_grid=parameters_grid, return_train_score=False, n_jobs=-1) #The models_gridsearch_parameters is obtained from the tfs_models file
+        if model_name != "XGBRegressor":
 
-        client = Client(processes=False)
-        with joblib.parallel_backend('dask'):
-            gridsearch.fit(X=X_train, y=y_train)
+            client = Client(processes=False)
 
+            gridsearch = GridSearchCV(model, param_grid=parameters_grid, return_train_score=False, n_jobs=-1, scheduler="threads") #The models_gridsearch_parameters is obtained from the tfs_models file
 
-        print(pd.DataFrame(gridsearch.cv_results_), "\n")
-
-        print(gridsearch.best_estimator_, "\n")
-        print(gridsearch.best_params_, "\n")
-        print(gridsearch.best_score_, "\n")
-
-        print(gridsearch.best_index_, "\n")
-
-        print(gridsearch.scorer_, "\n")
+            with joblib.parallel_backend('dask'):
+                gridsearch.fit(X=X_train, y=y_train)
 
 
+            print(pd.DataFrame(gridsearch.cv_results_), "\n")
 
+            print(gridsearch.best_estimator_, "\n")
+            print(gridsearch.best_params_, "\n")
+            print(gridsearch.best_score_, "\n")
 
+            print(gridsearch.best_index_, "\n")
 
+            print(gridsearch.scorer_, "\n")
 
+            client.close()
 
+        else:
+
+            print("Sono qui")
+
+            client = Client(processes=False)
+            with joblib.parallel_backend('dask'):
+                model.fit(X=X_train, y=y_train)
+
+            print("Fatto")
+
+            print(type(model)) #TODO THIS IS NEEDED RIGHT NOW, OTHERWISE THE GARBAGE COLLECTOR WILL DELETE IT SINCE IT DOESN'T FIND ANY MORE
+
+            client.close()
 
 
 
@@ -220,7 +231,7 @@ class TrafficVolumesForecaster:
 
 
 
-
+#TODO CREATE THE AvgSpeedForecaster CLASS AND THEN CREATE THE OnePointForecaster AND A2BForecaster CLASSES, THEY WILL JUST RETRIEVE AND USE THE PRE-MADE, TESTED AND EXPORTED MODELS
 
 
 

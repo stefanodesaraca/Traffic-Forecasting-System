@@ -1,8 +1,7 @@
 from sklearn.tree import DecisionTreeRegressor
-from sklearn.ensemble import RandomForestRegressor, BaggingRegressor, GradientBoostingRegressor, AdaBoostRegressor
+from sklearn.ensemble import RandomForestRegressor, BaggingRegressor, GradientBoostingRegressor, AdaBoostRegressor, HistGradientBoostingRegressor
 from xgboost import XGBRegressor
-
-
+#from xgboost.dask import DaskXGBRegressor
 
 def get_random_forest_regressor():
     random_forest = RandomForestRegressor(n_jobs=-1, random_state=100) #Has the max_depth, criterion (use squared_error, friedman_mse) n_estimators parameters
@@ -27,6 +26,11 @@ def get_gradient_boosting_regressor():
 def get_decision_tree_regressor():
     decision_tree = DecisionTreeRegressor(random_state=100) #Has max_depth parameter
     return decision_tree
+
+
+def get_histgradientboosting_regressor():
+    hist_gradient_boosting = HistGradientBoostingRegressor(random_state=100)  # Has the max_iter, max_depth parameters
+    return hist_gradient_boosting
 
 
 def get_xgboost_regressor():
@@ -59,6 +63,15 @@ models_gridsearch_parameters = {
     "DecisionTreeRegressor": {
         "max_depth": [None, 10, 20, 30]
     },
+    "HistGradientBoostingRegressor": {
+        "max_iter": [50, 100, 200],
+        "max_depth": [3, 5, 10],
+        "loss": ["squared_error", "absolute_error"],
+        "validation_fraction": [0.1, 0.2, 0.3],
+        "n_iter_no_change": [5, 10, 20],
+        "tol": [1e-4, 1e-3, 1e-2],
+        "l2_regularization": [0, 0.5, 1.0]
+    },
     "XGBRegressor": {
         "n_estimators": [50, 100, 200],
         "validation_fraction": [0.1, 0.2, 0.3],
@@ -82,6 +95,7 @@ model_names_and_functions = {
 #"GradientBoostingRegressor": get_gradient_boosting_regressor,
 
 
+#"HistGradientBoostingRegressor": get_histgradientboosting_regressor,
 
 
 
