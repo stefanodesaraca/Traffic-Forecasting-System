@@ -126,7 +126,7 @@ def execute_forecasting(functionality: str):
 
             X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed)
 
-
+            volumes_forecaster.train_model(X_train, y_train,)
 
 
 

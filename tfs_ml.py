@@ -18,10 +18,9 @@ import joblib
 
 from dask_ml.ensemble import BlockwiseVotingRegressor
 from dask_ml.preprocessing import MinMaxScaler
-from dask_ml.model_selection import train_test_split
+from dask_ml.model_selection import train_test_split, GridSearchCV
 
 from sklearn.feature_selection import SelectFromModel
-from sklearn.model_selection import GridSearchCV, StratifiedKFold, KFold, cross_val_score, TimeSeriesSplit
 from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error
 
 
@@ -135,17 +134,19 @@ class TrafficVolumesForecaster:
         return X_train, X_test, y_train, y_test
 
 
-    def train_model(self, model_name: str, model):
+    def train_model(self, X_train, y_train, model):
+
+        model_name = model.__class__.__name__
 
         dask_client = Client(processes=False)
 
-
-        regressor = BlockwiseVotingRegressor(estimator=model)
+        blockwise_model = BlockwiseVotingRegressor(estimator=model)
+        gridsearch = GridSearchCV(blockwise_model, param_grid=models_gridsearch_parameters[model_name], return_train_score=False, n_jobs=-1) #The models_gridsearch_parameters is obtained from the tfs_models file
 
 
         with joblib.parallel_backend('dask'):
 
-
+            gridsearch.fit()
 
 
 
