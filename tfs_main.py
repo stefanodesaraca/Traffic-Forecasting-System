@@ -110,16 +110,16 @@ def set_forecasting_options(functionality: str):
     return None
 
 
-def execute_forecasting(functionality: str):
+def execute_forecast_warmup(functionality: str):
 
-    if functionality == "3.2":
+    models = [m for m in model_names_and_functions.keys()]
+
+    if functionality == "3.2.1":
 
         clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
 
         clean_traffic_volume_files = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())]
         print(clean_traffic_volume_files)
-
-        models = [m for m in model_names_and_functions.keys()]
 
         for v in clean_traffic_volume_files[:2]: #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
             volumes_forecaster = TrafficVolumesForecaster(v)
@@ -132,8 +132,25 @@ def execute_forecasting(functionality: str):
             # -------------- Training phase --------------
             for model_name in models: volumes_forecaster.train_model(X_train, y_train, model_name=model_name)
 
-            #TODO TEST MODELS HERE
 
+    elif functionality == "3.2.2":
+
+        #TODO TRAIN MODELS ON AVERAGE SPEED DATA HERE
+
+        print()
+
+    elif functionality == "3.2.3":
+
+        #TODO TEST MODELS ON VOLUMES DATA HERE
+
+        print()
+
+
+    elif functionality == "3.2.4":
+
+        #TODO TEST MODELS ON AVERAGE SPEED DATA HERE
+
+        print()
 
 
         #TODO 3. MACHINE LEARNING, 4. FORECASTING REPORTS GENERATION
@@ -205,6 +222,10 @@ def main():
         3.1.2 Read forecasting target datetime
         3.1.3 Delete forecasting target datetime
     3.2 Forecast warmup
+        3.2.1 Train models on volume data
+        3.2.2 Train models on average speed data
+        3.2.3 Test models on volume data
+        3.2.4 Test models on average speed data
     3.3 Execute forecast
         3.3.1 One-Point Forecast
         3.3.2 A2B Forecast
@@ -248,8 +269,11 @@ def main():
         elif option == "3.1.3":
             set_forecasting_options(option)
 
-        elif option == "3.2":
-            execute_forecasting(option)
+        elif option == "3.2.1":
+            execute_forecast_warmup(option)
+
+        elif option == "3.2.1":
+            execute_forecast_warmup(option)
 
         elif option == "5.2":
             execute_eda()
