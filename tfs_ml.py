@@ -1,4 +1,5 @@
 from tfs_utilities import ZScore
+from tfs_models import *
 import os
 import numpy as np
 import pickle
@@ -14,8 +15,6 @@ from scipy.special import softmax
 
 from dask.distributed import Client
 import joblib
-
-from feature_engine.creation import CyclicalFeatures
 
 from dask_ml.ensemble import BlockwiseVotingRegressor
 from dask_ml.preprocessing import MinMaxScaler
@@ -136,11 +135,21 @@ class TrafficVolumesForecaster:
         return X_train, X_test, y_train, y_test
 
 
-    def train_models(self, sub_estimator):
+    def train_model(self, model_name: str, model):
 
-        #TODO DISTRIBUTE WITH DASK AND CALL GET_X_MODEL METHOD
+        dask_client = Client(processes=False)
 
-        regressor = BlockwiseVotingRegressor(estimator=sub_estimator)
+
+        regressor = BlockwiseVotingRegressor(estimator=model)
+
+
+        with joblib.parallel_backend('dask'):
+
+
+
+
+
+
 
 
 
