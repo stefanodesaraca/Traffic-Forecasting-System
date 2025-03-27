@@ -92,7 +92,7 @@ def get_clean_volume_files():
     clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
 
     clean_traffic_volumes = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())]
-    print(clean_traffic_volumes)
+    print("Clean traffic volumes files: ", clean_traffic_volumes)
 
     return clean_traffic_volumes
 

@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from scipy import stats
 from scipy.special import softmax
+import time
 
 from dask.distributed import Client
 import joblib
@@ -153,25 +154,48 @@ class TrafficVolumesForecaster:
 
             client = Client(processes=False)
 
-            gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=-1, scheduler="threads", cv=5) #The models_gridsearch_parameters is obtained from the tfs_models file
+            #print(model_name, " client created")
+
+            gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=-1, scheduler="threads", cv=5) #TODO SET cv=10 AFTER TESTING
+            #The models_gridsearch_parameters is obtained from the tfs_models file
 
             with joblib.parallel_backend('dask'):
                 gridsearch.fit(X=X_train, y=y_train)
 
+                #print(model_name, " fitting")
+
+            client.close()
+
+
+            gridsearch_results = pd.DataFrame(gridsearch.cv_results_)[["params", "mean_fit_time", "mean_test_r2", "mean_train_r2",
+                                                                       "mean_test_mean_squared_error", "mean_train_mean_squared_error",
+                                                                       "mean_test_root_mean_squared_error", "mean_train_root_mean_squared_error",
+                                                                       "mean_test_mean_absolute_error", "mean_train_mean_absolute_error",
+                                                                       "mean_test_mean_absolute_percentage_error", "mean_train_mean_absolute_percentage_error"]]
+
+
 
             print(f"============== {model_name} grid search results ==============\n")
-            print(pd.DataFrame(gridsearch.cv_results_)[["params", "mean_fit_time", "mean_test_r2", "mean_test_mean_squared_error", "mean_test_root_mean_squared_error", "mean_test_mean_absolute_error", "mean_test_mean_absolute_percentage_error", "mean_train_r2",
-                                                       "mean_train_mean_squared_error", "mean_train_root_mean_squared_error", "mean_train_mean_absolute_error", "mean_train_mean_absolute_percentage_error"]], "\n")
+            print(gridsearch_results, "\n")
 
-            print("Best estimator: ", gridsearch.best_estimator_)
-            print("Best parameters: ", gridsearch.best_params_)
-            print("Best score: ", gridsearch.best_score_)
+            print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
+            print("GridSearchCV best parameters: ", gridsearch.best_params_)
+            print("GridSearchCV best score: ", gridsearch.best_score_)
+            print("GridSearchCV best combination index (in the results dataframe): ", gridsearch.best_index_, "\n")
 
-            print("Best combination index (in the results dataframe): ", gridsearch.best_index_, "\n")
+
+            #print("True best estimator: ", gridsearch_results.iloc[])
+            #print("True best parameters: ", gridsearch_results.iloc[])
+            #print("True best score: ", gridsearch_results.iloc[])
+            #print("True best combination index (in the results dataframe): ", model_grid_searches_true_best_parameters[model_name],"\n")
+
 
             #print(gridsearch.scorer_, "\n")
 
-            client.close()
+
+            #This dict is also going to be used to export the true best model
+            best_parameters_by_model = {"RandomForestRegressor": 11,
+                                        "": ""}
 
             joblib.dump(gridsearch.best_estimator_, ml_folder_path + model_filename + ".joblib")
 
@@ -198,22 +222,6 @@ class TrafficVolumesForecaster:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     def test_model(self, X_test, y_test, model_name):
 
         ops_name = get_active_ops_name()
@@ -223,7 +231,13 @@ class TrafficVolumesForecaster:
 
         model = joblib.load(ml_folder_path + model_filename + ".joblib")
 
+        y_pred = model.predict(X=X_test)
 
+        print("R^2: ", r2_score(y_true=y_test, y_pred=y_pred))
+        print("Mean Absolute Error: ", mean_absolute_error(y_true=y_test, y_pred=y_pred))
+        print("Mean Squared Error: ", mean_squared_error(y_true=y_test, y_pred=y_pred))
+        print("Root Mean Squared Error: ", root_mean_squared_error(y_true=y_test, y_pred=y_pred))
+        print("Mean Absolute Percentage Error: ", mean_absolute_percentage_error(y_true=y_test, y_pred=y_pred))
 
 
 

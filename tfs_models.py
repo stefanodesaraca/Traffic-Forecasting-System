@@ -51,7 +51,7 @@ models_gridsearch_parameters = {
         "loss": ["linear", "square"]
     },
     "BaggingRegressor": {
-        "n_estimators": [5, 10, 25, 50]
+        "n_estimators": [1, 2, 3, 5]
     },
     "GradientBoostingRegressor": { #TODO CHECK FOR BETTER PARAMETERS TO AVOID OVERFITTING
         "n_estimators": [25, 40, 50, 100],
@@ -87,15 +87,14 @@ model_names_and_functions = {
     "RandomForestRegressor": get_random_forest_regressor,
     "BaggingRegressor": get_bagging_regressor,
     "DecisionTreeRegressor": get_decision_tree_regressor,
-    "XGBRegressor": get_xgboost_regressor
-    }
+}
 
 #TODO TEMPORARELY REMOVED ADABOOST AND GRADIENTBOOST SINCE IT DOESN'T TAKE NaNs NATIVELY, TRY HistGradientBoosting IN THE FUTURE
 
 
 #"AdaBoostRegressor": get_adaboost_regressor,
 #"GradientBoostingRegressor": get_gradient_boosting_regressor,
-
+#"XGBRegressor": get_xgboost_regressor
 
 #"HistGradientBoostingRegressor": get_histgradientboosting_regressor,
 
