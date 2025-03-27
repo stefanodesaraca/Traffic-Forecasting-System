@@ -215,11 +215,11 @@ class TrafficVolumesForecaster:
         ops_name = get_active_ops_name()
         model_parameters_filepath = ops_name + "_" + model_name + "_" + "parameters" + ".json"
 
-        model_parameters_name = {p for p in models_gridsearch_parameters[model_name].keys()} #The models_gridsearch_parameters is obtained from the tfs_models file
-        #We'll get each single parameter name used for the grid search algorithm
-
         with open(model_parameters_filepath, "r") as parameters_file:
-            model_parameters = json.load(parameters_file)
+            model_parameters_value = json.load(parameters_file)
+
+
+
 
 
 

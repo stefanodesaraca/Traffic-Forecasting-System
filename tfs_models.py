@@ -87,10 +87,27 @@ models_gridsearch_parameters = {
 model_names_and_functions = {
     "RandomForestRegressor": get_random_forest_regressor,
     "BaggingRegressor": get_bagging_regressor,
-    "DecisionTreeRegressor": get_decision_tree_regressor,
-    }
+    "DecisionTreeRegressor": get_decision_tree_regressor
+}
+
+# "XGBRegressor": get_xgboost_regressor
 
 
-#    "XGBRegressor": get_xgboost_regressor
+model_names_and_class_objects = {
+    "RandomForestRegressor": RandomForestRegressor,
+    "BaggingRegressor": BaggingRegressor,
+    "DecisionTreeRegressor": DecisionTreeRegressor
+}
+
+
+
+
+
+
+
+
+
+
+
 
 
