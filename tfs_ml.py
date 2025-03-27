@@ -138,64 +138,41 @@ class TrafficVolumesForecaster:
 
         return X_train, X_test, y_train, y_test
 
-
     def train_model(self, X_train, y_train, model_name):
 
         ops_name = get_active_ops_name()
 
         parameters_grid = models_gridsearch_parameters[model_name]
-        model = model_names_and_functions[model_name]() #Finding the function which returns the model and executing it
+        model = model_names_and_functions[model_name]()  # Finding the function which returns the model and executing it
 
         ml_folder_path = get_ml_models_folder_path()
         model_filename = ops_name + "_" + model_name
-
 
         if model_name != "XGBRegressor":
 
             client = Client(processes=False)
 
-            #print(model_name, " client created")
-
-            gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=-1, scheduler="threads", cv=5) #TODO SET cv=10 AFTER TESTING
-            #The models_gridsearch_parameters is obtained from the tfs_models file
+            gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=-1, scheduler="threads", cv=5)  # The models_gridsearch_parameters is obtained from the tfs_models file
 
             with joblib.parallel_backend('dask'):
                 gridsearch.fit(X=X_train, y=y_train)
 
-                #print(model_name, " fitting")
+            print(f"============== {model_name} grid search results ==============\n")
+            print(pd.DataFrame(gridsearch.cv_results_)[["params", "mean_fit_time", "mean_test_r2", "mean_train_r2",
+                                                        "mean_test_mean_squared_error", "mean_train_mean_squared_error",
+                                                        "mean_test_root_mean_squared_error", "mean_train_root_mean_squared_error",
+                                                        "mean_test_mean_absolute_error", "mean_train_mean_absolute_error",
+                                                        "mean_test_mean_absolute_percentage_error", "mean_train_mean_absolute_percentage_error"]], "\n")
+
+            print("Best estimator: ", gridsearch.best_estimator_)
+            print("Best parameters: ", gridsearch.best_params_)
+            print("Best score: ", gridsearch.best_score_)
+
+            print("Best combination index (in the results dataframe): ", gridsearch.best_index_, "\n")
+
+            # print(gridsearch.scorer_, "\n")
 
             client.close()
-
-
-            gridsearch_results = pd.DataFrame(gridsearch.cv_results_)[["params", "mean_fit_time", "mean_test_r2", "mean_train_r2",
-                                                                       "mean_test_mean_squared_error", "mean_train_mean_squared_error",
-                                                                       "mean_test_root_mean_squared_error", "mean_train_root_mean_squared_error",
-                                                                       "mean_test_mean_absolute_error", "mean_train_mean_absolute_error",
-                                                                       "mean_test_mean_absolute_percentage_error", "mean_train_mean_absolute_percentage_error"]]
-
-
-
-            print(f"============== {model_name} grid search results ==============\n")
-            print(gridsearch_results, "\n")
-
-            print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
-            print("GridSearchCV best parameters: ", gridsearch.best_params_)
-            print("GridSearchCV best score: ", gridsearch.best_score_)
-            print("GridSearchCV best combination index (in the results dataframe): ", gridsearch.best_index_, "\n")
-
-
-            #print("True best estimator: ", gridsearch_results.iloc[])
-            #print("True best parameters: ", gridsearch_results.iloc[])
-            #print("True best score: ", gridsearch_results.iloc[])
-            #print("True best combination index (in the results dataframe): ", model_grid_searches_true_best_parameters[model_name],"\n")
-
-
-            #print(gridsearch.scorer_, "\n")
-
-
-            #This dict is also going to be used to export the true best model
-            best_parameters_by_model = {"RandomForestRegressor": 11,
-                                        "": ""}
 
             joblib.dump(gridsearch.best_estimator_, ml_folder_path + model_filename + ".joblib")
 
@@ -216,8 +193,9 @@ class TrafficVolumesForecaster:
             with open(ml_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
                 pickle.dump(model, ml_pkl_file)
 
+        # TODO EXPORT TRAINED MODELS HERE WITH JOBLIB AND PICKLE
 
-        return None #TODO Return train scores for each model
+        return None
 
 
 
