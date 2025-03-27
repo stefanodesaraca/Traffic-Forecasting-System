@@ -51,7 +51,8 @@ models_gridsearch_parameters = {
         "loss": ["linear", "square"]
     },
     "BaggingRegressor": {
-        "n_estimators": [10, 50, 100]
+        "n_estimators": [10, 20, 50, 70],
+        "bootstrap_features": [False, True]
     },
     "GradientBoostingRegressor": { #TODO CHECK FOR BETTER PARAMETERS TO AVOID OVERFITTING
         "n_estimators": [25, 40, 50, 100],

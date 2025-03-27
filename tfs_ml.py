@@ -1,4 +1,4 @@
-from tfs_utilities import ZScore, get_active_ops_name, get_ml_models_folder_path
+from tfs_utilities import *
 from tfs_models import *
 import os
 import numpy as np
@@ -138,15 +138,16 @@ class TrafficVolumesForecaster:
 
         return X_train, X_test, y_train, y_test
 
-    def train_model(self, X_train, y_train, model_name):
+
+    def gridsearch_for_model(self, X_train, y_train, model_name):
 
         ops_name = get_active_ops_name()
 
         parameters_grid = models_gridsearch_parameters[model_name]
         model = model_names_and_functions[model_name]()  # Finding the function which returns the model and executing it
 
-        ml_folder_path = get_ml_models_folder_path()
-        model_filename = ops_name + "_" + model_name
+        ml_parameters_folder_path = get_ml_model_parameters_folder_path()
+        model_filename = ops_name + "_" + model_name + "_" + "parameters"
 
         if model_name != "XGBRegressor":
 
@@ -157,28 +158,37 @@ class TrafficVolumesForecaster:
             with joblib.parallel_backend('dask'):
                 gridsearch.fit(X=X_train, y=y_train)
 
+
+            gridsearch_results = pd.DataFrame(gridsearch.cv_results_)[["params", "mean_fit_time", "mean_test_r2", "mean_train_r2",
+                                                                       "mean_test_mean_squared_error", "mean_train_mean_squared_error",
+                                                                       "mean_test_root_mean_squared_error", "mean_train_root_mean_squared_error",
+                                                                       "mean_test_mean_absolute_error", "mean_train_mean_absolute_error",
+                                                                       "mean_test_mean_absolute_percentage_error", "mean_train_mean_absolute_percentage_error"]]
+
             print(f"============== {model_name} grid search results ==============\n")
-            print(pd.DataFrame(gridsearch.cv_results_)[["params", "mean_fit_time", "mean_test_r2", "mean_train_r2",
-                                                        "mean_test_mean_squared_error", "mean_train_mean_squared_error",
-                                                        "mean_test_root_mean_squared_error", "mean_train_root_mean_squared_error",
-                                                        "mean_test_mean_absolute_error", "mean_train_mean_absolute_error",
-                                                        "mean_test_mean_absolute_percentage_error", "mean_train_mean_absolute_percentage_error"]], "\n")
+            print(gridsearch_results, "\n")
 
-            print("Best estimator: ", gridsearch.best_estimator_)
-            print("Best parameters: ", gridsearch.best_params_)
-            print("Best score: ", gridsearch.best_score_)
+            print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
+            print("GridSearchCV best parameters: ", gridsearch.best_params_)
+            print("GridSearchCV best score: ", gridsearch.best_score_)
 
-            print("Best combination index (in the results dataframe): ", gridsearch.best_index_, "\n")
+            print("GridSearchCV best combination index (in the results dataframe): ", gridsearch.best_index_, "\n")
 
-            # print(gridsearch.scorer_, "\n")
+            #print(gridsearch.scorer_, "\n")
 
             client.close()
 
-            joblib.dump(gridsearch.best_estimator_, ml_folder_path + model_filename + ".joblib")
+            best_parameters_by_model = {"RandomForestRegressor": 11,
+                                        "BaggingRegressor": 4,
+                                        "DecisionTreeRegressor": 3}
 
-            with open(ml_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
-                pickle.dump(gridsearch.best_estimator_, ml_pkl_file)
+            true_best_parameters = {model_name: gridsearch_results["params"].loc[best_parameters_by_model[model_name]]}
 
+            print(f"True best parameters for {model_name}: ", true_best_parameters, "\n")
+
+
+            with open(ml_parameters_folder_path + model_filename + ".json", "w") as parameters_file:
+                json.dump(true_best_parameters, parameters_file)
 
         else:
 
@@ -188,14 +198,44 @@ class TrafficVolumesForecaster:
 
             client.close()
 
-            joblib.dump(model, ml_folder_path + model_filename + ".joblib")
+            joblib.dump(model, ml_parameters_folder_path + model_filename + ".joblib")
 
-            with open(ml_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
+            with open(ml_parameters_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
                 pickle.dump(model, ml_pkl_file)
 
         # TODO EXPORT TRAINED MODELS HERE WITH JOBLIB AND PICKLE
 
         return None
+
+
+
+
+    def train_model(self, model_name: str):
+
+        ops_name = get_active_ops_name()
+        model_parameters_filepath = ops_name + "_" + model_name + "_" + "parameters" + ".json"
+
+        model_parameters_name = {p for p in models_gridsearch_parameters[model_name].keys()} #The models_gridsearch_parameters is obtained from the tfs_models file
+        #We'll get each single parameter name used for the grid search algorithm
+
+        with open(model_parameters_filepath, "r") as parameters_file:
+            model_parameters = json.load(parameters_file)
+
+
+
+
+
+
+        joblib.dump(gridsearch.best_estimator_, ml_parameters_folder_path + model_filename + ".joblib")
+
+        with open(ml_parameters_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
+            pickle.dump(gridsearch.best_estimator_, ml_pkl_file)
+
+
+
+
+        return None
+
 
 
 

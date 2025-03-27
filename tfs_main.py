@@ -127,8 +127,8 @@ def execute_forecast_warmup(functionality: str):
 
             X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed)
 
-            # -------------- Training phase --------------
-            for model_name in models: volumes_forecaster.train_model(X_train, y_train, model_name=model_name)
+            # -------------- GridSearchCV phase --------------
+            for model_name in models: volumes_forecaster.gridsearch_for_model(X_train, y_train, model_name=model_name)
 
 
     elif functionality == "3.2.2":

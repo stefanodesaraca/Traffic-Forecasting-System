@@ -65,7 +65,7 @@ def create_ops_folder(ops_name: str):
     eda_subfolders = [f"{ops_name}_shapiro_wilk_test", f"{ops_name}_plots"]
     eda_sub_subfolders = ["traffic_volumes", "avg_speeds"]
     rn_graph_subfolders = [f"{ops_name}_edges", f"{ops_name}_arches", f"{ops_name}_graph_analysis", f"{ops_name}_shortest_paths"]
-    ml_subfolders = [f"{ops_name}_models", f"{ops_name}_models_performance", f"{ops_name}_ml_reports"]
+    ml_subfolders = [f"{ops_name}_model_parameters", f"{ops_name}_models", f"{ops_name}_models_performance", f"{ops_name}_ml_reports"]
 
     for mf in main_folders:
         os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{mf}", exist_ok=True)
