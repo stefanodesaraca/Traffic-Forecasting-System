@@ -210,7 +210,7 @@ class TrafficVolumesForecaster:
 
 
 
-    def train_model(self, model_name: str):
+    def train_model(self, X_train, y_train, model_name: str):
 
         ops_name = get_active_ops_name()
         model_parameters_filepath = ops_name + "_" + model_name + "_" + "parameters" + ".json"
@@ -220,8 +220,10 @@ class TrafficVolumesForecaster:
 
         model = model_names_and_class_objects[model_name](**parameters) #Unpacking the dictionary to set all parameters to instantiate the model's class object
 
+        model.fit(X_train)
+        y_pred = model.predict(y_train)
 
-
+        #TODO COMPUTE ERRORS HERE
 
 
 
