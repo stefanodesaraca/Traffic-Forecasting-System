@@ -47,6 +47,11 @@ class TrafficVolumesForecaster:
 
     def __init__(self, volumes_file_path):
         self.volumes_file_path = volumes_file_path
+        self.scorer = {"r2": make_scorer(r2_score),
+                       "mean_squared_error": make_scorer(mean_squared_error),
+                       "root_mean_squared_error": make_scorer(root_mean_squared_error),
+                       "mean_absolute_error": make_scorer(mean_absolute_error),
+                       "mean_absolute_percentage_error": make_scorer(mean_absolute_percentage_error)}
 
 
     def get_volumes_data(self):
@@ -117,7 +122,7 @@ class TrafficVolumesForecaster:
         #print("X shape: ", X.shape, "\n")
         #print("y shape: ", y.shape, "\n")
 
-        p_75 = int((len(y) / 100) * 75)
+        p_75 = int((len(y) / 100) * 70)
 
         X_train = X.loc[:p_75].persist()
         X_test = X.loc[p_75:].persist()
@@ -148,14 +153,15 @@ class TrafficVolumesForecaster:
 
             client = Client(processes=False)
 
-            gridsearch = GridSearchCV(model, param_grid=parameters_grid, return_train_score=False, n_jobs=-1, scheduler="threads") #The models_gridsearch_parameters is obtained from the tfs_models file
+            gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=-1, scheduler="threads", cv=5) #The models_gridsearch_parameters is obtained from the tfs_models file
 
             with joblib.parallel_backend('dask'):
                 gridsearch.fit(X=X_train, y=y_train)
 
 
             print(f"============== {model_name} grid search results ==============\n")
-            print(pd.DataFrame(gridsearch.cv_results_), "\n")
+            print(pd.DataFrame(gridsearch.cv_results_)[["params", "mean_fit_time", "mean_test_r2", "mean_test_mean_squared_error", "mean_test_root_mean_squared_error", "mean_test_mean_absolute_error", "mean_test_mean_absolute_percentage_error", "mean_train_r2",
+                                                       "mean_train_mean_squared_error", "mean_train_root_mean_squared_error", "mean_train_mean_absolute_error", "mean_train_mean_absolute_percentage_error"]], "\n")
 
             print("Best estimator: ", gridsearch.best_estimator_)
             print("Best parameters: ", gridsearch.best_params_)
@@ -187,13 +193,7 @@ class TrafficVolumesForecaster:
                 pickle.dump(model, ml_pkl_file)
 
 
-
-        #TODO EXPORT TRAINED MODELS HERE WITH JOBLIB AND PICKLE
-
-
-
-
-        return None
+        return None #TODO Return train scores for each model
 
 
 
@@ -214,7 +214,19 @@ class TrafficVolumesForecaster:
 
 
 
-    def test_models(self):
+    def test_model(self, X_test, y_test, model_name):
+
+        ops_name = get_active_ops_name()
+
+        ml_folder_path = get_ml_models_folder_path()
+        model_filename = ops_name + "_" + model_name
+
+        model = joblib.load(ml_folder_path + model_filename + ".joblib")
+
+
+
+
+
 
 
         #TODO IMPORT MODELS HERE TO TEST THEM WITH TEST DATA

@@ -87,6 +87,16 @@ def retrieve_theoretical_hours_columns():
     return hours
 
 
+def get_clean_volume_files():
+
+    clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
+
+    clean_traffic_volumes = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())]
+    print(clean_traffic_volumes)
+
+    return clean_traffic_volumes
+
+
 # ==================== Average Speed Utilities ====================
 
 def get_raw_average_speed_folder_path():

@@ -1,4 +1,3 @@
-import os
 from tfs_ops_settings import *
 from tfs_data_downloader import *
 from tfs_forecasting_settings import *
@@ -7,8 +6,10 @@ from tfs_utilities import *
 from tfs_cleaning import *
 from tfs_ml import *
 from tfs_models import model_names_and_functions
+import os
 import time
 from datetime import datetime
+
 
 def manage_ops(functionality: str):
 
@@ -116,10 +117,7 @@ def execute_forecast_warmup(functionality: str):
 
     if functionality == "3.2.1":
 
-        clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
-
-        clean_traffic_volume_files = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())]
-        print(clean_traffic_volume_files)
+        clean_traffic_volume_files = get_clean_volume_files()
 
         for v in clean_traffic_volume_files[:2]: #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
             volumes_forecaster = TrafficVolumesForecaster(v)
@@ -140,6 +138,20 @@ def execute_forecast_warmup(functionality: str):
         print()
 
     elif functionality == "3.2.3":
+
+        clean_traffic_volume_files = get_clean_volume_files()
+
+        for v in clean_traffic_volume_files[:2]:  #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
+            volumes_forecaster = TrafficVolumesForecaster(v)
+            volumes_preprocessed = volumes_forecaster.volumes_ml_preprocessing_pipeline()
+
+            X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed)
+
+            # -------------- Testing phase --------------
+            for model_name in models: volumes_forecaster.test_model(X_test, y_test, model_name=model_name)
+
+
+
 
         #TODO TEST MODELS ON VOLUMES DATA HERE
 
