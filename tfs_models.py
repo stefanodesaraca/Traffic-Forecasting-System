@@ -34,7 +34,7 @@ def get_histgradientboosting_regressor():
 
 
 def get_xgboost_regressor():
-    xgboost = XGBRegressor(random_state=100) #For early stopping we'll use the validation_fraction, n_iter_no_change, tol parameters
+    xgboost = XGBRegressor(random_state=100, max_depth=3) #For early stopping we'll use the validation_fraction, n_iter_no_change, tol parameters
     return xgboost
 
 
@@ -87,16 +87,25 @@ models_gridsearch_parameters = {
 model_names_and_functions = {
     "RandomForestRegressor": get_random_forest_regressor,
     "BaggingRegressor": get_bagging_regressor,
-    "DecisionTreeRegressor": get_decision_tree_regressor
+    "DecisionTreeRegressor": get_decision_tree_regressor,
+    "XGBRegressor": get_xgboost_regressor
 }
-
-# "XGBRegressor": get_xgboost_regressor
 
 
 model_names_and_class_objects = {
     "RandomForestRegressor": RandomForestRegressor,
     "BaggingRegressor": BaggingRegressor,
-    "DecisionTreeRegressor": DecisionTreeRegressor
+    "DecisionTreeRegressor": DecisionTreeRegressor,
+    "XGBRegressor": XGBRegressor
+}
+
+model_auxiliary_parameters = {
+    "RandomForestRegressor": {"n_jobs": -1,
+                              "random_state": 100},
+    "BaggingRegressor": {"n_jobs": -1,
+                         "random_state": 100},
+    "DecisionTreeRegressor": {"random_state": 100},
+    "XGBRegressor": {"random_state": 100}
 }
 
 

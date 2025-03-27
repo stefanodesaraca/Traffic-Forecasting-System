@@ -44,6 +44,10 @@ def cos_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]):
 
 
 
+#TODO CREATE A FATHER CLASS Forecaster WHICH WILL INTEGRATE TRAIN, TEST AND EXPORT METHODS
+
+
+
 class TrafficVolumesForecaster:
 
     def __init__(self, volumes_file_path):
@@ -184,6 +188,12 @@ class TrafficVolumesForecaster:
 
             true_best_parameters = {model_name: gridsearch_results["params"].loc[best_parameters_by_model[model_name]]}
 
+            auxiliary_parameters = model_auxiliary_parameters[model_name]
+
+            #This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time
+            for par, val in auxiliary_parameters.items():
+                true_best_parameters[par] = val
+
             print(f"True best parameters for {model_name}: ", true_best_parameters, "\n")
 
 
@@ -198,11 +208,6 @@ class TrafficVolumesForecaster:
 
             client.close()
 
-            joblib.dump(model, ml_parameters_folder_path + model_filename + ".joblib")
-
-            with open(ml_parameters_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
-                pickle.dump(model, ml_pkl_file)
-
         # TODO EXPORT TRAINED MODELS HERE WITH JOBLIB AND PICKLE
 
         return None
@@ -213,25 +218,38 @@ class TrafficVolumesForecaster:
     def train_model(self, X_train, y_train, model_name: str):
 
         ops_name = get_active_ops_name()
+        models_folder_path = get_ml_models_folder_path()
+
+        model_filename = ops_name + "_" + model_name
+
         model_parameters_filepath = ops_name + "_" + model_name + "_" + "parameters" + ".json"
 
         with open(model_parameters_filepath, "r") as parameters_file:
             parameters = json.load(parameters_file)
+
 
         model = model_names_and_class_objects[model_name](**parameters) #Unpacking the dictionary to set all parameters to instantiate the model's class object
 
         model.fit(X_train)
         y_pred = model.predict(y_train)
 
-        #TODO COMPUTE ERRORS HERE
+
+        print("\n---------------- Traffic volumes - Training scores ----------------")
+        print("R^2: ", r2_score(y_true=y_train, y_pred=y_pred))
+        print("Mean Absolute Error: ", mean_absolute_error(y_true=y_train, y_pred=y_pred))
+        print("Mean Squared Error: ", mean_squared_error(y_true=y_train, y_pred=y_pred))
+        print("Root Mean Squared Error: ", root_mean_squared_error(y_true=y_train, y_pred=y_pred))
+        print("Mean Absolute Percentage Error: ", mean_absolute_percentage_error(y_true=y_train, y_pred=y_pred))
 
 
 
 
-        joblib.dump(gridsearch.best_estimator_, ml_parameters_folder_path + model_filename + ".joblib")
 
-        with open(ml_parameters_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
-            pickle.dump(gridsearch.best_estimator_, ml_pkl_file)
+
+        joblib.dump(model, models_folder_path + model_filename + ".joblib")
+
+        with open(models_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
+            pickle.dump(model, ml_pkl_file)
 
 
 

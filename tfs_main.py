@@ -133,7 +133,7 @@ def execute_forecast_warmup(functionality: str):
 
     elif functionality == "3.2.2":
 
-        #TODO TRAIN MODELS ON AVERAGE SPEED DATA HERE
+
 
         print()
 
