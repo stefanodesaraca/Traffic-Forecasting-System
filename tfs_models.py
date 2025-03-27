@@ -38,7 +38,7 @@ def get_xgboost_regressor():
     return xgboost
 
 
-
+#TODO CHECK AGAIN AND/OR POTENTIALLY IMPROVE (CHANGE) THE PARAMETERS ONCE THE GridSearchCV IS EXECUTED ON THE WHOLE DATA AND WITH cv=10
 models_gridsearch_parameters = {
     "RandomForestRegressor": {
         "n_estimators": [25, 40, 50, 70],
