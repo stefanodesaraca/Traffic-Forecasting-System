@@ -41,19 +41,20 @@ def get_xgboost_regressor():
 
 models_gridsearch_parameters = {
     "RandomForestRegressor": {
-        "n_estimators": [50, 100, 200],
-        "max_depth": [None, 10, 20, 30],
-        "criterion": ["squared_error", "friedman_mse"]
+        "n_estimators": [25, 40, 50, 70],
+        "max_depth": [None, 3, 5, 10],
+        "criterion": ["squared_error", "friedman_mse"],
+        "ccp_alpha": [0] #ccp_alpha = 1 overfits
     },
     "AdaBoostRegressor": {
-        "n_estimators": [50, 100, 200],
+        "n_estimators": [50, 70, 100],
         "loss": ["linear", "square"]
     },
     "BaggingRegressor": {
-        "n_estimators": [10, 50, 100]
+        "n_estimators": [5, 10, 25, 50]
     },
-    "GradientBoostingRegressor": {
-        "n_estimators": [50, 100, 200],
+    "GradientBoostingRegressor": { #TODO CHECK FOR BETTER PARAMETERS TO AVOID OVERFITTING
+        "n_estimators": [25, 40, 50, 100],
         "loss": ["squared_error", "absolute_error"],
         "validation_fraction": [0.1, 0.2, 0.3],
         "n_iter_no_change": [5, 10, 20],
@@ -61,9 +62,9 @@ models_gridsearch_parameters = {
         "max_depth": [3, 5, 10]
     },
     "DecisionTreeRegressor": {
-        "max_depth": [None, 10, 20, 30]
+        "max_depth": [None, 2, 3, 5]
     },
-    "HistGradientBoostingRegressor": {
+    "HistGradientBoostingRegressor": { #TODO CHECK FOR BETTER PARAMETERS TO AVOID OVERFITTING
         "max_iter": [50, 100, 200],
         "max_depth": [3, 5, 10],
         "loss": ["squared_error", "absolute_error"],
@@ -73,10 +74,11 @@ models_gridsearch_parameters = {
         "l2_regularization": [0, 0.5, 1.0]
     },
     "XGBRegressor": {
-        "n_estimators": [50, 100, 200],
+        "n_estimators": [50, 70, 100],
         "validation_fraction": [0.1, 0.2, 0.3],
         "n_iter_no_change": [5, 10, 20],
-        "tol": [1e-4, 1e-3, 1e-2]
+        "tol": [1e-4, 1e-3, 1e-2],
+        "eta": [0, 0.2, 0.5]
     }
 }
 
