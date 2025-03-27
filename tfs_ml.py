@@ -218,33 +218,24 @@ class TrafficVolumesForecaster:
     def train_model(self, X_train, y_train, model_name: str):
 
         ops_name = get_active_ops_name()
+
+        models_parameters_folder_path = get_ml_model_parameters_folder_path()
         models_folder_path = get_ml_models_folder_path()
 
         model_filename = ops_name + "_" + model_name
 
-        model_parameters_filepath = ops_name + "_" + model_name + "_" + "parameters" + ".json"
+        model_parameters_filename = ops_name + "_" + model_name + "_" + "parameters" + ".json"
+        model_parameters_filepath = models_parameters_folder_path + model_parameters_filename
 
         with open(model_parameters_filepath, "r") as parameters_file:
             parameters = json.load(parameters_file)
 
+        parameters = parameters[model_name] #Extracting the model parameters
+
 
         model = model_names_and_class_objects[model_name](**parameters) #Unpacking the dictionary to set all parameters to instantiate the model's class object
 
-        model.fit(X_train)
-        y_pred = model.predict(y_train)
-
-
-        print("\n---------------- Traffic volumes - Training scores ----------------")
-        print("R^2: ", r2_score(y_true=y_train, y_pred=y_pred))
-        print("Mean Absolute Error: ", mean_absolute_error(y_true=y_train, y_pred=y_pred))
-        print("Mean Squared Error: ", mean_squared_error(y_true=y_train, y_pred=y_pred))
-        print("Root Mean Squared Error: ", root_mean_squared_error(y_true=y_train, y_pred=y_pred))
-        print("Mean Absolute Percentage Error: ", mean_absolute_percentage_error(y_true=y_train, y_pred=y_pred))
-
-
-
-
-
+        model.fit(X_train, y_train)
 
         joblib.dump(model, models_folder_path + model_filename + ".joblib")
 

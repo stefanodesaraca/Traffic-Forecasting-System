@@ -115,6 +115,7 @@ def execute_forecast_warmup(functionality: str):
 
     models = [m for m in model_names_and_functions.keys()]
 
+    # ------------ Hyperparameter tuning for traffic volumes ML models ------------
     if functionality == "3.2.1":
 
         clean_traffic_volume_files = get_clean_volume_files()
@@ -131,12 +132,13 @@ def execute_forecast_warmup(functionality: str):
             for model_name in models: volumes_forecaster.gridsearch_for_model(X_train, y_train, model_name=model_name)
 
 
+    # ------------ Hyperparameter tuning for average speed ML models ------------
     elif functionality == "3.2.2":
-
-
 
         print()
 
+
+    # ------------ Train ML models on traffic volumes data ------------
     elif functionality == "3.2.3":
 
         clean_traffic_volume_files = get_clean_volume_files()
@@ -148,24 +150,13 @@ def execute_forecast_warmup(functionality: str):
             X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed)
 
             # -------------- Testing phase --------------
-            for model_name in models: volumes_forecaster.test_model(X_test, y_test, model_name=model_name)
+            for model_name in models: volumes_forecaster.train_model(X_test, y_test, model_name=model_name)
 
-
-
-
-        #TODO TEST MODELS ON VOLUMES DATA HERE
-
-        print()
 
 
     elif functionality == "3.2.4":
 
-        #TODO TEST MODELS ON AVERAGE SPEED DATA HERE
-
         print()
-
-
-        #TODO 3. MACHINE LEARNING, 4. FORECASTING REPORTS GENERATION
 
 
 
@@ -212,12 +203,6 @@ def execute_eda():
 
 
 
-
-
-
-
-
-
 def main():
     while True:
         print("""==================== MENU ==================== 
@@ -234,10 +219,12 @@ def main():
         3.1.2 Read forecasting target datetime
         3.1.3 Delete forecasting target datetime
     3.2 Forecast warmup
-        3.2.1 Train models on volume data
-        3.2.2 Train models on average speed data
-        3.2.3 Test models on volume data
-        3.2.4 Test models on average speed data
+        3.2.1 Execute hyperparameter tuning (GridSearchCV) for traffic volumes ML models
+        3.2.2 Execute hyperparameter tuning (GridSearchCV) for average speed ML models
+        3.2.3 Train models on traffic volumes data
+        3.2.4 Train models on average speed data
+        3.2.5 Test models on traffic volumes data
+        3.2.6 Test models on average speed data
     3.3 Execute forecast
         3.3.1 One-Point Forecast
         3.3.2 A2B Forecast
@@ -284,7 +271,7 @@ def main():
         elif option == "3.2.1":
             execute_forecast_warmup(option)
 
-        elif option == "3.2.1":
+        elif option == "3.2.3":
             execute_forecast_warmup(option)
 
         elif option == "5.2":
