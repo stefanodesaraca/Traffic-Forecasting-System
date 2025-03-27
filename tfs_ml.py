@@ -216,9 +216,9 @@ class TrafficVolumesForecaster:
         model_parameters_filepath = ops_name + "_" + model_name + "_" + "parameters" + ".json"
 
         with open(model_parameters_filepath, "r") as parameters_file:
-            model_parameters_value = json.load(parameters_file)
+            parameters = json.load(parameters_file)
 
-
+        model = model_names_and_class_objects[model_name](**parameters) #Unpacking the dictionary to set all parameters to instantiate the model's class object
 
 
 
