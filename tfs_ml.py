@@ -194,7 +194,7 @@ class TrafficVolumesForecaster:
 
             #This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
             for par, val in auxiliary_parameters.items():
-                true_best_parameters[par] = val
+                true_best_parameters[model_name][par] = val
 
             print(f"True best parameters for {model_name}: ", true_best_parameters, "\n")
 
