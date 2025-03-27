@@ -252,6 +252,8 @@ class TrafficVolumesForecaster:
 
         model.fit(X_train, y_train)
 
+        print(f"Successfully trained {model_name} with parameters: {parameters}")
+
 
         # -------------- Model exporting --------------
 
