@@ -242,6 +242,8 @@ class TrafficVolumesCleaner(Cleaner):
 
             #pprint.pprint(by_hour_structured)
 
+            #TODO ADDRESS FOR MISSING DAYS PROBLEM, CREATE ALL ATTRIBUTES WITH NONE VALUES FOR EACH MISSING DAY AND ADD IT TO BY_HOUR_STRUCTURED, BY_LANE_STRUCTURED AND BY_DIRECTION_STRUCTURED
+
 
             # ------------------ Extracting the data from JSON file and converting it into tabular format ------------------
 
