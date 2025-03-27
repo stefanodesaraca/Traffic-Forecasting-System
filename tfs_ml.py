@@ -183,12 +183,13 @@ class TrafficVolumesForecaster:
 
             client.close()
 
+
             best_parameters_by_model = {"RandomForestRegressor": 11,
                                         "BaggingRegressor": 4,
-                                        "DecisionTreeRegressor": 3}
+                                        "DecisionTreeRegressor": 3,
+                                        "XGBRegressor": None} #TODO CHANGE NONE WHEN THE XGBRegressor WILL BE IMPLEMENTED IN THE GRID SEARCH
 
-            true_best_parameters = {model_name: gridsearch_results["params"].loc[best_parameters_by_model[model_name]]}
-
+            true_best_parameters = {model_name: gridsearch_results["params"].loc[best_parameters_by_model[model_name]] if gridsearch_results["params"].loc[best_parameters_by_model[model_name]] is not None else {}}
             auxiliary_parameters = model_auxiliary_parameters[model_name]
 
             #This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
@@ -201,16 +202,20 @@ class TrafficVolumesForecaster:
             with open(ml_parameters_folder_path + model_filename + ".json", "w") as parameters_file:
                 json.dump(true_best_parameters, parameters_file)
 
+
         else:
 
             client = Client(processes=False)
             with joblib.parallel_backend('dask'):
                 model.fit(X=X_train, y=y_train) #TODO THIS TRAINING HERE IS USELESS, SINCE IT DOESN'T HAVE ANYTHING TO DO WITH THE GRIDSEARCH SECTION, BUT IT WILL BE ADDED TO IT WHEN THE NEXT XGBOOST UPDATE WILL COME OUT WITH THE NEW BUG FIXES
 
+            xgb_regressor_parameters = {"XGBRegressor": model_auxiliary_parameters[model_name]}
+
             with open(ml_parameters_folder_path + model_filename + ".json", "w") as parameters_file:
-                json.dump(true_best_parameters, parameters_file)
+                json.dump(xgb_regressor_parameters, parameters_file)
 
             client.close()
+
 
         return None
 
@@ -221,6 +226,7 @@ class TrafficVolumesForecaster:
 
 
         # -------------- Filenames, etc. --------------
+
         ops_name = get_active_ops_name()
 
         models_parameters_folder_path = get_ml_model_parameters_folder_path()
