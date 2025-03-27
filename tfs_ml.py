@@ -153,6 +153,7 @@ class TrafficVolumesForecaster:
         ml_parameters_folder_path = get_ml_model_parameters_folder_path()
         model_filename = ops_name + "_" + model_name + "_" + "parameters"
 
+        #TODO REMOVE THIS IF STATEMENT WHEN XGBOOST WILL HAVE RELEASED THE NEW UPDATE TO KEEP UP WITH SCIKIT-LEARN ONES
         if model_name != "XGBRegressor":
 
             client = Client(processes=False)
@@ -190,7 +191,7 @@ class TrafficVolumesForecaster:
 
             auxiliary_parameters = model_auxiliary_parameters[model_name]
 
-            #This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time
+            #This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
             for par, val in auxiliary_parameters.items():
                 true_best_parameters[par] = val
 
@@ -204,11 +205,12 @@ class TrafficVolumesForecaster:
 
             client = Client(processes=False)
             with joblib.parallel_backend('dask'):
-                model.fit(X=X_train, y=y_train)
+                model.fit(X=X_train, y=y_train) #TODO THIS TRAINING HERE IS USELESS, SINCE IT DOESN'T HAVE ANYTHING TO DO WITH THE GRIDSEARCH SECTION, BUT IT WILL BE ADDED TO IT WHEN THE NEXT XGBOOST UPDATE WILL COME OUT WITH THE NEW BUG FIXES
+
+            with open(ml_parameters_folder_path + model_filename + ".json", "w") as parameters_file:
+                json.dump(true_best_parameters, parameters_file)
 
             client.close()
-
-        # TODO EXPORT TRAINED MODELS HERE WITH JOBLIB AND PICKLE
 
         return None
 
@@ -217,6 +219,8 @@ class TrafficVolumesForecaster:
 
     def train_model(self, X_train, y_train, model_name: str):
 
+
+        # -------------- Filenames, etc. --------------
         ops_name = get_active_ops_name()
 
         models_parameters_folder_path = get_ml_model_parameters_folder_path()
@@ -227,22 +231,33 @@ class TrafficVolumesForecaster:
         model_parameters_filename = ops_name + "_" + model_name + "_" + "parameters" + ".json"
         model_parameters_filepath = models_parameters_folder_path + model_parameters_filename
 
+
+        # -------------- Parameters extraction --------------
+
         with open(model_parameters_filepath, "r") as parameters_file:
             parameters = json.load(parameters_file)
 
         parameters = parameters[model_name] #Extracting the model parameters
 
 
+        # -------------- Training --------------
+
         model = model_names_and_class_objects[model_name](**parameters) #Unpacking the dictionary to set all parameters to instantiate the model's class object
 
         model.fit(X_train, y_train)
 
-        joblib.dump(model, models_folder_path + model_filename + ".joblib")
 
-        with open(models_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
-            pickle.dump(model, ml_pkl_file)
+        # -------------- Model exporting --------------
 
+        try:
+            joblib.dump(model, models_folder_path + model_filename + ".joblib")
 
+            with open(models_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
+                pickle.dump(model, ml_pkl_file)
+
+        except:
+            print("\033[91mCouldn't export trained model. Safely exited the program\033[0m")
+            exit()
 
 
         return None

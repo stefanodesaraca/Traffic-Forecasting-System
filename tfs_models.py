@@ -50,7 +50,7 @@ models_gridsearch_parameters = {
         "n_estimators": [50, 70, 100],
         "loss": ["linear", "square"]
     },
-    "BaggingRegressor": {
+    "BaggingRegressor": { #BaggingRegressor tends to overfit with whichever parameter it's fed with
         "n_estimators": [10, 20, 50, 70],
         "bootstrap_features": [False, True]
     },
@@ -105,7 +105,7 @@ model_auxiliary_parameters = {
     "BaggingRegressor": {"n_jobs": -1,
                          "random_state": 100},
     "DecisionTreeRegressor": {"random_state": 100},
-    "XGBRegressor": {"random_state": 100}
+    "XGBRegressor": {"random_state": 100, "max_depth": 3}
 }
 
 
