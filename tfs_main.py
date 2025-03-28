@@ -149,7 +149,7 @@ def execute_forecast_warmup(functionality: str):
 
             X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed)
 
-            # -------------- Testing phase --------------
+            # -------------- Training phase --------------
             for model_name in models: volumes_forecaster.train_model(X_test, y_test, model_name=model_name)
 
 
@@ -158,7 +158,18 @@ def execute_forecast_warmup(functionality: str):
 
         print()
 
+    elif functionality == "3.2.5":
 
+        clean_traffic_volume_files = get_clean_volume_files()
+
+        for v in clean_traffic_volume_files[:2]:  # TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
+            volumes_forecaster = TrafficVolumesForecaster(v)
+            volumes_preprocessed = volumes_forecaster.volumes_ml_preprocessing_pipeline()
+
+            X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed)
+
+            # -------------- Testing phase --------------
+            for model_name in models: volumes_forecaster.test_model(X_test, y_test, model_name=model_name)
 
 
 
@@ -244,43 +255,19 @@ def main():
         option = input("Choice: ")
         print()
 
-        if option == "1.1":
+        if option in ["1.1", "1.2", "1.3"]:
             manage_ops(option)
 
-        elif option == "1.2":
-            manage_ops(option)
-
-        elif option == "1.3":
-            manage_ops(option)
-
-        elif option == "2.1":
+        elif option in ["2.1", "2.2"]:
             download_data(option)
 
-        elif option == "2.2":
-            download_data(option)
-
-        elif option == "3.1.1":
+        elif option in ["3.1.1", "3.1.2", "3.1.3", "3.2.1", "3.2.2", "3.2.3"]:
             set_forecasting_options(option)
-
-        elif option == "3.1.2":
-            set_forecasting_options(option)
-
-        elif option == "3.1.3":
-            set_forecasting_options(option)
-
-        elif option == "3.2.1":
-            execute_forecast_warmup(option)
-
-        elif option == "3.2.3":
-            execute_forecast_warmup(option)
 
         elif option == "5.2":
             execute_eda()
 
-        elif option == "5.6.1":
-            clean_data(option)
-
-        elif option == "5.6.2":
+        elif option in ["5.6.1", "5.6.2"]:
             clean_data(option)
 
         elif option == "0":

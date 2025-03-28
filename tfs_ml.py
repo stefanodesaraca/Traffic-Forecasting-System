@@ -191,6 +191,10 @@ class TrafficVolumesForecaster:
             for par, val in auxiliary_parameters.items():
                 true_best_parameters[model_name][par] = val
 
+            true_best_parameters["best_GridSearchCV_model_index"] = best_parameters_by_model[model_name]
+            true_best_parameters["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_parameters_by_model[model_name]]
+
+
             print(f"True best parameters for {model_name}: ", true_best_parameters, "\n")
 
 
