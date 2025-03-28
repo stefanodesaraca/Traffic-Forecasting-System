@@ -11,7 +11,7 @@ import time
 from datetime import datetime
 
 
-def manage_ops(functionality: str):
+def manage_ops(functionality: str) -> None:
 
     if functionality == "1.1":
         ops_name = input("Insert new operation name: ")
@@ -32,7 +32,7 @@ def manage_ops(functionality: str):
     return None
 
 
-def download_data(functionality: str):
+def download_data(functionality: str) -> None:
 
     if functionality == "2.1":
 
@@ -72,7 +72,7 @@ def download_data(functionality: str):
     return None
 
 
-def clean_data(functionality: str):
+def clean_data(functionality: str) -> None:
 
     if functionality == "5.6.1":
 
@@ -97,7 +97,7 @@ def clean_data(functionality: str):
     return None
 
 
-def set_forecasting_options(functionality: str):
+def set_forecasting_options(functionality: str) -> None:
 
     if functionality == "3.1.1":
         write_forecasting_target_datetime()
@@ -111,9 +111,9 @@ def set_forecasting_options(functionality: str):
     return None
 
 
-def execute_forecast_warmup(functionality: str):
+def execute_forecast_warmup(functionality: str) -> None:
 
-    models = [m for m in model_names_and_functions.keys()] #TODO REMOVE HistGradientBoostingRegressor WHILE TESTING THE CODE
+    models = [m for m in model_names_and_functions.keys()]
 
     # ------------ Hyperparameter tuning for traffic volumes ML models ------------
     if functionality == "3.2.1":
@@ -177,7 +177,7 @@ def execute_forecast_warmup(functionality: str):
     return None
 
 
-def execute_eda():
+def execute_eda() -> None:
 
     clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
     clean_average_speed_folder_path = get_clean_average_speed_folder_path()

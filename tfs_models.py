@@ -65,7 +65,7 @@ models_gridsearch_parameters = {
     "DecisionTreeRegressor": {
         "max_depth": [None, 2, 3, 5]
     },
-    "HistGradientBoostingRegressor": { #TODO CHECK FOR BETTER PARAMETERS TO AVOID OVERFITTING
+    "HistGradientBoostingRegressor": {
         "max_iter": [50, 70],
         "max_depth": [3, 5],
         "loss": ["squared_error", "absolute_error"],

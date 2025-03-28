@@ -29,14 +29,14 @@ simplefilter(action='ignore', category=FutureWarning)
 warnings.filterwarnings("ignore")
 pd.set_option('display.max_columns', None)
 
-
-def sin_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]):
+#TODO CONVERT pd.Series AND pd.DataFrame to dd. etc.
+def sin_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]) -> [pd.Series | pd.DataFrame]:
     """
     The timeframe indicates a number of days
     """
     return np.sin(data * (2. * np.pi / timeframe))
 
-def cos_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]):
+def cos_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]) -> [pd.Series | pd.DataFrame]:
     """
     The timeframe indicates a number of days
     """
@@ -59,12 +59,12 @@ class TrafficVolumesForecaster:
                        "mean_absolute_percentage_error": make_scorer(mean_absolute_percentage_error)}
 
 
-    def get_volumes_data(self):
+    def get_volumes_data(self) -> dd.DataFrame:
         volumes = dd.read_csv(self.volumes_file_path)
         return volumes
 
 
-    def volumes_ml_preprocessing_pipeline(self):
+    def volumes_ml_preprocessing_pipeline(self) -> dd.DataFrame:
 
         volumes = self.get_volumes_data()
 
@@ -117,7 +117,7 @@ class TrafficVolumesForecaster:
 
         return volumes
 
-
+    #TODO CHECK THE DATA TYPE OF THE RETURNED VALUES FROM THIS FUNCTION
     @staticmethod
     def split_data(volumes_preprocessed: dd.DataFrame):
 
@@ -143,7 +143,7 @@ class TrafficVolumesForecaster:
         return X_train, X_test, y_train, y_test
 
 
-    def gridsearch_for_model(self, X_train, y_train, model_name):
+    def gridsearch_for_model(self, X_train, y_train, model_name) -> None:
 
         ops_name = get_active_ops_name()
 
@@ -220,7 +220,7 @@ class TrafficVolumesForecaster:
 
 
 
-    def train_model(self, X_train, y_train, model_name: str):
+    def train_model(self, X_train, y_train, model_name: str) -> None:
 
 
         # -------------- Filenames, etc. --------------
