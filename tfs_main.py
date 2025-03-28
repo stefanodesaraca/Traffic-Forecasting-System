@@ -261,8 +261,11 @@ def main():
         elif option in ["2.1", "2.2"]:
             download_data(option)
 
-        elif option in ["3.1.1", "3.1.2", "3.1.3", "3.2.1", "3.2.2", "3.2.3"]:
+        elif option in ["3.1.1", "3.1.2", "3.1.3"]:
             set_forecasting_options(option)
+
+        elif option in ["3.2.1", "3.2.2", "3.2.3", "3.2.4", "3.2.5"]:
+            execute_forecast_warmup(option)
 
         elif option == "5.2":
             execute_eda()
