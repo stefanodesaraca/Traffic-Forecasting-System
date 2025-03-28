@@ -113,7 +113,7 @@ def set_forecasting_options(functionality: str):
 
 def execute_forecast_warmup(functionality: str):
 
-    models = [m for m in model_names_and_functions.keys()]
+    models = [m for m in model_names_and_functions.keys()] #TODO REMOVE HistGradientBoostingRegressor WHILE TESTING THE CODE
 
     # ------------ Hyperparameter tuning for traffic volumes ML models ------------
     if functionality == "3.2.1":

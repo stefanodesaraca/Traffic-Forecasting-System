@@ -66,13 +66,13 @@ models_gridsearch_parameters = {
         "max_depth": [None, 2, 3, 5]
     },
     "HistGradientBoostingRegressor": { #TODO CHECK FOR BETTER PARAMETERS TO AVOID OVERFITTING
-        "max_iter": [50, 100, 200],
-        "max_depth": [3, 5, 10],
+        "max_iter": [50, 70],
+        "max_depth": [3, 5],
         "loss": ["squared_error", "absolute_error"],
-        "validation_fraction": [0.1, 0.2, 0.3],
-        "n_iter_no_change": [5, 10, 20],
-        "tol": [1e-4, 1e-3, 1e-2],
-        "l2_regularization": [0, 0.5, 1.0]
+        "validation_fraction": [0.25],
+        "n_iter_no_change": [5, 10],
+        "tol": [1e-4, 1e-3],
+        "l2_regularization": [0]
     },
     "XGBRegressor": {
         "n_estimators": [50, 70, 100],
@@ -87,6 +87,7 @@ models_gridsearch_parameters = {
 model_names_and_functions = {
     "RandomForestRegressor": get_random_forest_regressor,
     "BaggingRegressor": get_bagging_regressor,
+    "HistGradientBoostingRegressor": get_histgradientboosting_regressor,
     "DecisionTreeRegressor": get_decision_tree_regressor,
     "XGBRegressor": get_xgboost_regressor
 }
@@ -95,6 +96,7 @@ model_names_and_functions = {
 model_names_and_class_objects = {
     "RandomForestRegressor": RandomForestRegressor,
     "BaggingRegressor": BaggingRegressor,
+    "HistGradientBoostingRegressor": HistGradientBoostingRegressor,
     "DecisionTreeRegressor": DecisionTreeRegressor,
     "XGBRegressor": XGBRegressor
 }
@@ -104,13 +106,18 @@ model_auxiliary_parameters = {
                               "random_state": 100},
     "BaggingRegressor": {"n_jobs": -1,
                          "random_state": 100},
+    "HistGradientBoostingRegressor": {"random_state": 100},
     "DecisionTreeRegressor": {"random_state": 100},
     "XGBRegressor": {"random_state": 100, "max_depth": 3}
 }
 
 
 
-
+best_parameters_by_model = {"RandomForestRegressor": 11,
+                            "BaggingRegressor": 4,
+                            "HistGradientBoostingRegressor": 26,
+                            "DecisionTreeRegressor": 3,
+                            "XGBRegressor": None} #TODO CHANGE NONE WHEN THE XGBRegressor WILL BE IMPLEMENTED IN THE GRID SEARCH
 
 
 

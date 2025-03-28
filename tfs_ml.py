@@ -183,12 +183,7 @@ class TrafficVolumesForecaster:
 
             client.close()
 
-
-            best_parameters_by_model = {"RandomForestRegressor": 11,
-                                        "BaggingRegressor": 4,
-                                        "DecisionTreeRegressor": 3,
-                                        "XGBRegressor": None} #TODO CHANGE NONE WHEN THE XGBRegressor WILL BE IMPLEMENTED IN THE GRID SEARCH
-
+            #The best_parameters_by_model variable is obtained from the tfs_models file
             true_best_parameters = {model_name: gridsearch_results["params"].loc[best_parameters_by_model[model_name]] if gridsearch_results["params"].loc[best_parameters_by_model[model_name]] is not None else {}}
             auxiliary_parameters = model_auxiliary_parameters[model_name]
 
@@ -218,7 +213,6 @@ class TrafficVolumesForecaster:
 
 
         return None
-
 
 
 
