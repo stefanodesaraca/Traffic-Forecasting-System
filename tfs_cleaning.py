@@ -46,59 +46,48 @@ class Cleaner:
         return data
 
 
-
 class TrafficVolumesCleaner(Cleaner):
 
     def __init__(self):
         super().__init__()
 
 
-    @staticmethod
-    def retrieve_trp_data_from_volumes_file(trp_data, volumes_data: dict):
-
-        trp_id = volumes_data["trafficData"]["trafficRegistrationPoint"]["id"]
-        trp_data = [i for i in trp_data["trafficRegistrationPoints"] if i["id"] == trp_id]  # Finding the data for the specific TRP taken in consideration by iterating on all the TRPs available in the trp_file
-        trp_data = trp_data[0]
-
-        return trp_data
-
-
     #This function is only to give the user an overview of the data which we're currently cleaning, and some specific information about the TRP (Traffic Registration Point) which has collected it
-    def data_overview(self, trp_data, volumes_data: dict, verbose: bool = True) -> None:
+    def data_overview(self, volumes_data: dict, verbose: bool = True) -> None:
 
         #print(volumes_data)
 
-        trp_data = self.retrieve_trp_data_from_volumes_file(trp_data, volumes_data)
+        trp_id = volumes_data["trafficData"]["trafficRegistrationPoint"]["id"]
+        trp_metadata = get_trp_metadata(trp_id)
 
-        #print(trp_data)
 
         if verbose is True:
 
             print("******** Traffic Registration Point Information ********")
 
-            print("ID: ", trp_data["id"])
-            print("Name: ", trp_data["name"])
-            print("Road category: ", trp_data["location"]["roadReference"]["roadCategory"]["id"])
+            print("ID: ", trp_metadata["trp_id"])
+            print("Name: ", trp_metadata["name"])
+            print("Road category: ", trp_metadata["road_category"])
             print("Coordinates: ")
-            print(" - Lat: ", trp_data["location"]["coordinates"]["latLon"]["lat"])
-            print(" - Lon: ", trp_data["location"]["coordinates"]["latLon"]["lon"])
-            print("County name: ", trp_data["location"]["county"]["name"])
-            print("County number: ", trp_data["location"]["county"]["number"])
-            print("Geographic number: ", trp_data["location"]["county"]["geographicNumber"])
-            print("Country part: ", trp_data["location"]["county"]["countryPart"]["name"])
-            print("Municipality name: ", trp_data["location"]["municipality"]["name"])
+            print(" - Lat: ", trp_metadata["lat"])
+            print(" - Lon: ", trp_metadata["lon"])
+            print("County name: ", trp_metadata["county_name"])
+            print("County number: ", trp_metadata["county_number"])
+            print("Geographic number: ", trp_metadata["geographic_number"])
+            print("Country part: ", trp_metadata["country_part"])
+            print("Municipality name: ", trp_metadata["municipality_name"])
 
-            print("Traffic registration type: ", trp_data["trafficRegistrationType"])
+            print("Traffic registration type: ", trp_metadata["traffic_registration_type"])
             print("Data time span: ")
-            print(" - First data: ", trp_data["dataTimeSpan"]["firstData"])
-            print(" - First data with quality metrics: ", trp_data["dataTimeSpan"]["firstDataWithQualityMetrics"])
+            print(" - First data: ", trp_metadata["first_data"])
+            print(" - First data with quality metrics: ", trp_metadata["first_data_with_quality_metrics"])
             print(" - Latest data: ")
-            print("   > Volume by day: ", trp_data["dataTimeSpan"]["latestData"]["volumeByDay"])
-            print("   > Volume by hour: ", trp_data["dataTimeSpan"]["latestData"]["volumeByHour"])
-            print("   > Volume average daily by year: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByYear"])
-            print("   > Volume average daily by season: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"])
-            print("   > Volume average daily by month: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"])
-            print("Number of data nodes: ", len(volumes_data["trafficData"]["volume"]["byHour"]["edges"]))
+            print("   > Volume by day: ", trp_metadata["latest_volume_by_day"])
+            print("   > Volume by hour: ", trp_metadata["latest_volume_byh_hour"])
+            print("   > Volume average daily by year: ", trp_metadata["latest_volume_average_daily_by_year"])
+            print("   > Volume average daily by season: ", trp_metadata["latest_volume_average_daily_by_season"])
+            print("   > Volume average daily by month: ", trp_metadata["latest_volume_average_daily_by_month"])
+            print("Number of data nodes: ", trp_metadata["number_of_data_nodes"])
 
             print("\n")
 
@@ -108,8 +97,8 @@ class TrafficVolumesCleaner(Cleaner):
 
             print("******** Traffic Registration Point Information ********")
 
-            print("ID: ", trp_data["id"])
-            print("Name: ", trp_data["name"])
+            print("ID: ", trp_metadata["trp_id"])
+            print("Name: ", trp_metadata["name"])
 
         return None
 
@@ -424,12 +413,11 @@ class TrafficVolumesCleaner(Cleaner):
         return by_hour_df
 
 
-    def export_traffic_volumes_data(self, by_hour: pd.DataFrame, volumes_file_path, trp_data) -> None:
+    def export_traffic_volumes_data(self, by_hour: pd.DataFrame, volumes_file_path, trp_id: str) -> None:
 
         file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv")
 
         clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
-        trp_id = trp_data["id"]
 
         file_path = clean_traffic_volumes_folder_path + file_name #C stands for "cleaned"
         #print(file_path)
@@ -446,9 +434,9 @@ class TrafficVolumesCleaner(Cleaner):
     def cleaning_pipeline(self, volumes_file_path: str) -> None:
 
         volumes = import_volumes_data(volumes_file_path)
-        trp_data = import_TRPs_data()
+        trp_id = volumes["trafficData"]["trafficRegistrationPoint"]["id"]
 
-        self.data_overview(trp_data=trp_data, volumes_data=volumes, verbose=False)
+        self.data_overview(volumes_data=volumes, verbose=True)
         by_hour_df = self.restructure_traffic_volumes_data(volumes) #TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, IN THAT CASE WE'LL REPLACE THE _, _ WITH by_lane_df, by_direction_df
 
         #TODO TO-NOTE TRPs WITH NO DATA WON'T BE INCLUDED IN THE ROAD NETWORK CREATION SINCE THEY WON'T RETURN A DATAFRAME (BECAUSE THEY DON'T HAVE DATA TO STORE IN A DF)
@@ -457,7 +445,7 @@ class TrafficVolumesCleaner(Cleaner):
             by_hour_df = self.clean_traffic_volumes_data(by_hour_df)
 
             if by_hour_df is not None:
-                self.export_traffic_volumes_data(by_hour_df, volumes_file_path, self.retrieve_trp_data_from_volumes_file(trp_data, volumes))
+                self.export_traffic_volumes_data(by_hour_df, volumes_file_path, trp_id=trp_id)
 
         elif by_hour_df is None:
             pass #A warning for empty nodes is given during the restructuring section

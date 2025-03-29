@@ -34,7 +34,6 @@ pd.set_option('display.max_columns', None)
 #ml_dedicated_cores = n_cpu // 80
 
 
-#TODO CONVERT pd.Series AND pd.DataFrame to dd. etc.
 def sin_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]) -> [pd.Series | pd.DataFrame]:
     """
     The timeframe indicates a number of days
@@ -48,12 +47,7 @@ def cos_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]) -> [pd.Ser
     return np.cos((data-1)*(2.*np.pi/timeframe))
 
 
-
-#TODO CREATE A FATHER CLASS Forecaster WHICH WILL INTEGRATE TRAIN, TEST AND EXPORT METHODS
-
-
-
-class TrafficVolumesModelTrainer:
+class TrafficVolumesModelLearner:
 
     def __init__(self, volumes_file_path):
         self.volumes_file_path = volumes_file_path
@@ -291,19 +285,41 @@ class TrafficVolumesModelTrainer:
 
 
 
-
-
-
 class OnePointForecaster:
 
-    def __init__(self):
-        pass
+    def __init__(self, trp_id: str):
+        self.trp_id = trp_id
 
 
-    def forecast_volumes(self, X_test, y_test, forecasting_target_datetime: datetime):
+
+class OnePointVolumesForecaster(OnePointForecaster):
+
+    def __init__(self, trp_id: str):
+        super().__init__(trp_id) #Calling the father class with its arguments
+        self.trp_id = trp_id
+
+
+    def pre_process_auxiliary_data(self, X_test, y_test, forecasting_target_datetime: datetime):
+
         forecasting_window = pd.date_range(start=datetime.now(), end=forecasting_target_datetime)
 
+
+
         print(forecasting_window)
+
+        return None
+
+
+
+
+
+
+
+
+
+
+    def forecast_volumes(self, ):
+
 
 
         return None

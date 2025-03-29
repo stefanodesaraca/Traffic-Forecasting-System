@@ -60,7 +60,7 @@ def create_ops_folder(ops_name: str) -> None:
     os.makedirs(f"{ops_folder}/{ops_name}", exist_ok=True)
 
     main_folders = [f"{ops_name}_data", f"{ops_name}_eda", f"{ops_name}_rn_graph", f"{ops_name}_ml"]
-    data_subfolders = ["traffic_volumes", "average_speed", "travel_times"]
+    data_subfolders = ["traffic_volumes", "average_speed", "travel_times", "trp_metadata"]
     data_sub_subfolders = ["raw", "clean"] #To isolate raw data from the clean one
     eda_subfolders = [f"{ops_name}_shapiro_wilk_test", f"{ops_name}_plots"]
     eda_sub_subfolders = ["traffic_volumes", "avg_speeds"]

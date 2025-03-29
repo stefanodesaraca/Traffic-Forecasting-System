@@ -126,7 +126,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         clean_traffic_volume_files = get_clean_volume_files()
 
         for v in clean_traffic_volume_files[:2]: #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
-            volumes_forecaster = TrafficVolumesModelTrainer(v)
+            volumes_forecaster = TrafficVolumesModelLearner(v)
             volumes_preprocessed = volumes_forecaster.volumes_ml_preprocessing_pipeline()
 
             #We'll skip variable selection since there aren't many variables to choose as predictors
@@ -149,7 +149,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         clean_traffic_volume_files = get_clean_volume_files()
 
         for v in clean_traffic_volume_files[:1]:  #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
-            volumes_forecaster = TrafficVolumesModelTrainer(v)
+            volumes_forecaster = TrafficVolumesModelLearner(v)
             volumes_preprocessed = volumes_forecaster.volumes_ml_preprocessing_pipeline()
 
             X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed, return_pandas=True)
@@ -168,7 +168,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         clean_traffic_volume_files = get_clean_volume_files()
 
         for v in clean_traffic_volume_files[:1]:  # TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
-            volumes_forecaster = TrafficVolumesModelTrainer(v)
+            volumes_forecaster = TrafficVolumesModelLearner(v)
             volumes_preprocessed = volumes_forecaster.volumes_ml_preprocessing_pipeline()
 
             X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed, return_pandas=True)

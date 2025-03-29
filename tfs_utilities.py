@@ -34,8 +34,16 @@ def get_traffic_registration_points_file_path() -> str:
     This function returns the path to the traffic_measurement_points.json file which contains all TRPs' data (downloaded previously)
     '''
     ops_name = get_active_ops_name()
-    traffic_registration_points_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_measurement_points.json"
+    traffic_registration_points_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_registration_points.json"
     return traffic_registration_points_path
+
+
+def get_trp_metadata(trp_id: str) -> dict:
+
+    ops_name = get_active_ops_name()
+    trp_metadata = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata"
+
+    return trp_metadata
 
 
 # ==================== Volumes Utilities ====================
