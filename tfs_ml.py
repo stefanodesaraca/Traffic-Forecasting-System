@@ -211,7 +211,6 @@ class TrafficVolumesForecaster:
         return None
 
 
-
     def train_model(self, X_train, y_train, X_test, y_test, model_name: str) -> None:
 
         # -------------- Filenames, etc. --------------
@@ -240,14 +239,6 @@ class TrafficVolumesForecaster:
         model = model_names_and_class_objects[model_name](**parameters) #Unpacking the dictionary to set all parameters to instantiate the model's class object
 
         model.fit(X_train, y_train)
-
-        y_pred = model.predict(X_test)
-
-
-        print("R^2: ", r2_score(y_true=y_test, y_pred=y_pred))
-        print("Mean Absolute Error: ", mean_absolute_error(y_true=y_test, y_pred=y_pred))
-        print("Mean Squared Error: ", mean_squared_error(y_true=y_test, y_pred=y_pred))
-        print("Root Mean Squared Error: ", root_mean_squared_error(y_true=y_test, y_pred=y_pred))
 
 
         print(f"Successfully trained {model_name} with parameters: {parameters}")
@@ -283,24 +274,16 @@ class TrafficVolumesForecaster:
         # -------------- Model loading --------------
 
         model = joblib.load(ml_folder_path + model_filename + ".joblib")
-
-        print(model.get_params())
+        #print(model.get_params())
 
         y_pred = model.predict(X_test)
 
-        print(y_pred.shape)
 
-
+        print(f"================= {model_name} testing metrics =================")
         print("R^2: ", r2_score(y_true=y_test, y_pred=y_pred))
         print("Mean Absolute Error: ", mean_absolute_error(y_true=y_test, y_pred=y_pred))
         print("Mean Squared Error: ", mean_squared_error(y_true=y_test, y_pred=y_pred))
         print("Root Mean Squared Error: ", root_mean_squared_error(y_true=y_test, y_pred=y_pred))
-
-
-        print(X_test.head(10))
-        print(y_test.head(10))
-        print(pd.Series(y_pred).head(10))
-
 
 
         return None
