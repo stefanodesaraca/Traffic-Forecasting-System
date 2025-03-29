@@ -1,6 +1,7 @@
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor, BaggingRegressor, GradientBoostingRegressor, AdaBoostRegressor, HistGradientBoostingRegressor
 
+
 def get_random_forest_regressor() -> RandomForestRegressor:
     random_forest = RandomForestRegressor(n_jobs=-1, random_state=100) #Has the max_depth, criterion (use squared_error, friedman_mse) n_estimators parameters
     return random_forest
@@ -78,7 +79,7 @@ model_auxiliary_parameters = {
                               "random_state": 100},
     "BaggingRegressor": {"n_jobs": -1,
                          "random_state": 100},
-    "HistGradientBoostingRegressor": {"random_state": 100},
+    "HistGradientBoostingRegressor": {"random_state": 100, "categorical_features": None},
     "DecisionTreeRegressor": {"random_state": 100}
 }
 

@@ -17,11 +17,13 @@ import time
 from dask.distributed import Client
 import joblib
 
+from dask_ml.wrappers import ParallelPostFit
 from dask_ml.preprocessing import MinMaxScaler
 from dask_ml.model_selection import GridSearchCV
 
 from sklearn.feature_selection import SelectFromModel
 from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error
+from sklearn.model_selection import cross_validate
 
 
 
@@ -123,7 +125,7 @@ class TrafficVolumesForecaster:
 
     #TODO CHECK THE DATA TYPE OF THE RETURNED VALUES FROM THIS FUNCTION
     @staticmethod
-    def split_data(volumes_preprocessed: dd.DataFrame):
+    def split_data(volumes_preprocessed: dd.DataFrame, return_pandas: bool = False):
 
         X = volumes_preprocessed.drop(columns=["volume"])
         y = volumes_preprocessed[["volume"]]
@@ -143,8 +145,10 @@ class TrafficVolumesForecaster:
         #print(X_train.tail(5), "\n", X_test.tail(5), "\n", y_train.tail(5), "\n", y_test.tail(5), "\n")
         #print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
 
-
-        return X_train, X_test, y_train, y_test
+        if return_pandas is True:
+            return pd.DataFrame(X_train), pd.DataFrame(X_test), pd.DataFrame(y_train), pd.DataFrame(y_test)
+        else:
+            return X_train, X_test, y_train, y_test
 
 
     def gridsearch_for_model(self, X_train, y_train, model_name) -> None:
@@ -156,6 +160,7 @@ class TrafficVolumesForecaster:
 
         ml_parameters_folder_path = get_ml_model_parameters_folder_path()
         model_filename = ops_name + "_" + model_name + "_" + "parameters"
+
 
         client = Client(processes=True)
 
@@ -200,15 +205,14 @@ class TrafficVolumesForecaster:
 
 
         with open(ml_parameters_folder_path + model_filename + ".json", "w") as parameters_file:
-            json.dump(true_best_parameters, parameters_file)
+            json.dump(true_best_parameters, parameters_file, indent=4)
 
 
         return None
 
 
 
-    def train_model(self, X_train, y_train, model_name: str) -> None:
-
+    def train_model(self, X_train, y_train, X_test, y_test, model_name: str) -> None:
 
         # -------------- Filenames, etc. --------------
 
@@ -237,26 +241,35 @@ class TrafficVolumesForecaster:
 
         model.fit(X_train, y_train)
 
+        y_pred = model.predict(X_test)
+
+
+        print("R^2: ", r2_score(y_true=y_test, y_pred=y_pred))
+        print("Mean Absolute Error: ", mean_absolute_error(y_true=y_test, y_pred=y_pred))
+        print("Mean Squared Error: ", mean_squared_error(y_true=y_test, y_pred=y_pred))
+        print("Root Mean Squared Error: ", root_mean_squared_error(y_true=y_test, y_pred=y_pred))
+
+
         print(f"Successfully trained {model_name} with parameters: {parameters}")
 
 
         # -------------- Model exporting --------------
 
         try:
-            joblib.dump(model, models_folder_path + model_filename + ".joblib")
+            joblib.dump(model, models_folder_path + model_filename + ".joblib", protocol=pickle.HIGHEST_PROTOCOL)
 
             with open(models_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
-                pickle.dump(model, ml_pkl_file)
+                pickle.dump(model, ml_pkl_file, protocol=pickle.HIGHEST_PROTOCOL)
 
         except Exception as e:
             print(f"\033[91mCouldn't export trained model. Safely exited the program. Error: {e}\033[0m")
             exit()
 
 
+        print("\n\n")
+
+
         return None
-
-
-
 
 
     def test_model(self, X_test, y_test, model_name):
@@ -266,22 +279,27 @@ class TrafficVolumesForecaster:
         ml_folder_path = get_ml_models_folder_path()
         model_filename = ops_name + "_" + model_name
 
+
+        # -------------- Model loading --------------
+
         model = joblib.load(ml_folder_path + model_filename + ".joblib")
 
-        y_pred = model.predict(X=X_test)
+        print(model.get_params())
+
+        y_pred = model.predict(X_test)
+
+        print(y_pred.shape)
+
 
         print("R^2: ", r2_score(y_true=y_test, y_pred=y_pred))
         print("Mean Absolute Error: ", mean_absolute_error(y_true=y_test, y_pred=y_pred))
         print("Mean Squared Error: ", mean_squared_error(y_true=y_test, y_pred=y_pred))
         print("Root Mean Squared Error: ", root_mean_squared_error(y_true=y_test, y_pred=y_pred))
-        print("Mean Absolute Percentage Error: ", mean_absolute_percentage_error(y_true=y_test, y_pred=y_pred))
 
 
-
-
-
-        #TODO IMPORT MODELS HERE TO TEST THEM WITH TEST DATA
-
+        print(X_test.head(10))
+        print(y_test.head(10))
+        print(pd.Series(y_pred).head(10))
 
 
 

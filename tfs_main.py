@@ -143,14 +143,14 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         clean_traffic_volume_files = get_clean_volume_files()
 
-        for v in clean_traffic_volume_files[:2]:  #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
+        for v in clean_traffic_volume_files[:1]:  #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
             volumes_forecaster = TrafficVolumesForecaster(v)
             volumes_preprocessed = volumes_forecaster.volumes_ml_preprocessing_pipeline()
 
-            X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed)
+            X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed, return_pandas=True)
 
             # -------------- Training phase --------------
-            for model_name in models: volumes_forecaster.train_model(X_test, y_test, model_name=model_name)
+            for model_name in models: volumes_forecaster.train_model(X_train, y_train, X_test, y_test, model_name=model_name)
 
 
 
@@ -162,11 +162,11 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         clean_traffic_volume_files = get_clean_volume_files()
 
-        for v in clean_traffic_volume_files[:2]:  # TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
+        for v in clean_traffic_volume_files[:1]:  # TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
             volumes_forecaster = TrafficVolumesForecaster(v)
             volumes_preprocessed = volumes_forecaster.volumes_ml_preprocessing_pipeline()
 
-            X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed)
+            X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed, return_pandas=True)
 
             # -------------- Testing phase --------------
             for model_name in models: volumes_forecaster.test_model(X_test, y_test, model_name=model_name)
