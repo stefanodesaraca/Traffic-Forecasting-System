@@ -88,21 +88,21 @@ def ShapiroWilkTest(targetFeatureName, data, shapiroWilkPlotsPath):
     return plotName, SWQQPlot, shapiroWilkPlotsPath
 
 
-def retrieve_volumes_data(file_path: str):
+def retrieve_volumes_data(file_path: str) -> pd.DataFrame:
 
     volumes = pd.read_csv(file_path)
 
     return volumes
 
 
-def retrieve_avg_speed_data(file_path: str):
+def retrieve_avg_speed_data(file_path: str) -> pd.DataFrame:
 
     speeds = pd.read_csv(file_path)
 
     return speeds
 
 
-def analyze_volumes(volumes: pd.DataFrame):
+def analyze_volumes(volumes: pd.DataFrame) -> None:
 
     print(volumes.head(10))
 
@@ -310,7 +310,7 @@ def analyze_volumes(volumes: pd.DataFrame):
     return None
 
 
-def analyze_avg_speeds(speeds: pd.DataFrame):
+def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
 
     print(speeds.head(10))
 
@@ -503,7 +503,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame):
     return None
 
 
-def test_volumes_data_for_multicollinearity(volumes: pd.DataFrame):
+def test_volumes_data_for_multicollinearity(volumes: pd.DataFrame) -> None:
 
     volumes = volumes.drop(columns=["volume", "date", "trp_id"])
     volumes_col_names = list(volumes.columns)
@@ -551,7 +551,7 @@ def test_volumes_data_for_multicollinearity(volumes: pd.DataFrame):
     return None
 
 
-def test_avg_speeds_data_for_multicollinearity(speeds: pd.DataFrame):
+def test_avg_speeds_data_for_multicollinearity(speeds: pd.DataFrame) -> None:
 
     speeds = speeds.drop(columns=["mean_speed", "percentile_85", "trp_id", "date"], axis=1)
     speeds_col_names = list(speeds.columns)

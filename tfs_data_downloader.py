@@ -364,7 +364,7 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
 
     print("\n\n")
 
-    return None #2018-01-01T00:00:00
+    return None
 
 
 

@@ -3,37 +3,37 @@ from sklearn.ensemble import RandomForestRegressor, BaggingRegressor, GradientBo
 from xgboost import XGBRegressor
 #from xgboost.dask import DaskXGBRegressor
 
-def get_random_forest_regressor():
+def get_random_forest_regressor() -> RandomForestRegressor:
     random_forest = RandomForestRegressor(n_jobs=-1, random_state=100) #Has the max_depth, criterion (use squared_error, friedman_mse) n_estimators parameters
     return random_forest
 
 
-def get_adaboost_regressor():
+def get_adaboost_regressor() -> AdaBoostRegressor:
     ada_boost = AdaBoostRegressor(random_state=100) #Has the loss (use linear and square) and n_estimators parameters
     return ada_boost
 
 
-def get_bagging_regressor():
+def get_bagging_regressor() -> BaggingRegressor:
     bagging = BaggingRegressor(n_jobs=-1, random_state=100) #Has n_estimators parameter
     return bagging
 
 
-def get_gradient_boosting_regressor():
+def get_gradient_boosting_regressor() -> GradientBoostingRegressor:
     gradient_boosting = GradientBoostingRegressor(random_state=100) #Has the loss (use mean_squared_error and absolute_error), n_estimators, validation_fraction, n_iter_no_change, tol and max_depth parameters
     return gradient_boosting
 
 
-def get_decision_tree_regressor():
+def get_decision_tree_regressor() -> DecisionTreeRegressor:
     decision_tree = DecisionTreeRegressor(random_state=100) #Has max_depth parameter
     return decision_tree
 
 
-def get_histgradientboosting_regressor():
+def get_histgradientboosting_regressor() -> HistGradientBoostingRegressor:
     hist_gradient_boosting = HistGradientBoostingRegressor(random_state=100)  # Has the max_iter, max_depth parameters
     return hist_gradient_boosting
 
 
-def get_xgboost_regressor():
+def get_xgboost_regressor() -> XGBRegressor:
     xgboost = XGBRegressor(random_state=100, max_depth=3) #For early stopping we'll use the validation_fraction, n_iter_no_change, tol parameters
     return xgboost
 

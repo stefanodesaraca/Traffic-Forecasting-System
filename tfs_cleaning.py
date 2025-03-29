@@ -64,7 +64,7 @@ class TrafficVolumesCleaner(Cleaner):
 
 
     #This function is only to give the user an overview of the data which we're currently cleaning, and some specific information about the TRP (Traffic Registration Point) which has collected it
-    def data_overview(self, trp_data, volumes_data: dict, verbose: bool):
+    def data_overview(self, trp_data, volumes_data: dict, verbose: bool = True) -> None:
 
         #print(volumes_data)
 
@@ -375,7 +375,7 @@ class TrafficVolumesCleaner(Cleaner):
 
 
     #This function is design only to clean by_hour data since that's the data we're going to use for the main purposes of this project
-    def clean_traffic_volumes_data(self, by_hour_df: pd.DataFrame):
+    def clean_traffic_volumes_data(self, by_hour_df: pd.DataFrame) -> [pd.DataFrame | None]:
 
         #Short dataframe overview
         #print("Short overview on the dataframe: \n", by_hour_df.describe())
@@ -424,7 +424,7 @@ class TrafficVolumesCleaner(Cleaner):
         return by_hour_df
 
 
-    def export_traffic_volumes_data(self, by_hour: pd.DataFrame, volumes_file_path, trp_data):
+    def export_traffic_volumes_data(self, by_hour: pd.DataFrame, volumes_file_path, trp_data) -> None:
 
         file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv")
 
@@ -443,7 +443,7 @@ class TrafficVolumesCleaner(Cleaner):
         return None
 
 
-    def cleaning_pipeline(self, volumes_file_path: str):
+    def cleaning_pipeline(self, volumes_file_path: str) -> None:
 
         volumes = import_volumes_data(volumes_file_path)
         trp_data = import_TRPs_data()
@@ -468,7 +468,7 @@ class TrafficVolumesCleaner(Cleaner):
         return None
 
 
-    def execute_cleaning(self, volumes_file_path: str):
+    def execute_cleaning(self, volumes_file_path: str) -> None:
 
         self.cleaning_pipeline(volumes_file_path=volumes_file_path)
 
@@ -483,7 +483,7 @@ class AverageSpeedCleaner(Cleaner):
 
 
     @staticmethod
-    def retrieve_trp_id_from_avg_speed_file(filename: str):
+    def retrieve_trp_id_from_avg_speed_file(filename: str) -> str:
         trp_id = filename.split("_")[0]
         return trp_id
 
@@ -500,7 +500,7 @@ class AverageSpeedCleaner(Cleaner):
         return trp_data
 
 
-    def data_overview(self, trp_data, verbose: bool):
+    def data_overview(self, trp_data, verbose: bool = True) -> None:
         # Since the prints below are all the same (except for one) we could technically create a workaround to avoid having to repeat these lines, but it would complicate a lot something that's way simpler (just prints).
         # Thus, for readability purposes we're going to repeat the same prints (except for one) as in the TrafficVolumeCleaner class
 
@@ -544,7 +544,7 @@ class AverageSpeedCleaner(Cleaner):
         return None
 
 
-    def clean_avg_speed_data(self, avg_speed_data):
+    def clean_avg_speed_data(self, avg_speed_data) -> [tuple[pd.DataFrame, str, str, str] | None]:
 
 
         #TODO ADDRESS FOR TOTALLY EMPTY FILES CASE (MICE)
@@ -682,21 +682,21 @@ class AverageSpeedCleaner(Cleaner):
         return avg_speed_data, trp_id, str(t_max)[:10], str(t_min)[:10]
 
 
-    def export_clean_avg_speed_data(self, avg_speed_data: pd.DataFrame, trp_id: str, t_max: str, t_min: str):
+    def export_clean_avg_speed_data(self, avg_speed_data: pd.DataFrame, trp_id: str, t_max: str, t_min: str) -> None:
 
         clean_avg_data_folder_path = get_clean_average_speed_folder_path()
 
         try:
             avg_speed_data.to_csv(clean_avg_data_folder_path + trp_id + f"_S{t_min}_E{t_max}C.csv", index=False) #S stands for Start (registration starting date), E stands for End and C for Clean
             print(f"Average speed data for TRP: {trp_id} saved successfully\n\n")
-        except:
-            print(f"\033[91mCouldn't export TRP: {trp_id} volumes data\033[0m")
+        except Exception as e:
+            print(f"\033[91mCouldn't export TRP: {trp_id} volumes data. Error: {e}\033[0m")
 
 
         return None
 
 
-    def execute_cleaning(self, file_path, file_name):
+    def execute_cleaning(self, file_path, file_name) -> None:
         '''
         The avg_speed_file_path parameter is the path to the average speed file the user wants to analyze
         The avg_speed_file_name parameter is just the name of the file, needed for secondary purposes or functionalities

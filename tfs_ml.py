@@ -192,7 +192,7 @@ class TrafficVolumesForecaster:
                 true_best_parameters[model_name][par] = val
 
             true_best_parameters["best_GridSearchCV_model_index"] = best_parameters_by_model[model_name]
-            true_best_parameters["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_parameters_by_model[model_name]]
+            true_best_parameters["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_parameters_by_model[model_name]].to_dict() #to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
 
             print(f"True best parameters for {model_name}: ", true_best_parameters, "\n")

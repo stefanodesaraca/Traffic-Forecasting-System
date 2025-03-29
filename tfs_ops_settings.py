@@ -9,7 +9,7 @@ os.makedirs(ops_folder, exist_ok=True) #Creating the operations folder
 active_ops_filename = "active_ops"
 
 
-def clean_text(text: str):
+def clean_text(text: str) -> str:
 
     text = clean(text, no_emoji=True, no_currency_symbols=True)
     text = text.replace(" ", "_")
@@ -19,7 +19,7 @@ def clean_text(text: str):
 
 
 #The user sets the current operation
-def write_active_ops_file(ops_name: str):
+def write_active_ops_file(ops_name: str) -> None:
 
     ops_name = clean_text(ops_name)
 
@@ -42,7 +42,7 @@ def read_active_ops_file():
     return op
 
 
-def del_active_ops_file():
+def del_active_ops_file() -> None:
 
     try:
         os.remove(f"{active_ops_filename}.txt")
@@ -54,7 +54,7 @@ def del_active_ops_file():
 
 
 #If the user wants to create a new operation, this function will be called
-def create_ops_folder(ops_name: str):
+def create_ops_folder(ops_name: str) -> None:
 
     ops_name = clean_text(ops_name)
     os.makedirs(f"{ops_folder}/{ops_name}", exist_ok=True)
@@ -95,7 +95,7 @@ def create_ops_folder(ops_name: str):
     return None
 
 
-def del_ops_folder(ops_name: str):
+def del_ops_folder(ops_name: str) -> None:
 
     try:
         os.rmdir(ops_name)
