@@ -488,44 +488,49 @@ class AverageSpeedCleaner(Cleaner):
         return trp_data
 
 
-    def data_overview(self, trp_data, verbose: bool = True) -> None:
+    def data_overview(self, trp_id, verbose: bool = True) -> None:
         # Since the prints below are all the same (except for one) we could technically create a workaround to avoid having to repeat these lines, but it would complicate a lot something that's way simpler (just prints).
         # Thus, for readability purposes we're going to repeat the same prints (except for one) as in the TrafficVolumeCleaner class
+
+        trp_metadata = get_trp_metadata(trp_id)
 
         if verbose is True:
 
             print("******** Traffic Registration Point Information ********")
 
-            print("ID: ", trp_data["id"])
-            print("Name: ", trp_data["name"])
-            print("Road category: ", trp_data["location"]["roadReference"]["roadCategory"]["id"])
+            print("ID: ", trp_metadata["trp_id"])
+            print("Name: ", trp_metadata["name"])
+            print("Road category: ", trp_metadata["road_category"])
             print("Coordinates: ")
-            print(" - Lat: ", trp_data["location"]["coordinates"]["latLon"]["lat"])
-            print(" - Lon: ", trp_data["location"]["coordinates"]["latLon"]["lon"])
-            print("County name: ", trp_data["location"]["county"]["name"])
-            print("County number: ", trp_data["location"]["county"]["number"])
-            print("Geographic number: ", trp_data["location"]["county"]["geographicNumber"])
-            print("Country part: ", trp_data["location"]["county"]["countryPart"]["name"])
-            print("Municipality name: ", trp_data["location"]["municipality"]["name"])
+            print(" - Lat: ", trp_metadata["lat"])
+            print(" - Lon: ", trp_metadata["lon"])
+            print("County name: ", trp_metadata["county_name"])
+            print("County number: ", trp_metadata["county_number"])
+            print("Geographic number: ", trp_metadata["geographic_number"])
+            print("Country part: ", trp_metadata["country_part"])
+            print("Municipality name: ", trp_metadata["municipality_name"])
 
-            print("Traffic registration type: ", trp_data["trafficRegistrationType"])
+            print("Traffic registration type: ", trp_metadata["traffic_registration_type"])
             print("Data time span: ")
-            print(" - First data: ", trp_data["dataTimeSpan"]["firstData"])
-            print(" - First data with quality metrics: ", trp_data["dataTimeSpan"]["firstDataWithQualityMetrics"])
+            print(" - First data: ", trp_metadata["first_data"])
+            print(" - First data with quality metrics: ", trp_metadata["first_data_with_quality_metrics"])
             print(" - Latest data: ")
-            print("   > Volume by day: ", trp_data["dataTimeSpan"]["latestData"]["volumeByDay"])
-            print("   > Volume by hour: ", trp_data["dataTimeSpan"]["latestData"]["volumeByHour"])
-            print("   > Volume average daily by year: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByYear"])
-            print("   > Volume average daily by season: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"])
-            print("   > Volume average daily by month: ", trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"])
+            print("   > Volume by day: ", trp_metadata["latest_volume_by_day"])
+            print("   > Volume by hour: ", trp_metadata["latest_volume_byh_hour"])
+            print("   > Volume average daily by year: ", trp_metadata["latest_volume_average_daily_by_year"])
+            print("   > Volume average daily by season: ", trp_metadata["latest_volume_average_daily_by_season"])
+            print("   > Volume average daily by month: ", trp_metadata["latest_volume_average_daily_by_month"])
+            print("Number of data nodes: ", trp_metadata["number_of_data_nodes"])
+
+            print("\n")
 
 
         elif verbose is False:
 
             print("******** Traffic Registration Point Information ********")
 
-            print("ID: ", trp_data["id"])
-            print("Name: ", trp_data["name"])
+            print("ID: ", trp_metadata["trp_id"])
+            print("Name: ", trp_metadata["name"])
 
         print("\n\n")
 
@@ -692,10 +697,10 @@ class AverageSpeedCleaner(Cleaner):
         '''
 
         try:
-            trp_data = self.retrieve_trp_data_from_avg_speed_file(avg_speed_filename=file_name)
             average_speed_data = import_avg_speed_data(file_path=file_path)
 
-            self.data_overview(trp_data, verbose=True)
+            trp_id = file_name.split("_")[0]
+            self.data_overview(trp_id, verbose=True)
 
             average_speed_data, trp_id, t_max, t_min = self.clean_avg_speed_data(average_speed_data)
 
