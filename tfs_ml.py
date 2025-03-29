@@ -26,7 +26,6 @@ from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_abso
 from sklearn.model_selection import cross_validate
 
 
-
 simplefilter(action='ignore', category=FutureWarning)
 warnings.filterwarnings("ignore")
 pd.set_option('display.max_columns', None)

@@ -115,6 +115,11 @@ def execute_forecast_warmup(functionality: str) -> None:
 
     models = [m for m in model_names_and_functions.keys()]
 
+
+    #TODO SPLIT THE DATA BY ROAD CATEGORY AND SORT IT BY YEAR, MONTH AND DAY ascending=True AFTER HAVING CONCATENATED IT
+
+
+
     # ------------ Hyperparameter tuning for traffic volumes ML models ------------
     if functionality == "3.2.1":
 

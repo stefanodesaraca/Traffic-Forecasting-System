@@ -1,6 +1,16 @@
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor, BaggingRegressor, GradientBoostingRegressor, AdaBoostRegressor, HistGradientBoostingRegressor
 
+import tensorflow as tf
+from tensorflow.python.keras.models import Sequential
+from tensorflow.python.keras.layers import *
+from tensorflow.python.keras.callbacks import ModelCheckpoint
+from tensorflow.python.keras.losses import MeanSquaredError
+from tensorflow.python.keras.metrics import MeanSquaredError, MeanAbsoluteError, MeanAbsolutePercentageError, RootMeanSquaredError
+from tensorflow.python.keras.optimizers import * #Adam optimizer
+
+
+# ------------------- Functions that return the models themselves -------------------
 
 def get_random_forest_regressor() -> RandomForestRegressor:
     random_forest = RandomForestRegressor(n_jobs=-1, random_state=100) #Has the max_depth, criterion (use squared_error, friedman_mse) n_estimators parameters
@@ -31,6 +41,9 @@ def get_histgradientboosting_regressor() -> HistGradientBoostingRegressor:
     hist_gradient_boosting = HistGradientBoostingRegressor(random_state=100)  # Has the max_iter, max_depth parameters
     return hist_gradient_boosting
 
+
+
+# ------------------- GridSearchCV parameters and auxiliary ones -------------------
 
 #TODO CHECK AGAIN AND/OR POTENTIALLY IMPROVE (CHANGE) THE PARAMETERS ONCE THE GridSearchCV IS EXECUTED ON THE WHOLE DATA AND WITH cv=10
 models_gridsearch_parameters = {
@@ -74,6 +87,7 @@ model_names_and_class_objects = {
     "DecisionTreeRegressor": DecisionTreeRegressor
 }
 
+
 model_auxiliary_parameters = {
     "RandomForestRegressor": {"n_jobs": -1,
                               "random_state": 100},
@@ -82,7 +96,6 @@ model_auxiliary_parameters = {
     "HistGradientBoostingRegressor": {"random_state": 100, "categorical_features": None},
     "DecisionTreeRegressor": {"random_state": 100}
 }
-
 
 
 best_parameters_by_model = {"RandomForestRegressor": 11,
