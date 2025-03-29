@@ -29,6 +29,10 @@ simplefilter(action='ignore', category=FutureWarning)
 warnings.filterwarnings("ignore")
 pd.set_option('display.max_columns', None)
 
+#n_cpu = os.cpu_count()
+#ml_dedicated_cores = n_cpu // 80
+
+
 #TODO CONVERT pd.Series AND pd.DataFrame to dd. etc.
 def sin_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]) -> [pd.Series | pd.DataFrame]:
     """
@@ -153,67 +157,50 @@ class TrafficVolumesForecaster:
         ml_parameters_folder_path = get_ml_model_parameters_folder_path()
         model_filename = ops_name + "_" + model_name + "_" + "parameters"
 
-        #TODO REMOVE THIS IF STATEMENT WHEN XGBOOST WILL HAVE RELEASED THE NEW UPDATE TO KEEP UP WITH SCIKIT-LEARN ONES
-        if model_name != "XGBRegressor":
+        client = Client(processes=True)
 
-            client = Client(processes=False)
+        gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=-1, scheduler="multiprocessing", cv=5)  # The models_gridsearch_parameters is obtained from the tfs_models file
 
-            gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=-1, scheduler="threads", cv=5)  # The models_gridsearch_parameters is obtained from the tfs_models file
-
-            with joblib.parallel_backend('dask'):
-                gridsearch.fit(X=X_train, y=y_train)
+        with joblib.parallel_backend('dask'):
+            gridsearch.fit(X=X_train, y=y_train)
 
 
-            gridsearch_results = pd.DataFrame(gridsearch.cv_results_)[["params", "mean_fit_time", "mean_test_r2", "mean_train_r2",
-                                                                       "mean_test_mean_squared_error", "mean_train_mean_squared_error",
-                                                                       "mean_test_root_mean_squared_error", "mean_train_root_mean_squared_error",
-                                                                       "mean_test_mean_absolute_error", "mean_train_mean_absolute_error",
-                                                                       "mean_test_mean_absolute_percentage_error", "mean_train_mean_absolute_percentage_error"]]
+        gridsearch_results = pd.DataFrame(gridsearch.cv_results_)[["params", "mean_fit_time", "mean_test_r2", "mean_train_r2",
+                                                                   "mean_test_mean_squared_error", "mean_train_mean_squared_error",
+                                                                   "mean_test_root_mean_squared_error", "mean_train_root_mean_squared_error",
+                                                                   "mean_test_mean_absolute_error", "mean_train_mean_absolute_error",
+                                                                   "mean_test_mean_absolute_percentage_error", "mean_train_mean_absolute_percentage_error"]]
 
-            print(f"============== {model_name} grid search results ==============\n")
-            print(gridsearch_results, "\n")
+        print(f"============== {model_name} grid search results ==============\n")
+        print(gridsearch_results, "\n")
 
-            print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
-            print("GridSearchCV best parameters: ", gridsearch.best_params_)
-            print("GridSearchCV best score: ", gridsearch.best_score_)
+        print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
+        print("GridSearchCV best parameters: ", gridsearch.best_params_)
+        print("GridSearchCV best score: ", gridsearch.best_score_)
 
-            print("GridSearchCV best combination index (in the results dataframe): ", gridsearch.best_index_, "\n")
+        print("GridSearchCV best combination index (in the results dataframe): ", gridsearch.best_index_, "\n")
 
-            #print(gridsearch.scorer_, "\n")
+        #print(gridsearch.scorer_, "\n")
 
-            client.close()
+        client.close()
 
-            #The best_parameters_by_model variable is obtained from the tfs_models file
-            true_best_parameters = {model_name: gridsearch_results["params"].loc[best_parameters_by_model[model_name]] if gridsearch_results["params"].loc[best_parameters_by_model[model_name]] is not None else {}}
-            auxiliary_parameters = model_auxiliary_parameters[model_name]
+        #The best_parameters_by_model variable is obtained from the tfs_models file
+        true_best_parameters = {model_name: gridsearch_results["params"].loc[best_parameters_by_model[model_name]] if gridsearch_results["params"].loc[best_parameters_by_model[model_name]] is not None else {}}
+        auxiliary_parameters = model_auxiliary_parameters[model_name]
 
-            #This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
-            for par, val in auxiliary_parameters.items():
-                true_best_parameters[model_name][par] = val
+        #This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
+        for par, val in auxiliary_parameters.items():
+            true_best_parameters[model_name][par] = val
 
-            true_best_parameters["best_GridSearchCV_model_index"] = best_parameters_by_model[model_name]
-            true_best_parameters["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_parameters_by_model[model_name]].to_dict() #to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
-
-
-            print(f"True best parameters for {model_name}: ", true_best_parameters, "\n")
+        true_best_parameters["best_GridSearchCV_model_index"] = best_parameters_by_model[model_name]
+        true_best_parameters["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_parameters_by_model[model_name]].to_dict() #to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
 
-            with open(ml_parameters_folder_path + model_filename + ".json", "w") as parameters_file:
-                json.dump(true_best_parameters, parameters_file)
+        print(f"True best parameters for {model_name}: ", true_best_parameters, "\n")
 
 
-        else:
-
-            client = Client(processes=False)
-            with joblib.parallel_backend('dask'):
-                model.fit(X=X_train, y=y_train) #TODO THIS TRAINING HERE IS USELESS, SINCE IT DOESN'T HAVE ANYTHING TO DO WITH THE GRIDSEARCH SECTION, BUT IT WILL BE ADDED TO IT WHEN THE NEXT XGBOOST UPDATE WILL COME OUT WITH THE NEW BUG FIXES
-
-            xgb_regressor_parameters = {"XGBRegressor": model_auxiliary_parameters[model_name]}
-
-            with open(ml_parameters_folder_path + model_filename + ".json", "w") as parameters_file:
-                json.dump(xgb_regressor_parameters, parameters_file)
-
-            client.close()
+        with open(ml_parameters_folder_path + model_filename + ".json", "w") as parameters_file:
+            json.dump(true_best_parameters, parameters_file)
 
 
         return None
@@ -261,8 +248,8 @@ class TrafficVolumesForecaster:
             with open(models_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
                 pickle.dump(model, ml_pkl_file)
 
-        except:
-            print("\033[91mCouldn't export trained model. Safely exited the program\033[0m")
+        except Exception as e:
+            print(f"\033[91mCouldn't export trained model. Safely exited the program. Error: {e}\033[0m")
             exit()
 
 
