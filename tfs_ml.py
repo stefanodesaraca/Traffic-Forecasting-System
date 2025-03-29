@@ -53,7 +53,7 @@ def cos_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]) -> [pd.Ser
 
 
 
-class TrafficVolumesForecaster:
+class TrafficVolumesModelTrainer:
 
     def __init__(self, volumes_file_path):
         self.volumes_file_path = volumes_file_path
@@ -210,7 +210,8 @@ class TrafficVolumesForecaster:
         return None
 
 
-    def train_model(self, X_train, y_train, model_name: str) -> None:
+    @staticmethod
+    def train_model(X_train, y_train, model_name: str) -> None:
 
         # -------------- Filenames, etc. --------------
 
@@ -262,7 +263,8 @@ class TrafficVolumesForecaster:
         return None
 
 
-    def test_model(self, X_test, y_test, model_name) -> None:
+    @staticmethod
+    def test_model(X_test, y_test, model_name) -> None:
 
         ops_name = get_active_ops_name()
 
@@ -289,13 +291,40 @@ class TrafficVolumesForecaster:
 
 
 
-    def forecast_volumes(self):
 
 
 
+class OnePointForecaster:
+
+    def __init__(self):
+        pass
+
+
+    def forecast_volumes(self, X_test, y_test, forecasting_target_datetime: datetime):
+        forecasting_window = pd.date_range(start=datetime.now(), end=forecasting_target_datetime)
+
+        print(forecasting_window)
 
 
         return None
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

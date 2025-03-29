@@ -1,14 +1,6 @@
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor, BaggingRegressor, GradientBoostingRegressor, AdaBoostRegressor, HistGradientBoostingRegressor
 
-import tensorflow as tf
-from tensorflow.python.keras.models import Sequential
-from tensorflow.python.keras.layers import *
-from tensorflow.python.keras.callbacks import ModelCheckpoint
-from tensorflow.python.keras.losses import MeanSquaredError
-from tensorflow.python.keras.metrics import MeanSquaredError, MeanAbsoluteError, MeanAbsolutePercentageError, RootMeanSquaredError
-from tensorflow.python.keras.optimizers import * #Adam optimizer
-
 
 # ------------------- Functions that return the models themselves -------------------
 
