@@ -123,7 +123,7 @@ class TrafficVolumesForecaster:
 
         return volumes
 
-    #TODO CHECK THE DATA TYPE OF THE RETURNED VALUES FROM THIS FUNCTION
+
     @staticmethod
     def split_data(volumes_preprocessed: dd.DataFrame, return_pandas: bool = False):
 
@@ -211,7 +211,7 @@ class TrafficVolumesForecaster:
         return None
 
 
-    def train_model(self, X_train, y_train, X_test, y_test, model_name: str) -> None:
+    def train_model(self, X_train, y_train, model_name: str) -> None:
 
         # -------------- Filenames, etc. --------------
 
@@ -263,7 +263,7 @@ class TrafficVolumesForecaster:
         return None
 
 
-    def test_model(self, X_test, y_test, model_name):
+    def test_model(self, X_test, y_test, model_name) -> None:
 
         ops_name = get_active_ops_name()
 

@@ -150,7 +150,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed, return_pandas=True)
 
             # -------------- Training phase --------------
-            for model_name in models: volumes_forecaster.train_model(X_train, y_train, X_test, y_test, model_name=model_name)
+            for model_name in models: volumes_forecaster.train_model(X_train, y_train, model_name=model_name)
 
 
 
