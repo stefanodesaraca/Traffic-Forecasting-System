@@ -1,3 +1,4 @@
+import tfs_ml
 from tfs_ops_settings import *
 from tfs_data_downloader import *
 from tfs_forecasting_settings import *
@@ -111,6 +112,40 @@ def set_forecasting_options(functionality: str) -> None:
     return None
 
 
+def execute_eda() -> None:
+
+    clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
+    clean_average_speed_folder_path = get_clean_average_speed_folder_path()
+
+    clean_traffic_volume_files = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())]
+    print("Clean traffic volume files: ", clean_traffic_volume_files, "\n")
+
+    for v in clean_traffic_volume_files:
+        volumes = retrieve_volumes_data(v)
+        analyze_volumes(volumes)
+        test_volumes_data_for_multicollinearity(volumes)
+
+
+    clean_average_speed_files = [clean_average_speed_folder_path + sf for sf in os.listdir(get_clean_average_speed_folder_path())]
+    print("Clean average speed files: ", clean_average_speed_files, "\n")
+
+    for s in clean_average_speed_files:
+        speeds = retrieve_avg_speed_data(s)
+        analyze_avg_speeds(speeds)
+        test_avg_speeds_data_for_multicollinearity(speeds)
+
+
+    volumes_and_speeds = [vs for vs in clean_traffic_volume_files if vs.split("/")[-1].split("_")[0] in [v.split("/")[-1].split("_")[0] for v in clean_average_speed_files]] #Determinig the TRPs which have both traffic volumes and speed data
+
+    print("\n\nClean volumes and average speeds files: ", volumes_and_speeds)
+    print("Number of clean volumes and average speeds files: ", len(volumes_and_speeds))
+
+
+    print("\n\n")
+
+    return None
+
+
 def execute_forecast_warmup(functionality: str) -> None:
 
     models = [m for m in model_names_and_functions.keys()]
@@ -182,38 +217,38 @@ def execute_forecast_warmup(functionality: str) -> None:
     return None
 
 
-def execute_eda() -> None:
 
-    clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
-    clean_average_speed_folder_path = get_clean_average_speed_folder_path()
+def execute_one_point_forecast(functionality: str):
 
-    clean_traffic_volume_files = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())]
-    print("Clean traffic volume files: ", clean_traffic_volume_files, "\n")
+    if functionality == "3.3.1":
 
-    for v in clean_traffic_volume_files:
-        volumes = retrieve_volumes_data(v)
-        analyze_volumes(volumes)
-        test_volumes_data_for_multicollinearity(volumes)
+        pass
 
 
-    clean_average_speed_files = [clean_average_speed_folder_path + sf for sf in os.listdir(get_clean_average_speed_folder_path())]
-    print("Clean average speed files: ", clean_average_speed_files, "\n")
-
-    for s in clean_average_speed_files:
-        speeds = retrieve_avg_speed_data(s)
-        analyze_avg_speeds(speeds)
-        test_avg_speeds_data_for_multicollinearity(speeds)
 
 
-    volumes_and_speeds = [vs for vs in clean_traffic_volume_files if vs.split("/")[-1].split("_")[0] in [v.split("/")[-1].split("_")[0] for v in clean_average_speed_files]] #Determinig the TRPs which have both traffic volumes and speed data
-
-    print("\n\nClean volumes and average speeds files: ", volumes_and_speeds)
-    print("Number of clean volumes and average speeds files: ", len(volumes_and_speeds))
 
 
-    print("\n\n")
+
 
     return None
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -271,6 +306,9 @@ def main():
 
         elif option in ["3.2.1", "3.2.2", "3.2.3", "3.2.4", "3.2.5"]:
             execute_forecast_warmup(option)
+
+        elif option in ["3.3.1"]:
+            execute_one_point_forecast(option)
 
         elif option == "5.2":
             execute_eda()
