@@ -26,7 +26,22 @@ def import_TRPs_data():
     with open(traffic_registration_points_path, "r") as TRPs:
         trp_info = json.load(TRPs)
 
-        return trp_info
+    return trp_info
+
+
+def get_trp_id_list() -> list:
+
+    traffic_registration_points_path = get_traffic_registration_points_file_path()
+    with open(traffic_registration_points_path, "r") as TRPs:
+        trp_info = json.load(TRPs)
+
+    trp_id_list = [trp["id"] for trp in trp_info["trafficRegistrationPoints"]]
+
+    return trp_id_list
+
+
+def get_trp_road_category(trp_id: str) -> str:
+    return get_trp_metadata(trp_id)["road_category"]
 
 
 def get_traffic_registration_points_file_path() -> str:

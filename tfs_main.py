@@ -222,14 +222,21 @@ def execute_one_point_forecast(functionality: str):
 
     if functionality == "3.3.1":
 
-        pass
+        trp_id_list = get_trp_id_list()
+        print("TRP IDs: ", trp_id_list)
 
+        trp_id = input("Insert TRP ID for forecasting: ")
 
+        if trp_id in trp_id_list:
 
+            trp_road_category = get_trp_road_category(trp_id)
 
+            one_point_volume_forecaster = OnePointVolumesForecaster(trp_id=trp_id, road_category=trp_road_category)
+            #one_point_volume_forecaster.pre_process_data()
 
-
-
+        else:
+            print("Non-valid TRP ID, returning to main menu")
+            main()
 
     return None
 

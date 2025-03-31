@@ -286,22 +286,26 @@ class TrafficVolumesModelLearner:
 
 
 class OnePointForecaster:
-
-    def __init__(self, trp_id: str):
+    '''
+    self.trp_road_category: to find the right model to predict the data
+    '''
+    def __init__(self, trp_id: str, road_category: str):
         self.trp_id = trp_id
+        self.road_category = road_category
 
 
 
 class OnePointVolumesForecaster(OnePointForecaster):
 
-    def __init__(self, trp_id: str):
-        super().__init__(trp_id) #Calling the father class with its arguments
+    def __init__(self, trp_id: str, road_category: str):
+        super().__init__(trp_id, road_category) #Calling the father class with its arguments
         self.trp_id = trp_id
+        self.road_category = road_category
 
 
-    def pre_process_auxiliary_data(self, X_test, y_test, forecasting_target_datetime: datetime):
+    def pre_process_data(self, X_test, y_test, forecasting_target_datetime: datetime):
 
-        forecasting_window = pd.date_range(start=datetime.now(), end=forecasting_target_datetime)
+        forecasting_window = pd.date_range(start=datetime.now(), end=forecasting_target_datetime, freq="1h")
 
 
 
@@ -318,7 +322,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
 
 
-    def forecast_volumes(self, ):
+    def forecast_volumes(self):
 
 
 
