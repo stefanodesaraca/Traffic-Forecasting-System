@@ -41,7 +41,10 @@ def get_trp_id_list() -> list:
 
 
 def get_trp_road_category(trp_id: str) -> str:
-    return get_trp_metadata(trp_id)["road_category"]
+    print(get_trp_metadata(trp_id))
+    print(type(get_trp_metadata(trp_id)))
+    road_category = get_trp_metadata(trp_id)["road_category"]
+    return road_category
 
 
 def get_traffic_registration_points_file_path() -> str:
@@ -56,7 +59,10 @@ def get_traffic_registration_points_file_path() -> str:
 def get_trp_metadata(trp_id: str) -> dict:
 
     ops_name = get_active_ops_name()
-    trp_metadata = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata"
+    trp_metadata_file = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata"
+
+    with open(trp_metadata_file, "r") as json_trp_metadata:
+        trp_metadata = json.load(json_trp_metadata)
 
     return trp_metadata
 

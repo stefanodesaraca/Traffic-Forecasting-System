@@ -303,7 +303,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
         self.road_category = road_category
 
 
-    def pre_process_data(self, X_test, y_test, forecasting_target_datetime: datetime):
+    def pre_process_data(self, forecasting_target_datetime: datetime, X_test=None, y_test=None):
 
         forecasting_window = pd.date_range(start=datetime.now(), end=forecasting_target_datetime, freq="1h")
 
