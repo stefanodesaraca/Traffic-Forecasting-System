@@ -45,8 +45,8 @@ def download_data(functionality: str) -> None:
 
             print("Traffic measurement points information downloaded successfully\n\n")
 
-        except:
-            print("\033[91mCouldn't download traffic measurement points information for the active operation\033[0m")
+        except Exception as e:
+            print(f"\033[91mCouldn't download traffic measurement points information for the active operation. Error: {e}\033[0m")
 
 
     elif functionality == "2.2":
@@ -68,6 +68,12 @@ def download_data(functionality: str) -> None:
 
         ops_name = read_active_ops_file()
         traffic_volumes_data_to_json(ops_name, time_start=time_start, time_end=time_end)
+
+
+    elif functionality == "2.3":
+
+        trp_id_list = get_trp_id_list()
+        for trp_id in trp_id_list: write_trp_metadata(trp_id)
 
 
     return None
@@ -272,6 +278,7 @@ def main():
  2. Download data (Trafikkdata API)
     2.1 Traffic measurement points information
     2.2 Traffic volumes for every measurement point
+    2.3 Write metadata file for every TRP
  3. Forecast
     3.1 Set forecasting target datetime
         3.1.1 Write forecasting target datetime
@@ -306,7 +313,7 @@ def main():
         if option in ["1.1", "1.2", "1.3"]:
             manage_ops(option)
 
-        elif option in ["2.1", "2.2"]:
+        elif option in ["2.1", "2.2", "2.3"]:
             download_data(option)
 
         elif option in ["3.1.1", "3.1.2", "3.1.3"]:

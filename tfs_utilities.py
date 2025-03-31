@@ -41,8 +41,6 @@ def get_trp_id_list() -> list:
 
 
 def get_trp_road_category(trp_id: str) -> str:
-    print(get_trp_metadata(trp_id))
-    print(type(get_trp_metadata(trp_id)))
     road_category = get_trp_metadata(trp_id)["road_category"]
     return road_category
 
@@ -65,6 +63,41 @@ def get_trp_metadata(trp_id: str) -> dict:
         trp_metadata = json.load(json_trp_metadata)
 
     return trp_metadata
+
+
+def write_trp_metadata(trp_id: str) -> None:
+
+    ops_name = get_active_ops_name()
+    trps = import_TRPs_data()
+    trp_data = trps[trp_id]
+
+    trp_metadata_filepath = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/"
+    trp_metadata_filename = f"{trp_id}_metadata"
+
+    metadata = {"trp_id": trp_data["id"],
+                "name": trp_data["name"],
+                "road_category": trp_data["location"]["roadReference"]["roadCategory"]["id"],
+                "lat": trp_data["location"]["coordinates"]["latLon"]["lat"],
+                "lon": trp_data["location"]["coordinates"]["latLon"]["lon"],
+                "county_name": trp_data["location"]["county"]["name"],
+                "county_number": trp_data["location"]["county"]["number"],
+                "geographic_number": trp_data["location"]["county"]["geographicNumber"],
+                "country_part": trp_data["location"]["county"]["countryPart"]["name"],
+                "municipality_name": trp_data["location"]["municipality"]["name"],
+                "traffic_registration_type": trp_data["trafficRegistrationType"],
+                "first_data": trp_data["dataTimeSpan"]["firstData"],
+                "first_data_with_quality_metrics": trp_data["dataTimeSpan"]["firstDataWithQualityMetrics"],
+                "latest_volume_by_day": trp_data["dataTimeSpan"]["latestData"]["volumeByDay"],
+                "latest_volume_byh_hour": trp_data["dataTimeSpan"]["latestData"]["volumeByHour"],
+                "latest_volume_average_daily_by_year": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByYear"],
+                "latest_volume_average_daily_by_season": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"],
+                "latest_volume_average_daily_by_month": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"],
+                "number_of_data_nodes": len(trps["trafficData"]["volume"]["byHour"]["edges"])}
+
+    with open(trp_metadata_filepath + trp_metadata_filename + ".json", "w") as json_metadata:
+        json.dump(metadata, json_metadata, indent=4)
+
+    return None
 
 
 # ==================== Volumes Utilities ====================

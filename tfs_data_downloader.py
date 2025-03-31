@@ -9,6 +9,9 @@ import sys
 from tqdm import tqdm, trange
 from collections import ChainMap
 import pprint
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from tfs_utilities import *
 
 simplefilter("ignore")
 
@@ -291,11 +294,7 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
 
     client = start_client()
 
-    #Read traffic measurement points json file
-    with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_registration_points.json", "r") as trps_r:
-        trps = json.load(trps_r)
-
-
+    trps = import_TRPs_data()
     ids = []
 
     trafficRegistrationPoints = trps["trafficRegistrationPoints"]
@@ -349,40 +348,6 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
         return volumes
 
 
-    def write_trp_metadata(trp_id: str) -> None:
-
-        trp_data = trps[trp_id]
-
-        trp_metadata_filepath = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/"
-        trp_metadata_filename = f"{trp_id}_metadata"
-
-        metadata = {"trp_id": trp_data["id"],
-                    "name": trp_data["name"],
-                    "road_category": trp_data["location"]["roadReference"]["roadCategory"]["id"],
-                    "lat": trp_data["location"]["coordinates"]["latLon"]["lat"],
-                    "lon": trp_data["location"]["coordinates"]["latLon"]["lon"],
-                    "county_name": trp_data["location"]["county"]["name"],
-                    "county_number": trp_data["location"]["county"]["number"],
-                    "geographic_number": trp_data["location"]["county"]["geographicNumber"],
-                    "country_part": trp_data["location"]["county"]["countryPart"]["name"],
-                    "municipality_name": trp_data["location"]["municipality"]["name"],
-                    "traffic_registration_type": trp_data["trafficRegistrationType"],
-                    "first_data": trp_data["dataTimeSpan"]["firstData"],
-                    "first_data_with_quality_metrics": trp_data["dataTimeSpan"]["firstDataWithQualityMetrics"],
-                    "latest_volume_by_day": trp_data["dataTimeSpan"]["latestData"]["volumeByDay"],
-                    "latest_volume_byh_hour": trp_data["dataTimeSpan"]["latestData"]["volumeByHour"],
-                    "latest_volume_average_daily_by_year": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByYear"],
-                    "latest_volume_average_daily_by_season": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"],
-                    "latest_volume_average_daily_by_month": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"],
-                    "number_of_data_nodes": len(trps["trafficData"]["volume"]["byHour"]["edges"])}
-
-
-        with open(trp_metadata_filepath + trp_metadata_filename + ".json", "w") as json_metadata:
-            json.dump(metadata, json_metadata, indent=4)
-
-        return None
-
-
     elements = tqdm(ids)
 
     for i in elements:
@@ -391,10 +356,16 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
         elements.set_postfix({f"writing data for TRP": i})
 
         # Exporting traffic volumes to a json file, S stands for "Start" and E stands for "End". They represent the time frame in which the data was collected (for a specific traffic measurement point)
-        with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{i}_volumes_S{time_start[:18].replace(':', '_')}_E{time_end[:18].replace(':', '_')}.json", "w") as tv_w:
+        with open(
+                f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{i}_volumes_S{time_start[:18].replace(':', '_')}_E{time_end[:18].replace(':', '_')}.json",
+                "w") as tv_w:
             json.dump(volumes_data, tv_w, indent=4)
 
-        #print("Data successfully written in memory\n")
+        # print("Data successfully written in memory\n")
+
+
+
+
 
     print("\n\n")
 
