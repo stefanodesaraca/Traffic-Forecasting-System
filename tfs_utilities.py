@@ -215,7 +215,7 @@ def import_avg_speed_data(file_path: str) -> pd.DataFrame:
 
 
 def get_clean_average_speed_files_list() -> list:
-    files = os.listdir(get_clean_average_speed_folder_path())
+    files = [get_clean_average_speed_folder_path() + f for f in os.listdir(get_clean_average_speed_folder_path())]
     return files
 
 # ==================== ML Related Utilities ====================
