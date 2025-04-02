@@ -47,9 +47,9 @@ def cos_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]) -> [pd.Ser
     return np.cos((data-1)*(2.*np.pi/timeframe))
 
 
-class TrafficVolumesModelLearner:
+class TrafficVolumesLearner:
 
-    def __init__(self, volumes_file_path):
+    def __init__(self, volumes_file_path: str):
         self.volumes_file_path = volumes_file_path
         self.scorer = {"r2": make_scorer(r2_score),
                        "mean_squared_error": make_scorer(mean_squared_error),
@@ -282,6 +282,94 @@ class TrafficVolumesModelLearner:
 
 
         return None
+
+
+
+class AverageSpeedLearner:
+
+    def __init__(self, average_speed_file_path: str):
+        self.average_speed_file_path = average_speed_file_path
+        self.scorer = {"r2": make_scorer(r2_score),
+                       "mean_squared_error": make_scorer(mean_squared_error),
+                       "root_mean_squared_error": make_scorer(root_mean_squared_error),
+                       "mean_absolute_error": make_scorer(mean_absolute_error),
+                       "mean_absolute_percentage_error": make_scorer(mean_absolute_percentage_error)}
+
+
+    def get_average_speed_data(self) -> dd.DataFrame:
+        speeds = dd.read_csv(self.average_speed_file_path)
+        return speeds
+
+
+    def avg_speeds_ml_preprocessing_pipeline(self) -> dd.DataFrame:
+
+        speeds = self.get_average_speed_data()
+
+        # ------------------ Cyclical variables encoding ------------------
+
+        speeds["hour_sin"] = sin_transformer(data=speeds["hour_start"], timeframe=24)
+        speeds["hour_cos"] = sin_transformer(data=speeds["hour_start"], timeframe=24)
+
+        speeds["week_sin"] = sin_transformer(data=speeds["week"], timeframe=52)
+        speeds["week_cos"] = sin_transformer(data=speeds["week"], timeframe=52)
+
+        speeds["day_sin"] = sin_transformer(data=speeds["day"], timeframe=31)
+        speeds["day_cos"] = sin_transformer(data=speeds["day"], timeframe=31)
+
+        speeds["month_sin"] = sin_transformer(data=speeds["month"], timeframe=12)
+        speeds["month_cos"] = sin_transformer(data=speeds["month"], timeframe=12)
+
+        print("\n\n")
+
+        #------------------ Outliers filtering with Z-Score ------------------
+
+        speeds = ZScore(speeds, "mean_speed")
+        speeds = ZScore(speeds, "percentile_85")
+
+        speeds = speeds.sort_values(by=["year", "month", "day"], ascending=True)
+
+
+        # ------------------ Variables normalization ------------------
+
+        scaler = MinMaxScaler()
+        speeds[["mean_speed", "percentile_85", "coverage"]] = scaler.fit_transform(speeds[["mean_speed", "percentile_85", "coverage"]])
+
+
+        #------------------ Creating lag features ------------------
+
+        speeds_lag_column_names = ["mean_speed_lag1", "mean_speed_lag2", "mean_speed_lag3", "mean_speed_lag4", "mean_speed_lag5", "mean_speed_lag6", "mean_speed_lag7"]
+        percentile_85_lag_column_names = ["percentile_85_lag1", "percentile_85_lag2", "percentile_85_lag3", "percentile_85_lag4", "percentile_85_lag5", "percentile_85_lag6", "percentile_85_lag7"]
+
+        for idx, n in enumerate(speeds_lag_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 1)
+        for idx, n in enumerate(percentile_85_lag_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 1)
+
+        #print(speeds.head(10))
+        #print(speeds.dtypes)
+
+        speeds = speeds.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist()
+
+        #print("Average speeds dataframe head: ")
+        #print(speeds.head(5), "\n")
+
+        #print("Average speeds dataframe tail: ")
+        #print(speeds.tail(5), "\n")
+
+
+        return speeds
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

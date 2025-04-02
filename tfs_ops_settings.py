@@ -76,7 +76,7 @@ def create_ops_folder(ops_name: str) -> None:
 
         #Data sub-subfolders
         for dssf in data_sub_subfolders:
-            os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}/{dssf}_{dsf}", exist_ok=True)
+            if dsf != "trp_metadata": os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}/{dssf}_{dsf}", exist_ok=True)
 
     for e in eda_subfolders:
         os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{e}", exist_ok=True)
