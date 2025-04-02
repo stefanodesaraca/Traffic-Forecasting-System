@@ -65,7 +65,7 @@ def create_ops_folder(ops_name: str) -> None:
     eda_subfolders = [f"{ops_name}_shapiro_wilk_test", f"{ops_name}_plots"]
     eda_sub_subfolders = ["traffic_volumes", "avg_speeds"]
     rn_graph_subfolders = [f"{ops_name}_edges", f"{ops_name}_arches", f"{ops_name}_graph_analysis", f"{ops_name}_shortest_paths"]
-    ml_subfolders = [f"{ops_name}_models_parameters", f"{ops_name}_models", f"{ops_name}_models_performance", f"{ops_name}_ml_reports"]
+    ml_subfolders = ["models_parameters", "models", "models_performance", "ml_reports"]
     ml_sub_subfolders = ["traffic_volumes", "average_speed"]
 
 
@@ -92,11 +92,11 @@ def create_ops_folder(ops_name: str) -> None:
 
     # Machine learning subfolders
     for mlsf in ml_subfolders:
-        os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{mlsf}", exist_ok=True)
+        os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}", exist_ok=True)
 
         #Machine learning sub-subfolders
         for mlssf in ml_sub_subfolders:
-            os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{mlsf}/{mlssf}{mlsf.replace(ops_name, '')}", exist_ok=True)
+            os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/{ops_name}_{mlssf}_{mlsf}", exist_ok=True)
 
     return None
 
