@@ -71,6 +71,13 @@ def write_trp_metadata(trp_id: str) -> None:
     trps = import_TRPs_data()
     trp_data = [i for i in trps["trafficRegistrationPoints"] if i["id"] == trp_id][0]
 
+    raw_volume_files_folder_path = get_raw_traffic_volumes_folder_path()
+    raw_volume_files = get_raw_traffic_volume_file_list()
+    trp_volumes_file = [f for f in raw_volume_files if trp_id in f][0] #Find the right TRP file by checking if the TRP ID is in the filename
+
+    with open(raw_volume_files_folder_path + trp_volumes_file, "r") as f: volumes = json.load(f)
+
+
     trp_metadata_filepath = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/"
     trp_metadata_filename = f"{trp_id}_metadata"
 
@@ -91,7 +98,8 @@ def write_trp_metadata(trp_id: str) -> None:
                 "latest_volume_byh_hour": trp_data["dataTimeSpan"]["latestData"]["volumeByHour"],
                 "latest_volume_average_daily_by_year": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByYear"],
                 "latest_volume_average_daily_by_season": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"],
-                "latest_volume_average_daily_by_month": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"]}
+                "latest_volume_average_daily_by_month": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"],
+                "number_of_data_nodes": len(volumes["trafficData"]["volume"]["byHour"]["edges"])}
 
     with open(trp_metadata_filepath + trp_metadata_filename + ".json", "w") as json_metadata:
         json.dump(metadata, json_metadata, indent=4)
@@ -119,7 +127,7 @@ def get_clean_traffic_volumes_folder_path() -> str:
     return clean_traffic_volumes_folder_path
 
 
-def get_traffic_volume_file_list() -> list:
+def get_raw_traffic_volume_file_list() -> list:
     '''
     This function returns the name of every file contained in the raw_traffic_volumes folder, so every specific TRP's volumes
     '''
@@ -129,7 +137,7 @@ def get_traffic_volume_file_list() -> list:
 
     # Identifying all the raw traffic volume files
     volume_files = os.listdir(traffic_volumes_folder_path)
-    print("Raw traffic volumes files: ", volume_files, "\n\n")
+    #print("Raw traffic volumes files: ", volume_files, "\n\n")
 
     return volume_files
 
