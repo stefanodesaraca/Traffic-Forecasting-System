@@ -47,74 +47,14 @@ def cos_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]) -> [pd.Ser
     return np.cos((data-1)*(2.*np.pi/timeframe))
 
 
-class TrafficVolumesLearner:
 
-    def __init__(self, volumes_file_path: str):
-        self.volumes_file_path = volumes_file_path
+class BaseLearner:
+    def __init__(self):
         self.scorer = {"r2": make_scorer(r2_score),
                        "mean_squared_error": make_scorer(mean_squared_error),
                        "root_mean_squared_error": make_scorer(root_mean_squared_error),
                        "mean_absolute_error": make_scorer(mean_absolute_error),
                        "mean_absolute_percentage_error": make_scorer(mean_absolute_percentage_error)}
-
-
-    def get_volumes_data(self) -> dd.DataFrame:
-        volumes = dd.read_csv(self.volumes_file_path)
-        return volumes
-
-
-    def volumes_ml_preprocessing_pipeline(self) -> dd.DataFrame:
-
-        volumes = self.get_volumes_data()
-
-        # ------------------ Cyclical variables encoding ------------------
-
-        volumes["hour_sin"] = sin_transformer(data=volumes["hour"], timeframe=24)
-        volumes["hour_cos"] = sin_transformer(data=volumes["hour"], timeframe=24)
-
-        volumes["week_sin"] = sin_transformer(data=volumes["week"], timeframe=52)
-        volumes["week_cos"] = sin_transformer(data=volumes["week"], timeframe=52)
-
-        volumes["day_sin"] = sin_transformer(data=volumes["day"], timeframe=31)
-        volumes["day_cos"] = sin_transformer(data=volumes["day"], timeframe=31)
-
-        volumes["month_sin"] = sin_transformer(data=volumes["month"], timeframe=12)
-        volumes["month_cos"] = sin_transformer(data=volumes["month"], timeframe=12)
-
-        print("\n\n")
-
-        #------------------ Outliers filtering with Z-Score ------------------
-
-        volumes = ZScore(volumes, "volume")
-
-        volumes = volumes.sort_values(by=["year", "month", "day"], ascending=True)
-
-
-        # ------------------ Variables normalization ------------------
-
-        scaler = MinMaxScaler()
-        volumes[["volume", "coverage"]] = scaler.fit_transform(volumes[["volume", "coverage"]])
-
-
-        #------------------ Creating lag features ------------------
-
-        lag_column_names = ["volumes_lag1", "volumes_lag2", "volumes_lag3", "volumes_lag4", "volumes_lag5", "volumes_lag6", "volumes_lag7"]
-
-        for idx, n in enumerate(lag_column_names): volumes[n] = volumes["volume"].shift(idx + 1)
-
-        #print(volumes.head(10))
-        #print(volumes.dtypes)
-
-        volumes = volumes.drop(columns=["year", "month", "week", "day", "trp_id"], axis=1).persist()
-
-        #print("Volumes dataframe head: ")
-        #print(volumes.head(5), "\n")
-
-        #print("Volumes dataframe tail: ")
-        #print(volumes.tail(5), "\n")
-
-
-        return volumes
 
 
     @staticmethod
@@ -285,15 +225,77 @@ class TrafficVolumesLearner:
 
 
 
-class AverageSpeedLearner:
+class TrafficVolumesLearner(BaseLearner):
+
+    def __init__(self, volumes_file_path: str):
+        super().__init__()
+
+
+    def get_volumes_data(self) -> dd.DataFrame:
+        volumes = dd.read_csv(self.volumes_file_path)
+        return volumes
+
+
+    def volumes_ml_preprocessing_pipeline(self) -> dd.DataFrame:
+
+        volumes = self.get_volumes_data()
+
+        # ------------------ Cyclical variables encoding ------------------
+
+        volumes["hour_sin"] = sin_transformer(data=volumes["hour"], timeframe=24)
+        volumes["hour_cos"] = sin_transformer(data=volumes["hour"], timeframe=24)
+
+        volumes["week_sin"] = sin_transformer(data=volumes["week"], timeframe=52)
+        volumes["week_cos"] = sin_transformer(data=volumes["week"], timeframe=52)
+
+        volumes["day_sin"] = sin_transformer(data=volumes["day"], timeframe=31)
+        volumes["day_cos"] = sin_transformer(data=volumes["day"], timeframe=31)
+
+        volumes["month_sin"] = sin_transformer(data=volumes["month"], timeframe=12)
+        volumes["month_cos"] = sin_transformer(data=volumes["month"], timeframe=12)
+
+        print("\n\n")
+
+        #------------------ Outliers filtering with Z-Score ------------------
+
+        volumes = ZScore(volumes, "volume")
+
+        volumes = volumes.sort_values(by=["year", "month", "day"], ascending=True)
+
+
+        # ------------------ Variables normalization ------------------
+
+        scaler = MinMaxScaler()
+        volumes[["volume", "coverage"]] = scaler.fit_transform(volumes[["volume", "coverage"]])
+
+
+        #------------------ Creating lag features ------------------
+
+        lag_column_names = ["volumes_lag1", "volumes_lag2", "volumes_lag3", "volumes_lag4", "volumes_lag5", "volumes_lag6", "volumes_lag7"]
+
+        for idx, n in enumerate(lag_column_names): volumes[n] = volumes["volume"].shift(idx + 1)
+
+        #print(volumes.head(10))
+        #print(volumes.dtypes)
+
+        volumes = volumes.drop(columns=["year", "month", "week", "day", "trp_id"], axis=1).persist()
+
+        #print("Volumes dataframe head: ")
+        #print(volumes.head(5), "\n")
+
+        #print("Volumes dataframe tail: ")
+        #print(volumes.tail(5), "\n")
+
+
+        return volumes
+
+
+
+class AverageSpeedLearner(BaseLearner):
 
     def __init__(self, average_speed_file_path: str):
+        super().__init__()
         self.average_speed_file_path = average_speed_file_path
-        self.scorer = {"r2": make_scorer(r2_score),
-                       "mean_squared_error": make_scorer(mean_squared_error),
-                       "root_mean_squared_error": make_scorer(root_mean_squared_error),
-                       "mean_absolute_error": make_scorer(mean_absolute_error),
-                       "mean_absolute_percentage_error": make_scorer(mean_absolute_percentage_error)}
 
 
     def get_average_speed_data(self) -> dd.DataFrame:
@@ -356,37 +358,6 @@ class AverageSpeedLearner:
 
 
         return speeds
-
-    #TODO THIS COULD POTENTIALLY BE WRITTEN IN A SEPARATED CLASS CALLED "BaseLearner" AND THEN USED IN THIS SCOPE AND IN THE TRAFFIC VOLUMES ONE
-    @staticmethod
-    def split_data(speeds_preprocessed: dd.DataFrame, return_pandas: bool = False):
-
-        X = speeds_preprocessed.drop(columns=["mean_speed"])
-        y = speeds_preprocessed[["mean_speed"]]
-
-        #print("X shape: ", X.shape, "\n")
-        #print("y shape: ", y.shape, "\n")
-
-        p_75 = int((len(y) / 100) * 70)
-
-        X_train = X.loc[:p_75].persist()
-        X_test = X.loc[p_75:].persist()
-
-        y_train = y.loc[:p_75].persist()
-        y_test = y.loc[p_75:].persist()
-
-
-        #print(X_train.tail(5), "\n", X_test.tail(5), "\n", y_train.tail(5), "\n", y_test.tail(5), "\n")
-        #print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
-
-        if return_pandas is True:
-            return pd.DataFrame(X_train), pd.DataFrame(X_test), pd.DataFrame(y_train), pd.DataFrame(y_test)
-        else:
-            return X_train, X_test, y_train, y_test
-
-
-
-
 
 
 
