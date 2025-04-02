@@ -13,6 +13,7 @@ from tqdm import tqdm
 from scipy import stats
 from scipy.special import softmax
 import time
+import math
 
 from dask.distributed import Client
 import joblib
@@ -30,8 +31,8 @@ simplefilter(action='ignore', category=FutureWarning)
 warnings.filterwarnings("ignore")
 pd.set_option('display.max_columns', None)
 
-#n_cpu = os.cpu_count()
-#ml_dedicated_cores = n_cpu // 80
+n_cpu = os.cpu_count()
+ml_dedicated_cores = math.floor(n_cpu / 50) #To avoid crashing while executing parallel computing in the GridSearchCV algorithm
 
 
 def sin_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]) -> [pd.Series | pd.DataFrame]:
@@ -95,9 +96,9 @@ class BaseLearner:
         model_filename = ops_name + "_" + model_name + "_" + "parameters"
 
 
-        client = Client(processes=True)
+        client = Client(processes=False)
 
-        gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=-1, scheduler="multiprocessing", cv=5)  # The models_gridsearch_parameters is obtained from the tfs_models file
+        gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=ml_dedicated_cores, scheduler="threading", cv=5)  # The models_gridsearch_parameters is obtained from the tfs_models file
 
         with joblib.parallel_backend('dask'):
             gridsearch.fit(X=X_train, y=y_train)
