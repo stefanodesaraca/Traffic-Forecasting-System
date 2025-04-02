@@ -159,6 +159,7 @@ def execute_eda() -> None:
 def execute_forecast_warmup(functionality: str) -> None:
 
     models = [m for m in model_names_and_functions.keys()]
+    targets = ["volume", "mean_speed"] #TODO IMPROVE SIMPLICITY IN MANAGING THE TWO TYPES OF DATA IN THE FUNCTIONS BELOW
 
 
     #TODO SPLIT THE DATA BY ROAD CATEGORY AND SORT IT BY YEAR, MONTH AND DAY ascending=True AFTER HAVING CONCATENATED IT
@@ -176,10 +177,10 @@ def execute_forecast_warmup(functionality: str) -> None:
 
             #We'll skip variable selection since there aren't many variables to choose as predictors
 
-            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed)
+            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
 
             # -------------- GridSearchCV phase --------------
-            for model_name in models: volumes_learner.gridsearch_for_model(X_train, y_train, model_name=model_name)
+            for model_name in models: volumes_learner.gridsearch_for_model(X_train, y_train, target=targets[0], model_name=model_name)
 
 
     # ------------ Hyperparameter tuning for average speed ML models ------------
@@ -191,9 +192,11 @@ def execute_forecast_warmup(functionality: str) -> None:
             avg_speed_learner = AverageSpeedLearner(s)
             avg_speeds_preprocessed = avg_speed_learner.avg_speeds_ml_preprocessing_pipeline()
 
-            X_train, X_test, y_train, y_test = avg_speed_learner.split_data(avg_speeds_preprocessed, return_pandas=True)
+            print("Pre-processed!")
 
-            for model_name in models: avg_speed_learner.gridsearch_for_model(X_train, y_train, model_name=model_name)
+            X_train, X_test, y_train, y_test = avg_speed_learner.split_data(avg_speeds_preprocessed, target=targets[1], return_pandas=True)
+
+            for model_name in models: avg_speed_learner.gridsearch_for_model(X_train, y_train, target=targets[1], model_name=model_name)
 
 
     # ------------ Train ML models on traffic volumes data ------------
@@ -205,7 +208,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             volumes_learner = TrafficVolumesLearner(v)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
-            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, return_pandas=True)
+            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0], return_pandas=True)
 
             # -------------- Training phase --------------
             for model_name in models: volumes_learner.train_model(X_train, y_train, model_name=model_name)
@@ -224,7 +227,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             volumes_learner = TrafficVolumesLearner(v)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
-            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, return_pandas=True)
+            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0], return_pandas=True)
 
             # -------------- Testing phase --------------
             for model_name in models: volumes_learner.test_model(X_test, y_test, model_name=model_name)

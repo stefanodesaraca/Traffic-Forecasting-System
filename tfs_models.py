@@ -1,3 +1,4 @@
+from tfs_ml import ml_dedicated_cores
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor, BaggingRegressor, GradientBoostingRegressor, AdaBoostRegressor, HistGradientBoostingRegressor
 
@@ -35,10 +36,10 @@ def get_histgradientboosting_regressor() -> HistGradientBoostingRegressor:
 
 
 
-# ------------------- GridSearchCV parameters and auxiliary ones -------------------
+# ------------------- GridSearchCV volume parameters -------------------
 
 #TODO CHECK AGAIN AND/OR POTENTIALLY IMPROVE (CHANGE) THE PARAMETERS ONCE THE GridSearchCV IS EXECUTED ON THE WHOLE DATA AND WITH cv=10
-models_gridsearch_parameters = {
+volumes_models_gridsearch_parameters = {
     "RandomForestRegressor": {
         "n_estimators": [25, 40, 50, 70],
         "max_depth": [None, 3, 5, 10],
@@ -64,6 +65,8 @@ models_gridsearch_parameters = {
 }
 
 
+# ------------------- GridSearchCV auxiliary parameters and functions -------------------
+
 model_names_and_functions = {
     "RandomForestRegressor": get_random_forest_regressor,
     "BaggingRegressor": get_bagging_regressor,
@@ -81,9 +84,9 @@ model_names_and_class_objects = {
 
 
 model_auxiliary_parameters = {
-    "RandomForestRegressor": {"n_jobs": -1,
+    "RandomForestRegressor": {"n_jobs": ml_dedicated_cores,
                               "random_state": 100},
-    "BaggingRegressor": {"n_jobs": -1,
+    "BaggingRegressor": {"n_jobs": ml_dedicated_cores,
                          "random_state": 100},
     "HistGradientBoostingRegressor": {"random_state": 100, "categorical_features": None},
     "DecisionTreeRegressor": {"random_state": 100}
@@ -97,9 +100,33 @@ best_parameters_by_model = {"RandomForestRegressor": 11,
 
 
 
+# ------------------- GridSearchCV average speed parameters -------------------
 
 
-
+speeds_models_gridsearch_parameters = {
+    "RandomForestRegressor": {
+        "n_estimators": [25, 40, 50, 70],
+        "max_depth": [None, 3, 5, 10],
+        "criterion": ["squared_error", "friedman_mse"],
+        "ccp_alpha": [0]
+    },
+    "BaggingRegressor": {
+        "n_estimators": [10, 20, 50, 70],
+        "bootstrap_features": [False, True]
+    },
+    "DecisionTreeRegressor": {
+        "max_depth": [None, 2, 3, 5]
+    },
+    "HistGradientBoostingRegressor": {
+        "max_iter": [50, 70],
+        "max_depth": [3, 5],
+        "loss": ["squared_error", "absolute_error"],
+        "validation_fraction": [0.25],
+        "n_iter_no_change": [5, 10],
+        "tol": [1e-4, 1e-3],
+        "l2_regularization": [0]
+    }
+}
 
 
 

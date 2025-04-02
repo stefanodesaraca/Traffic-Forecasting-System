@@ -18,13 +18,11 @@ import math
 from dask.distributed import Client
 import joblib
 
-from dask_ml.wrappers import ParallelPostFit
 from dask_ml.preprocessing import MinMaxScaler
 from dask_ml.model_selection import GridSearchCV
 
 from sklearn.feature_selection import SelectFromModel
 from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error
-from sklearn.model_selection import cross_validate
 
 
 simplefilter(action='ignore', category=FutureWarning)
@@ -59,10 +57,19 @@ class BaseLearner:
 
 
     @staticmethod
-    def split_data(volumes_preprocessed: dd.DataFrame, return_pandas: bool = False):
+    def split_data(volumes_preprocessed: dd.DataFrame, target: str, return_pandas: bool = False):
+        """
+        The target variable has only two possible values: "volume", "mean_speed"
+        """
 
-        X = volumes_preprocessed.drop(columns=["volume"])
-        y = volumes_preprocessed[["volume"]]
+        if target == "volume":
+            X = volumes_preprocessed.drop(columns=["volume"])
+            y = volumes_preprocessed[["volume"]]
+        elif target == "mean_speed":
+            X = volumes_preprocessed.drop(columns=["mean_speed", "percentile_85"])
+            y = volumes_preprocessed[["mean_speed", "percentile_85"]]
+        else:
+            raise Exception("Wrong target variable in the split_data() function")
 
         #print("X shape: ", X.shape, "\n")
         #print("y shape: ", y.shape, "\n")
@@ -85,14 +92,20 @@ class BaseLearner:
             return X_train, X_test, y_train, y_test
 
 
-    def gridsearch_for_model(self, X_train, y_train, model_name) -> None:
+    def gridsearch_for_model(self, X_train, y_train, target: str, model_name: str) -> None:
 
         ops_name = get_active_ops_name()
 
-        parameters_grid = models_gridsearch_parameters[model_name]
+        if target == "volume":
+            parameters_grid = volumes_models_gridsearch_parameters[model_name]
+        elif target == "mean_speed":
+            parameters_grid = speeds_models_gridsearch_parameters[model_name]
+        else:
+            raise Exception("Wrong target variable in GridSearchCV executor function")
+
         model = model_names_and_functions[model_name]()  # Finding the function which returns the model and executing it
 
-        ml_parameters_folder_path = get_ml_model_parameters_folder_path()
+        ml_parameters_folder_path = get_ml_model_parameters_folder_path(target=target)
         model_filename = ops_name + "_" + model_name + "_" + "parameters"
 
 
@@ -146,14 +159,14 @@ class BaseLearner:
 
 
     @staticmethod
-    def train_model(X_train, y_train, model_name: str) -> None:
+    def train_model(X_train, y_train, target: str, model_name: str) -> None:
 
         # -------------- Filenames, etc. --------------
 
         ops_name = get_active_ops_name()
 
-        models_parameters_folder_path = get_ml_model_parameters_folder_path()
-        models_folder_path = get_ml_models_folder_path()
+        models_parameters_folder_path = get_ml_model_parameters_folder_path(target)
+        models_folder_path = get_ml_models_folder_path(target)
 
         model_filename = ops_name + "_" + model_name
 
@@ -199,11 +212,11 @@ class BaseLearner:
 
 
     @staticmethod
-    def test_model(X_test, y_test, model_name) -> None:
+    def test_model(X_test, y_test, target: str, model_name) -> None:
 
         ops_name = get_active_ops_name()
 
-        ml_folder_path = get_ml_models_folder_path()
+        ml_folder_path = get_ml_models_folder_path(target)
         model_filename = ops_name + "_" + model_name
 
 

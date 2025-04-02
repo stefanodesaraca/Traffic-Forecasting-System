@@ -221,20 +221,30 @@ def get_clean_average_speed_files_list() -> list:
 # ==================== ML Related Utilities ====================
 
 
-def get_ml_models_folder_path() -> str:
+def get_ml_models_folder_path(target: str) -> str:
 
     ops_name = get_active_ops_name()
 
-    ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/"
+    if target == "volume":
+        ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/traffic_volumes/"
+    elif target == "mean_speed":
+        ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/average_speed/"
+    else:
+        raise Exception("Wrong target variable in the get_ml_models_folder_path() function")
 
     return ml_folder_path
 
 
-def get_ml_model_parameters_folder_path() -> str:
+def get_ml_model_parameters_folder_path(target: str) -> str:
 
     ops_name = get_active_ops_name()
 
-    ml_parameters_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_model_parameters/"
+    if target == "volume":
+        ml_parameters_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models_parameters/traffic_volumes/"
+    elif target == "mean_speed":
+        ml_parameters_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models_parameters/average_speed/"
+    else:
+        raise Exception("Wrong target variable in the get_ml_model_parameters_folder_path() function")
 
     return ml_parameters_folder_path
 
