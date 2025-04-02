@@ -229,6 +229,7 @@ class TrafficVolumesLearner(BaseLearner):
 
     def __init__(self, volumes_file_path: str):
         super().__init__()
+        self.volumes_file_path = volumes_file_path
 
 
     def get_volumes_data(self) -> dd.DataFrame:
