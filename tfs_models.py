@@ -1,4 +1,4 @@
-from tfs_ml import ml_dedicated_cores
+from tfs_ml import retrieve_n_ml_cpus
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor, BaggingRegressor, GradientBoostingRegressor, AdaBoostRegressor, HistGradientBoostingRegressor
 
@@ -84,16 +84,16 @@ model_names_and_class_objects = {
 
 
 model_auxiliary_parameters = {
-    "RandomForestRegressor": {"n_jobs": ml_dedicated_cores,
+    "RandomForestRegressor": {"n_jobs": retrieve_n_ml_cpus(),
                               "random_state": 100},
-    "BaggingRegressor": {"n_jobs": ml_dedicated_cores,
+    "BaggingRegressor": {"n_jobs": retrieve_n_ml_cpus(),
                          "random_state": 100},
     "HistGradientBoostingRegressor": {"random_state": 100, "categorical_features": None},
     "DecisionTreeRegressor": {"random_state": 100}
 }
 
 
-best_parameters_by_model = {"RandomForestRegressor": 11,
+volumes_best_parameters_by_model = {"RandomForestRegressor": 11,
                             "BaggingRegressor": 4,
                             "HistGradientBoostingRegressor": 26,
                             "DecisionTreeRegressor": 3}
@@ -128,5 +128,10 @@ speeds_models_gridsearch_parameters = {
     }
 }
 
+
+speeds_best_parameters_by_model = {"RandomForestRegressor": 11,
+                            "BaggingRegressor": 4,
+                            "HistGradientBoostingRegressor": 26,
+                            "DecisionTreeRegressor": 3}
 
 

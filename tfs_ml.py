@@ -29,8 +29,6 @@ simplefilter(action='ignore', category=FutureWarning)
 warnings.filterwarnings("ignore")
 pd.set_option('display.max_columns', None)
 
-n_cpu = os.cpu_count()
-ml_dedicated_cores = math.floor(n_cpu / 50) #To avoid crashing while executing parallel computing in the GridSearchCV algorithm
 
 
 def sin_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]) -> [pd.Series | pd.DataFrame]:
@@ -44,6 +42,11 @@ def cos_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]) -> [pd.Ser
     The timeframe indicates a number of days
     """
     return np.cos((data-1)*(2.*np.pi/timeframe))
+
+def retrieve_n_ml_cpus() -> int:
+    n_cpu = os.cpu_count()
+    ml_dedicated_cores = math.floor(n_cpu / 50)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
+    return ml_dedicated_cores
 
 
 
@@ -98,8 +101,10 @@ class BaseLearner:
 
         if target == "volume":
             parameters_grid = volumes_models_gridsearch_parameters[model_name]
+            best_parameters_by_model = volumes_best_parameters_by_model
         elif target == "mean_speed":
             parameters_grid = speeds_models_gridsearch_parameters[model_name]
+            best_parameters_by_model = speeds_best_parameters_by_model
         else:
             raise Exception("Wrong target variable in GridSearchCV executor function")
 
@@ -111,7 +116,7 @@ class BaseLearner:
 
         client = Client(processes=False)
 
-        gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=ml_dedicated_cores, scheduler="threading", cv=5)  # The models_gridsearch_parameters is obtained from the tfs_models file
+        gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=retrieve_n_ml_cpus(), scheduler="threading", cv=5)  # The models_gridsearch_parameters is obtained from the tfs_models file
 
         with joblib.parallel_backend('dask'):
             gridsearch.fit(X=X_train, y=y_train)
@@ -135,6 +140,7 @@ class BaseLearner:
         #print(gridsearch.scorer_, "\n")
 
         client.close()
+
 
         #The best_parameters_by_model variable is obtained from the tfs_models file
         true_best_parameters = {model_name: gridsearch_results["params"].loc[best_parameters_by_model[model_name]] if gridsearch_results["params"].loc[best_parameters_by_model[model_name]] is not None else {}}
