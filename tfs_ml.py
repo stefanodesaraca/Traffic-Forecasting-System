@@ -357,8 +357,32 @@ class AverageSpeedLearner:
 
         return speeds
 
+    #TODO THIS COULD POTENTIALLY BE WRITTEN IN A SEPARATED CLASS CALLED "BaseLearner" AND THEN USED IN THIS SCOPE AND IN THE TRAFFIC VOLUMES ONE
+    @staticmethod
+    def split_data(speeds_preprocessed: dd.DataFrame, return_pandas: bool = False):
+
+        X = speeds_preprocessed.drop(columns=["mean_speed"])
+        y = speeds_preprocessed[["mean_speed"]]
+
+        #print("X shape: ", X.shape, "\n")
+        #print("y shape: ", y.shape, "\n")
+
+        p_75 = int((len(y) / 100) * 70)
+
+        X_train = X.loc[:p_75].persist()
+        X_test = X.loc[p_75:].persist()
+
+        y_train = y.loc[:p_75].persist()
+        y_test = y.loc[p_75:].persist()
 
 
+        #print(X_train.tail(5), "\n", X_test.tail(5), "\n", y_train.tail(5), "\n", y_test.tail(5), "\n")
+        #print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
+
+        if return_pandas is True:
+            return pd.DataFrame(X_train), pd.DataFrame(X_test), pd.DataFrame(y_train), pd.DataFrame(y_test)
+        else:
+            return X_train, X_test, y_train, y_test
 
 
 
