@@ -2,6 +2,7 @@ import os
 import math
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor, BaggingRegressor, GradientBoostingRegressor, AdaBoostRegressor, HistGradientBoostingRegressor
+from sklearn.multioutput import MultiOutputRegressor
 
 
 def retrieve_n_ml_cpus() -> int:
@@ -38,7 +39,7 @@ def get_decision_tree_regressor() -> DecisionTreeRegressor:
 
 
 def get_histgradientboosting_regressor() -> HistGradientBoostingRegressor:
-    hist_gradient_boosting = HistGradientBoostingRegressor(random_state=100)  # Has the max_iter, max_depth parameters
+    hist_gradient_boosting = HistGradientBoostingRegressor(random_state=100) #Has the max_iter, max_depth parameters
     return hist_gradient_boosting
 
 
@@ -71,6 +72,12 @@ volumes_models_gridsearch_parameters = {
     }
 }
 
+volumes_best_parameters_by_model = {"RandomForestRegressor": 11,
+                            "BaggingRegressor": 4,
+                            "HistGradientBoostingRegressor": 26,
+                            "DecisionTreeRegressor": 3}
+
+
 
 # ------------------- GridSearchCV auxiliary parameters and functions -------------------
 
@@ -100,36 +107,30 @@ model_auxiliary_parameters = {
 }
 
 
-volumes_best_parameters_by_model = {"RandomForestRegressor": 11,
-                            "BaggingRegressor": 4,
-                            "HistGradientBoostingRegressor": 26,
-                            "DecisionTreeRegressor": 3}
-
-
 
 # ------------------- GridSearchCV average speed parameters -------------------
 
 
 speeds_models_gridsearch_parameters = {
     "RandomForestRegressor": {
-        "n_estimators": [25, 40, 50, 70],
+        "n_estimators": [10, 25, 40],
         "max_depth": [None, 3, 5, 10],
         "criterion": ["squared_error", "friedman_mse"],
         "ccp_alpha": [0]
     },
     "BaggingRegressor": {
-        "n_estimators": [10, 20, 50, 70],
+        "n_estimators": [10, 20],
         "bootstrap_features": [False, True]
     },
     "DecisionTreeRegressor": {
         "max_depth": [None, 2, 3, 5]
     },
     "HistGradientBoostingRegressor": {
-        "max_iter": [50, 70],
+        "max_iter": [25, 50],
         "max_depth": [3, 5],
         "loss": ["squared_error", "absolute_error"],
-        "validation_fraction": [0.25],
-        "n_iter_no_change": [5, 10],
+        "validation_fraction": [0.15],
+        "n_iter_no_change": [2, 5, 10],
         "tol": [1e-4, 1e-3],
         "l2_regularization": [0]
     }

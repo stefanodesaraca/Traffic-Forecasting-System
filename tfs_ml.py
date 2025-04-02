@@ -69,8 +69,8 @@ class BaseLearner:
             X = volumes_preprocessed.drop(columns=["volume"])
             y = volumes_preprocessed[["volume"]]
         elif target == "mean_speed":
-            X = volumes_preprocessed.drop(columns=["mean_speed", "percentile_85"])
-            y = volumes_preprocessed[["mean_speed", "percentile_85"]]
+            X = volumes_preprocessed.drop(columns=["mean_speed"])
+            y = volumes_preprocessed[["mean_speed"]]
         else:
             raise Exception("Wrong target variable in the split_data() function")
 
@@ -108,7 +108,7 @@ class BaseLearner:
         else:
             raise Exception("Wrong target variable in GridSearchCV executor function")
 
-        model = model_names_and_functions[model_name]()  # Finding the function which returns the model and executing it
+        model = model_names_and_functions[model_name]() #Finding the function which returns the model and executing it
 
         ml_parameters_folder_path = get_ml_model_parameters_folder_path(target=target)
         model_filename = ops_name + "_" + model_name + "_" + "parameters"

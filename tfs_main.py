@@ -192,8 +192,6 @@ def execute_forecast_warmup(functionality: str) -> None:
             avg_speed_learner = AverageSpeedLearner(s)
             avg_speeds_preprocessed = avg_speed_learner.avg_speeds_ml_preprocessing_pipeline()
 
-            print("Pre-processed!")
-
             X_train, X_test, y_train, y_test = avg_speed_learner.split_data(avg_speeds_preprocessed, target=targets[1], return_pandas=True)
 
             for model_name in models: avg_speed_learner.gridsearch_for_model(X_train, y_train, target=targets[1], model_name=model_name)
