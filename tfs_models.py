@@ -109,7 +109,7 @@ model_auxiliary_parameters = {
 
 
 # ------------------- GridSearchCV average speed parameters -------------------
-
+#Be aware that too low parameters could bring some models to stall while training, so don't go too low with the grid search parameters
 
 speeds_models_gridsearch_parameters = {
     "RandomForestRegressor": {
@@ -119,11 +119,11 @@ speeds_models_gridsearch_parameters = {
         "ccp_alpha": [0]
     },
     "BaggingRegressor": {
-        "n_estimators": [5, 10],
+        "n_estimators": [20, 30],
         "bootstrap_features": [False, True]
     },
     "DecisionTreeRegressor": {
-        "max_depth": [None, 2, 3, 5]
+        "max_depth": [None, 5, 10, 15]
     },
     "HistGradientBoostingRegressor": {
         "max_iter": [25, 50],
@@ -139,7 +139,7 @@ speeds_models_gridsearch_parameters = {
 
 speeds_best_parameters_by_model = {"RandomForestRegressor": 2,
                                    "BaggingRegressor": 3,
-                                   "HistGradientBoostingRegressor": None,
+                                   "HistGradientBoostingRegressor": 11,
                                    "DecisionTreeRegressor": 2}
 
 
