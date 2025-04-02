@@ -69,7 +69,7 @@ def write_trp_metadata(trp_id: str) -> None:
 
     ops_name = get_active_ops_name()
     trps = import_TRPs_data()
-    trp_data = trps[trp_id]
+    trp_data = [i for i in trps["trafficRegistrationPoints"] if i["id"] == trp_id][0]
 
     trp_metadata_filepath = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/"
     trp_metadata_filename = f"{trp_id}_metadata"
@@ -91,8 +91,7 @@ def write_trp_metadata(trp_id: str) -> None:
                 "latest_volume_byh_hour": trp_data["dataTimeSpan"]["latestData"]["volumeByHour"],
                 "latest_volume_average_daily_by_year": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByYear"],
                 "latest_volume_average_daily_by_season": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"],
-                "latest_volume_average_daily_by_month": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"],
-                "number_of_data_nodes": len(trps["trafficData"]["volume"]["byHour"]["edges"])}
+                "latest_volume_average_daily_by_month": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"]}
 
     with open(trp_metadata_filepath + trp_metadata_filename + ".json", "w") as json_metadata:
         json.dump(metadata, json_metadata, indent=4)
