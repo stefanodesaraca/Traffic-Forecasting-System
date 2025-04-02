@@ -7,7 +7,7 @@ from sklearn.multioutput import MultiOutputRegressor
 
 def retrieve_n_ml_cpus() -> int:
     n_cpu = os.cpu_count()
-    ml_dedicated_cores = math.floor(n_cpu / 50)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
+    ml_dedicated_cores = math.floor(n_cpu / 0.50)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
     return ml_dedicated_cores
 
 
@@ -113,17 +113,17 @@ model_auxiliary_parameters = {
 
 speeds_models_gridsearch_parameters = {
     "RandomForestRegressor": {
-        "n_estimators": [100, 200, 300], #NOTE LAST: 10, 25, 40
-        "max_depth": [None, 3, 5, 10],
+        "n_estimators": [3, 5, 10], #NOTE LAST: 10, 25, 40
+        "max_depth": [None, 2],
         "criterion": ["squared_error", "friedman_mse"], #NOTE friedman_mse SEEMS TO PERFORM BETTER
-        "ccp_alpha": [0, 0.3]
+        "ccp_alpha": [0]
     },
     "BaggingRegressor": {
-        "n_estimators": [100, 200, 300],
+        "n_estimators": [5, 10],
         "bootstrap_features": [False, True]
     },
     "DecisionTreeRegressor": {
-        "max_depth": [None, 10, 20, 30]
+        "max_depth": [None, 2, 3, 5]
     },
     "HistGradientBoostingRegressor": {
         "max_iter": [25, 50],
@@ -137,9 +137,9 @@ speeds_models_gridsearch_parameters = {
 }
 
 
-speeds_best_parameters_by_model = {"RandomForestRegressor": 16,
-                                   "BaggingRegressor": None,
+speeds_best_parameters_by_model = {"RandomForestRegressor": 2,
+                                   "BaggingRegressor": 3,
                                    "HistGradientBoostingRegressor": None,
-                                   "DecisionTreeRegressor": None}
+                                   "DecisionTreeRegressor": 2}
 
 

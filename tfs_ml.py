@@ -349,7 +349,7 @@ class AverageSpeedLearner(BaseLearner):
         #------------------ Outliers filtering with Z-Score ------------------
 
         speeds = ZScore(speeds, "mean_speed")
-        speeds = ZScore(speeds, "percentile_85")
+
 
         speeds = speeds.sort_values(by=["year", "month", "day"], ascending=True)
 
@@ -362,16 +362,14 @@ class AverageSpeedLearner(BaseLearner):
 
         #------------------ Creating lag features ------------------
 
-        speeds_lag_column_names = ["mean_speed_lag1", "mean_speed_lag2", "mean_speed_lag3", "mean_speed_lag4", "mean_speed_lag5", "mean_speed_lag6", "mean_speed_lag7"]
-        percentile_85_lag_column_names = ["percentile_85_lag1", "percentile_85_lag2", "percentile_85_lag3", "percentile_85_lag4", "percentile_85_lag5", "percentile_85_lag6", "percentile_85_lag7"]
+        speeds_lag_column_names = ["mean_speed_lag1", "mean_speed_lag2", "mean_speed_lag3", "mean_speed_lag4", "mean_speed_lag5", "mean_speed_lag6", "mean_speed_lag7", "mean_speed_lag8", "mean_speed_lag9", "mean_speed_lag10", "mean_speed_lag11", "mean_speed_lag12", "mean_speed_lag13", "mean_speed_lag14"]
 
         for idx, n in enumerate(speeds_lag_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 1)
-        for idx, n in enumerate(percentile_85_lag_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 1)
 
         #print(speeds.head(10))
         #print(speeds.dtypes)
 
-        speeds = speeds.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist()
+        speeds = speeds.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist() #TODO TRY DROPPING PERCENTILE_85 AND CHECK IF RESULTS GET BETTER
 
         #print("Average speeds dataframe head: ")
         #print(speeds.head(5), "\n")
@@ -392,9 +390,9 @@ class AverageSpeedLearner(BaseLearner):
 
 
 class OnePointForecaster:
-    '''
+    """
     self.trp_road_category: to find the right model to predict the data
-    '''
+    """
     def __init__(self, trp_id: str, road_category: str):
         self.trp_id = trp_id
         self.road_category = road_category
