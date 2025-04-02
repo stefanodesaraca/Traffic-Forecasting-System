@@ -73,10 +73,14 @@ def write_trp_metadata(trp_id: str) -> None:
 
     raw_volume_files_folder_path = get_raw_traffic_volumes_folder_path()
     raw_volume_files = get_raw_traffic_volume_file_list()
-    trp_volumes_file = [f for f in raw_volume_files if trp_id in f][0] #Find the right TRP file by checking if the TRP ID is in the filename
+    trp_volumes_file = [f for f in raw_volume_files if trp_id in f] #Find the right TRP file by checking if the TRP ID is in the filename and if it is in the raw traffic volumes folder
+
+    if len(trp_volumes_file) == 1:
+        trp_volumes_file = trp_volumes_file[0]
+    else: return None
+
 
     with open(raw_volume_files_folder_path + trp_volumes_file, "r") as f: volumes = json.load(f)
-
 
     trp_metadata_filepath = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/"
     trp_metadata_filename = f"{trp_id}_metadata"

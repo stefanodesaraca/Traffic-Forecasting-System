@@ -10,6 +10,7 @@ from tfs_models import model_names_and_functions
 import os
 import time
 from datetime import datetime
+from tqdm import tqdm
 
 
 def manage_ops(functionality: str) -> None:
@@ -73,7 +74,10 @@ def download_data(functionality: str) -> None:
     elif functionality == "2.3":
 
         trp_id_list = get_trp_id_list()
-        for trp_id in trp_id_list: write_trp_metadata(trp_id)
+
+        print("Writing metadata files...")
+        for trp_id in tqdm(trp_id_list): write_trp_metadata(trp_id)
+        print("Metadata files successfully written")
 
 
     return None
