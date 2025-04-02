@@ -222,6 +222,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             for model_name in models: volumes_forecaster.test_model(X_test, y_test, model_name=model_name)
 
 
+        print("\n\n")
 
 
     return None
