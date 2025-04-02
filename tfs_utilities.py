@@ -226,9 +226,9 @@ def get_ml_models_folder_path(target: str) -> str:
     ops_name = get_active_ops_name()
 
     if target == "volume":
-        ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/traffic_volumes/"
+        ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/{ops_name}_traffic_volumes_models/"
     elif target == "mean_speed":
-        ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/average_speed/"
+        ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/{ops_name}_average_speed_models/"
     else:
         raise Exception("Wrong target variable in the get_ml_models_folder_path() function")
 
@@ -240,9 +240,9 @@ def get_ml_model_parameters_folder_path(target: str) -> str:
     ops_name = get_active_ops_name()
 
     if target == "volume":
-        ml_parameters_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models_parameters/traffic_volumes/"
+        ml_parameters_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models_parameters/{ops_name}_traffic_volumes_models_parameters/"
     elif target == "mean_speed":
-        ml_parameters_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models_parameters/average_speed/"
+        ml_parameters_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models_parameters/{ops_name}_average_speed_models_parameters/"
     else:
         raise Exception("Wrong target variable in the get_ml_model_parameters_folder_path() function")
 
