@@ -96,7 +96,7 @@ def create_ops_folder(ops_name: str) -> None:
 
         #Machine learning sub-subfolders
         for mlssf in ml_sub_subfolders:
-            os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{mlsf}/{mlssf}_{mlsf}", exist_ok=True)
+            os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{mlsf}/{mlssf}{mlsf.replace(ops_name, '')}", exist_ok=True)
 
     return None
 
