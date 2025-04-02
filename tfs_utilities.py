@@ -161,7 +161,7 @@ def retrieve_theoretical_hours_columns() -> list:
     return hours
 
 
-def get_clean_volume_files() -> list:
+def get_clean_volume_files_list() -> list:
 
     clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
 
@@ -213,6 +213,10 @@ def import_avg_speed_data(file_path: str) -> pd.DataFrame:
     data = pd.read_csv(file_path, sep=";", engine="c")
     return data
 
+
+def get_clean_average_speed_files_list() -> list:
+    files = os.listdir(get_clean_average_speed_folder_path())
+    return files
 
 # ==================== ML Related Utilities ====================
 

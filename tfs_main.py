@@ -168,39 +168,47 @@ def execute_forecast_warmup(functionality: str) -> None:
     # ------------ Hyperparameter tuning for traffic volumes ML models ------------
     if functionality == "3.2.1":
 
-        clean_traffic_volume_files = get_clean_volume_files()
+        clean_traffic_volume_files = get_clean_volume_files_list()
 
         for v in clean_traffic_volume_files[:2]: #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
-            volumes_forecaster = TrafficVolumesLearner(v)
-            volumes_preprocessed = volumes_forecaster.volumes_ml_preprocessing_pipeline()
+            volumes_learner = TrafficVolumesLearner(v)
+            volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
             #We'll skip variable selection since there aren't many variables to choose as predictors
 
-            X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed)
+            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed)
 
             # -------------- GridSearchCV phase --------------
-            for model_name in models: volumes_forecaster.gridsearch_for_model(X_train, y_train, model_name=model_name)
+            for model_name in models: volumes_learner.gridsearch_for_model(X_train, y_train, model_name=model_name)
 
 
     # ------------ Hyperparameter tuning for average speed ML models ------------
     elif functionality == "3.2.2":
 
-        print()
+        clean_average_speed_files = get_clean_average_speed_files_list()
+
+        for s in clean_average_speed_files[:2]:  #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
+            avg_speed_learner = AverageSpeedLearner(s)
+            avg_speeds_preprocessed = avg_speed_learner.avg_speeds_ml_preprocessing_pipeline()
+
+            X_train, X_test, y_train, y_test = avg_speed_learner.split_data(avg_speeds_preprocessed, return_pandas=True)
+
+            for model_name in models: avg_speed_learner.gridsearch_for_model(X_train, y_train, model_name=model_name)
 
 
     # ------------ Train ML models on traffic volumes data ------------
     elif functionality == "3.2.3":
 
-        clean_traffic_volume_files = get_clean_volume_files()
+        clean_traffic_volume_files = get_clean_volume_files_list()
 
         for v in clean_traffic_volume_files[:1]:  #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
-            volumes_forecaster = TrafficVolumesLearner(v)
-            volumes_preprocessed = volumes_forecaster.volumes_ml_preprocessing_pipeline()
+            volumes_learner = TrafficVolumesLearner(v)
+            volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
-            X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed, return_pandas=True)
+            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, return_pandas=True)
 
             # -------------- Training phase --------------
-            for model_name in models: volumes_forecaster.train_model(X_train, y_train, model_name=model_name)
+            for model_name in models: volumes_learner.train_model(X_train, y_train, model_name=model_name)
 
 
 
@@ -210,16 +218,16 @@ def execute_forecast_warmup(functionality: str) -> None:
 
     elif functionality == "3.2.5":
 
-        clean_traffic_volume_files = get_clean_volume_files()
+        clean_traffic_volume_files = get_clean_volume_files_list()
 
         for v in clean_traffic_volume_files[:1]:  # TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
-            volumes_forecaster = TrafficVolumesLearner(v)
-            volumes_preprocessed = volumes_forecaster.volumes_ml_preprocessing_pipeline()
+            volumes_learner = TrafficVolumesLearner(v)
+            volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
-            X_train, X_test, y_train, y_test = volumes_forecaster.split_data(volumes_preprocessed, return_pandas=True)
+            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, return_pandas=True)
 
             # -------------- Testing phase --------------
-            for model_name in models: volumes_forecaster.test_model(X_test, y_test, model_name=model_name)
+            for model_name in models: volumes_learner.test_model(X_test, y_test, model_name=model_name)
 
 
         print("\n\n")

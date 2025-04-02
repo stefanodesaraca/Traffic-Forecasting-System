@@ -256,7 +256,7 @@ class TrafficVolumesLearner(BaseLearner):
         volumes["month_sin"] = sin_transformer(data=volumes["month"], timeframe=12)
         volumes["month_cos"] = sin_transformer(data=volumes["month"], timeframe=12)
 
-        print("\n\n")
+        #print("\n\n")
 
         #------------------ Outliers filtering with Z-Score ------------------
 
