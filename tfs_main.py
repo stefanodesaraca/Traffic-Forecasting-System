@@ -155,7 +155,7 @@ def execute_eda() -> None:
 
     return None
 
-
+#TODO IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL
 def execute_forecast_warmup(functionality: str) -> None:
 
     models = [m for m in model_names_and_functions.keys()]

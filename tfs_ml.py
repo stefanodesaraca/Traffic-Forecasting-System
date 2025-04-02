@@ -131,6 +131,8 @@ class BaseLearner:
         print(f"============== {model_name} grid search results ==============\n")
         print(gridsearch_results, "\n")
 
+        print(gridsearch_results["params"])
+
         print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
         print("GridSearchCV best parameters: ", gridsearch.best_params_)
         print("GridSearchCV best score: ", gridsearch.best_score_)
