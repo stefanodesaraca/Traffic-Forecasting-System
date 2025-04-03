@@ -9,6 +9,7 @@ import sys
 from tqdm import tqdm, trange
 from collections import ChainMap
 import pprint
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from tfs_utilities import *
@@ -352,12 +353,15 @@ def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
 
     for i in elements:
         volumes_data = download_trp_data(i)
-        write_trp_metadata(i)
         elements.set_postfix({f"writing data for TRP": i})
 
         # Exporting traffic volumes to a json file, S stands for "Start" and E stands for "End". They represent the time frame in which the data was collected (for a specific traffic measurement point)
         with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{i}_volumes_S{time_start[:18].replace(':', '_')}_E{time_end[:18].replace(':', '_')}.json", "w") as tv_w:
             json.dump(volumes_data, tv_w, indent=4)
+
+        time.sleep(1)
+
+        write_trp_metadata(i)
 
         # print("Data successfully written in memory\n")
 
