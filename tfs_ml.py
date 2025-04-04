@@ -131,7 +131,7 @@ class BaseLearner:
         print(f"============== {model_name} grid search results ==============\n")
         print(gridsearch_results, "\n")
 
-        gridsearch_results.to_json(f"./ops/{model_name}_grid_params_and_results.json", indent=4)
+        gridsearch_results.to_json(f"./ops/{model_name}_grid_params_and_results.json", indent=4) #TODO FOR TESTING PURPOSES
 
 
         print("GridSearchCV best estimator: ", gridsearch.best_estimator_)

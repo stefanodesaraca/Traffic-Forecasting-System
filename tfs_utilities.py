@@ -111,6 +111,11 @@ def write_trp_metadata(trp_id: str) -> None:
     return None
 
 
+def retrieve_trp_road_category(trp_id: str) -> str:
+    trp_road_category = get_trp_metadata(trp_id)["road_category"]
+    return trp_road_category
+
+
 # ==================== Volumes Utilities ====================
 
 def get_raw_traffic_volumes_folder_path() -> str:
@@ -218,8 +223,8 @@ def get_clean_average_speed_files_list() -> list:
     files = [get_clean_average_speed_folder_path() + f for f in os.listdir(get_clean_average_speed_folder_path())]
     return files
 
-# ==================== ML Related Utilities ====================
 
+# ==================== ML Related Utilities ====================
 
 def get_ml_models_folder_path(target: str) -> str:
 
@@ -299,10 +304,32 @@ def ZScore(df: [pd.DataFrame | dd.DataFrame], column: str) -> [pd.DataFrame | dd
     return filtered_df
 
 
+def merge_volumes_data(trp_filepaths_list: list, return_pandas: bool) -> [dd.DataFrame | pd.DataFrame]:
+
+    if return_pandas is False:
+        dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
+        merged_data = dd.concat(dataframes_list, axis=0)
+        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
+    else:
+        dataframes_list = [pd.read_csv(trp) for trp in trp_filepaths_list]
+        merged_data = pd.concat(dataframes_list, axis=0)
+        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
+
+    return merged_data
 
 
+def merge_avg_speed_data(trp_filepaths_list: list, return_pandas: bool) -> [dd.DataFrame | pd.DataFrame]:
 
+    if return_pandas is False:
+        dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
+        merged_data = dd.concat(dataframes_list, axis=0)
+        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
+    else:
+        dataframes_list = [pd.read_csv(trp) for trp in trp_filepaths_list]
+        merged_data = pd.concat(dataframes_list, axis=0)
+        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
 
+    return merged_data
 
 
 

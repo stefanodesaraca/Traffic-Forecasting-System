@@ -159,7 +159,9 @@ def execute_eda() -> None:
 def execute_forecast_warmup(functionality: str) -> None:
 
     models = [m for m in model_names_and_functions.keys()]
-    targets = ["volume", "mean_speed"] #TODO IMPROVE SIMPLICITY IN MANAGING THE TWO TYPES OF DATA IN THE FUNCTIONS BELOW
+    targets = ["volume", "mean_speed"]
+
+
 
 
     #TODO SPLIT THE DATA BY ROAD CATEGORY AND SORT IT BY YEAR, MONTH AND DAY ascending=True AFTER HAVING CONCATENATED IT
