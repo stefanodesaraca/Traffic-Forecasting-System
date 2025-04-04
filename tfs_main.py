@@ -257,6 +257,12 @@ def execute_forecast_warmup(functionality: str) -> None:
         print("\n\n")
 
 
+
+    elif functionality == "3.2.6":
+
+        print()
+
+
     return None
 
 
