@@ -43,13 +43,8 @@ def get_trp_id_list() -> list:
 
 
 def get_all_road_categories() -> list:
-
-    traffic_registration_points_path = get_traffic_registration_points_file_path()
-    with open(traffic_registration_points_path, "r") as TRPs:
-        trp_info = json.load(TRPs)
-
+    trp_info = import_TRPs_data()
     trp_road_category_list = list(set([trp["location"]["roadReference"]["roadCategory"]["id"] for trp in trp_info["trafficRegistrationPoints"]]))
-
     return trp_road_category_list
 
 
@@ -181,11 +176,6 @@ def import_volumes_data(file):
         data = json.load(f)
 
     return data
-
-
-def retrieve_theoretical_hours_columns() -> list:
-    hours = [f"{i:02}" for i in range(24)]
-    return hours
 
 
 def get_clean_volume_files_list() -> list:
@@ -355,6 +345,10 @@ def ZScore(df: [pd.DataFrame | dd.DataFrame], column: str) -> [pd.DataFrame | dd
 
     return filtered_df
 
+
+def retrieve_theoretical_hours_columns() -> list:
+    hours = [f"{i:02}" for i in range(24)]
+    return hours
 
 
 

@@ -472,7 +472,7 @@ class AverageSpeedCleaner(Cleaner):
 
     @staticmethod
     def retrieve_trp_id_from_avg_speed_file(filename: str) -> str:
-        trp_id = filename.split("_")[0]
+        trp_id = get_trp_id_from_filename(filename)
         return trp_id
 
 
@@ -699,7 +699,7 @@ class AverageSpeedCleaner(Cleaner):
         try:
             average_speed_data = import_avg_speed_data(file_path=file_path)
 
-            trp_id = file_name.split("_")[0]
+            trp_id = get_trp_id_from_filename(file_name)
             self.data_overview(trp_id, verbose=True)
 
             average_speed_data, trp_id, t_max, t_min = self.clean_avg_speed_data(average_speed_data)

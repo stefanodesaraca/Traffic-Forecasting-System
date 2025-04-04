@@ -256,8 +256,7 @@ class TrafficVolumesLearner(BaseLearner):
 
 
     def get_volumes_data(self) -> dd.DataFrame:
-        volumes = self.volumes_data
-        return volumes
+        return self.volumes_data
 
 
     def volumes_ml_preprocessing_pipeline(self) -> dd.DataFrame:
