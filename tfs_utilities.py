@@ -31,15 +31,13 @@ def import_TRPs_data():
 
 def get_trp_id_list() -> list:
 
-    traffic_registration_points_path = get_traffic_registration_points_file_path()
-    with open(traffic_registration_points_path, "r") as TRPs:
-        trp_info = json.load(TRPs)
+    trp_info = import_TRPs_data()
 
     #If there aren't volumes files yet, then just return all the TRP IDs available in the traffic_registration_points_file
     if len(os.listdir(get_raw_traffic_volumes_folder_path())) == 0:
         trp_id_list = [trp["id"] for trp in trp_info["trafficRegistrationPoints"]] #This list may contain IDs of TRPs which don't have a volumes file associated with them
     else:
-        trp_id_list = [trp["id"] for trp in trp_info["trafficRegistrationPoints"] if trp["id"] in [file.split("_")[0] for file in os.listdir(get_raw_traffic_volumes_folder_path())]] #Keep only the TRPs which actually have a volumes file associated with them
+        trp_id_list = [trp["id"] for trp in trp_info["trafficRegistrationPoints"] if trp["id"] in [get_trp_id_from_filename(file) for file in os.listdir(get_raw_traffic_volumes_folder_path())]] #Keep only the TRPs which actually have a volumes file associated with them
 
     return trp_id_list
 
@@ -50,7 +48,7 @@ def get_all_road_categories() -> list:
     with open(traffic_registration_points_path, "r") as TRPs:
         trp_info = json.load(TRPs)
 
-    trp_road_category_list = list(set([trp["roadReference"]["roadCategory"]["id"] for trp in trp_info["trafficRegistrationPoints"]]))
+    trp_road_category_list = list(set([trp["location"]["roadReference"]["roadCategory"]["id"] for trp in trp_info["trafficRegistrationPoints"]]))
 
     return trp_road_category_list
 
@@ -71,7 +69,7 @@ def get_traffic_registration_points_file_path() -> str:
 def get_trp_metadata(trp_id: str) -> dict:
 
     ops_name = get_active_ops_name()
-    trp_metadata_file = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata"
+    trp_metadata_file = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata.json"
 
     with open(trp_metadata_file, "r") as json_trp_metadata:
         trp_metadata = json.load(json_trp_metadata)
@@ -205,6 +203,7 @@ def merge_volumes_data(trp_filepaths_list: list, return_pandas: bool = False) ->
     if return_pandas is False:
         dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
         merged_data = dd.concat(dataframes_list, axis=0)
+        print(merged_data.compute().head(10))
         merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
     else:
         dataframes_list = [pd.read_csv(trp) for trp in trp_filepaths_list]

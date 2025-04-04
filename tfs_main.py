@@ -166,7 +166,7 @@ def execute_forecast_warmup(functionality: str) -> None:
     targets = ["volume", "mean_speed"]
 
     trps = get_trp_id_list()
-    trps_ids_by_road_category = {category: [trp_id for trp_id in trps if get_trp_road_category(trp_id) == category] for category in get_all_road_categories()}
+    trps_ids_by_road_category = {category: [retrieve_trp_clean_volumes_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_volumes_filepath_by_id(trp_id)) is False] for category in get_all_road_categories()} #TODO CHECKING IF A CLEAN TRAFFIC VOLUME FILE EXISTS, OTHERWISE isdir WOULD BE TRUE, IMPROVE FILE MANAGEMENT, NAMES, ETC.
 
 
     # ------------ Hyperparameter tuning for traffic volumes ML models ------------
