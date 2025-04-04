@@ -114,32 +114,32 @@ model_auxiliary_parameters = {
 speeds_models_gridsearch_parameters = {
     "RandomForestRegressor": {
         "n_estimators": [3, 5, 10], #NOTE LAST: 10, 25, 40
-        "max_depth": [None, 2],
+        "max_depth": [None, 3, 5, 10],
         "criterion": ["squared_error", "friedman_mse"], #NOTE friedman_mse SEEMS TO PERFORM BETTER
         "ccp_alpha": [0]
     },
     "BaggingRegressor": {
-        "n_estimators": [20, 30],
+        "n_estimators": [15, 20, 30],
         "bootstrap_features": [False, True]
     },
     "DecisionTreeRegressor": {
-        "max_depth": [None, 5, 10, 15]
+        "max_depth": [None, 4, 5, 10, 20]
     },
     "HistGradientBoostingRegressor": {
-        "max_iter": [25, 50],
-        "max_depth": [3, 5],
+        "max_iter": [50, 70],
+        "max_depth": [3, 5, 7],
         "loss": ["squared_error", "absolute_error"],
         "validation_fraction": [0.15],
-        "n_iter_no_change": [2, 5, 10],
-        "tol": [1e-4, 1e-3],
-        "l2_regularization": [0]
+        "n_iter_no_change": [10, 20],
+        "tol": [1e-3, 1e-2],
+        "l2_regularization": [0, 0.001]
     }
 }
 
 
 speeds_best_parameters_by_model = {"RandomForestRegressor": 2,
                                    "BaggingRegressor": 3,
-                                   "HistGradientBoostingRegressor": 11,
-                                   "DecisionTreeRegressor": 2}
+                                   "HistGradientBoostingRegressor": 44,
+                                   "DecisionTreeRegressor": 1}
 
 

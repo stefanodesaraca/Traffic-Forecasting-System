@@ -131,7 +131,8 @@ class BaseLearner:
         print(f"============== {model_name} grid search results ==============\n")
         print(gridsearch_results, "\n")
 
-        print(gridsearch_results["params"])
+        gridsearch_results.to_json(f"./ops/{model_name}_grid_params_and_results.json", indent=4)
+
 
         print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
         print("GridSearchCV best parameters: ", gridsearch.best_params_)
@@ -362,14 +363,16 @@ class AverageSpeedLearner(BaseLearner):
 
         #------------------ Creating lag features ------------------
 
-        speeds_lag_column_names = ["mean_speed_lag1", "mean_speed_lag2", "mean_speed_lag3", "mean_speed_lag4", "mean_speed_lag5", "mean_speed_lag6", "mean_speed_lag7", "mean_speed_lag8", "mean_speed_lag9", "mean_speed_lag10", "mean_speed_lag11", "mean_speed_lag12", "mean_speed_lag13", "mean_speed_lag14"]
+        speeds_lag_column_names = [f"mean_speed_lag{i}" for i in range(1, 62)]
+        percentile_85_lag_column_names = [f"percentile_85_lag{i}" for i in range(1, 62)]
 
         for idx, n in enumerate(speeds_lag_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 1)
+        for idx, n in enumerate(percentile_85_lag_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 1)
 
         #print(speeds.head(10))
         #print(speeds.dtypes)
 
-        speeds = speeds.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist() #TODO TRY DROPPING PERCENTILE_85 AND CHECK IF RESULTS GET BETTER
+        speeds = speeds.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist()
 
         #print("Average speeds dataframe head: ")
         #print(speeds.head(5), "\n")
