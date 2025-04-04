@@ -40,6 +40,17 @@ def get_trp_id_list() -> list:
     return trp_id_list
 
 
+def get_all_road_categories() -> list:
+
+    traffic_registration_points_path = get_traffic_registration_points_file_path()
+    with open(traffic_registration_points_path, "r") as TRPs:
+        trp_info = json.load(TRPs)
+
+    trp_road_category_list = list(set([trp["roadReference"]["roadCategory"]["id"] for trp in trp_info["trafficRegistrationPoints"]]))
+
+    return trp_road_category_list
+
+
 def get_trp_road_category(trp_id: str) -> str:
     road_category = get_trp_metadata(trp_id)["road_category"]
     return road_category
@@ -87,6 +98,8 @@ def write_trp_metadata(trp_id: str) -> None:
 
     metadata = {"trp_id": trp_data["id"],
                 "name": trp_data["name"],
+                "raw_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{[file for file in os.listdir(get_raw_traffic_volumes_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_raw_traffic_volumes_folder_path()) if trp_id in file]) > 0 else ''}",
+                "clean_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/{[file for file in os.listdir(get_clean_traffic_volumes_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_clean_traffic_volumes_folder_path()) if trp_id in file]) > 0 else ''}",
                 "road_category": trp_data["location"]["roadReference"]["roadCategory"]["id"],
                 "lat": trp_data["location"]["coordinates"]["latLon"]["lat"],
                 "lon": trp_data["location"]["coordinates"]["latLon"]["lon"],
@@ -176,6 +189,20 @@ def get_clean_volume_files_list() -> list:
     return clean_traffic_volumes
 
 
+def merge_volumes_data(trp_filepaths_list: list, return_pandas: bool) -> [dd.DataFrame | pd.DataFrame]:
+
+    if return_pandas is False:
+        dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
+        merged_data = dd.concat(dataframes_list, axis=0)
+        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
+    else:
+        dataframes_list = [pd.read_csv(trp) for trp in trp_filepaths_list]
+        merged_data = pd.concat(dataframes_list, axis=0)
+        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
+
+    return merged_data
+
+
 # ==================== Average Speed Utilities ====================
 
 def get_raw_average_speed_folder_path() -> str:
@@ -222,6 +249,20 @@ def import_avg_speed_data(file_path: str) -> pd.DataFrame:
 def get_clean_average_speed_files_list() -> list:
     files = [get_clean_average_speed_folder_path() + f for f in os.listdir(get_clean_average_speed_folder_path())]
     return files
+
+
+def merge_avg_speed_data(trp_filepaths_list: list, return_pandas: bool) -> [dd.DataFrame | pd.DataFrame]:
+
+    if return_pandas is False:
+        dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
+        merged_data = dd.concat(dataframes_list, axis=0)
+        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
+    else:
+        dataframes_list = [pd.read_csv(trp) for trp in trp_filepaths_list]
+        merged_data = pd.concat(dataframes_list, axis=0)
+        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
+
+    return merged_data
 
 
 # ==================== ML Related Utilities ====================
@@ -304,32 +345,8 @@ def ZScore(df: [pd.DataFrame | dd.DataFrame], column: str) -> [pd.DataFrame | dd
     return filtered_df
 
 
-def merge_volumes_data(trp_filepaths_list: list, return_pandas: bool) -> [dd.DataFrame | pd.DataFrame]:
-
-    if return_pandas is False:
-        dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
-        merged_data = dd.concat(dataframes_list, axis=0)
-        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
-    else:
-        dataframes_list = [pd.read_csv(trp) for trp in trp_filepaths_list]
-        merged_data = pd.concat(dataframes_list, axis=0)
-        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
-
-    return merged_data
 
 
-def merge_avg_speed_data(trp_filepaths_list: list, return_pandas: bool) -> [dd.DataFrame | pd.DataFrame]:
-
-    if return_pandas is False:
-        dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
-        merged_data = dd.concat(dataframes_list, axis=0)
-        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
-    else:
-        dataframes_list = [pd.read_csv(trp) for trp in trp_filepaths_list]
-        merged_data = pd.concat(dataframes_list, axis=0)
-        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
-
-    return merged_data
 
 
 

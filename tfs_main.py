@@ -161,10 +161,9 @@ def execute_forecast_warmup(functionality: str) -> None:
     models = [m for m in model_names_and_functions.keys()]
     targets = ["volume", "mean_speed"]
 
+    trps = get_trp_id_list()
+    trps_ids_by_road_category = {category: [trp_id for trp_id in trps if get_trp_road_category(trp_id) == category] for category in get_all_road_categories()}
 
-
-
-    #TODO SPLIT THE DATA BY ROAD CATEGORY AND SORT IT BY YEAR, MONTH AND DAY ascending=True AFTER HAVING CONCATENATED IT
 
 
 
