@@ -169,9 +169,15 @@ def execute_forecast_warmup(functionality: str) -> None:
     trps = get_trp_id_list()
 
     #TRPs - Volumes files and road categories
-    trps_ids_by_road_category = {category: [retrieve_trp_clean_volumes_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_volumes_filepath_by_id(trp_id)) is False] for category in get_all_road_categories()}
-    #The isdir() method is needed since there could be some cases where the volumes files are absent, but TRPs are included in the trps list, so if there isn't on we'll just obtain the path for the clean volumes files folder. Thus if the string is a path to a folder then don't include it in the trps_ids_by_road_category
+    trps_ids_volumes_by_road_category = {category: [retrieve_trp_clean_volumes_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_volumes_filepath_by_id(trp_id)) is False] for category in get_all_road_categories()}
+    #The isdir() method is needed since there could be some cases where the volumes files are absent, but TRPs are included in the trps list, so if there isn't on we'll just obtain the path for the clean volumes files folder. Thus, if the string is a path to a folder then don't include it in the trps_ids_by_road_category
     #pprint.pprint(trps_ids_by_road_category)
+
+
+    #TRPs - Average files and road categories
+    trps_ids_avg_speeds_by_road_category = {category: [retrieve_trp_clean_average_speed_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_average_speed_filepath_by_id(trp_id)) is False] for category in get_all_road_categories()}
+
+
 
     # ------------ Hyperparameter tuning for traffic volumes ML models ------------
     if functionality == "3.2.1":
@@ -179,10 +185,8 @@ def execute_forecast_warmup(functionality: str) -> None:
         merged_volumes_by_category = {}
 
         # Merge all volumes files by category
-        for road_category, volumes_files in trps_ids_by_road_category.items():
+        for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
             merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, return_pandas=False)
-
-
 
         for road_category, v in merged_volumes_by_category.items():
             volumes_learner = TrafficVolumesLearner(v)
@@ -214,7 +218,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         merged_volumes_by_category = {}
 
         # Merge all volumes files by category
-        for road_category, volumes_files in trps_ids_by_road_category.items():
+        for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
             merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, return_pandas=False)
 
         for road_category, v in merged_volumes_by_category.items():
@@ -237,7 +241,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         merged_volumes_by_category = {}
 
         # Merge all volumes files by category
-        for road_category, volumes_files in trps_ids_by_road_category.items():
+        for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
             merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, return_pandas=False)
 
         for road_category, v in merged_volumes_by_category.items():

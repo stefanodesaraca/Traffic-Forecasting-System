@@ -98,8 +98,10 @@ def write_trp_metadata(trp_id: str) -> None:
 
     metadata = {"trp_id": trp_data["id"],
                 "name": trp_data["name"],
-                "raw_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{[file for file in os.listdir(get_raw_traffic_volumes_folder_path()) if trp_id in file][0]}",
-                "clean_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/{[file for file in os.listdir(get_clean_traffic_volumes_folder_path()) if trp_id in file][0]}",
+                "raw_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{[file for file in os.listdir(get_raw_traffic_volumes_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_raw_traffic_volumes_folder_path()) if trp_id in file][0]) != 0 else ''}",
+                "clean_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/{[file for file in os.listdir(get_clean_traffic_volumes_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_clean_traffic_volumes_folder_path()) if trp_id in file][0]) != 0 else ''}",
+                "raw_average_speed_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_average_speed/{[file for file in os.listdir(get_raw_average_speed_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_raw_average_speed_folder_path()) if trp_id in file][0]) != 0 else ''}",
+                "clean_average_speed_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_average_speed/{[file for file in os.listdir(get_clean_average_speed_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_clean_average_speed_folder_path()) if trp_id in file][0]) != 0 else ''}",
                 "road_category": trp_data["location"]["roadReference"]["roadCategory"]["id"],
                 "lat": trp_data["location"]["coordinates"]["latLon"]["lat"],
                 "lon": trp_data["location"]["coordinates"]["latLon"]["lon"],
@@ -131,6 +133,10 @@ def retrieve_trp_road_category(trp_id: str) -> str:
 
 def retrieve_trp_clean_volumes_filepath_by_id(trp_id: str):
     return get_trp_metadata(trp_id)["clean_volumes_filepath"]
+
+
+def retrieve_trp_clean_average_speed_filepath_by_id(trp_id: str):
+    return get_trp_metadata(trp_id)["clean_average_speed_filepath"]
 
 
 # ==================== Volumes Utilities ====================
