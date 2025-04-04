@@ -42,6 +42,10 @@ def get_trp_id_list() -> list:
     return trp_id_list
 
 
+def get_trp_id_from_filename(filename: str) -> str:
+    return filename.split("_")[0]
+
+
 def get_all_road_categories() -> list:
     trp_info = import_TRPs_data()
     trp_road_category_list = list(set([trp["location"]["roadReference"]["roadCategory"]["id"] for trp in trp_info["trafficRegistrationPoints"]]))
@@ -70,10 +74,6 @@ def get_trp_metadata(trp_id: str) -> dict:
         trp_metadata = json.load(json_trp_metadata)
 
     return trp_metadata
-
-
-def get_trp_id_from_filename(filename: str) -> str:
-    return filename.split("_")[0]
 
 
 def write_trp_metadata(trp_id: str) -> None:
