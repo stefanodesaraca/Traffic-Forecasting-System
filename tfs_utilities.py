@@ -123,7 +123,7 @@ def write_trp_metadata(trp_id: str) -> None:
                 "latest_volume_average_daily_by_year": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByYear"],
                 "latest_volume_average_daily_by_season": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"],
                 "latest_volume_average_daily_by_month": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"],
-                "number_of_data_nodes": len(volumes["trafficData"]["volume"]["byHour"]["edges"])}
+                "number_of_data_nodes": len(volumes["trafficData"]["volume"]["byHour"]["edges"])} #(Volumes data nodes)
 
     with open(trp_metadata_filepath + trp_metadata_filename + ".json", "w") as json_metadata:
         json.dump(metadata, json_metadata, indent=4)
@@ -200,7 +200,7 @@ def get_clean_volume_files_list() -> list:
     return clean_traffic_volumes
 
 
-def merge_volumes_data(trp_filepaths_list: list, return_pandas: bool) -> [dd.DataFrame | pd.DataFrame]:
+def merge_volumes_data(trp_filepaths_list: list, return_pandas: bool = False) -> [dd.DataFrame | pd.DataFrame]:
 
     if return_pandas is False:
         dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
@@ -278,28 +278,28 @@ def merge_avg_speed_data(trp_filepaths_list: list, return_pandas: bool) -> [dd.D
 
 # ==================== ML Related Utilities ====================
 
-def get_ml_models_folder_path(target: str) -> str:
+def get_ml_models_folder_path(target: str, road_category: str) -> str:
 
     ops_name = get_active_ops_name()
 
     if target == "volume":
-        ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/{ops_name}_traffic_volumes_models/"
+        ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/{ops_name}_traffic_volumes_models/{ops_name}_{road_category}_traffic_volumes_models"
     elif target == "mean_speed":
-        ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/{ops_name}_average_speed_models/"
+        ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/{ops_name}_average_speed_models/{ops_name}_{road_category}_average_speed_models"
     else:
         raise Exception("Wrong target variable in the get_ml_models_folder_path() function")
 
     return ml_folder_path
 
 
-def get_ml_model_parameters_folder_path(target: str) -> str:
+def get_ml_model_parameters_folder_path(target: str, road_category: str) -> str:
 
     ops_name = get_active_ops_name()
 
     if target == "volume":
-        ml_parameters_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models_parameters/{ops_name}_traffic_volumes_models_parameters/"
+        ml_parameters_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models_parameters/{ops_name}_traffic_volumes_models_parameters/{ops_name}_{road_category}_traffic_volumes_models_parameters/"
     elif target == "mean_speed":
-        ml_parameters_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models_parameters/{ops_name}_average_speed_models_parameters/"
+        ml_parameters_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models_parameters/{ops_name}_average_speed_models_parameters/{ops_name}_{road_category}_average_speed_models_parameters/"
     else:
         raise Exception("Wrong target variable in the get_ml_model_parameters_folder_path() function")
 

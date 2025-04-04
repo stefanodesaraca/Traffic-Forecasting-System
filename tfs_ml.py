@@ -95,7 +95,7 @@ class BaseLearner:
             return X_train, X_test, y_train, y_test
 
 
-    def gridsearch_for_model(self, X_train, y_train, target: str, model_name: str) -> None:
+    def gridsearch_for_model(self, X_train, y_train, target: str, model_name: str, road_category: str) -> None:
 
         ops_name = get_active_ops_name()
 
@@ -110,8 +110,8 @@ class BaseLearner:
 
         model = model_names_and_functions[model_name]() #Finding the function which returns the model and executing it
 
-        ml_parameters_folder_path = get_ml_model_parameters_folder_path(target=target)
-        model_filename = ops_name + "_" + model_name + "_" + "parameters"
+        ml_parameters_folder_path = get_ml_model_parameters_folder_path(target=target, road_category=road_category)
+        model_filename = ops_name + "_" + road_category + "_" + model_name + "_" + "parameters"
 
 
         client = Client(processes=False)
@@ -131,7 +131,7 @@ class BaseLearner:
         print(f"============== {model_name} grid search results ==============\n")
         print(gridsearch_results, "\n")
 
-        gridsearch_results.to_json(f"./ops/{model_name}_grid_params_and_results.json", indent=4) #TODO FOR TESTING PURPOSES
+        gridsearch_results.to_json(f"./ops/{road_category}_{model_name}_grid_params_and_results.json", indent=4) #TODO FOR TESTING PURPOSES
 
 
         print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
@@ -168,18 +168,18 @@ class BaseLearner:
 
 
     @staticmethod
-    def train_model(X_train, y_train, target: str, model_name: str) -> None:
+    def train_model(X_train, y_train, target: str, model_name: str, road_category: str) -> None:
 
         # -------------- Filenames, etc. --------------
 
         ops_name = get_active_ops_name()
 
-        models_parameters_folder_path = get_ml_model_parameters_folder_path(target)
-        models_folder_path = get_ml_models_folder_path(target)
+        models_parameters_folder_path = get_ml_model_parameters_folder_path(target, road_category)
+        models_folder_path = get_ml_models_folder_path(target, road_category)
 
         model_filename = ops_name + "_" + model_name
 
-        model_parameters_filename = ops_name + "_" + model_name + "_" + "parameters" + ".json"
+        model_parameters_filename = ops_name + "_" + road_category + "_" + model_name + "_" + "parameters" + ".json"
         model_parameters_filepath = models_parameters_folder_path + model_parameters_filename
 
 
@@ -221,11 +221,11 @@ class BaseLearner:
 
 
     @staticmethod
-    def test_model(X_test, y_test, target: str, model_name) -> None:
+    def test_model(X_test, y_test, target: str, model_name, road_category: str) -> None:
 
         ops_name = get_active_ops_name()
 
-        ml_folder_path = get_ml_models_folder_path(target)
+        ml_folder_path = get_ml_models_folder_path(target, road_category)
         model_filename = ops_name + "_" + model_name
 
 

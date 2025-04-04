@@ -169,14 +169,17 @@ def execute_forecast_warmup(functionality: str) -> None:
     trps_ids_by_road_category = {category: [trp_id for trp_id in trps if get_trp_road_category(trp_id) == category] for category in get_all_road_categories()}
 
 
-
-
     # ------------ Hyperparameter tuning for traffic volumes ML models ------------
     if functionality == "3.2.1":
 
-        clean_traffic_volume_files = get_clean_volume_files_list()
+        merged_volumes_by_category = {}
 
-        for v in clean_traffic_volume_files[:2]: #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
+        # Merge all volumes files by category
+        for category, volumes_files in trps_ids_by_road_category.items():
+            merged_volumes_by_category[category] = merge_volumes_data(volumes_files, return_pandas=False)
+
+
+        for category, v in merged_volumes_by_category.items():
             volumes_learner = TrafficVolumesLearner(v)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
@@ -185,7 +188,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
 
             # -------------- GridSearchCV phase --------------
-            for model_name in models: volumes_learner.gridsearch_for_model(X_train, y_train, target=targets[0], model_name=model_name)
+            for model_name in models: volumes_learner.gridsearch_for_model(X_train, y_train, target=targets[0], model_name=model_name, road_category=category)
 
 
     # ------------ Hyperparameter tuning for average speed ML models ------------
@@ -205,16 +208,20 @@ def execute_forecast_warmup(functionality: str) -> None:
     # ------------ Train ML models on traffic volumes data ------------
     elif functionality == "3.2.3":
 
-        clean_traffic_volume_files = get_clean_volume_files_list()
+        merged_volumes_by_category = {}
 
-        for v in clean_traffic_volume_files[:1]:  #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
+        # Merge all volumes files by category
+        for category, volumes_files in trps_ids_by_road_category.items():
+            merged_volumes_by_category[category] = merge_volumes_data(volumes_files, return_pandas=False)
+
+        for category, v in merged_volumes_by_category.items():
             volumes_learner = TrafficVolumesLearner(v)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
             X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0], return_pandas=True)
 
             # -------------- Training phase --------------
-            for model_name in models: volumes_learner.train_model(X_train, y_train, model_name=model_name)
+            for model_name in models: volumes_learner.train_model(X_train, y_train, model_name=model_name, target=targets[0], road_category=category)
 
 
 
@@ -224,16 +231,20 @@ def execute_forecast_warmup(functionality: str) -> None:
 
     elif functionality == "3.2.5":
 
-        clean_traffic_volume_files = get_clean_volume_files_list()
+        merged_volumes_by_category = {}
 
-        for v in clean_traffic_volume_files[:1]:  # TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
+        # Merge all volumes files by category
+        for category, volumes_files in trps_ids_by_road_category.items():
+            merged_volumes_by_category[category] = merge_volumes_data(volumes_files, return_pandas=False)
+
+        for category, v in merged_volumes_by_category.items():
             volumes_learner = TrafficVolumesLearner(v)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
             X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0], return_pandas=True)
 
             # -------------- Testing phase --------------
-            for model_name in models: volumes_learner.test_model(X_test, y_test, model_name=model_name)
+            for model_name in models: volumes_learner.test_model(X_test, y_test, model_name=model_name, target=targets[0], road_category=category)
 
 
         print("\n\n")

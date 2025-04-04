@@ -67,6 +67,7 @@ def create_ops_folder(ops_name: str) -> None:
     rn_graph_subfolders = [f"{ops_name}_edges", f"{ops_name}_arches", f"{ops_name}_graph_analysis", f"{ops_name}_shortest_paths"]
     ml_subfolders = ["models_parameters", "models", "models_performance", "ml_reports"]
     ml_sub_subfolders = ["traffic_volumes", "average_speed"]
+    ml_sub_sub_subfolders = [road_category for road_category in ["E", "R", "F", "K", "P"]]
 
 
     for mf in main_folders:
@@ -97,6 +98,9 @@ def create_ops_folder(ops_name: str) -> None:
         #Machine learning sub-subfolders
         for mlssf in ml_sub_subfolders:
             os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/{ops_name}_{mlssf}_{mlsf}", exist_ok=True)
+
+            for mlsssf in ml_sub_sub_subfolders:
+                os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/{ops_name}_{mlssf}_{mlsf}/{ops_name}_{mlsssf}_{mlssf}_{mlsf}", exist_ok=True)
 
     return None
 
