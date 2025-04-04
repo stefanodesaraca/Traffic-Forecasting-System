@@ -75,6 +75,10 @@ def download_data(functionality: str) -> None:
 
         trp_id_list = get_trp_id_list()
 
+        if len(os.listdir(get_raw_traffic_volumes_folder_path())) == 0:
+            print("Download volumes data before writing metadata")
+            return None
+
         print("Writing metadata files...")
         for trp_id in tqdm(trp_id_list): write_trp_metadata(trp_id)
         print("Metadata files successfully written\n\n")

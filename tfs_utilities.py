@@ -35,7 +35,11 @@ def get_trp_id_list() -> list:
     with open(traffic_registration_points_path, "r") as TRPs:
         trp_info = json.load(TRPs)
 
-    trp_id_list = [trp["id"] for trp in trp_info["trafficRegistrationPoints"]]
+    #If there aren't volumes files yet, then just return all the TRP IDs available in the traffic_registration_points_file
+    if len(os.listdir(get_raw_traffic_volumes_folder_path())) == 0:
+        trp_id_list = [trp["id"] for trp in trp_info["trafficRegistrationPoints"]] #This list may contain IDs of TRPs which don't have a volumes file associated with them
+    else:
+        trp_id_list = [trp["id"] for trp in trp_info["trafficRegistrationPoints"] if trp["id"] in [file.split("_")[0] for file in os.listdir(get_raw_traffic_volumes_folder_path())]] #Keep only the TRPs which actually have a volumes file associated with them
 
     return trp_id_list
 
@@ -52,8 +56,7 @@ def get_all_road_categories() -> list:
 
 
 def get_trp_road_category(trp_id: str) -> str:
-    road_category = get_trp_metadata(trp_id)["road_category"]
-    return road_category
+    return get_trp_metadata(trp_id)["road_category"]
 
 
 def get_traffic_registration_points_file_path() -> str:
@@ -74,6 +77,10 @@ def get_trp_metadata(trp_id: str) -> dict:
         trp_metadata = json.load(json_trp_metadata)
 
     return trp_metadata
+
+
+def get_trp_id_from_filename(filename: str) -> str:
+    return filename.split("_")[0]
 
 
 def write_trp_metadata(trp_id: str) -> None:
@@ -98,8 +105,8 @@ def write_trp_metadata(trp_id: str) -> None:
 
     metadata = {"trp_id": trp_data["id"],
                 "name": trp_data["name"],
-                "raw_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{[file for file in os.listdir(get_raw_traffic_volumes_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_raw_traffic_volumes_folder_path()) if trp_id in file]) > 0 else ''}",
-                "clean_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/{[file for file in os.listdir(get_clean_traffic_volumes_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_clean_traffic_volumes_folder_path()) if trp_id in file]) > 0 else ''}",
+                "raw_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{[file for file in os.listdir(get_raw_traffic_volumes_folder_path()) if trp_id in file][0]}",
+                "clean_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/{[file for file in os.listdir(get_clean_traffic_volumes_folder_path()) if trp_id in file][0]}",
                 "road_category": trp_data["location"]["roadReference"]["roadCategory"]["id"],
                 "lat": trp_data["location"]["coordinates"]["latLon"]["lat"],
                 "lon": trp_data["location"]["coordinates"]["latLon"]["lon"],
@@ -127,6 +134,10 @@ def write_trp_metadata(trp_id: str) -> None:
 def retrieve_trp_road_category(trp_id: str) -> str:
     trp_road_category = get_trp_metadata(trp_id)["road_category"]
     return trp_road_category
+
+
+def retrieve_trp_clean_volumes_filepath_by_id(trp_id: str):
+    return get_trp_metadata(trp_id)["clean_volumes_filepath"]
 
 
 # ==================== Volumes Utilities ====================
