@@ -203,12 +203,13 @@ def merge_volumes_data(trp_filepaths_list: list, return_pandas: bool = False) ->
     if return_pandas is False:
         dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
         merged_data = dd.concat(dataframes_list, axis=0)
-        print(merged_data.compute().head(10))
         merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
+        #print(merged_data.head(10))
     else:
         dataframes_list = [pd.read_csv(trp) for trp in trp_filepaths_list]
         merged_data = pd.concat(dataframes_list, axis=0)
         merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
+        #print(merged_data.head(10))
 
     return merged_data
 

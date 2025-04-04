@@ -250,13 +250,13 @@ class BaseLearner:
 
 class TrafficVolumesLearner(BaseLearner):
 
-    def __init__(self, volumes_file_path: str):
+    def __init__(self, volumes_data: [dd.DataFrame | pd.DataFrame]):
         super().__init__()
-        self.volumes_file_path = volumes_file_path
+        self.volumes_data = volumes_data
 
 
     def get_volumes_data(self) -> dd.DataFrame:
-        volumes = dd.read_csv(self.volumes_file_path)
+        volumes = self.volumes_data
         return volumes
 
 

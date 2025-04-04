@@ -11,6 +11,7 @@ import os
 import time
 from datetime import datetime
 from tqdm import tqdm
+import pprint
 
 
 def manage_ops(functionality: str) -> None:
@@ -167,7 +168,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
     trps = get_trp_id_list()
     trps_ids_by_road_category = {category: [retrieve_trp_clean_volumes_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_volumes_filepath_by_id(trp_id)) is False] for category in get_all_road_categories()} #TODO CHECKING IF A CLEAN TRAFFIC VOLUME FILE EXISTS, OTHERWISE isdir WOULD BE TRUE, IMPROVE FILE MANAGEMENT, NAMES, ETC.
-
+    pprint.pprint(trps_ids_by_road_category)
 
     # ------------ Hyperparameter tuning for traffic volumes ML models ------------
     if functionality == "3.2.1":
@@ -179,11 +180,10 @@ def execute_forecast_warmup(functionality: str) -> None:
             merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, return_pandas=False)
 
 
+
         for road_category, v in merged_volumes_by_category.items():
             volumes_learner = TrafficVolumesLearner(v)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
-
-            #We'll skip variable selection since there aren't many variables to choose as predictors
 
             X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
 
