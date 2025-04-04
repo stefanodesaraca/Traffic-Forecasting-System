@@ -175,11 +175,11 @@ def execute_forecast_warmup(functionality: str) -> None:
         merged_volumes_by_category = {}
 
         # Merge all volumes files by category
-        for category, volumes_files in trps_ids_by_road_category.items():
-            merged_volumes_by_category[category] = merge_volumes_data(volumes_files, return_pandas=False)
+        for road_category, volumes_files in trps_ids_by_road_category.items():
+            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, return_pandas=False)
 
 
-        for category, v in merged_volumes_by_category.items():
+        for road_category, v in merged_volumes_by_category.items():
             volumes_learner = TrafficVolumesLearner(v)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
@@ -188,7 +188,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
 
             # -------------- GridSearchCV phase --------------
-            for model_name in models: volumes_learner.gridsearch_for_model(X_train, y_train, target=targets[0], model_name=model_name, road_category=category)
+            for model_name in models: volumes_learner.gridsearch_for_model(X_train, y_train, target=targets[0], model_name=model_name, road_category=road_category)
 
 
     # ------------ Hyperparameter tuning for average speed ML models ------------
@@ -211,17 +211,17 @@ def execute_forecast_warmup(functionality: str) -> None:
         merged_volumes_by_category = {}
 
         # Merge all volumes files by category
-        for category, volumes_files in trps_ids_by_road_category.items():
-            merged_volumes_by_category[category] = merge_volumes_data(volumes_files, return_pandas=False)
+        for road_category, volumes_files in trps_ids_by_road_category.items():
+            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, return_pandas=False)
 
-        for category, v in merged_volumes_by_category.items():
+        for road_category, v in merged_volumes_by_category.items():
             volumes_learner = TrafficVolumesLearner(v)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
             X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0], return_pandas=True)
 
             # -------------- Training phase --------------
-            for model_name in models: volumes_learner.train_model(X_train, y_train, model_name=model_name, target=targets[0], road_category=category)
+            for model_name in models: volumes_learner.train_model(X_train, y_train, model_name=model_name, target=targets[0], road_category=road_category)
 
 
 
@@ -234,17 +234,17 @@ def execute_forecast_warmup(functionality: str) -> None:
         merged_volumes_by_category = {}
 
         # Merge all volumes files by category
-        for category, volumes_files in trps_ids_by_road_category.items():
-            merged_volumes_by_category[category] = merge_volumes_data(volumes_files, return_pandas=False)
+        for road_category, volumes_files in trps_ids_by_road_category.items():
+            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, return_pandas=False)
 
-        for category, v in merged_volumes_by_category.items():
+        for road_category, v in merged_volumes_by_category.items():
             volumes_learner = TrafficVolumesLearner(v)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
             X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0], return_pandas=True)
 
             # -------------- Testing phase --------------
-            for model_name in models: volumes_learner.test_model(X_test, y_test, model_name=model_name, target=targets[0], road_category=category)
+            for model_name in models: volumes_learner.test_model(X_test, y_test, model_name=model_name, target=targets[0], road_category=road_category)
 
 
         print("\n\n")
