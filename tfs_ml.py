@@ -21,7 +21,7 @@ import joblib
 from dask_ml.preprocessing import MinMaxScaler
 from dask_ml.model_selection import GridSearchCV
 
-from sklearn.feature_selection import SelectFromModel
+from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error
 
 
@@ -116,7 +116,8 @@ class BaseLearner:
 
         client = Client(processes=False)
 
-        gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=retrieve_n_ml_cpus(), scheduler="threading", cv=5)  # The models_gridsearch_parameters is obtained from the tfs_models file
+        time_cv = TimeSeriesSplit(n_splits=5) #A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
+        gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=retrieve_n_ml_cpus(), scheduler="threading", cv=time_cv)  # The models_gridsearch_parameters is obtained from the tfs_models file
 
         with joblib.parallel_backend('dask'):
             gridsearch.fit(X=X_train, y=y_train)

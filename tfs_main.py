@@ -209,7 +209,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
             X_train, X_test, y_train, y_test = avg_speed_learner.split_data(avg_speeds_preprocessed, target=targets[1], return_pandas=True)
 
-            for model_name in models: avg_speed_learner.gridsearch_for_model(X_train, y_train, target=targets[1], model_name=model_name)
+            for model_name in models: avg_speed_learner.gridsearch_for_model(X_train, y_train, target=targets[1], road_category="E", model_name=model_name) #TODO "E" IS JUST FOR TESTING PURPOSES
 
 
     # ------------ Train ML models on traffic volumes data ------------
