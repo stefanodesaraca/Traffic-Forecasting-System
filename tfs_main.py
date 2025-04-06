@@ -186,7 +186,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         # Merge all volumes files by category
         for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, return_pandas=False)
+            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category, return_pandas=False)
 
         for road_category, v in merged_volumes_by_category.items():
             volumes_learner = TrafficVolumesLearner(v)
@@ -219,7 +219,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         # Merge all volumes files by category
         for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, return_pandas=False)
+            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category, return_pandas=False)
 
         for road_category, v in merged_volumes_by_category.items():
             volumes_learner = TrafficVolumesLearner(v)
@@ -242,7 +242,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         # Merge all volumes files by category
         for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, return_pandas=False)
+            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category, return_pandas=False)
 
         for road_category, v in merged_volumes_by_category.items():
             volumes_learner = TrafficVolumesLearner(v)
@@ -319,8 +319,8 @@ def main():
     1.2 Set an operation as active (current one)
     1.3 Check the active operation name
  2. Download data (Trafikkdata API)
-    2.1 Traffic measurement points information
-    2.2 Traffic volumes for every measurement point
+    2.1 Traffic registration points information
+    2.2 Traffic volumes for every registration point
     2.3 Write metadata file for every TRP
  3. Forecast
     3.1 Set forecasting target datetime

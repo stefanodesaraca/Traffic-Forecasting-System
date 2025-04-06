@@ -22,6 +22,7 @@ def import_TRPs_data():
     '''
     This function returns json data about all TRPs (downloaded previously)
     '''
+    assert os.path.isfile(get_traffic_registration_points_file_path()) is True, "Traffic registration points file missing"
     traffic_registration_points_path = get_traffic_registration_points_file_path()
     with open(traffic_registration_points_path, "r") as TRPs:
         trp_info = json.load(TRPs)
@@ -96,12 +97,18 @@ def write_trp_metadata(trp_id: str) -> None:
     trp_metadata_filepath = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/"
     trp_metadata_filename = f"{trp_id}_metadata"
 
+    assert os.path.isdir(get_raw_traffic_volumes_folder_path()) is True, "Raw traffic volumes folder missing"
+    assert os.path.isdir(get_clean_traffic_volumes_folder_path()) is True, "Clean traffic volumes folder missing"
+
+    assert os.path.isdir(get_raw_average_speed_folder_path()) is True, "Raw average speed folder missing"
+    assert os.path.isdir(get_clean_average_speed_folder_path()) is True, "Clean average speed folder missing"
+
     metadata = {"trp_id": trp_data["id"],
                 "name": trp_data["name"],
-                "raw_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{[file for file in os.listdir(get_raw_traffic_volumes_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_raw_traffic_volumes_folder_path()) if trp_id in file][0]) != 0 else ''}",
-                "clean_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/{[file for file in os.listdir(get_clean_traffic_volumes_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_clean_traffic_volumes_folder_path()) if trp_id in file][0]) != 0 else ''}",
-                "raw_average_speed_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_average_speed/{[file for file in os.listdir(get_raw_average_speed_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_raw_average_speed_folder_path()) if trp_id in file][0]) != 0 else ''}",
-                "clean_average_speed_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_average_speed/{[file for file in os.listdir(get_clean_average_speed_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_clean_average_speed_folder_path()) if trp_id in file][0]) != 0 else ''}",
+                "raw_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{[file for file in os.listdir(get_raw_traffic_volumes_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_raw_traffic_volumes_folder_path()) if trp_id in file]) != 0 else ''}",
+                "clean_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/{[file for file in os.listdir(get_clean_traffic_volumes_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_clean_traffic_volumes_folder_path()) if trp_id in file]) != 0 else ''}",
+                "raw_average_speed_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_average_speed/{[file for file in os.listdir(get_raw_average_speed_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_raw_average_speed_folder_path()) if trp_id in file]) != 0 else ''}",
+                "clean_average_speed_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_average_speed/{[file for file in os.listdir(get_clean_average_speed_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_clean_average_speed_folder_path()) if trp_id in file]) != 0 else ''}",
                 "road_category": trp_data["location"]["roadReference"]["roadCategory"]["id"],
                 "lat": trp_data["location"]["coordinates"]["latLon"]["lat"],
                 "lon": trp_data["location"]["coordinates"]["latLon"]["lon"],
@@ -194,18 +201,20 @@ def get_clean_volume_files_list() -> list:
     return clean_traffic_volumes
 
 
-def merge_volumes_data(trp_filepaths_list: list, return_pandas: bool = False) -> [dd.DataFrame | pd.DataFrame]:
+def merge_volumes_data(trp_filepaths_list: list, road_category: str, return_pandas: bool = False) -> [dd.DataFrame | pd.DataFrame]:
 
     if return_pandas is False:
         dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
         merged_data = dd.concat(dataframes_list, axis=0, partition_size="100MB")
         merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
         #print(merged_data.head(10))
+        print(f"Shape of the merged volumes data for road category {road_category}: ", (merged_data.shape[0].compute(), merged_data.shape[1]))
     else:
         dataframes_list = [pd.read_csv(trp) for trp in trp_filepaths_list]
         merged_data = pd.concat(dataframes_list, axis=0)
         merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
         #print(merged_data.head(10))
+        print(f"Shape of the merged volumes data: {road_category}", merged_data.shape)
 
     return merged_data
 
