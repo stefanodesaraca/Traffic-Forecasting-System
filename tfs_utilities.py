@@ -205,7 +205,8 @@ def merge_volumes_data(trp_filepaths_list: list, road_category: str, return_pand
 
     if return_pandas is False:
         dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
-        merged_data = dd.concat(dataframes_list, axis=0, partition_size="100MB")
+        merged_data = dd.concat(dataframes_list, axis=0)
+        merged_data = merged_data.repartition(partition_size="2048MB")
         merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
         #print(merged_data.head(10))
         print(f"Shape of the merged volumes data for road category {road_category}: ", (merged_data.shape[0].compute(), merged_data.shape[1]))
