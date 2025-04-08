@@ -113,34 +113,34 @@ model_auxiliary_parameters = {
 
 speeds_models_gridsearch_parameters = {
     "RandomForestRegressor": {
-        "n_estimators": [25, 40, 50, 70, 100, 200],
-        "max_depth": [None, 3, 5, 10],
+        "n_estimators": [200, 300, 400, 500, 1000], #25, 40, 50, 70, 100,
+        "max_depth": [None, 3, 5, 10, 20, 30, 50, 100, 200, 300],
         "criterion": ["squared_error", "friedman_mse"],
         "ccp_alpha": [0, 0.001, 0.0001, 0.00001], #ccp_alpha = 1 overfits
         "warm_start": [True, False],
 
     },
     "BaggingRegressor": { #BaggingRegressor tends to overfit with whichever parameter it's fed with
-        "n_estimators": [10, 20, 50, 70],
+        "n_estimators": [200, 300, 400, 500, 1000], #10, 20, 50, 70
         "bootstrap_features": [False, True],
         "warm_start": [True, False]
     },
     "DecisionTreeRegressor": {
-        "max_depth": [None, 2, 3, 5, 7, 10, 20, 30, 40, 50],
+        "max_depth": [None, 100, 200, 300], #2, 3, 5, 7, 10, 20, 30, 40, 50,
         "criterion": ["squared_error", "absolute_error", "friedman_mse", "poisson"],
         "max_features": [None, "sqrt", "log2"],
         "ccp_alpha": [0, 0.001, 0.0001]
     },
     "HistGradientBoostingRegressor": {
-        "max_iter": [20, 30, 40, 50, 60, 70, 100],
-        "max_depth": [3, 5, 7, 10, 12],
-        "loss": ["squared_error", "absolute_error", "poisson", "quantile"],
+        "max_iter": [20, 30, 40, 50, 60, 70, 100, 200, 300, 400, 500],
+        "max_depth": [3, 5, 7, 10, 12, 30, 50, 100, 200, 300],
+        "loss": ["squared_error", "absolute_error", "poisson"],
         "validation_fraction": [0.15, 0.25],
         "n_iter_no_change": [5, 10, 15, 20],
-        "tol": [1e-7, 1e-5, 1e-4, 1e-3],
+        "tol": [1e-7, 1e-5, 1e-4, 1e-3, 1e-2],
         "l2_regularization": [0, 0.001, 0.0001],
         "early_stopping": [True, "auto"],
-        "learning_rate": [1, 0.5, 0.2, 0.1]
+        "learning_rate": [1, 0.5, 0.2, 0.1, 0.001, 0.005]
     }
 }
 

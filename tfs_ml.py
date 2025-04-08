@@ -77,13 +77,14 @@ class BaseLearner:
         #print("X shape: ", X.shape, "\n")
         #print("y shape: ", y.shape, "\n")
 
-        p_75 = int((len(y) / 100) * 70)
+        n_rows = y.shape[0].compute()
+        p_75 = int((n_rows / 100) * 70)
 
-        X_train = X.loc[:p_75].persist()
-        X_test = X.loc[p_75:].persist()
+        X_train = X.iloc[:, :p_75].persist()
+        X_test = X.iloc[:, p_75:].persist()
 
-        y_train = y.loc[:p_75].persist()
-        y_test = y.loc[p_75:].persist()
+        y_train = y.iloc[:, :p_75].persist()
+        y_test = y.iloc[:, p_75:].persist()
 
 
         #print(X_train.tail(5), "\n", X_test.tail(5), "\n", y_train.tail(5), "\n", y_test.tail(5), "\n")
@@ -117,7 +118,7 @@ class BaseLearner:
         client = Client(processes=False)
 
         time_cv = TimeSeriesSplit(n_splits=5) #A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
-        gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=retrieve_n_ml_cpus(), scheduler="threading", cv=time_cv)  # The models_gridsearch_parameters is obtained from the tfs_models file
+        gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=retrieve_n_ml_cpus(), scheduler="threading", cv=time_cv)  #The models_gridsearch_parameters is obtained from the tfs_models file
 
         with joblib.parallel_backend('dask'):
             gridsearch.fit(X=X_train, y=y_train)
