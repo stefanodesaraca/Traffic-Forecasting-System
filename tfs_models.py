@@ -14,7 +14,7 @@ def retrieve_n_ml_cpus() -> int:
 # ------------------- Functions that return the models themselves -------------------
 
 def get_random_forest_regressor() -> RandomForestRegressor:
-    random_forest = RandomForestRegressor(n_jobs=-1, random_state=100) #Has the max_depth, criterion (use squared_error, friedman_mse) n_estimators parameters
+    random_forest = RandomForestRegressor(n_jobs=retrieve_n_ml_cpus(), random_state=100) #Has the max_depth, criterion (use squared_error, friedman_mse) n_estimators parameters
     return random_forest
 
 
@@ -24,7 +24,7 @@ def get_adaboost_regressor() -> AdaBoostRegressor:
 
 
 def get_bagging_regressor() -> BaggingRegressor:
-    bagging = BaggingRegressor(n_jobs=-1, random_state=100) #Has n_estimators parameter
+    bagging = BaggingRegressor(n_jobs=retrieve_n_ml_cpus(), random_state=100) #Has n_estimators parameter
     return bagging
 
 
@@ -72,7 +72,7 @@ volumes_models_gridsearch_parameters = {
     }
 }
 
-volumes_best_parameters_by_model = {"RandomForestRegressor": 11,
+volumes_best_parameters_by_model = {"RandomForestRegressor": 12,
                                     "BaggingRegressor": 4,
                                     "HistGradientBoostingRegressor": 26,
                                     "DecisionTreeRegressor": 3}
