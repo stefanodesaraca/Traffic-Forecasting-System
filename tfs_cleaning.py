@@ -55,11 +55,8 @@ class TrafficVolumesCleaner(BaseCleaner):
     #This function is only to give the user an overview of the data which we're currently cleaning, and some specific information about the TRP (Traffic Registration Point) which has collected it
     def data_overview(self, volumes_data: dict, verbose: bool = True) -> None:
 
-        #print(volumes_data)
-
         trp_id = volumes_data["trafficData"]["trafficRegistrationPoint"]["id"]
         trp_metadata = get_trp_metadata(trp_id)
-
 
         if verbose is True:
 
@@ -415,7 +412,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
     def export_traffic_volumes_data(self, by_hour: pd.DataFrame, volumes_file_path, trp_id: str) -> None:
 
-        file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv")
+        file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv") #TODO IMPROVE THIS THROUGH A SIMPLER FILE NAME AND A PARSER OR GETTER FUNCTION IN tfs_utilities.py
 
         clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
 
@@ -631,7 +628,7 @@ class AverageSpeedCleaner(BaseCleaner):
             average_speed_data = import_avg_speed_data(file_path=file_path)
 
             trp_id = get_trp_id_from_filename(file_name)
-            self.data_overview(trp_id, verbose=True)
+            #TODO IN THE FUTURE ADD THE UNIFIED data_overview() FUNCTION WHICH WILL PRINT A COMMON DATA OVERVIEW FOR BOTH TRAFFIC VOLUMES DATA AND AVERAGE SPEED ONE
 
             average_speed_data, trp_id, t_max, t_min = self.clean_avg_speed_data(average_speed_data)
 
