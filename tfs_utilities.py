@@ -7,6 +7,7 @@ from tfs_ops_settings import *
 
 cwd = os.getcwd()
 ops_folder = "ops"
+dt_format = "%Y-%m-%dT%H:%M:%S"  #Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
 
 
 # ==================== Ops Utilities ====================
@@ -317,16 +318,14 @@ def get_ml_model_parameters_folder_path(target: str, road_category: str) -> str:
 def check_datetime(dt: str):
 
     try:
-        datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S")
+        datetime.strptime(dt, dt_format)
         return True
     except ValueError:
         return False
 
 
 def get_shapiro_wilk_plots_path() -> str:
-
     ops_name = get_active_ops_name()
-
     return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_shapiro_wilk_test/"
 
 
@@ -348,18 +347,34 @@ def get_eda_plots_folder_path(sub: str = None) -> str:
 
 
 def ZScore(df: [pd.DataFrame | dd.DataFrame], column: str) -> [pd.DataFrame | dd.DataFrame]:
-    
-    df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
 
-    #print("Number of outliers: ", len(df[(df["z_score"] < -3) & (df["z_score"] > 3)]))
-    #print("Length before: ", len(df))
+    if isinstance(df, dd.DataFrame):
 
-    filtered_df = df[(df["z_score"] > -3) & (df["z_score"] < 3)]
-    filtered_df = filtered_df.drop(columns="z_score")
+        df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
 
-    #print("Length after: ", len(filtered_df))
+        #print("Number of outliers: ", len(df[(df["z_score"] < -3) & (df["z_score"] > 3)]))
+        #print("Length before: ", len(df))
 
-    return filtered_df
+        filtered_df = df[(df["z_score"] > -3) & (df["z_score"] < 3)]
+        filtered_df = filtered_df.drop(columns="z_score")
+
+        #print("Length after: ", len(filtered_df))
+
+        return filtered_df.persist() #TODO CHECK IF THE ADD OF .persist() IMPROVES PERFORMANCES
+
+    elif isinstance(df, pd.DataFrame):
+
+        df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
+
+        # print("Number of outliers: ", len(df[(df["z_score"] < -3) & (df["z_score"] > 3)]))
+        # print("Length before: ", len(df))
+
+        filtered_df = df[(df["z_score"] > -3) & (df["z_score"] < 3)]
+        filtered_df = filtered_df.drop(columns="z_score")
+
+        # print("Length after: ", len(filtered_df))
+
+        return filtered_df
 
 
 def retrieve_theoretical_hours_columns() -> list:

@@ -269,6 +269,13 @@ def execute_forecast_warmup(functionality: str) -> None:
 
 def execute_one_point_forecast(functionality: str):
 
+    #We'll check if the target datetime exists before any forecasting operation could begin.
+    #Also, we'll check if the date is within the data we already have (since there's nothing to forecast if we already have the true values (the measurements executed by the TRP sensors) for a specific day)
+    #If we already have the data we'll just re-direct the user the main menu.
+    #This check will be handled internally by the write_forecasting_target_datetime() function
+    assert os.path.isfile("target_datetime.txt"), "File not found"
+    target_datetime = read_forecasting_target_datetime()
+
     if functionality == "3.3.1":
 
         trp_id_list = get_trp_id_list()
@@ -283,8 +290,7 @@ def execute_one_point_forecast(functionality: str):
 
             one_point_volume_forecaster = OnePointVolumesForecaster(trp_id=trp_id, road_category=trp_road_category)
 
-            assert os.path.isfile("target_datetime.txt"), "File not found"
-            target_datetime = read_forecasting_target_datetime()
+
 
             one_point_volume_forecaster.pre_process_data(forecasting_target_datetime=target_datetime)
 
