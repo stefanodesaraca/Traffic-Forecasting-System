@@ -7,7 +7,7 @@ from sklearn.multioutput import MultiOutputRegressor
 
 def retrieve_n_ml_cpus() -> int:
     n_cpu = os.cpu_count()
-    ml_dedicated_cores = math.floor(n_cpu / 0.50)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
+    ml_dedicated_cores = math.floor(n_cpu / 0.70)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
     return ml_dedicated_cores
 
 
