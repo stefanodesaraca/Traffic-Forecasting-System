@@ -626,12 +626,10 @@ class AverageSpeedCleaner(BaseCleaner):
 
         try:
             average_speed_data = import_avg_speed_data(file_path=file_path)
-
             trp_id = get_trp_id_from_filename(file_name)
             #TODO IN THE FUTURE ADD THE UNIFIED data_overview() FUNCTION WHICH WILL PRINT A COMMON DATA OVERVIEW FOR BOTH TRAFFIC VOLUMES DATA AND AVERAGE SPEED ONE
 
             average_speed_data, trp_id, t_max, t_min = self.clean_avg_speed_data(average_speed_data)
-
             self.export_clean_avg_speed_data(average_speed_data, trp_id, t_max, t_min)
 
         except IndexError:
