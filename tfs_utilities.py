@@ -30,7 +30,7 @@ def import_TRPs_data():
 
     return trp_info
 
-
+#TODO IMPROVE THIS FUNCTION
 def get_trp_id_list() -> list:
 
     trp_info = import_TRPs_data()
@@ -48,7 +48,7 @@ def get_trp_id_from_filename(filename: str) -> str:
     return filename.split("_")[0]
 
 
-def get_all_road_categories() -> list:
+def get_all_available_road_categories() -> list:
     trp_info = import_TRPs_data()
     trp_road_category_list = list(set([trp["location"]["roadReference"]["roadCategory"]["id"] for trp in trp_info["trafficRegistrationPoints"]]))
     return trp_road_category_list
@@ -186,9 +186,7 @@ def import_volumes_data(file):
     '''
     This function returns json traffic volumes data about a specific TRP
     '''
-    with open(file, "r") as f:
-        data = json.load(f)
-
+    with open(file, "r") as f: data = json.load(f)
     return data
 
 
@@ -265,8 +263,7 @@ def import_avg_speed_data(file_path: str) -> pd.DataFrame:
 
 
 def get_clean_average_speed_files_list() -> list:
-    files = [get_clean_average_speed_folder_path() + f for f in os.listdir(get_clean_average_speed_folder_path())]
-    return files
+    return [get_clean_average_speed_folder_path() + f for f in os.listdir(get_clean_average_speed_folder_path())]
 
 
 def merge_avg_speed_data(trp_filepaths_list: list, return_pandas: bool) -> [dd.DataFrame | pd.DataFrame]:
@@ -316,7 +313,6 @@ def get_ml_model_parameters_folder_path(target: str, road_category: str) -> str:
 # ==================== Auxiliary Utilities ====================
 
 def check_datetime(dt: str):
-
     try:
         datetime.strptime(dt, dt_format)
         return True
@@ -378,8 +374,7 @@ def ZScore(df: [pd.DataFrame | dd.DataFrame], column: str) -> [pd.DataFrame | dd
 
 
 def retrieve_theoretical_hours_columns() -> list:
-    hours = [f"{i:02}" for i in range(24)]
-    return hours
+    return [f"{i:02}" for i in range(24)]
 
 
 

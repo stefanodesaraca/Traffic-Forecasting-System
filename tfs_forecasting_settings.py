@@ -32,12 +32,9 @@ def read_forecasting_target_datetime() -> datetime:
             target_dt = t_dt_reader.read()
             target_dt = datetime.strptime(target_dt, dt_format)
 
-            #print(type(target_dt))
-
     except FileNotFoundError:
         print("\033[91mTarget Datetime File Not Found\033[0m")
         exit()
-
 
     return target_dt
 
