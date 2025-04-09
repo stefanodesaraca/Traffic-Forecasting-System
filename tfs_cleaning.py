@@ -12,12 +12,12 @@ from sklearn.linear_model import Lasso
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 
-
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 
 
-class Cleaner:
+
+class BaseCleaner:
 
     def __init__(self):
         self._cwd = os.getcwd()
@@ -46,7 +46,7 @@ class Cleaner:
         return data
 
 
-class TrafficVolumesCleaner(Cleaner):
+class TrafficVolumesCleaner(BaseCleaner):
 
     def __init__(self):
         super().__init__()
@@ -380,7 +380,7 @@ class TrafficVolumesCleaner(Cleaner):
         non_mice_columns = by_hour_df[["trp_id"]]  # Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
 
         try:
-            cleaner = Cleaner()
+            cleaner = BaseCleaner()
             by_hour_df = cleaner.impute_missing_values(by_hour_df.drop(non_mice_columns.columns, axis=1))
 
             for nm_col in non_mice_columns.columns:
@@ -457,84 +457,15 @@ class TrafficVolumesCleaner(Cleaner):
 
 
     def execute_cleaning(self, volumes_file_path: str) -> None:
-
         self.cleaning_pipeline(volumes_file_path=volumes_file_path)
-
         return None
 
 
 
-class AverageSpeedCleaner(Cleaner):
+class AverageSpeedCleaner(BaseCleaner):
 
     def __init__(self):
         super().__init__()
-
-
-    @staticmethod
-    def retrieve_trp_id_from_avg_speed_file(filename: str) -> str:
-        trp_id = get_trp_id_from_filename(filename)
-        return trp_id
-
-
-    def retrieve_trp_data_from_avg_speed_file(self, avg_speed_filename):
-
-        avg_speed_folder_path = get_raw_average_speed_folder_path() #Getting the raw average speed folder path
-        trp_id = self.retrieve_trp_id_from_avg_speed_file(avg_speed_filename) #Combining the raw average speed folder path with the filename of the file we want to check out
-        trp_data = import_TRPs_data()  #All TRPs data retrieval
-
-        trp_data = [i for i in trp_data["trafficRegistrationPoints"] if i["id"] == trp_id]  #Finding the data for the specific TRP taken in consideration by iterating on all the TRPs available in the trp_file
-        trp_data = trp_data[0]
-
-        return trp_data
-
-
-    def data_overview(self, trp_id, verbose: bool = True) -> None:
-        # Since the prints below are all the same (except for one) we could technically create a workaround to avoid having to repeat these lines, but it would complicate a lot something that's way simpler (just prints).
-        # Thus, for readability purposes we're going to repeat the same prints (except for one) as in the TrafficVolumeCleaner class
-
-        trp_metadata = get_trp_metadata(trp_id)
-
-        if verbose is True:
-
-            print("******** Traffic Registration Point Information ********")
-
-            print("ID: ", trp_metadata["trp_id"])
-            print("Name: ", trp_metadata["name"])
-            print("Road category: ", trp_metadata["road_category"])
-            print("Coordinates: ")
-            print(" - Lat: ", trp_metadata["lat"])
-            print(" - Lon: ", trp_metadata["lon"])
-            print("County name: ", trp_metadata["county_name"])
-            print("County number: ", trp_metadata["county_number"])
-            print("Geographic number: ", trp_metadata["geographic_number"])
-            print("Country part: ", trp_metadata["country_part"])
-            print("Municipality name: ", trp_metadata["municipality_name"])
-
-            print("Traffic registration type: ", trp_metadata["traffic_registration_type"])
-            print("Data time span: ")
-            print(" - First data: ", trp_metadata["first_data"])
-            print(" - First data with quality metrics: ", trp_metadata["first_data_with_quality_metrics"])
-            print(" - Latest data: ")
-            print("   > Volume by day: ", trp_metadata["latest_volume_by_day"])
-            print("   > Volume by hour: ", trp_metadata["latest_volume_byh_hour"])
-            print("   > Volume average daily by year: ", trp_metadata["latest_volume_average_daily_by_year"])
-            print("   > Volume average daily by season: ", trp_metadata["latest_volume_average_daily_by_season"])
-            print("   > Volume average daily by month: ", trp_metadata["latest_volume_average_daily_by_month"])
-            print("Number of data nodes: ", trp_metadata["number_of_data_nodes"])
-
-            print("\n")
-
-
-        elif verbose is False:
-
-            print("******** Traffic Registration Point Information ********")
-
-            print("ID: ", trp_metadata["trp_id"])
-            print("Name: ", trp_metadata["name"])
-
-        print("\n\n")
-
-        return None
 
 
     def clean_avg_speed_data(self, avg_speed_data) -> [tuple[pd.DataFrame, str, str, str] | None]:
@@ -596,7 +527,7 @@ class AverageSpeedCleaner(Cleaner):
         avg_speed_data = avg_speed_data.drop(columns=non_mice_cols, axis=1) #Columns to not include for Multiple Imputation By Chained Equations (MICE)
 
         try:
-            cleaner = Cleaner()
+            cleaner = BaseCleaner()
             avg_speed_data = cleaner.impute_missing_values(avg_speed_data)
 
             print("Multiple imputation on average speed data executed successfully\n\n")
