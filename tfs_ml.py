@@ -114,6 +114,8 @@ class BaseLearner:
         ml_parameters_folder_path = get_ml_model_parameters_folder_path(target=target, road_category=road_category)
         model_filename = ops_name + "_" + road_category + "_" + model_name + "_" + "parameters"
 
+        t_start = datetime.now()
+        print(f"{model_name} GridSearchCV started at {t_start}\n")
 
         client = Client(processes=True)
 
@@ -132,6 +134,10 @@ class BaseLearner:
 
         print(f"============== {model_name} grid search results ==============\n")
         print(gridsearch_results, "\n")
+
+        t_end = datetime.now()
+        print(f"{model_name} GridSearchCV finished at {t_end}\n")
+        print(f"Time passed: {t_end - t_start}")
 
         gridsearch_results.to_json(f"./ops/{road_category}_{model_name}_grid_params_and_results.json", indent=4) #TODO FOR TESTING PURPOSES
 
