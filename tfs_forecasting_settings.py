@@ -1,3 +1,4 @@
+from tfs_utilities import check_datetime
 from datetime import datetime
 import os
 
@@ -9,12 +10,18 @@ cwd = os.getcwd()
 def write_forecasting_target_datetime() -> None:
 
     dt = str(input("Insert Target Datetime (YYYY-MM-DDTHH:MM:SS): ")) #The month number must be zero-padded, for example: 01, 02, etc.
-    print("Target datetime set to: ", dt, "\n\n")
 
-    with open(f"{target_datetime_filename}.txt", "w") as t_dt_writer:
-        t_dt_writer.write(dt)
+    if check_datetime(dt) is True:
+        print("Target datetime set to: ", dt, "\n\n")
 
-    return None
+        with open(f"{target_datetime_filename}.txt", "w") as t_dt_writer:
+            t_dt_writer.write(dt)
+
+        return None
+
+    else:
+        print("\033[91mWrong datetime format, try again\033[0m")
+        exit()
 
 
 def read_forecasting_target_datetime() -> datetime:

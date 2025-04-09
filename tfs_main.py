@@ -282,7 +282,11 @@ def execute_one_point_forecast(functionality: str):
             print("\nTRP road category:", trp_road_category)
 
             one_point_volume_forecaster = OnePointVolumesForecaster(trp_id=trp_id, road_category=trp_road_category)
-            #one_point_volume_forecaster.pre_process_data()
+
+            assert os.path.isfile("target_datetime.txt"), "File not found"
+            target_datetime = read_forecasting_target_datetime()
+
+            one_point_volume_forecaster.pre_process_data(forecasting_target_datetime=target_datetime)
 
         else:
             print("Non-valid TRP ID, returning to main menu")
