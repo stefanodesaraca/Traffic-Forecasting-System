@@ -12,6 +12,8 @@ import time
 from datetime import datetime
 from tqdm import tqdm
 import pprint
+from dask.distributed import Client
+
 
 
 def manage_ops(functionality: str) -> None:
@@ -182,10 +184,13 @@ def execute_forecast_warmup(functionality: str) -> None:
     trps_ids_avg_speeds_by_road_category = {category: [retrieve_trp_clean_average_speed_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_average_speed_filepath_by_id(trp_id)) is False] for category in
                                             get_all_available_road_categories()}
 
-
+    #Initializing a client to support parallel backend computing
+    #It's important to instantiate it here since, if it was done in the gridsearch function, it would mean the client would be started and closed everytime the function runs (which is not good)
+    client = Client(processes=False)
 
     # ------------ Hyperparameter tuning for traffic volumes ML models ------------
     if functionality == "3.2.1":
+
 
         merged_volumes_by_category = {}
 
@@ -267,6 +272,8 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         print()
 
+
+    client.close()
 
     return None
 
