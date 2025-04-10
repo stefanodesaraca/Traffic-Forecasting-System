@@ -215,12 +215,6 @@ def write_metainfo(ops_name: str) -> None:
     return None
 
 
-def update_metainfo(ops_name: str) -> None:
-
-
-
-
-    return None
 
 
 
