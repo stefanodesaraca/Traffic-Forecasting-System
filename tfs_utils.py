@@ -7,6 +7,7 @@ from tfs_ops_settings import *
 
 cwd = os.getcwd()
 ops_folder = "ops"
+dt_format = "%Y-%m-%dT%H:%M:%S"  #Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
 
 
 # ==================== Ops Utilities ====================
@@ -29,7 +30,7 @@ def import_TRPs_data():
 
     return trp_info
 
-
+#TODO IMPROVE THIS FUNCTION
 def get_trp_id_list() -> list:
 
     trp_info = import_TRPs_data()
@@ -47,7 +48,7 @@ def get_trp_id_from_filename(filename: str) -> str:
     return filename.split("_")[0]
 
 
-def get_all_road_categories() -> list:
+def get_all_available_road_categories() -> list:
     trp_info = import_TRPs_data()
     trp_road_category_list = list(set([trp["location"]["roadReference"]["roadCategory"]["id"] for trp in trp_info["trafficRegistrationPoints"]]))
     return trp_road_category_list
@@ -185,9 +186,7 @@ def import_volumes_data(file):
     '''
     This function returns json traffic volumes data about a specific TRP
     '''
-    with open(file, "r") as f:
-        data = json.load(f)
-
+    with open(file, "r") as f: data = json.load(f)
     return data
 
 
@@ -264,8 +263,7 @@ def import_avg_speed_data(file_path: str) -> pd.DataFrame:
 
 
 def get_clean_average_speed_files_list() -> list:
-    files = [get_clean_average_speed_folder_path() + f for f in os.listdir(get_clean_average_speed_folder_path())]
-    return files
+    return [get_clean_average_speed_folder_path() + f for f in os.listdir(get_clean_average_speed_folder_path())]
 
 
 def merge_avg_speed_data(trp_filepaths_list: list, return_pandas: bool) -> [dd.DataFrame | pd.DataFrame]:
@@ -315,18 +313,15 @@ def get_ml_model_parameters_folder_path(target: str, road_category: str) -> str:
 # ==================== Auxiliary Utilities ====================
 
 def check_datetime(dt: str):
-
     try:
-        datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S")
+        datetime.strptime(dt, dt_format)
         return True
     except ValueError:
         return False
 
 
 def get_shapiro_wilk_plots_path() -> str:
-
     ops_name = get_active_ops_name()
-
     return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_shapiro_wilk_test/"
 
 
@@ -348,23 +343,38 @@ def get_eda_plots_folder_path(sub: str = None) -> str:
 
 
 def ZScore(df: [pd.DataFrame | dd.DataFrame], column: str) -> [pd.DataFrame | dd.DataFrame]:
-    
-    df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
 
-    #print("Number of outliers: ", len(df[(df["z_score"] < -3) & (df["z_score"] > 3)]))
-    #print("Length before: ", len(df))
+    if isinstance(df, dd.DataFrame):
 
-    filtered_df = df[(df["z_score"] > -3) & (df["z_score"] < 3)]
-    filtered_df = filtered_df.drop(columns="z_score")
+        df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
 
-    #print("Length after: ", len(filtered_df))
+        #print("Number of outliers: ", len(df[(df["z_score"] < -3) & (df["z_score"] > 3)]))
+        #print("Length before: ", len(df))
 
-    return filtered_df
+        filtered_df = df[(df["z_score"] > -3) & (df["z_score"] < 3)]
+        filtered_df = filtered_df.drop(columns="z_score")
+
+        #print("Length after: ", len(filtered_df))
+
+        return filtered_df.persist() #TODO CHECK IF THE ADD OF .persist() IMPROVES PERFORMANCES
+
+    elif isinstance(df, pd.DataFrame):
+
+        df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
+
+        # print("Number of outliers: ", len(df[(df["z_score"] < -3) & (df["z_score"] > 3)]))
+        # print("Length before: ", len(df))
+
+        filtered_df = df[(df["z_score"] > -3) & (df["z_score"] < 3)]
+        filtered_df = filtered_df.drop(columns="z_score")
+
+        # print("Length after: ", len(filtered_df))
+
+        return filtered_df
 
 
 def retrieve_theoretical_hours_columns() -> list:
-    hours = [f"{i:02}" for i in range(24)]
-    return hours
+    return [f"{i:02}" for i in range(24)]
 
 
 

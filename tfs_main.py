@@ -1,9 +1,9 @@
 import tfs_ml
 from tfs_ops_settings import *
-from tfs_data_downloader import *
+from tfs_downloader import *
 from tfs_forecasting_settings import *
-from tfs_data_exploration import *
-from tfs_utilities import *
+from tfs_exploration import *
+from tfs_utils import *
 from tfs_cleaning import *
 from tfs_ml import *
 from tfs_models import model_names_and_functions
@@ -115,14 +115,17 @@ def clean_data(functionality: str) -> None:
 
 def set_forecasting_options(functionality: str) -> None:
 
+    active_ops = get_active_ops_name()
+
     if functionality == "3.1.1":
-        write_forecasting_target_datetime()
+        write_forecasting_target_datetime(active_ops)
 
     elif functionality == "3.1.2":
-        print("Target datetime: ", read_forecasting_target_datetime(), "\n\n")
+        option = input("Press V to read forecasting target datetime for traffic volumes or AS for average speeds: ")
+        print("Target datetime: ", read_forecasting_target_datetime(data_kind=option, ops_name=active_ops), "\n\n")
 
     elif functionality == "3.1.3":
-        del_forecasting_target_datetime()
+        rm_forecasting_target_datetime(active_ops)
 
     return None
 
@@ -169,13 +172,15 @@ def execute_forecast_warmup(functionality: str) -> None:
     trps = get_trp_id_list()
 
     #TRPs - Volumes files and road categories
-    trps_ids_volumes_by_road_category = {category: [retrieve_trp_clean_volumes_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_volumes_filepath_by_id(trp_id)) is False] for category in get_all_road_categories()}
+    trps_ids_volumes_by_road_category = {category: [retrieve_trp_clean_volumes_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_volumes_filepath_by_id(trp_id)) is False] for category in
+                                         get_all_available_road_categories()}
     #The isdir() method is needed since there could be some cases where the volumes files are absent, but TRPs are included in the trps list, so if there isn't on we'll just obtain the path for the clean volumes files folder. Thus, if the string is a path to a folder then don't include it in the trps_ids_by_road_category
     #pprint.pprint(trps_ids_by_road_category)
 
 
     #TRPs - Average files and road categories
-    trps_ids_avg_speeds_by_road_category = {category: [retrieve_trp_clean_average_speed_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_average_speed_filepath_by_id(trp_id)) is False] for category in get_all_road_categories()}
+    trps_ids_avg_speeds_by_road_category = {category: [retrieve_trp_clean_average_speed_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_average_speed_filepath_by_id(trp_id)) is False] for category in
+                                            get_all_available_road_categories()}
 
 
 
@@ -267,8 +272,20 @@ def execute_forecast_warmup(functionality: str) -> None:
 
 
 
-def execute_one_point_forecast(functionality: str):
+def execute_forecasts(functionality: str) -> None:
 
+    #We'll check if the target datetime exists before any forecasting operation could begin.
+    #Also, we'll check if the date is within the data we already have (since there's nothing to forecast if we already have the true values (the measurements executed by the TRP sensors) for a specific day)
+    #If we already have the data we'll just re-direct the user the main menu.
+    #This check will be handled internally by the write_forecasting_target_datetime() function
+    assert os.path.isfile("target_datetime.json"), "File not found"
+
+    print("Which kind of data would you like to forecast?")
+    print("V: Volumes | AS: Average Speeds")
+    option = input("Choice: ")
+    target_datetime = read_forecasting_target_datetime(option)
+
+    #One-Point Forecast
     if functionality == "3.3.1":
 
         trp_id_list = get_trp_id_list()
@@ -282,7 +299,10 @@ def execute_one_point_forecast(functionality: str):
             print("\nTRP road category:", trp_road_category)
 
             one_point_volume_forecaster = OnePointVolumesForecaster(trp_id=trp_id, road_category=trp_road_category)
-            #one_point_volume_forecaster.pre_process_data()
+
+
+
+            one_point_volume_forecaster.pre_process_data(forecasting_target_datetime=target_datetime)
 
         else:
             print("Non-valid TRP ID, returning to main menu")
@@ -366,7 +386,7 @@ def main():
             execute_forecast_warmup(option)
 
         elif option in ["3.3.1"]:
-            execute_one_point_forecast(option)
+            execute_forecasts(option)
 
         elif option == "5.2":
             execute_eda()

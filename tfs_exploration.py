@@ -87,18 +87,14 @@ def ShapiroWilkTest(targetFeatureName, data, shapiroWilkPlotsPath):
 
     return plotName, SWQQPlot, shapiroWilkPlotsPath
 
-
+#TODO BRING THIS FUNCTION INTO tfs_utils.py
 def retrieve_volumes_data(file_path: str) -> pd.DataFrame:
-
     volumes = pd.read_csv(file_path)
-
     return volumes
 
-
+#TODO BRING THIS FUNCTION INTO tfs_utils.py
 def retrieve_avg_speed_data(file_path: str) -> pd.DataFrame:
-
     speeds = pd.read_csv(file_path)
-
     return speeds
 
 
@@ -177,7 +173,6 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
     #Checking if the data distribution is normal
     swt_path = get_shapiro_wilk_plots_path()
     ShapiroWilkTest("volume", volumes["volume"], swt_path)
-
     plt.clf()
 
     print("\n\n")
@@ -200,11 +195,8 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
     print("Traffic volumes - Correlations dataframe-wise (numerical variables only): ")
     print(volumes.corr(numeric_only=True), "\n")
 
-
     dates = [f"{y}-{m}-{d}" for y, m, d in zip(volumes["year"], volumes["month"], volumes["day"])]
-
     volumes["date"] = pd.to_datetime(dates)
-
 
 
     @savePlots
@@ -213,7 +205,6 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
         plot_path = get_eda_plots_folder_path(sub="volumes")
 
         plt.figure(figsize=(16,9))
-
         for y in sorted(volumes["year"].unique()):
 
             year_data = volumes[volumes["year"] == y].groupby("date", as_index=False)["volume"].sum().sort_values(by="date", ascending=True)
@@ -223,11 +214,8 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
 
         plt.ylabel("Volume")
         plt.xlabel("Time (days)")
-
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
-
         plt.title(f"Traffic volumes aggregated (sum) by day for different years | TRP: {trp_id}")
-
         plt.grid(axis="y")
 
 
@@ -240,7 +228,6 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
         plot_path = get_eda_plots_folder_path(sub="volumes")
 
         plt.figure(figsize=(16, 9))
-
         for y in sorted(volumes["year"].unique()):
             week_data = volumes[volumes["year"] == y][["volume", "year", "week"]].groupby(["week"], as_index=False)["volume"].median().sort_values(by="week", ascending=True)
 
@@ -249,14 +236,9 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
 
         plt.ylabel("Volume")
         plt.xlabel("Week")
-
-
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
-
         plt.title(f"Median traffic volumes aggregated (median) by week for different years | TRP: {trp_id}")
-
         plt.grid(axis="y")
-
 
         return f"{trp_id}_volume_trend_by_hour_day", plt, plot_path
 
@@ -272,7 +254,6 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
         for idx, y in enumerate(sorted(volumes["year"].unique())):
 
             for w in sorted(volumes[volumes["year"] == y]["week"].unique()):
-
                 volumes_grouped = volumes[(volumes["year"] == y) & (volumes["week"] == w)]
                 #print(volumes_grouped)
 
@@ -283,17 +264,13 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
 
         plt.subplots_adjust(hspace=0.5)
 
-
         return f"{trp_id}_volumes_distribution_by_week_and_year", plt, plot_path
 
 
     @savePlots
     def correlation_heatmap():
-
         plots_path = get_eda_plots_folder_path(sub="volumes")
-
         corr_heatmap = sns.heatmap(volumes.corr(numeric_only=True), annot=True, fmt=".2f").set_title(f"Traffic volumes - TRP: {trp_id} - Correlation heatmap")
-
         return f"{trp_id}_volumes_corr_heatmap", corr_heatmap, plots_path
 
 
@@ -301,11 +278,9 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
     all((plots_list[i](), plt.clf()) for i in range(len(plots_list)))
 
 
-    volumes = volumes.drop(columns=["date"])
-
+    volumes = volumes.drop(columns=["date"]) #TODO CHECK IF THIS IS REMOVABLE BY TESTING THE FUNCTION ITSELF
 
     print("\n")
-
 
     return None
 
@@ -366,7 +341,6 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
 
     print("\n")
 
-
     print("Average speeds mean: ", np.round(np.mean(speeds["mean_speed"]), 2))
     print("Average speeds median: ", np.round(np.mean(speeds["mean_speed"]), 2))
     print("Average speeds standard deviation: ", np.round(np.std(speeds["mean_speed"]), 2))
@@ -383,7 +357,6 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
     # Checking if the data distribution is normal
     swt_path = get_shapiro_wilk_plots_path()
     ShapiroWilkTest("mean_speed", speeds["mean_speed"], swt_path)
-
     plt.clf()
 
     print("\n\n")
@@ -412,22 +385,16 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
         plot_path = get_eda_plots_folder_path(sub="avg_speeds")
 
         plt.figure(figsize=(16,9))
-
         for y in sorted(speeds["year"].unique()):
-
             year_data = speeds[speeds["year"] == y].groupby("date", as_index=False)["mean_speed"].mean().sort_values(by="date", ascending=True)
             #print(year_data)
             plt.plot(range(0, len(year_data)), "mean_speed", data=year_data) #To make the plots overlap they must have the same exact data on the x axis.
 
         plt.ylabel("Average speed")
         plt.xlabel("Time (days)")
-
         plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
-
         plt.title(f"Average speeds aggregated by day for different years | TRP: {trp_id}")
-
         plt.grid(axis="y")
-
 
         return f"{trp_id}_avg_speeds_trend_grouped_by_years", plt, plot_path
 
@@ -438,7 +405,6 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
         plot_path = get_eda_plots_folder_path(sub="avg_speeds")
 
         plt.figure(figsize=(16, 9))
-
         for y in sorted(speeds["year"].unique()):
             week_data = speeds[speeds["year"] == y][["mean_speed", "year", "week"]].groupby(["week"], as_index=False)["mean_speed"].median().sort_values(by="week", ascending=True)
 
@@ -447,14 +413,9 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
 
         plt.ylabel("Median of the average speed")
         plt.xlabel("Week")
-
-
         plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
-
         plt.title(f"Median of the average speeds by week for different years | TRP: {trp_id}")
-
         plt.grid(axis="y")
-
 
         return f"{trp_id}_avg_speed_trend_by_hour_day", plt, plot_path
 
@@ -464,14 +425,12 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
 
         plot_path = get_eda_plots_folder_path(sub="avg_speeds")
 
-
         fig, axs = plt.subplots(len(speeds["year"].unique()), 1, figsize=(16, 9))
         plt.suptitle(f"{trp_id} speeds distribution by week and year")
 
         for idx, y in enumerate(sorted(speeds["year"].unique())):
 
             for w in sorted(speeds[speeds["year"] == y]["week"].unique()):
-
                 speeds_grouped = speeds[(speeds["year"] == y) & (speeds["week"] == w)]
                 #print(speeds_grouped)
 
@@ -482,17 +441,13 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
 
         plt.subplots_adjust(hspace=0.5)
 
-
         return f"{trp_id}_avg_speed_distribution_by_week_and_year", plt, plot_path
 
 
     @savePlots
     def correlation_heatmap():
-
         plots_path = get_eda_plots_folder_path(sub="avg_speeds")
-
         corr_heatmap = sns.heatmap(speeds.corr(numeric_only=True), annot=True, fmt=".2f").set_title(f"Traffic volumes - TRP: {trp_id} - Correlation heatmap")
-
         return f"{trp_id}_avg_speed_corr_heatmap", corr_heatmap, plots_path
 
 
