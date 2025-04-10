@@ -87,12 +87,12 @@ def ShapiroWilkTest(targetFeatureName, data, shapiroWilkPlotsPath):
 
     return plotName, SWQQPlot, shapiroWilkPlotsPath
 
-#TODO BRING THIS FUNCTION INTO tfs_utilities.py
+#TODO BRING THIS FUNCTION INTO tfs_utils.py
 def retrieve_volumes_data(file_path: str) -> pd.DataFrame:
     volumes = pd.read_csv(file_path)
     return volumes
 
-#TODO BRING THIS FUNCTION INTO tfs_utilities.py
+#TODO BRING THIS FUNCTION INTO tfs_utils.py
 def retrieve_avg_speed_data(file_path: str) -> pd.DataFrame:
     speeds = pd.read_csv(file_path)
     return speeds

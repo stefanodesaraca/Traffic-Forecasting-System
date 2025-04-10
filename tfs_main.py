@@ -1,9 +1,9 @@
 import tfs_ml
 from tfs_ops_settings import *
-from tfs_data_downloader import *
+from tfs_downloader import *
 from tfs_forecasting_settings import *
-from tfs_data_exploration import *
-from tfs_utilities import *
+from tfs_exploration import *
+from tfs_utils import *
 from tfs_cleaning import *
 from tfs_ml import *
 from tfs_models import model_names_and_functions
@@ -269,15 +269,20 @@ def execute_forecast_warmup(functionality: str) -> None:
 
 
 
-def execute_one_point_forecast(functionality: str) -> None:
+def execute_forecasts(functionality: str) -> None:
 
     #We'll check if the target datetime exists before any forecasting operation could begin.
     #Also, we'll check if the date is within the data we already have (since there's nothing to forecast if we already have the true values (the measurements executed by the TRP sensors) for a specific day)
     #If we already have the data we'll just re-direct the user the main menu.
     #This check will be handled internally by the write_forecasting_target_datetime() function
     assert os.path.isfile("target_datetime.json"), "File not found"
-    target_datetime = read_forecasting_target_datetime()
 
+    print("Which kind of data would you like to forecast?")
+    print("V: Volumes | AS: Average Speeds")
+    option = input("Choice: ")
+    target_datetime = read_forecasting_target_datetime(option)
+
+    #One-Point Forecast
     if functionality == "3.3.1":
 
         trp_id_list = get_trp_id_list()
@@ -378,7 +383,7 @@ def main():
             execute_forecast_warmup(option)
 
         elif option in ["3.3.1"]:
-            execute_one_point_forecast(option)
+            execute_forecasts(option)
 
         elif option == "5.2":
             execute_eda()

@@ -1,4 +1,4 @@
-from tfs_utilities import *
+from tfs_utils import *
 from datetime import datetime
 import os
 
@@ -8,11 +8,20 @@ forecasting_dt_format = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be z
 cwd = os.getcwd()
 target_data = ["V", "AS"]
 
+#TODO FIND A WAY TO CHECK WHICH IS THE LAST DATETIME AVAILABLE FOR BOTH AVERAGE SPEED (CLEAN) AND TRAFFIC VOLUMES (CLEAN)
 
 def write_forecasting_target_datetime() -> None:
 
     assert os.path.isdir(get_clean_traffic_volumes_folder_path()), "Clean traffic volumes folder missing. Initialize an operation first and then set a forecasting target datetime"
     assert os.path.isdir(get_clean_average_speed_folder_path()), "Clean average speeds folder missing. Initialize an operation first and then set a forecasting target datetime"
+
+
+    #TODO IF DATA_INFO IS FILE THEN CONTINUE, ELSE CREATE IT USING THE SPECIFIC FUNCTION
+    # DATA_INFO WILL BE CREATED AT PRIOR BY THE tfs_ops_settings.py FILE AND WILL CONTAIN GENERAL USEFUL INFORMATION ABOUT THE DATA AVAILABLE LIKE: NUMBER OF CLEAN AND RAW FILES FOR BOTH TV AND AVG SPEED,
+    # THE SIZE OF EACH FILE, THE NUMBER OF ROWS OF EACH FILE, THE FIRST AND LAST DATES BOTH IN ISO FORMAT AND DIVIDED BY YEAR, MONTH, DAY, HOUR, MINUTES AND SECONDS, THE PATH TO EACH FILE, IF A RAW FILES HAS A CORRESPONDING CLEAN ONE,
+    # ALL OF THESE DATA WILL BE INCLUDED EACH UNDER A KEY WHICH WILL BE THE TRP_ID
+
+
 
     option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")
     dt = str(input("Insert Target Datetime (YYYY-MM-DDTHH): ")) #The month number must be zero-padded, for example: 01, 02, etc.

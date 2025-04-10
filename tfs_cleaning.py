@@ -1,5 +1,5 @@
 from tfs_ops_settings import *
-from tfs_utilities import *
+from tfs_utils import *
 import numpy as np
 import json
 import datetime
@@ -412,7 +412,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
     def export_traffic_volumes_data(self, by_hour: pd.DataFrame, volumes_file_path, trp_id: str) -> None:
 
-        file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv") #TODO IMPROVE THIS THROUGH A SIMPLER FILE NAME AND A PARSER OR GETTER FUNCTION IN tfs_utilities.py
+        file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv") #TODO IMPROVE THIS THROUGH A SIMPLER FILE NAME AND A PARSER OR GETTER FUNCTION IN tfs_utils.py
 
         clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
 
