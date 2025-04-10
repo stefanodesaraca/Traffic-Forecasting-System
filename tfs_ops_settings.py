@@ -2,10 +2,8 @@ import os
 from cleantext import clean
 
 cwd = os.getcwd()
-
 ops_folder = "ops"
 os.makedirs(ops_folder, exist_ok=True) #Creating the operations folder
-
 active_ops_filename = "active_ops"
 
 

@@ -275,7 +275,7 @@ def execute_one_point_forecast(functionality: str):
     #Also, we'll check if the date is within the data we already have (since there's nothing to forecast if we already have the true values (the measurements executed by the TRP sensors) for a specific day)
     #If we already have the data we'll just re-direct the user the main menu.
     #This check will be handled internally by the write_forecasting_target_datetime() function
-    assert os.path.isfile("target_datetime.txt"), "File not found"
+    assert os.path.isfile("target_datetime.json"), "File not found"
     target_datetime = read_forecasting_target_datetime()
 
     if functionality == "3.3.1":
