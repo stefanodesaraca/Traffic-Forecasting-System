@@ -115,14 +115,17 @@ def clean_data(functionality: str) -> None:
 
 def set_forecasting_options(functionality: str) -> None:
 
+    active_ops = get_active_ops_name()
+
     if functionality == "3.1.1":
-        write_forecasting_target_datetime()
+        write_forecasting_target_datetime(active_ops)
 
     elif functionality == "3.1.2":
-        print("Target datetime: ", read_forecasting_target_datetime(), "\n\n")
+        option = input("Press V to read forecasting target datetime for traffic volumes or AS for average speeds: ")
+        print("Target datetime: ", read_forecasting_target_datetime(data_kind=option, ops_name=active_ops), "\n\n")
 
     elif functionality == "3.1.3":
-        rm_forecasting_target_datetime()
+        rm_forecasting_target_datetime(active_ops)
 
     return None
 
