@@ -53,7 +53,7 @@ def create_ops_folder(ops_name: str) -> None:
 
     write_metainfo(ops_name)
 
-    main_folders = [f"{ops_name}_data", f"{ops_name}_eda", f"{ops_name}_rn_graph", f"{ops_name}_ml"]
+    main_folders = [f"data", f"eda", f"rn_graph", f"ml"]
     data_subfolders = ["traffic_volumes", "average_speed", "travel_times", "trp_metadata"]
     data_sub_subfolders = ["raw", "clean"] #To isolate raw data from the clean one
     eda_subfolders = [f"{ops_name}_shapiro_wilk_test", f"{ops_name}_plots"]
@@ -63,61 +63,68 @@ def create_ops_folder(ops_name: str) -> None:
     ml_sub_subfolders = ["traffic_volumes", "average_speed"]
     ml_sub_sub_subfolders = [road_category for road_category in ["E", "R", "F", "K", "P"]]
 
-    with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "r") as m: metainfo_paths = json.load(m)["folder_paths"]
+    with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "r") as m: metainfo = json.load(m)
+    metainfo["folder_paths"] = {} #Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
 
     for mf in main_folders:
-        os.makedirs(f"{cwd}/{ops_folder}/{ops_name}/{mf}", exist_ok=True)
+        main_f = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_{mf}"
+        os.makedirs(main_f, exist_ok=True)
+        metainfo["folder_paths"][mf] = {}
 
     # Data subfolders
     for dsf in data_subfolders:
         data_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}"
         os.makedirs(data_sub, exist_ok=True)
-        metainfo_paths["data"][dsf]["path"] = data_sub
-        metainfo_paths["data"][dsf]["subfolders"] = {}
+        metainfo["folder_paths"]["data"][dsf] = {"path": data_sub,
+                                                "subfolders": {}}
 
         #Data sub-subfolders
         for dssf in data_sub_subfolders:
             if dsf != "trp_metadata":
                 data_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}/{dssf}_{dsf}"
                 os.makedirs(data_2sub, exist_ok=True)
-                metainfo_paths["data"][dsf]["subfolders"][dssf] = {"path": data_2sub}
+                metainfo["folder_paths"]["data"][dsf]["subfolders"][dssf] = {"path": data_2sub}
 
     for e in eda_subfolders:
         eda_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{e}"
         os.makedirs(eda_sub, exist_ok=True)
-        metainfo_paths["eda"][e]["path"] = eda_sub
-        metainfo_paths["eda"][e]["subfolders"] = {}
+        metainfo["folder_paths"]["eda"][e] = {"path": eda_sub,
+                                              "subfolders": {}}
 
         for esub in eda_sub_subfolders:
-            eda_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{e}/{esub}_eda_plots"
-            os.makedirs(eda_2sub, exist_ok=True)
-            metainfo_paths["eda"][e]["subfolders"][esub] = {"path": eda_2sub}
+            if e != f"{ops_name}_shapiro_wilk_test":
+                eda_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{e}/{esub}_eda_plots"
+                os.makedirs(eda_2sub, exist_ok=True)
+                metainfo["folder_paths"]["eda"][e]["subfolders"][esub] = {"path": eda_2sub}
 
     # Graph subfolders
     for gsf in rn_graph_subfolders:
         gsf_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_rn_graph/{gsf}"
         os.makedirs(gsf_sub, exist_ok=True)
-        metainfo_paths["rn_graph"][gsf]["path"] = gsf_sub
-        metainfo_paths["rn_graph"][gsf]["subfolders"] = None
+        metainfo["folder_paths"]["rn_graph"][gsf] = {"path": gsf_sub,
+                                                     "subfolders": None}
 
     # Machine learning subfolders
     for mlsf in ml_subfolders:
         ml_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}"
         os.makedirs(ml_sub, exist_ok=True)
-        metainfo_paths["ml"][mlsf]["path"] = ml_sub
-        metainfo_paths["ml"][mlsf]["subfolders"] = {}
+        metainfo["folder_paths"]["ml"][mlsf] = {"path": ml_sub,
+                                                "subfolders": {}}
 
         #Machine learning sub-subfolders
         for mlssf in ml_sub_subfolders:
             ml_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/{ops_name}_{mlssf}_{mlsf}"
             os.makedirs(ml_2sub, exist_ok=True)
-            metainfo_paths["ml"][mlsf]["subfolders"][mlssf] = {"path": ml_2sub,
-                                                               "subfolders": {}}
+            metainfo["folder_paths"]["ml"][mlsf]["subfolders"][mlssf] = {"path": ml_2sub,
+                                                                         "subfolders": {}}
 
             for mlsssf in ml_sub_sub_subfolders:
                 ml_3sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/{ops_name}_{mlssf}_{mlsf}/{ops_name}_{mlsssf}_{mlssf}_{mlsf}"
                 os.makedirs(ml_3sub, exist_ok=True)
-                metainfo_paths["ml"][mlsf]["subfolders"][mlssf]["subfolders"][mlsssf] = {"path": ml_3sub}
+                metainfo["folder_paths"]["ml"][mlsf]["subfolders"][mlssf]["subfolders"][mlsssf] = {"path": ml_3sub}
+
+    with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "w") as m: json.dump(metainfo, m, indent=4)
+
 
     return None
 
@@ -191,12 +198,7 @@ def write_metainfo(ops_name: str) -> None:
                 "n_rows": []
             },
             "metadata_files": [],
-            "folder_paths": {
-                "data": {},
-                "eda": {},
-                "ml": {},
-                "rn_graph": {}
-            },
+            "folder_paths": {},
             "forecasting": {
                 "target_datetimes": {
                     "V": None,
