@@ -12,7 +12,7 @@ import time
 from datetime import datetime
 from tqdm import tqdm
 import pprint
-from dask.distributed import Client
+from dask.distributed import Client, LocalCluster
 
 
 
@@ -186,7 +186,9 @@ def execute_forecast_warmup(functionality: str) -> None:
 
     #Initializing a client to support parallel backend computing
     #It's important to instantiate it here since, if it was done in the gridsearch function, it would mean the client would be started and closed everytime the function runs (which is not good)
-    client = Client(processes=False)
+    cluster = LocalCluster(processes=False) #Check localhost:8787 to watch real-time
+    client = Client(cluster)
+    #More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
 
     # ------------ Hyperparameter tuning for traffic volumes ML models ------------
     if functionality == "3.2.1":
@@ -199,7 +201,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category, return_pandas=False)
 
         for road_category, v in merged_volumes_by_category.items():
-            volumes_learner = TrafficVolumesLearner(v)
+            volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
             X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
@@ -214,7 +216,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         clean_average_speed_files = get_clean_average_speed_files_list()
 
         for s in clean_average_speed_files[:2]:  #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
-            avg_speed_learner = AverageSpeedLearner(s)
+            avg_speed_learner = AverageSpeedLearner(s, client)
             avg_speeds_preprocessed = avg_speed_learner.avg_speeds_ml_preprocessing_pipeline()
 
             X_train, X_test, y_train, y_test = avg_speed_learner.split_data(avg_speeds_preprocessed, target=targets[1], return_pandas=True)
@@ -232,7 +234,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category, return_pandas=False)
 
         for road_category, v in merged_volumes_by_category.items():
-            volumes_learner = TrafficVolumesLearner(v)
+            volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
             X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0], return_pandas=True)
@@ -255,7 +257,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category, return_pandas=False)
 
         for road_category, v in merged_volumes_by_category.items():
-            volumes_learner = TrafficVolumesLearner(v)
+            volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
             X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0], return_pandas=True)

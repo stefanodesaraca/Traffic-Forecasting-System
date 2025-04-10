@@ -15,7 +15,7 @@ from scipy.special import softmax
 import time
 import math
 
-#from dask.distributed import Client
+from dask.distributed import Client
 import joblib
 
 from dask_ml.preprocessing import MinMaxScaler
@@ -51,12 +51,13 @@ def retrieve_n_ml_cpus() -> int:
 
 
 class BaseLearner:
-    def __init__(self):
+    def __init__(self, client: Client):
         self.scorer = {"r2": make_scorer(r2_score),
                        "mean_squared_error": make_scorer(mean_squared_error),
                        "root_mean_squared_error": make_scorer(root_mean_squared_error),
                        "mean_absolute_error": make_scorer(mean_absolute_error),
                        "mean_absolute_percentage_error": make_scorer(mean_absolute_percentage_error)}
+        self.client = client
 
 
     @staticmethod
@@ -119,7 +120,7 @@ class BaseLearner:
 
 
         time_cv = TimeSeriesSplit(n_splits=5) #A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
-        gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=retrieve_n_ml_cpus(), scheduler="threads", cv=time_cv)  #The models_gridsearch_parameters is obtained from the tfs_models file
+        gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=retrieve_n_ml_cpus(), scheduler=self.client, cv=time_cv)  #The models_gridsearch_parameters is obtained from the tfs_models file
 
         with joblib.parallel_backend('dask'):
             gridsearch.fit(X=X_train, y=y_train)
@@ -255,8 +256,8 @@ class BaseLearner:
 
 class TrafficVolumesLearner(BaseLearner):
 
-    def __init__(self, volumes_data: [dd.DataFrame | pd.DataFrame]):
-        super().__init__()
+    def __init__(self, volumes_data: [dd.DataFrame | pd.DataFrame], client: Client):
+        super().__init__(client)
         self.volumes_data = volumes_data
 
 
@@ -321,8 +322,8 @@ class TrafficVolumesLearner(BaseLearner):
 
 class AverageSpeedLearner(BaseLearner):
 
-    def __init__(self, average_speed_file_path: str):
-        super().__init__()
+    def __init__(self, average_speed_file_path: str, client: Client):
+        super().__init__(client)
         self.average_speed_file_path = average_speed_file_path
 
 
