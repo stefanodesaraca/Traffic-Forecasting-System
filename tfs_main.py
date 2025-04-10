@@ -269,7 +269,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
 
 
-def execute_one_point_forecast(functionality: str):
+def execute_one_point_forecast(functionality: str) -> None:
 
     #We'll check if the target datetime exists before any forecasting operation could begin.
     #Also, we'll check if the date is within the data we already have (since there's nothing to forecast if we already have the true values (the measurements executed by the TRP sensors) for a specific day)

@@ -17,7 +17,8 @@ def write_forecasting_target_datetime() -> None:
     option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")
     dt = str(input("Insert Target Datetime (YYYY-MM-DDTHH): ")) #The month number must be zero-padded, for example: 01, 02, etc.
 
-    with open(f"{target_datetime_filename}.json", "w") as json_dt: json.dump({"target_dts": {k: None for k in target_data}}, json_dt)
+    if os.path.isfile(f"{target_datetime_filename}.json") is False:
+        with open(f"{target_datetime_filename}.json", "w") as json_dt: json.dump({"target_dts": {k: None for k in target_data}}, json_dt)
 
     if check_datetime(dt) is True and option in target_data:
         print("Target datetime set to: ", dt, "\n\n")
