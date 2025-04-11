@@ -142,7 +142,6 @@ class BaseLearner:
 
         gridsearch_results.to_json(f"./ops/{road_category}_{model_name}_grid_params_and_results.json", indent=4) #TODO FOR TESTING PURPOSES
 
-
         print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
         print("GridSearchCV best parameters: ", gridsearch.best_params_)
         print("GridSearchCV best score: ", gridsearch.best_score_)
@@ -151,9 +150,9 @@ class BaseLearner:
 
         #print(gridsearch.scorer_, "\n")
 
-
         #The best_parameters_by_model variable is obtained from the tfs_models file
         true_best_parameters = {model_name: gridsearch_results["params"].loc[best_parameters_by_model[model_name]] if gridsearch_results["params"].loc[best_parameters_by_model[model_name]] is not None else {}}
+        #TODO THIS SHOULD PROBABLY BECOME: true_best_parameters = {model_name: gridsearch_results["params"].loc[best_parameters_by_model[raod_category][model_name]] if gridsearch_results["params"].loc[best_parameters_by_model[raod_category][model_name]] is not None else {}}
         auxiliary_parameters = model_auxiliary_parameters[model_name]
 
         #This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm

@@ -73,7 +73,7 @@ volumes_models_gridsearch_parameters = {
 volumes_best_parameters_by_model = {"RandomForestRegressor": 12,
                                     "BaggingRegressor": 2,
                                     "HistGradientBoostingRegressor": 26,
-                                    "DecisionTreeRegressor": 3}
+                                    "DecisionTreeRegressor": 3} #TODO CHOOSE SPECIFIC HYPERPARAMETERS FOR EACH MODEL AND FOR EACH ROAD CATEOGRY TO MAXIMISE PREDICTIVE ACCURACY
 
 
 
@@ -94,7 +94,7 @@ model_names_and_class_objects = {
     "DecisionTreeRegressor": DecisionTreeRegressor
 }
 
-
+#Auxiliary parameters are common to all road categories' models
 model_auxiliary_parameters = {
     "RandomForestRegressor": {"n_jobs": retrieve_n_ml_cpus(),
                               "random_state": 100},
