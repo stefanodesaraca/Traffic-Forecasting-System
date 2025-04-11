@@ -193,7 +193,6 @@ def execute_forecast_warmup(functionality: str) -> None:
     # ------------ Hyperparameter tuning for traffic volumes ML models ------------
     if functionality == "3.2.1":
 
-
         merged_volumes_by_category = {}
 
         # Merge all volumes files by category
@@ -201,6 +200,9 @@ def execute_forecast_warmup(functionality: str) -> None:
             merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category, return_pandas=False)
 
         for road_category, v in merged_volumes_by_category.items():
+
+            print(f"\n********************* Executing hyperparameter tuning on traffic volumes data for road category: {road_category} *********************\n")
+
             volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
@@ -214,6 +216,8 @@ def execute_forecast_warmup(functionality: str) -> None:
     elif functionality == "3.2.2":
 
         clean_average_speed_files = get_clean_average_speed_files_list()
+
+        #TODO TO ADD print(f"********************* Executing hyperparameter tuning on traffic volumes data for road category: {road_category} *********************")
 
         for s in clean_average_speed_files[:2]:  #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
             avg_speed_learner = AverageSpeedLearner(s, client)
@@ -234,6 +238,9 @@ def execute_forecast_warmup(functionality: str) -> None:
             merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category, return_pandas=False)
 
         for road_category, v in merged_volumes_by_category.items():
+
+            print(f"\n********************* Training models on traffic volumes data for road category: {road_category} *********************\n")
+
             volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
@@ -248,6 +255,8 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         print()
 
+
+    # ------------ Test ML models on traffic volumes data ------------
     elif functionality == "3.2.5":
 
         merged_volumes_by_category = {}
@@ -257,6 +266,9 @@ def execute_forecast_warmup(functionality: str) -> None:
             merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category, return_pandas=False)
 
         for road_category, v in merged_volumes_by_category.items():
+
+            print(f"\n********************* Testing models on traffic volumes data for road category: {road_category} *********************\n")
+
             volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
@@ -292,7 +304,7 @@ def execute_forecasts(functionality: str) -> None:
     print("Which kind of data would you like to forecast?")
     print("V: Volumes | AS: Average Speeds")
     option = input("Choice: ")
-    target_datetime = read_forecasting_target_datetime(option)
+    target_datetime = read_forecasting_target_datetime(option, get_active_ops_name())
 
     #One-Point Forecast
     if functionality == "3.3.1":

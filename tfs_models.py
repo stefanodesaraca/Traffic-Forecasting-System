@@ -1,5 +1,4 @@
 import os
-import math
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor, BaggingRegressor, GradientBoostingRegressor, AdaBoostRegressor, HistGradientBoostingRegressor
 from sklearn.multioutput import MultiOutputRegressor
@@ -7,7 +6,7 @@ from sklearn.multioutput import MultiOutputRegressor
 
 def retrieve_n_ml_cpus() -> int:
     n_cpu = os.cpu_count()
-    ml_dedicated_cores = math.floor(n_cpu * 0.70)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
+    ml_dedicated_cores = int(n_cpu * 0.70)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
     return ml_dedicated_cores
 
 
@@ -72,7 +71,7 @@ volumes_models_gridsearch_parameters = {
 }
 
 volumes_best_parameters_by_model = {"RandomForestRegressor": 12,
-                                    "BaggingRegressor": 4,
+                                    "BaggingRegressor": 2,
                                     "HistGradientBoostingRegressor": 26,
                                     "DecisionTreeRegressor": 3}
 

@@ -13,9 +13,9 @@ from tqdm import tqdm
 from scipy import stats
 from scipy.special import softmax
 import time
-import math
 
 from dask.distributed import Client
+from dask.diagnostics import ProgressBar
 import joblib
 
 from dask_ml.preprocessing import MinMaxScaler
@@ -45,7 +45,7 @@ def cos_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]) -> [pd.Ser
 
 def retrieve_n_ml_cpus() -> int:
     n_cpu = os.cpu_count()
-    ml_dedicated_cores = math.floor(n_cpu * 0.70)  #To avoid crashing while executing parallel computing in the GridSearchCV algorithm
+    ml_dedicated_cores = int(n_cpu * 0.80)  #To avoid crashing while executing parallel computing in the GridSearchCV algorithm
     return ml_dedicated_cores
 
 
@@ -122,8 +122,9 @@ class BaseLearner:
         time_cv = TimeSeriesSplit(n_splits=5) #A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
         gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=retrieve_n_ml_cpus(), scheduler=self.client, cv=time_cv)  #The models_gridsearch_parameters is obtained from the tfs_models file
 
-        with joblib.parallel_backend('dask'):
-            gridsearch.fit(X=X_train, y=y_train)
+        with ProgressBar():
+            with joblib.parallel_backend('dask'):
+                gridsearch.fit(X=X_train, y=y_train)
 
 
         gridsearch_results = pd.DataFrame(gridsearch.cv_results_)[["params", "mean_fit_time", "mean_test_r2", "mean_train_r2",
