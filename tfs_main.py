@@ -186,7 +186,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
     #Initializing a client to support parallel backend computing
     #It's important to instantiate it here since, if it was done in the gridsearch function, it would mean the client would be started and closed everytime the function runs (which is not good)
-    cluster = LocalCluster(processes=False) #Check localhost:8787 to watch real-time
+    cluster = LocalCluster(processes=False, n_workers=1) #Check localhost:8787 to watch real-time
     client = Client(cluster)
     #More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
 
