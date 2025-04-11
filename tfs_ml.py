@@ -122,9 +122,8 @@ class BaseLearner:
         time_cv = TimeSeriesSplit(n_splits=5) #A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
         gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=retrieve_n_ml_cpus(), scheduler=self.client, cv=time_cv)  #The models_gridsearch_parameters is obtained from the tfs_models file
 
-        with ProgressBar():
-            with joblib.parallel_backend('dask'):
-                gridsearch.fit(X=X_train, y=y_train)
+        with joblib.parallel_backend('dask'):
+            gridsearch.fit(X=X_train, y=y_train)
 
 
         gridsearch_results = pd.DataFrame(gridsearch.cv_results_)[["params", "mean_fit_time", "mean_test_r2", "mean_train_r2",
