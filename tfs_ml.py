@@ -200,6 +200,8 @@ class BaseLearner:
 
         model = model_names_and_class_objects[model_name](**parameters) #Unpacking the dictionary to set all parameters to instantiate the model's class object
 
+        #TODO ADD HERE         with joblib.parallel_backend('dask'): (?)
+
         model.fit(X_train, y_train)
 
 
@@ -238,6 +240,8 @@ class BaseLearner:
 
         model = joblib.load(ml_folder_path + model_filename + ".joblib")
         #print(model.get_params())
+
+        #TODO ADD HERE         with joblib.parallel_backend('dask'): (?)
 
         y_pred = model.predict(X_test)
 

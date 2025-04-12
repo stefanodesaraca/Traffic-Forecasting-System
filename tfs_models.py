@@ -23,7 +23,7 @@ def get_adaboost_regressor() -> AdaBoostRegressor:
 
 
 def get_bagging_regressor() -> BaggingRegressor:
-    bagging = BaggingRegressor(n_jobs=retrieve_n_ml_cpus(), random_state=100) #Has n_estimators parameter
+    bagging = BaggingRegressor(n_jobs=retrieve_n_ml_cpus(), random_state=100, verbose=2) #Has n_estimators parameter #TODO CHECK WHY THIS IS SO SLOW WITH VERBOSE=2
     return bagging
 
 
@@ -54,7 +54,7 @@ volumes_models_gridsearch_parameters = {
     },
     "BaggingRegressor": { #BaggingRegressor tends to overfit with whichever parameter it's fed with
         "n_estimators": [10, 20, 50, 70],
-        "bootstrap_features": [False, True]
+        "bootstrap_features": [False]
     },
     "DecisionTreeRegressor": {
         "max_depth": [None, 2, 3, 5]

@@ -12,6 +12,8 @@ import time
 from datetime import datetime
 from tqdm import tqdm
 import pprint
+import math
+import psutil
 from dask.distributed import Client, LocalCluster
 
 
@@ -184,9 +186,14 @@ def execute_forecast_warmup(functionality: str) -> None:
     trps_ids_avg_speeds_by_road_category = {category: [retrieve_trp_clean_average_speed_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_average_speed_filepath_by_id(trp_id)) is False] for category in
                                             get_all_available_road_categories()}
 
+    tot_ram = psutil.virtual_memory().total
+    tot_ram_gb = int(tot_ram / (1024 ** 3))
+    max_ram = f"{math.ceil(tot_ram_gb / 2)}GB"
+    print("Maximum RAM available to Dask Local Cluster: ", max_ram)
+
     #Initializing a client to support parallel backend computing
     #It's important to instantiate it here since, if it was done in the gridsearch function, it would mean the client would be started and closed everytime the function runs (which is not good)
-    cluster = LocalCluster(processes=False, n_workers=1) #Check localhost:8787 to watch real-time
+    cluster = LocalCluster(processes=False, n_workers=1, memory_limit=max_ram) #Check localhost:8787 to watch real-time
     client = Client(cluster)
     #More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
 
