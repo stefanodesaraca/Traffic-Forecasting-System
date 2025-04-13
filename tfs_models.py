@@ -22,11 +22,6 @@ def get_adaboost_regressor() -> AdaBoostRegressor:
     return ada_boost
 
 
-def get_bagging_regressor() -> BaggingRegressor:
-    bagging = BaggingRegressor(n_jobs=retrieve_n_ml_cpus(), random_state=100, verbose=2) #Has n_estimators parameter #TODO CHECK WHY THIS IS SO SLOW WITH VERBOSE=2
-    return bagging
-
-
 def get_gradient_boosting_regressor() -> GradientBoostingRegressor:
     gradient_boosting = GradientBoostingRegressor(random_state=100) #Has the loss (use mean_squared_error and absolute_error), n_estimators, validation_fraction, n_iter_no_change, tol and max_depth parameters
     return gradient_boosting
@@ -52,10 +47,6 @@ volumes_models_gridsearch_parameters = {
         "criterion": ["squared_error", "friedman_mse"],
         "ccp_alpha": [0] #ccp_alpha = 1 overfits
     },
-    "BaggingRegressor": { #BaggingRegressor tends to overfit with whichever parameter it's fed with
-        "n_estimators": [10, 20, 50, 70],
-        "bootstrap_features": [False]
-    },
     "DecisionTreeRegressor": {
         "max_depth": [None, 2, 3, 5]
     },
@@ -71,7 +62,6 @@ volumes_models_gridsearch_parameters = {
 }
 
 volumes_best_parameters_by_model = {"RandomForestRegressor": 12,
-                                    "BaggingRegressor": 2,
                                     "HistGradientBoostingRegressor": 26,
                                     "DecisionTreeRegressor": 3} #TODO CHOOSE SPECIFIC HYPERPARAMETERS FOR EACH MODEL AND FOR EACH ROAD CATEOGRY TO MAXIMISE PREDICTIVE ACCURACY
 
@@ -81,7 +71,6 @@ volumes_best_parameters_by_model = {"RandomForestRegressor": 12,
 
 model_names_and_functions = {
     "RandomForestRegressor": get_random_forest_regressor,
-    "BaggingRegressor": get_bagging_regressor,
     "HistGradientBoostingRegressor": get_histgradientboosting_regressor,
     "DecisionTreeRegressor": get_decision_tree_regressor
 }
@@ -89,7 +78,6 @@ model_names_and_functions = {
 
 model_names_and_class_objects = {
     "RandomForestRegressor": RandomForestRegressor,
-    "BaggingRegressor": BaggingRegressor,
     "HistGradientBoostingRegressor": HistGradientBoostingRegressor,
     "DecisionTreeRegressor": DecisionTreeRegressor
 }
@@ -98,8 +86,6 @@ model_names_and_class_objects = {
 model_auxiliary_parameters = {
     "RandomForestRegressor": {"n_jobs": retrieve_n_ml_cpus(),
                               "random_state": 100},
-    "BaggingRegressor": {"n_jobs": retrieve_n_ml_cpus(),
-                         "random_state": 100},
     "HistGradientBoostingRegressor": {"random_state": 100, "categorical_features": None},
     "DecisionTreeRegressor": {"random_state": 100}
 }
@@ -116,12 +102,6 @@ speeds_models_gridsearch_parameters = {
         "criterion": ["squared_error", "friedman_mse"],
         "ccp_alpha": [0, 0.001, 0.0001, 0.00001], #ccp_alpha = 1 overfits
         "warm_start": [True, False],
-
-    },
-    "BaggingRegressor": { #BaggingRegressor tends to overfit with whichever parameter it's fed with
-        "n_estimators": [200, 300, 400, 500, 1000], #10, 20, 50, 70
-        "bootstrap_features": [False, True],
-        "warm_start": [True, False]
     },
     "DecisionTreeRegressor": {
         "max_depth": [None, 100, 200, 300], #2, 3, 5, 7, 10, 20, 30, 40, 50,
@@ -144,7 +124,6 @@ speeds_models_gridsearch_parameters = {
 
 
 speeds_best_parameters_by_model = {"RandomForestRegressor": 2,
-                                   "BaggingRegressor": 3,
                                    "HistGradientBoostingRegressor": 44,
                                    "DecisionTreeRegressor": 1}
 

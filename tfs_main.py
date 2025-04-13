@@ -14,6 +14,7 @@ from tqdm import tqdm
 import pprint
 import math
 import psutil
+import dask.distributed
 from dask.distributed import Client, LocalCluster
 
 
@@ -188,12 +189,13 @@ def execute_forecast_warmup(functionality: str) -> None:
 
     tot_ram = psutil.virtual_memory().total
     tot_ram_gb = int(tot_ram / (1024 ** 3))
-    max_ram = f"{math.ceil(tot_ram_gb / 2)}GB"
+    max_ram = f"{math.ceil(tot_ram_gb * 0.70)}GB"
     print("Maximum RAM available to Dask Local Cluster: ", max_ram)
 
     #Initializing a client to support parallel backend computing
     #It's important to instantiate it here since, if it was done in the gridsearch function, it would mean the client would be started and closed everytime the function runs (which is not good)
-    cluster = LocalCluster(processes=False, n_workers=1, memory_limit=max_ram) #Check localhost:8787 to watch real-time
+    cluster = LocalCluster(processes=False, n_workers=1, memory_limit=max_ram) #Check localhost:8787 to watch real-time. Also, using the same number of cpus dedicated to machine learning for the number of threads to assign to each worker
+    cluster.adapt(minimum=1) #This will ensure there's always at least one worker to compute the code
     client = Client(cluster)
     #More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
 
@@ -216,7 +218,15 @@ def execute_forecast_warmup(functionality: str) -> None:
             X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
 
             # -------------- GridSearchCV phase --------------
-            for model_name in models: volumes_learner.gridsearch_for_model(X_train, y_train, target=targets[0], model_name=model_name, road_category=road_category)
+            for model_name in models:
+                volumes_learner.gridsearch_for_model(X_train, y_train, target=targets[0], model_name=model_name, road_category=road_category)
+
+                #Check if workers are still alive
+
+                #print("Dask workers aliveness check: ", dask.distributed.worker.get_worker()) #This will raise an exception if the code isn't running on any worker
+                #print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
+
+                time.sleep(1) #To cool down the system
 
 
     # ------------ Hyperparameter tuning for average speed ML models ------------
