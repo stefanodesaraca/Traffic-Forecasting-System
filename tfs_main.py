@@ -2,7 +2,7 @@ import tfs_ml
 from tfs_ops_settings import *
 from tfs_downloader import *
 from tfs_forecasting_settings import *
-from tfs_exploration import *
+from tfs_eda import *
 from tfs_utils import *
 from tfs_cleaning import *
 from tfs_ml import *
@@ -194,6 +194,7 @@ def execute_forecast_warmup(functionality: str) -> None:
     client = Client(cluster)
     #More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
 
+
     # ------------ Hyperparameter tuning for traffic volumes ML models ------------
     if functionality == "3.2.1":
 
@@ -242,6 +243,7 @@ def execute_forecast_warmup(functionality: str) -> None:
                 print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
 
                 time.sleep(1) #To cool down the system
+
 
     # ------------ Train ML models on traffic volumes data ------------
     elif functionality == "3.2.3":
