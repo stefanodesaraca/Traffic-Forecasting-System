@@ -56,8 +56,7 @@ class BaseLearner:
         self.scorer = {"r2": make_scorer(r2_score),
                        "mean_squared_error": make_scorer(mean_squared_error),
                        "root_mean_squared_error": make_scorer(root_mean_squared_error),
-                       "mean_absolute_error": make_scorer(mean_absolute_error),
-                       "mean_absolute_percentage_error": make_scorer(mean_absolute_percentage_error)}
+                       "mean_absolute_error": make_scorer(mean_absolute_error)}
         self.client = client
 
 
@@ -127,7 +126,6 @@ class BaseLearner:
         with joblib.parallel_backend('dask'): #, **backend_kwargs):
             gridsearch.fit(X=X_train, y=y_train)
 
-
         gridsearch_results = pd.DataFrame(gridsearch.cv_results_)[["params", "mean_fit_time", "mean_test_r2", "mean_train_r2",
                                                                    "mean_test_mean_squared_error", "mean_train_mean_squared_error",
                                                                    "mean_test_root_mean_squared_error", "mean_train_root_mean_squared_error",
@@ -153,7 +151,7 @@ class BaseLearner:
 
         #The best_parameters_by_model variable is obtained from the tfs_models file
         true_best_parameters = {model_name: gridsearch_results["params"].loc[best_parameters_by_model[model_name]] if gridsearch_results["params"].loc[best_parameters_by_model[model_name]] is not None else {}}
-        #TODO THIS SHOULD PROBABLY BECOME: true_best_parameters = {model_name: gridsearch_results["params"].loc[best_parameters_by_model[raod_category][model_name]] if gridsearch_results["params"].loc[best_parameters_by_model[raod_category][model_name]] is not None else {}}
+        #TODO THIS SHOULD PROBABLY BECOME: true_best_parameters = {model_name: gridsearch_results["params"].loc[best_parameters_by_model[road_category][model_name]] if gridsearch_results["params"].loc[best_parameters_by_model[raod_category][model_name]] is not None else {}}
         auxiliary_parameters = model_auxiliary_parameters[model_name]
 
         #This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
