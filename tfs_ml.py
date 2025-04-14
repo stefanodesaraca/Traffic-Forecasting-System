@@ -123,8 +123,8 @@ class BaseLearner:
         time_cv = TimeSeriesSplit(n_splits=5) #A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
         gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=retrieve_n_ml_cpus(), scheduler=self.client, cv=time_cv)  #The models_gridsearch_parameters is obtained from the tfs_models file
 
-        backend_kwargs = {"scatter": [X_train, y_train], "n_jobs": retrieve_n_ml_cpus()}
-        with joblib.parallel_backend('dask', **backend_kwargs):
+        backend_kwargs = {"scatter": [X_train, y_train]}
+        with joblib.parallel_backend('dask'): #, **backend_kwargs):
             gridsearch.fit(X=X_train, y=y_train)
 
 
@@ -169,9 +169,6 @@ class BaseLearner:
 
         with open(ml_parameters_folder_path + model_filename + ".json", "w") as parameters_file:
             json.dump(true_best_parameters, parameters_file, indent=4)
-
-
-        gc.collect()
 
         return None
 
@@ -375,7 +372,7 @@ class AverageSpeedLearner(BaseLearner):
 
         #------------------ Creating lag features ------------------
 
-        speeds_lag_column_names = [f"mean_speed_lag{i}" for i in range(1, 62)]
+        speeds_lag_column_names = [f"mean_speed_lag{i}" for i in range(1, 62)] #TODO REDUCE THE NUMBER OF LAG FEATURES, OTHERWISE THE GRID SEARCH WILL TAKE FOREVER
         percentile_85_lag_column_names = [f"percentile_85_lag{i}" for i in range(1, 62)]
 
         for idx, n in enumerate(speeds_lag_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 1)

@@ -187,15 +187,10 @@ def execute_forecast_warmup(functionality: str) -> None:
     trps_ids_avg_speeds_by_road_category = {category: [retrieve_trp_clean_average_speed_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_average_speed_filepath_by_id(trp_id)) is False] for category in
                                             get_all_available_road_categories()}
 
-    tot_ram = psutil.virtual_memory().total
-    tot_ram_gb = int(tot_ram / (1024 ** 3))
-    max_ram = f"{math.ceil(tot_ram_gb * 0.70)}GB"
-    print("Maximum RAM available to Dask Local Cluster: ", max_ram)
-
     #Initializing a client to support parallel backend computing
     #It's important to instantiate it here since, if it was done in the gridsearch function, it would mean the client would be started and closed everytime the function runs (which is not good)
-    cluster = LocalCluster(processes=False, n_workers=1, memory_limit=max_ram) #Check localhost:8787 to watch real-time. Also, using the same number of cpus dedicated to machine learning for the number of threads to assign to each worker
-    cluster.adapt(minimum=1) #This will ensure there's always at least one worker to compute the code
+    cluster = LocalCluster(processes=False) #Check localhost:8787 to watch real-time.
+    #By default the number of workers is obtained by dask using the standard os.cpu_count(), but in this case we'll only use a limited amount of them to avoid CPU usage explosion
     client = Client(cluster)
     #More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
 
@@ -222,9 +217,7 @@ def execute_forecast_warmup(functionality: str) -> None:
                 volumes_learner.gridsearch_for_model(X_train, y_train, target=targets[0], model_name=model_name, road_category=road_category)
 
                 #Check if workers are still alive
-
-                #print("Dask workers aliveness check: ", dask.distributed.worker.get_worker()) #This will raise an exception if the code isn't running on any worker
-                #print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
+                print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
 
                 time.sleep(1) #To cool down the system
 
@@ -304,7 +297,10 @@ def execute_forecast_warmup(functionality: str) -> None:
         print()
 
 
+
+
     client.close()
+    cluster.close()
 
     return None
 
