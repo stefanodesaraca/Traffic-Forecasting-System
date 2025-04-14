@@ -13,17 +13,15 @@ from tqdm import tqdm
 from scipy import stats
 from scipy.special import softmax
 import time
-import gc
 
 from dask.distributed import Client
-from dask.diagnostics import ProgressBar
 import joblib
 
 from dask_ml.preprocessing import MinMaxScaler
 from dask_ml.model_selection import GridSearchCV
 
 from sklearn.model_selection import TimeSeriesSplit
-from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error
+from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_absolute_error, root_mean_squared_error
 
 
 simplefilter(action='ignore', category=FutureWarning)
@@ -32,13 +30,13 @@ pd.set_option('display.max_columns', None)
 
 
 
-def sin_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]) -> [pd.Series | pd.DataFrame]:
+def sin_transformer(timeframe: int, data: [dd.Series | dd.DataFrame]) -> [dd.Series | dd.DataFrame]:
     """
     The timeframe indicates a number of days
     """
     return np.sin(data * (2. * np.pi / timeframe))
 
-def cos_transformer(timeframe: int, data: [pd.Series | pd.DataFrame]) -> [pd.Series | pd.DataFrame]:
+def cos_transformer(timeframe: int, data: [dd.Series | dd.DataFrame]) -> [dd.Series | dd.DataFrame]:
     """
     The timeframe indicates a number of days
     """
