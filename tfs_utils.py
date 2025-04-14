@@ -201,21 +201,16 @@ def get_clean_volume_files_list() -> list:
     return clean_traffic_volumes
 
 
-def merge_volumes_data(trp_filepaths_list: list, road_category: str, return_pandas: bool = False) -> [dd.DataFrame | pd.DataFrame]:
+def merge_volumes_data(trp_filepaths_list: list, road_category: str) -> dd.DataFrame:
 
-    if return_pandas is False:
-        dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
-        merged_data = dd.concat(dataframes_list, axis=0)
-        merged_data = merged_data.repartition(partition_size="512MB") #TODO VERIFY IF 1024MB IS STILL OK AS PARTITIONING SIZE
-        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
-        #print(merged_data.head(10))
-        print(f"Shape of the merged volumes data for road category {road_category}: ", (merged_data.shape[0].compute(), merged_data.shape[1]))
-    else:
-        dataframes_list = [pd.read_csv(trp) for trp in trp_filepaths_list]
-        merged_data = pd.concat(dataframes_list, axis=0)
-        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
-        #print(merged_data.head(10))
-        print(f"Shape of the merged volumes data: {road_category}", merged_data.shape)
+    dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
+    merged_data = dd.concat(dataframes_list, axis=0)
+    merged_data = merged_data.repartition(partition_size="512MB")
+    merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
+    merged_data = merged_data.persist()
+    #print(merged_data.head(10))
+    #print(merged_data.dtypes)
+    print(f"Shape of the merged volumes data for road category {road_category}: ", (merged_data.shape[0].compute(), merged_data.shape[1]))
 
     return merged_data
 
@@ -273,6 +268,7 @@ def merge_avg_speed_data(trp_filepaths_list: list, return_pandas: bool) -> [dd.D
         dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
         merged_data = dd.concat(dataframes_list, axis=0)
         merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
+        merged_data = merged_data.persist()
     else:
         dataframes_list = [pd.read_csv(trp) for trp in trp_filepaths_list]
         merged_data = pd.concat(dataframes_list, axis=0)
@@ -288,9 +284,9 @@ def get_ml_models_folder_path(target: str, road_category: str) -> str:
     ops_name = get_active_ops_name()
 
     if target == "volume":
-        ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/{ops_name}_traffic_volumes_models/{ops_name}_{road_category}_traffic_volumes_models"
+        ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/{ops_name}_traffic_volumes_models/{ops_name}_{road_category}_traffic_volumes_models/"
     elif target == "mean_speed":
-        ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/{ops_name}_average_speed_models/{ops_name}_{road_category}_average_speed_models"
+        ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/{ops_name}_average_speed_models/{ops_name}_{road_category}_average_speed_models/"
     else:
         raise Exception("Wrong target variable in the get_ml_models_folder_path() function")
 

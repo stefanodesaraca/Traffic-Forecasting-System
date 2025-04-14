@@ -201,7 +201,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         # Merge all volumes files by category
         for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category, return_pandas=False)
+            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category)
 
         for road_category, v in merged_volumes_by_category.items():
 
@@ -245,7 +245,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         # Merge all volumes files by category
         for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category, return_pandas=False)
+            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category)
 
         for road_category, v in merged_volumes_by_category.items():
 
@@ -254,7 +254,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
-            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0], return_pandas=True)
+            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0], return_pandas=False)
 
             # -------------- Training phase --------------
             for model_name in models: volumes_learner.train_model(X_train, y_train, model_name=model_name, target=targets[0], road_category=road_category)
@@ -273,7 +273,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         # Merge all volumes files by category
         for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category, return_pandas=False)
+            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category)
 
         for road_category, v in merged_volumes_by_category.items():
 
@@ -282,7 +282,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
-            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0], return_pandas=True)
+            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0], return_pandas=False)
 
             # -------------- Testing phase --------------
             for model_name in models: volumes_learner.test_model(X_test, y_test, model_name=model_name, target=targets[0], road_category=road_category)

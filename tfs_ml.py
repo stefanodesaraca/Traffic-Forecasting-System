@@ -181,7 +181,7 @@ class BaseLearner:
         models_parameters_folder_path = get_ml_model_parameters_folder_path(target, road_category)
         models_folder_path = get_ml_models_folder_path(target, road_category)
 
-        model_filename = ops_name + "_" + model_name
+        model_filename = ops_name + "_" + road_category + "_" + model_name
 
         model_parameters_filename = ops_name + "_" + road_category + "_" + model_name + "_" + "parameters" + ".json"
         model_parameters_filepath = models_parameters_folder_path + model_parameters_filename
@@ -199,10 +199,10 @@ class BaseLearner:
 
         model = model_names_and_class_objects[model_name](**parameters) #Unpacking the dictionary to set all parameters to instantiate the model's class object
 
-        #TODO ADD HERE         with joblib.parallel_backend('dask'): (?)
+        print(X_train.head(10))
 
-        model.fit(X_train, y_train)
-
+        with joblib.parallel_backend('dask'):
+            model.fit(X_train.compute(), y_train.compute())
 
         print(f"Successfully trained {model_name} with parameters: {parameters}")
 
@@ -232,7 +232,7 @@ class BaseLearner:
         ops_name = get_active_ops_name()
 
         ml_folder_path = get_ml_models_folder_path(target, road_category)
-        model_filename = ops_name + "_" + model_name
+        model_filename = ops_name + "_" + road_category + "_" + model_name
 
 
         # -------------- Model loading --------------
@@ -240,9 +240,8 @@ class BaseLearner:
         model = joblib.load(ml_folder_path + model_filename + ".joblib")
         #print(model.get_params())
 
-        #TODO ADD HERE         with joblib.parallel_backend('dask'): (?)
-
-        y_pred = model.predict(X_test)
+        with joblib.parallel_backend('dask'):
+            y_pred = model.predict(X_test.compute())
 
 
         print(f"================= {model_name} testing metrics =================")
