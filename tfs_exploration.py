@@ -209,9 +209,10 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
 
             year_data = volumes[volumes["year"] == y].groupby("date", as_index=False)["volume"].sum().sort_values(by="date", ascending=True)
             #print(year_data)
-            plt.plot(range(0, len(year_data)), "volume", data=year_data) #To make the plots overlap they must have the same exact data on the x axis.
+            plt.plot(range(0, len(year_data)), "volume", data=year_data, marker='o') #To make the plots overlap they must have the same exact data on the x axis.
             #In this case for example they must have the same days number on the x axis so that matplotlib know where to plot the data and thus, this can overlap too if if has the same x axis value
 
+        plt.grid()
         plt.ylabel("Volume")
         plt.xlabel("Time (days)")
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
@@ -232,8 +233,9 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
             week_data = volumes[volumes["year"] == y][["volume", "year", "week"]].groupby(["week"], as_index=False)["volume"].median().sort_values(by="week", ascending=True)
 
             #print(week_data)
-            plt.plot(range(0, len(week_data)), "volume", data=week_data)
+            plt.plot(range(0, len(week_data)), "volume", data=week_data, marker='o')
 
+        plt.grid()
         plt.ylabel("Volume")
         plt.xlabel("Week")
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
@@ -388,8 +390,9 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
         for y in sorted(speeds["year"].unique()):
             year_data = speeds[speeds["year"] == y].groupby("date", as_index=False)["mean_speed"].mean().sort_values(by="date", ascending=True)
             #print(year_data)
-            plt.plot(range(0, len(year_data)), "mean_speed", data=year_data) #To make the plots overlap they must have the same exact data on the x axis.
+            plt.plot(range(0, len(year_data)), "mean_speed", data=year_data, marker='o') #To make the plots overlap they must have the same exact data on the x axis.
 
+        plt.grid()
         plt.ylabel("Average speed")
         plt.xlabel("Time (days)")
         plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
@@ -409,8 +412,9 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
             week_data = speeds[speeds["year"] == y][["mean_speed", "year", "week"]].groupby(["week"], as_index=False)["mean_speed"].median().sort_values(by="week", ascending=True)
 
             #print(week_data)
-            plt.plot(range(0, len(week_data)), "mean_speed", data=week_data)
+            plt.plot(range(0, len(week_data)), "mean_speed", data=week_data, marker='o')
 
+        plt.grid()
         plt.ylabel("Median of the average speed")
         plt.xlabel("Week")
         plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")

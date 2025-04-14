@@ -241,7 +241,7 @@ def execute_forecast_warmup(functionality: str) -> None:
                 # Check if workers are still alive
                 print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
 
-                time.sleep(1)  # To cool down the system
+                time.sleep(1) #To cool down the system
 
     # ------------ Train ML models on traffic volumes data ------------
     elif functionality == "3.2.3":
