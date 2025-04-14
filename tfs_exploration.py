@@ -217,8 +217,6 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
         plt.xlabel("Time (days)")
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
         plt.title(f"Traffic volumes aggregated (sum) by day for different years | TRP: {trp_id}")
-        plt.grid(axis="y")
-
 
         return f"{trp_id}_volume_trend_grouped_by_years", plt, plot_path
 
@@ -240,7 +238,6 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
         plt.xlabel("Week")
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
         plt.title(f"Median traffic volumes aggregated (median) by week for different years | TRP: {trp_id}")
-        plt.grid(axis="y")
 
         return f"{trp_id}_volume_trend_by_hour_day", plt, plot_path
 
@@ -397,7 +394,6 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
         plt.xlabel("Time (days)")
         plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
         plt.title(f"Average speeds aggregated by day for different years | TRP: {trp_id}")
-        plt.grid(axis="y")
 
         return f"{trp_id}_avg_speeds_trend_grouped_by_years", plt, plot_path
 
@@ -419,7 +415,6 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
         plt.xlabel("Week")
         plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
         plt.title(f"Median of the average speeds by week for different years | TRP: {trp_id}")
-        plt.grid(axis="y")
 
         return f"{trp_id}_avg_speed_trend_by_hour_day", plt, plot_path
 
