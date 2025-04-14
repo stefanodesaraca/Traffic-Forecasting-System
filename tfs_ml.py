@@ -61,40 +61,46 @@ class BaseLearner:
 
 
     @staticmethod
-    def split_data(volumes_preprocessed: dd.DataFrame, target: str, return_pandas: bool = False):
+    def split_data(volumes_preprocessed: dd.DataFrame, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
         """
-        The target variable has only two possible values: "volume", "mean_speed"
+        Splits the Dask DataFrame into training and testing sets based on the target column.
+
+        Parameters:
+        - volumes_preprocessed: dd.DataFrame
+        - target: str ("volume" or "mean_speed")
+
+        Returns:
+        - X_train, X_test, y_train, y_test
         """
 
-        if target == "volume":
-            X = volumes_preprocessed.drop(columns=["volume"])
-            y = volumes_preprocessed[["volume"]]
-        elif target == "mean_speed":
-            X = volumes_preprocessed.drop(columns=["mean_speed"])
-            y = volumes_preprocessed[["mean_speed"]]
-        else:
-            raise Exception("Wrong target variable in the split_data() function")
+        if target not in ["volume", "mean_speed"]:
+            raise ValueError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
 
-        #print("X shape: ", X.shape, "\n")
-        #print("y shape: ", y.shape, "\n")
+        X = volumes_preprocessed.drop(columns=[target])
+        y = volumes_preprocessed[[target]]
 
-        n_rows = y.shape[0].compute()
-        p_75 = int((n_rows / 100) * 70)
+        #print("X shape: ", f"({len(X)}, {len(X.columns)})", "\n")
+        #print("y shape: ", f"({len(y)}, {len(y.columns)})", "\n")
 
-        X_train = X.iloc[:, :p_75].persist()
-        X_test = X.iloc[:, p_75:].persist()
+        n_rows = volumes_preprocessed.shape[0].compute()
+        p_70 = int(n_rows * 0.70)
 
-        y_train = y.iloc[:, :p_75].persist()
-        y_test = y.iloc[:, p_75:].persist()
+        X_train = X.head(p_70)
+        X_test = X.tail(len(X) - p_70)
 
+        #print(X_train.head(10))
+        #print(X_test.head(10))
+
+        y_train = y.head(p_70)
+        y_test = y.tail(len(y) - p_70)
+
+        #print(y_train.head(10))
+        #print(y_test.head(10))
 
         #print(X_train.tail(5), "\n", X_test.tail(5), "\n", y_train.tail(5), "\n", y_test.tail(5), "\n")
         #print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
 
-        if return_pandas is True:
-            return pd.DataFrame(X_train), pd.DataFrame(X_test), pd.DataFrame(y_train), pd.DataFrame(y_test)
-        else:
-            return X_train, X_test, y_train, y_test
+        return X_train, X_test, y_train, y_test
 
 
     def gridsearch_for_model(self, X_train, y_train, target: str, model_name: str, road_category: str) -> None:
@@ -199,8 +205,6 @@ class BaseLearner:
 
         model = model_names_and_class_objects[model_name](**parameters) #Unpacking the dictionary to set all parameters to instantiate the model's class object
 
-        print(X_train.head(10))
-
         with joblib.parallel_backend('dask'):
             model.fit(X_train.compute(), y_train.compute())
 
@@ -241,7 +245,7 @@ class BaseLearner:
         #print(model.get_params())
 
         with joblib.parallel_backend('dask'):
-            y_pred = model.predict(X_test.compute())
+            y_pred = model.predict(X_test)
 
 
         print(f"================= {model_name} testing metrics =================")

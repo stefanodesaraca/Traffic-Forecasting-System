@@ -233,7 +233,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             avg_speed_learner = AverageSpeedLearner(s, client)
             avg_speeds_preprocessed = avg_speed_learner.avg_speeds_ml_preprocessing_pipeline()
 
-            X_train, X_test, y_train, y_test = avg_speed_learner.split_data(avg_speeds_preprocessed, target=targets[1], return_pandas=True)
+            X_train, X_test, y_train, y_test = avg_speed_learner.split_data(avg_speeds_preprocessed, target=targets[1])
 
             for model_name in models: avg_speed_learner.gridsearch_for_model(X_train, y_train, target=targets[1], road_category="E", model_name=model_name) #TODO "E" IS JUST FOR TESTING PURPOSES
 
@@ -254,7 +254,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
-            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0], return_pandas=False)
+            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
 
             # -------------- Training phase --------------
             for model_name in models: volumes_learner.train_model(X_train, y_train, model_name=model_name, target=targets[0], road_category=road_category)
@@ -282,7 +282,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
 
-            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0], return_pandas=False)
+            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
 
             # -------------- Testing phase --------------
             for model_name in models: volumes_learner.test_model(X_test, y_test, model_name=model_name, target=targets[0], road_category=road_category)
