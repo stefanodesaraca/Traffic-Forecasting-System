@@ -262,17 +262,12 @@ def get_clean_average_speed_files_list() -> list:
     return [get_clean_average_speed_folder_path() + f for f in os.listdir(get_clean_average_speed_folder_path())]
 
 
-def merge_avg_speed_data(trp_filepaths_list: list, return_pandas: bool) -> [dd.DataFrame | pd.DataFrame]:
+def merge_avg_speed_data(trp_filepaths_list: list) -> dd.DataFrame:
 
-    if return_pandas is False:
-        dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
-        merged_data = dd.concat(dataframes_list, axis=0)
-        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
-        merged_data = merged_data.persist()
-    else:
-        dataframes_list = [pd.read_csv(trp) for trp in trp_filepaths_list]
-        merged_data = pd.concat(dataframes_list, axis=0)
-        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
+    dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
+    merged_data = dd.concat(dataframes_list, axis=0)
+    merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
+    merged_data = merged_data.persist()
 
     return merged_data
 
