@@ -1,12 +1,9 @@
-import pprint
 from datetime import datetime
 import os
 import json
 import pandas as pd
 import dask.dataframe as dd
 from cleantext import clean
-from functools import reduce
-import operator
 from typing import Any
 
 cwd = os.getcwd()
@@ -323,7 +320,7 @@ def write_forecasting_target_datetime(ops_name: str) -> None:
         print("Target datetime set to: ", dt, "\n\n")
         with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "r") as m:
             metainfo = json.load(m)
-            metainfo["forecasting"]["target_datetimes"][option] = dt
+            update_metainfo(dt, ["forecasting", "target_datetimes", option], mode="equals")
         with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "w") as m: json.dump(metainfo, m, indent=4)
         return None
 
@@ -578,7 +575,15 @@ def check_metainfo_file() -> bool:
 
 
 def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
+    """
+    This function inserts data into the right key-value pair in the metainfo.json file of the active operation.
 
+    Parameters:
+        value: the value which we want to insert or append for a specific key-value pair
+        keys_map: the list which includes all the keys which bring to the key-value pair to update or to append another value to (the last key value pair has to be included).
+                  The elements in the list must be ordered in which the keys are located in the metainfo dictionary
+        mode: the mode which we intend to use for a specific operation on the metainfo file. For example: we may want to set a value for a specific key, or we may want to append another value to a list (which is the value of a specific key-value pair)
+    """
     metainfo_filepath = f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
 
     if check_metainfo_file() is True:
@@ -588,11 +593,11 @@ def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
 
     if mode == "equals":
         for key in keys_map[:-1]: metainfo = metainfo[key]
-        metainfo[keys_map[-1]] = value
+        metainfo[keys_map[-1]] = value #Updating the metainfo file key-value pair
         with open(metainfo_filepath, "w") as m: json.dump(metainfo, m, indent=4)
     elif mode == "append":
         for key in keys_map[:-1]: metainfo = metainfo[key]
-        metainfo[keys_map[-1]].append(value)
+        metainfo[keys_map[-1]].append(value) #Appending a new value to the list (which is the value of this key-value pair)
         with open(metainfo_filepath, "w") as m: json.dump(metainfo, m, indent=4)
 
     return None
