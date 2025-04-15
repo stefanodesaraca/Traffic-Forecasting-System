@@ -30,11 +30,10 @@ def write_active_ops_file(ops_name: str) -> None:
 #Reading operations file, it indicates which road network we're taking into consideration
 def read_active_ops_file():
     try:
-        assert os.path.isfile(f"{active_ops_filename}.txt") is True, "Active ops file not found"
         with open(f"{active_ops_filename}.txt", "r") as ops_file: op = ops_file.read()
         return op
     except FileNotFoundError:
-        print("\033[91mOperations File Not Found\033[0m")
+        print("\033[91mOperations file not found\033[0m")
         exit(code=1)
 
 
