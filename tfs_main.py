@@ -319,7 +319,7 @@ def execute_forecasts(functionality: str) -> None:
     #Also, we'll check if the date is within the data we already have (since there's nothing to forecast if we already have the true values (the measurements executed by the TRP sensors) for a specific day)
     #If we already have the data we'll just re-direct the user the main menu.
     #This check will be handled internally by the write_forecasting_target_datetime() function
-    assert os.path.isfile(f"{os.getcwd()}/{get_active_ops_name()}/metainfo.json"), "File not found"
+    check_metainfo_file()
 
     print("Which kind of data would you like to forecast?")
     print("V: Volumes | AS: Average Speeds")

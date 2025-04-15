@@ -369,10 +369,15 @@ def retrieve_theoretical_hours_columns() -> list:
 
 
 def check_metainfo_file() -> bool:
-    if os.path.isdir(f"{cwd}/{get_active_ops_name()}/metainfo.json"): return True
+    if os.path.isfile(f"{cwd}/{get_active_ops_name()}/metainfo.json"): return True
     else: return False
 
 
+def clean_text(text: str) -> str:
+    text = clean(text, no_emoji=True, no_currency_symbols=True)
+    text = text.replace(" ", "_")
+    text = text.lower()
+    return text
 
 
 

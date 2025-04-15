@@ -1,5 +1,3 @@
-from xml.etree.ElementTree import indent
-
 from tfs_utils import *
 import os
 from cleantext import clean
@@ -10,13 +8,6 @@ ops_folder = "ops"
 os.makedirs(ops_folder, exist_ok=True) #Creating the operations folder
 active_ops_filename = "active_ops"
 metainfo_filename = "metainfo"
-
-
-def clean_text(text: str) -> str:
-    text = clean(text, no_emoji=True, no_currency_symbols=True)
-    text = text.replace(" ", "_")
-    text = text.lower()
-    return text
 
 
 #The user sets the current operation
