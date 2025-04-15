@@ -573,18 +573,18 @@ def write_metainfo(ops_name: str) -> None:
 
 
 def check_metainfo_file() -> bool:
-    if os.path.isfile(f"{cwd}/{get_active_ops()}/metainfo.json"): return True
+    if os.path.isfile(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"): return True
     else: return False
 
 
 def update_metainfo(value: Any, keys_map: list[str], mode: str) -> None:
 
-    metainfo_filepath = f"{cwd}/{get_active_ops()}/metainfo.json"
+    metainfo_filepath = f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
 
-    if check_metainfo_file():
+    if check_metainfo_file() is True:
         with open(metainfo_filepath, "r") as m: metainfo = json.load(m)
     else:
-        raise FileNotFoundError(f"Metainfo file for {get_active_ops()} operation not found")
+        raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
 
     if mode == "equals":
         m_updated = dict(reduce(operator.getitem, keys_map[:-1], metainfo))[keys_map[-1]] = value
