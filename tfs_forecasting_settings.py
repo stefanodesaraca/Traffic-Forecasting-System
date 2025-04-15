@@ -42,6 +42,9 @@ def read_forecasting_target_datetime(data_kind: str, ops_name: str) -> datetime:
             target_dt = json.load(m)["forecasting"]["target_datetimes"][data_kind]
             target_dt = datetime.strptime(target_dt, forecasting_dt_format)
             return target_dt
+    except TypeError:
+        print(f"\033[91mTarget datetime for {data_kind} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
+        exit(code=1)
     except FileNotFoundError:
         print("\033[91mTarget Datetime File Not Found\033[0m")
         exit(code=1)
