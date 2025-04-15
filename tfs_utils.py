@@ -15,7 +15,7 @@ dt_format = "%Y-%m-%dT%H"  #Datetime format, the hour (H) must be zero-padded an
 #In this case we'll only ask for the hour value since, for now, it's the maximum granularity for the predictions we're going to make
 metainfo_filename = "metainfo"
 target_data = ["V", "AS"]
-active_ops_filename = "active_ops.txt"
+active_ops_filename = "active_ops"
 
 # ==================== TRP Utilities ====================
 
@@ -582,16 +582,16 @@ def update_metainfo(value: Any, keys_map: list[str], mode: str) -> None:
     metainfo_filepath = f"{cwd}/{get_active_ops()}/metainfo.json"
 
     if check_metainfo_file():
-        with open(metainfo_filepath) as m: metainfo = json.load(m)
+        with open(metainfo_filepath, "r") as m: metainfo = json.load(m)
     else:
         raise FileNotFoundError(f"Metainfo file for {get_active_ops()} operation not found")
 
     if mode == "equals":
         m_updated = dict(reduce(operator.getitem, keys_map[:-1], metainfo))[keys_map[-1]] = value
-        with open(metainfo_filepath) as m: json.dump(m_updated, m, indent=4)
+        with open(metainfo_filepath, "w") as m: json.dump(m_updated, m, indent=4)
     elif mode == "append":
         m_updated = dict(reduce(operator.getitem, keys_map[:-1], metainfo))[keys_map[-1]].append(value)
-        with open(metainfo_filepath) as m: json.dump(m_updated, m, indent=4)
+        with open(metainfo_filepath, "w") as m: json.dump(m_updated, m, indent=4)
 
     return None
 
