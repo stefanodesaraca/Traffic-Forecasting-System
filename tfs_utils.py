@@ -577,7 +577,7 @@ def check_metainfo_file() -> bool:
     else: return False
 
 
-def update_metainfo(value: Any, keys_map: list[str], mode: str) -> None:
+def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
 
     metainfo_filepath = f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
 
@@ -587,11 +587,13 @@ def update_metainfo(value: Any, keys_map: list[str], mode: str) -> None:
         raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
 
     if mode == "equals":
-        m_updated = dict(reduce(operator.getitem, keys_map[:-1], metainfo))[keys_map[-1]] = value
-        with open(metainfo_filepath, "w") as m: json.dump(m_updated, m, indent=4)
+        for key in keys_map[:-1]: metainfo = metainfo[key]
+        metainfo[keys_map[-1]] = value
+        with open(metainfo_filepath, "w") as m: json.dump(metainfo, m, indent=4)
     elif mode == "append":
-        m_updated = dict(reduce(operator.getitem, keys_map[:-1], metainfo))[keys_map[-1]].append(value)
-        with open(metainfo_filepath, "w") as m: json.dump(m_updated, m, indent=4)
+        for key in keys_map[:-1]: metainfo = metainfo[key]
+        metainfo[keys_map[-1]].append(value)
+        with open(metainfo_filepath, "w") as m: json.dump(metainfo, m, indent=4)
 
     return None
 
