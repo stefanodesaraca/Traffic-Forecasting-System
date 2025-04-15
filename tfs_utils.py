@@ -14,8 +14,7 @@ dt_format = "%Y-%m-%dT%H:%M:%S"  #Datetime format, the hour (H) must be zero-pad
 
 #TODO SIMPLIFY THIS FUNCTIONALITY
 def get_active_ops_name() -> str:
-    ops_name = read_active_ops_file()
-    return ops_name
+    return read_active_ops_file()
 
 
 # ==================== TRP Utilities ====================
