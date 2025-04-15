@@ -27,7 +27,7 @@ def manage_ops(functionality: str) -> None:
         write_active_ops_file(ops_name)
 
     elif functionality == "1.3":
-        print("Active operation: ", read_active_ops_file(), "\n\n")
+        print("Active operation: ", get_active_ops(), "\n\n")
 
     else:
         print("Functionality not found, try again with a correct one")
@@ -44,7 +44,7 @@ def download_data(functionality: str) -> None:
         try:
             print("Downloading traffic measurement points information for the active operation...")
 
-            ops_name = read_active_ops_file()
+            ops_name = get_active_ops()
             traffic_registration_points_to_json(ops_name)
 
             print("Traffic measurement points information downloaded successfully\n\n")
@@ -70,7 +70,7 @@ def download_data(functionality: str) -> None:
 
         print("Downloading traffic volumes data for every measurement point for the active operation...")
 
-        ops_name = read_active_ops_file()
+        ops_name = get_active_ops()
         traffic_volumes_data_to_json(ops_name, time_start=time_start, time_end=time_end)
 
 
@@ -117,7 +117,7 @@ def clean_data(functionality: str) -> None:
 
 def set_forecasting_options(functionality: str) -> None:
 
-    active_ops = get_active_ops_name()
+    active_ops = get_active_ops()
 
     if functionality == "3.1.1":
         write_forecasting_target_datetime(active_ops)
@@ -321,7 +321,7 @@ def execute_forecasts(functionality: str) -> None:
     print("Which kind of data would you like to forecast?")
     print("V: Volumes | AS: Average Speeds")
     option = input("Choice: ")
-    target_datetime = read_forecasting_target_datetime(option, get_active_ops_name())
+    target_datetime = read_forecasting_target_datetime(option, get_active_ops())
 
     #One-Point Forecast
     if functionality == "3.3.1":

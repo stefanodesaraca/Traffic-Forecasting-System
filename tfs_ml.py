@@ -103,7 +103,7 @@ class BaseLearner:
 
     def gridsearch_for_model(self, X_train, y_train, target: str, model_name: str, road_category: str) -> None:
 
-        ops_name = get_active_ops_name()
+        ops_name = get_active_ops()
 
         if target == "volume":
             parameters_grid = volumes_models_gridsearch_parameters[model_name]
@@ -180,7 +180,7 @@ class BaseLearner:
 
         # -------------- Filenames, etc. --------------
 
-        ops_name = get_active_ops_name()
+        ops_name = get_active_ops()
 
         models_parameters_folder_path = get_ml_model_parameters_folder_path(target, road_category)
         models_folder_path = get_ml_models_folder_path(target, road_category)
@@ -231,7 +231,7 @@ class BaseLearner:
     @staticmethod
     def test_model(X_test, y_test, target: str, model_name, road_category: str) -> None:
 
-        ops_name = get_active_ops_name()
+        ops_name = get_active_ops()
 
         ml_folder_path = get_ml_models_folder_path(target, road_category)
         model_filename = ops_name + "_" + road_category + "_" + model_name

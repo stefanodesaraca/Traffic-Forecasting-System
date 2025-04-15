@@ -21,7 +21,7 @@ class BaseCleaner:
     def __init__(self):
         self._cwd = os.getcwd()
         self._ops_folder = "ops"
-        self._ops_name = read_active_ops_file()
+        self._ops_name = get_active_ops()
 
     #General definition of the data_overview() function. This will take two different forms: the traffic volumes one and the average speed one.
     #Thus, the generic "data" parameter will become the volumes_data or the avg_speed_data one

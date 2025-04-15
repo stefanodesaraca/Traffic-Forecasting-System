@@ -12,14 +12,7 @@ forecasting_dt_format = "%Y-%m-%dT%H"
 #In this case we'll only ask for the hour value since, for now, it's the maximum granularity for the predictions we're going to make
 metainfo_filename = "metainfo"
 target_data = ["V", "AS"]
-
-
-
-# ==================== Ops Utilities ====================
-
-#TODO SIMPLIFY THIS FUNCTIONALITY
-def get_active_ops_name() -> str:
-    return read_active_ops_file()
+active_ops_filename = "active_ops.txt"
 
 
 # ==================== TRP Utilities ====================
@@ -67,14 +60,14 @@ def get_traffic_registration_points_file_path() -> str:
     '''
     This function returns the path to the traffic_measurement_points.json file which contains all TRPs' data (downloaded previously)
     '''
-    ops_name = get_active_ops_name()
+    ops_name = get_active_ops()
     traffic_registration_points_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_registration_points.json"
     return traffic_registration_points_path
 
 
 def get_trp_metadata(trp_id: str) -> dict:
 
-    ops_name = get_active_ops_name()
+    ops_name = get_active_ops()
     trp_metadata_file = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata.json"
 
     with open(trp_metadata_file, "r") as json_trp_metadata:
@@ -85,7 +78,7 @@ def get_trp_metadata(trp_id: str) -> dict:
 
 def write_trp_metadata(trp_id: str) -> None:
 
-    ops_name = get_active_ops_name()
+    ops_name = get_active_ops()
     trps = import_TRPs_data()
     trp_data = [i for i in trps["trafficRegistrationPoints"] if i["id"] == trp_id][0]
 
@@ -158,7 +151,7 @@ def get_raw_traffic_volumes_folder_path() -> str:
     '''
     This function returns the path to the raw_traffic_volumes folder where all the raw traffic volume files are located
     '''
-    ops_name = get_active_ops_name()
+    ops_name = get_active_ops()
     raw_traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
     return raw_traffic_volumes_folder_path
 
@@ -167,7 +160,7 @@ def get_clean_traffic_volumes_folder_path() -> str:
     '''
     This function returns the path for the clean_traffic_volumes folder where all the cleaned traffic volumes data files are located
     '''
-    ops_name = get_active_ops_name()
+    ops_name = get_active_ops()
     clean_traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/"
     return clean_traffic_volumes_folder_path
 
@@ -177,7 +170,7 @@ def get_raw_traffic_volume_file_list() -> list:
     This function returns the name of every file contained in the raw_traffic_volumes folder, so every specific TRP's volumes
     '''
 
-    ops_name = get_active_ops_name()
+    ops_name = get_active_ops()
     traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
 
     # Identifying all the raw traffic volume files
@@ -225,7 +218,7 @@ def get_raw_average_speed_folder_path() -> str:
     '''
     This function returns the path for the raw_average_speed folder where all the average speed files are located. Each file contains the average speeds for one TRP
     '''
-    ops_name = get_active_ops_name()
+    ops_name = get_active_ops()
     average_speed_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/"
 
     return average_speed_folder_path
@@ -235,7 +228,7 @@ def get_clean_average_speed_folder_path() -> str:
     '''
     This function returns the path for the clean_average_speed folder where all the cleaned average speed data files are located
     '''
-    ops_name = get_active_ops_name()
+    ops_name = get_active_ops()
     clean_average_speed_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/clean_average_speed/"
     return clean_average_speed_folder_path
 
@@ -244,7 +237,7 @@ def get_raw_avg_speed_file_list() -> list:
     '''
     This function returns the name of every file contained in the raw_average_speed folder
     '''
-    ops_name = get_active_ops_name()
+    ops_name = get_active_ops()
     average_speed_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/"
 
     # Identifying all the raw average speed files
@@ -280,7 +273,7 @@ def merge_avg_speed_data(trp_filepaths_list: list) -> dd.DataFrame:
 
 def get_ml_models_folder_path(target: str, road_category: str) -> str:
 
-    ops_name = get_active_ops_name()
+    ops_name = get_active_ops()
 
     if target == "volume":
         ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/{ops_name}_traffic_volumes_models/{ops_name}_{road_category}_traffic_volumes_models/"
@@ -294,7 +287,7 @@ def get_ml_models_folder_path(target: str, road_category: str) -> str:
 
 def get_ml_model_parameters_folder_path(target: str, road_category: str) -> str:
 
-    ops_name = get_active_ops_name()
+    ops_name = get_active_ops()
 
     if target == "volume":
         ml_parameters_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models_parameters/{ops_name}_traffic_volumes_models_parameters/{ops_name}_{road_category}_traffic_volumes_models_parameters/"
@@ -375,7 +368,7 @@ def write_active_ops_file(ops_name: str) -> None:
 
 
 #Reading operations file, it indicates which road network we're taking into consideration
-def read_active_ops_file():
+def get_active_ops():
     try:
         with open(f"{active_ops_filename}.txt", "r") as ops_file: op = ops_file.read()
         return op
@@ -581,13 +574,13 @@ def check_forecasting_datetime(dt: str):
 
 
 def get_shapiro_wilk_plots_path() -> str:
-    ops_name = get_active_ops_name()
+    ops_name = get_active_ops()
     return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_shapiro_wilk_test/"
 
 
 def get_eda_plots_folder_path(sub: str = None) -> str:
 
-    ops_name = get_active_ops_name()
+    ops_name = get_active_ops()
 
     if sub == "volumes":
         return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_plots/traffic_volumes_eda_plots/"
@@ -638,7 +631,7 @@ def retrieve_theoretical_hours_columns() -> list:
 
 #TODO USE THE metainfo_filename WHEN ALL THE FUNCTIONS FROM tfs_forecasting_settings.py and tfs_ops_settings.py WILL BE BROUGHT HERE
 def check_metainfo_file() -> bool:
-    if os.path.isfile(f"{cwd}/{get_active_ops_name()}/metainfo.json"): return True
+    if os.path.isfile(f"{cwd}/{get_active_ops()}/metainfo.json"): return True
     else: return False
 
 
