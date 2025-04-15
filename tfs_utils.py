@@ -7,8 +7,7 @@ from cleantext import clean
 
 cwd = os.getcwd()
 ops_folder = "ops"
-dt_format = "%Y-%m-%dT%H:%M:%S"  #Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
-forecasting_dt_format = "%Y-%m-%dT%H"
+dt_format = "%Y-%m-%dT%H"  #Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
 #In this case we'll only ask for the hour value since, for now, it's the maximum granularity for the predictions we're going to make
 metainfo_filename = "metainfo"
 target_data = ["V", "AS"]
@@ -311,7 +310,7 @@ def write_forecasting_target_datetime(ops_name: str) -> None:
     option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")
     dt = str(input("Insert Target Datetime (YYYY-MM-DDTHH): ")) #The month number must be zero-padded, for example: 01, 02, etc.
 
-    if check_forecasting_datetime(dt) is True and option in target_data:
+    if check_datetime(dt) is True and option in target_data:
         print("Target datetime set to: ", dt, "\n\n")
         with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "r") as m:
             metainfo = json.load(m)
@@ -332,7 +331,7 @@ def read_forecasting_target_datetime(data_kind: str, ops_name: str) -> datetime:
     try:
         with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "r") as m:
             target_dt = json.load(m)["forecasting"]["target_datetimes"][data_kind]
-            target_dt = datetime.strptime(target_dt, forecasting_dt_format)
+            target_dt = datetime.strptime(target_dt, dt_format)
             return target_dt
     except TypeError:
         print(f"\033[91mTarget datetime for {data_kind} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
@@ -496,46 +495,54 @@ def write_metainfo(ops_name: str) -> None:
                 "clean_average_speeds_size": None
             },
             "traffic_volumes": {
-                "start_date_iso": None,
-                "end_date_iso": None,
-                "start_year": None,
-                "start_month": None,
-                "start_day": None,
-                "start_hour": None,
-                "end_year": None,
-                "end_month": None,
-                "end_day": None,
-                "end_hour": None,
-                "n_days": None,
-                "n_months": None,
-                "n_years:": None,
-                "n_weeks": None,
-                "raw_filenames": [],
-                "raw_filepaths": [],
-                "clean_filenames": [],
-                "clean_filepaths": [],
-                "n_rows": []
+                "start_date_iso": None, #The start date which was inserted in the download section of the menu in ISO format
+                "end_date_iso": None, #The end date which was inserted in the download section of the menu in ISO format
+                "start_year": None, #The year obtained from the start_date_iso datetime
+                "start_month": None, #The month obtained from the start_date_iso datetime
+                "start_day": None, #The day obtained from the start_date_iso datetime
+                "start_hour": None, #The hour obtained from the start_date_iso datetime
+                "end_year": None, #The year obtained from the end_date_iso datetime
+                "end_month": None, #The month obtained from the end_date_iso datetime
+                "end_day": None, #The day obtained from the end_date_iso datetime
+                "end_hour": None, #The hour obtained from the end_date_iso datetime
+                "n_days": None, #The total number of days which we have data about
+                "n_months": None, #The total number of months which we have data about
+                "n_years:": None, #The total number of years which we have data about
+                "n_weeks": None, #The total number of weeks which we have data about
+                "raw_filenames": [], #The list of raw traffic volumes file names
+                "raw_filepaths": [], #The list of file raw traffic volumes file path
+                "clean_filenames": [], #The list of clean traffic volumes file names
+                "clean_filepaths": [], #The list of file clean traffic volumes file path
+                "n_rows": [], #The total number of records downloaded (clean volumes)
+                "raw_volumes_start_date": None, #The first date available for raw volumes files
+                "raw_volumes_end_date": None, #The last date available for raw volumes files
+                "clean_volumes_start_date": None, #The first date available for clean volumes files
+                "clean_volumes_end_date": None #The last date available for clean volumes files
             },
             "average_speeds": {
-                "start_date_iso": None,
-                "end_date_iso": None,
-                "start_year": None,
-                "start_month": None,
-                "start_day": None,
-                "start_hour": None,
-                "end_year": None,
-                "end_month": None,
-                "end_day": None,
-                "end_hour": None,
-                "n_days": None,
-                "n_months": None,
-                "n_years:": None,
-                "n_weeks": None,
-                "raw_filenames": [],
-                "raw_filepaths": [],
-                "clean_filenames": [],
-                "clean_filepaths": [],
-                "n_rows": []
+                "start_date_iso": None, #The start date which was inserted in the download section of the menu in ISO format
+                "end_date_iso": None, #The end date which was inserted in the download section of the menu in ISO format
+                "start_year": None, #The year obtained from the start_date_iso datetime
+                "start_month": None, #The month obtained from the start_date_iso datetime
+                "start_day": None, #The day obtained from the start_date_iso datetime
+                "start_hour": None, #The hour obtained from the start_date_iso datetime
+                "end_year": None, #The year obtained from the end_date_iso datetime
+                "end_month": None, #The month obtained from the end_date_iso datetime
+                "end_day": None, #The day obtained from the end_date_iso datetime
+                "end_hour": None, #The hour obtained from the end_date_iso datetime
+                "n_days": None, #The total number of days which we have data about
+                "n_months": None, #The total number of months which we have data about
+                "n_years:": None, #The total number of years which we have data about
+                "n_weeks": None, #The total number of weeks which we have data about
+                "raw_filenames": [], #The list of raw average speed file names
+                "raw_filepaths": [], #The list of file raw average speed file path
+                "clean_filenames": [], #The list of clean average speed file names
+                "clean_filepaths": [], #The list of file clean average speed file path
+                "n_rows": [], #The total number of records downloaded (clean average speeds)
+                "raw_avg_speed_start_date": None, #The first date available for raw average speed files
+                "raw_avg_speed_end_date": None, #The last date available for raw average speed files
+                "clean_avg_speed_start_date": None, #The first date available for clean average speed files
+                "clean_avg_speed_end_date": None #The last date available for clean average speed files
             },
             "metadata_files": [],
             "folder_paths": {},
@@ -546,7 +553,7 @@ def write_metainfo(ops_name: str) -> None:
                 }
             },
             "by_trp_id": {
-                "trp_ids" : {} #TODO ADD IF A RAW FILES HAS A CORRESPONDING CLEAN ONE (FOR BOTH TV AND AVG SPEEDS)
+                "trp_ids" : {} #TODO ADD IF A RAW FILE HAS A CORRESPONDING CLEAN ONE (FOR BOTH TV AND AVG SPEEDS)
             }
         }
 
@@ -555,19 +562,16 @@ def write_metainfo(ops_name: str) -> None:
     return None
 
 
+def check_metainfo_file() -> bool:
+    if os.path.isfile(f"{cwd}/{get_active_ops()}/metainfo.json"): return True
+    else: return False
+
+
 # ==================== Auxiliary Utilities ====================
 
 def check_datetime(dt: str):
     try:
         datetime.strptime(dt, dt_format)
-        return True
-    except ValueError:
-        return False
-
-
-def check_forecasting_datetime(dt: str):
-    try:
-        datetime.strptime(dt, forecasting_dt_format)
         return True
     except ValueError:
         return False
@@ -628,11 +632,6 @@ def ZScore(df: [pd.DataFrame | dd.DataFrame], column: str) -> [pd.DataFrame | dd
 
 def retrieve_theoretical_hours_columns() -> list:
     return [f"{i:02}" for i in range(24)]
-
-#TODO USE THE metainfo_filename WHEN ALL THE FUNCTIONS FROM tfs_forecasting_settings.py and tfs_ops_settings.py WILL BE BROUGHT HERE
-def check_metainfo_file() -> bool:
-    if os.path.isfile(f"{cwd}/{get_active_ops()}/metainfo.json"): return True
-    else: return False
 
 
 def clean_text(text: str) -> str:

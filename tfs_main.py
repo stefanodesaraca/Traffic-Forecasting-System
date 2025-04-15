@@ -40,23 +40,17 @@ def manage_ops(functionality: str) -> None:
 def download_data(functionality: str) -> None:
 
     if functionality == "2.1":
-
         try:
-            print("Downloading traffic measurement points information for the active operation...")
-
+            print("\nDownloading traffic measurement points information for the active operation...")
             ops_name = get_active_ops()
             traffic_registration_points_to_json(ops_name)
-
             print("Traffic measurement points information downloaded successfully\n\n")
-
         except Exception as e:
             print(f"\033[91mCouldn't download traffic measurement points information for the active operation. Error: {e}\033[0m")
 
-
     elif functionality == "2.2":
-
-        time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH:MM:SS: ")
-        time_end = input("Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH:MM:SS: ")
+        time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
+        time_end = input("Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
 
         if check_datetime(time_start) is True and check_datetime(time_end) is True:
             pass
@@ -65,19 +59,15 @@ def download_data(functionality: str) -> None:
             print("Returning to the main menu...\n\n")
             main()
 
-        time_start += ".000Z"
-        time_end += ".000Z"
+        time_start += "00:00.000Z"
+        time_end += "00:00.000Z"
 
         print("Downloading traffic volumes data for every measurement point for the active operation...")
-
         ops_name = get_active_ops()
         traffic_volumes_data_to_json(ops_name, time_start=time_start, time_end=time_end)
 
-
     elif functionality == "2.3":
-
         trp_id_list = get_trp_id_list()
-
         if len(os.listdir(get_raw_traffic_volumes_folder_path())) == 0:
             print("Download volumes data before writing metadata")
             return None
@@ -85,7 +75,6 @@ def download_data(functionality: str) -> None:
         print("Writing metadata files...")
         for trp_id in tqdm(trp_id_list): write_trp_metadata(trp_id)
         print("Metadata files successfully written\n\n")
-
 
     return None
 
