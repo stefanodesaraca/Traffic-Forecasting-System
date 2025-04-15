@@ -1,4 +1,3 @@
-from tfs_ops_settings import *
 from tfs_utils import *
 import numpy as np
 import json

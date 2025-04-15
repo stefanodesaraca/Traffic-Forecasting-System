@@ -1,7 +1,6 @@
 import pandas as pd
 import dask.dataframe as dd
 import tfs_cleaning
-from tfs_ops_settings import *
 from tfs_cleaning import *
 import numpy as np
 from numpy.linalg import eigvals
