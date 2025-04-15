@@ -47,6 +47,7 @@ def download_data(functionality: str) -> None:
             print("Traffic measurement points information downloaded successfully\n\n")
         except Exception as e:
             print(f"\033[91mCouldn't download traffic measurement points information for the active operation. Error: {e}\033[0m")
+            exit(code=1)
 
     elif functionality == "2.2":
         time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")

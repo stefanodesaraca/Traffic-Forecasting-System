@@ -1,9 +1,13 @@
+import pprint
 from datetime import datetime
 import os
 import json
 import pandas as pd
 import dask.dataframe as dd
 from cleantext import clean
+from functools import reduce
+import operator
+from typing import Any
 
 cwd = os.getcwd()
 ops_folder = "ops"
@@ -12,7 +16,6 @@ dt_format = "%Y-%m-%dT%H"  #Datetime format, the hour (H) must be zero-padded an
 metainfo_filename = "metainfo"
 target_data = ["V", "AS"]
 active_ops_filename = "active_ops.txt"
-
 
 # ==================== TRP Utilities ====================
 
@@ -101,6 +104,8 @@ def write_trp_metadata(trp_id: str) -> None:
     assert os.path.isdir(get_raw_average_speed_folder_path()) is True, "Raw average speed folder missing"
     assert os.path.isdir(get_clean_average_speed_folder_path()) is True, "Clean average speed folder missing"
 
+    check_metainfo_file()
+
     metadata = {"trp_id": trp_data["id"],
                 "name": trp_data["name"],
                 "raw_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{[file for file in os.listdir(get_raw_traffic_volumes_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_raw_traffic_volumes_folder_path()) if trp_id in file]) != 0 else ''}",
@@ -125,8 +130,12 @@ def write_trp_metadata(trp_id: str) -> None:
                 "latest_volume_average_daily_by_month": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"],
                 "number_of_data_nodes": len(volumes["trafficData"]["volume"]["byHour"]["edges"])} #(Volumes data nodes)
 
-    with open(trp_metadata_filepath + trp_metadata_filename + ".json", "w") as json_metadata:
+    metadata_filepath = trp_metadata_filepath + trp_metadata_filename + ".json"
+    with open(metadata_filepath, "w") as json_metadata:
         json.dump(metadata, json_metadata, indent=4)
+
+    update_metainfo(trp_metadata_filename, ["metadata_filenames"], "append")
+    update_metainfo(metadata_filepath, ["metadata_filepaths"], "append")
 
     return None
 
@@ -544,7 +553,8 @@ def write_metainfo(ops_name: str) -> None:
                 "clean_avg_speed_start_date": None, #The first date available for clean average speed files
                 "clean_avg_speed_end_date": None #The last date available for clean average speed files
             },
-            "metadata_files": [],
+            "metadata_filenames": [],
+            "metadata_filepaths": [],
             "folder_paths": {},
             "forecasting": {
                 "target_datetimes": {
@@ -565,6 +575,25 @@ def write_metainfo(ops_name: str) -> None:
 def check_metainfo_file() -> bool:
     if os.path.isfile(f"{cwd}/{get_active_ops()}/metainfo.json"): return True
     else: return False
+
+
+def update_metainfo(value: Any, keys_map: list[str], mode: str) -> None:
+
+    metainfo_filepath = f"{cwd}/{get_active_ops()}/metainfo.json"
+
+    if check_metainfo_file():
+        with open(metainfo_filepath) as m: metainfo = json.load(m)
+    else:
+        raise FileNotFoundError(f"Metainfo file for {get_active_ops()} operation not found")
+
+    if mode == "equals":
+        m_updated = dict(reduce(operator.getitem, keys_map[:-1], metainfo))[keys_map[-1]] = value
+        with open(metainfo_filepath) as m: json.dump(m_updated, m, indent=4)
+    elif mode == "append":
+        m_updated = dict(reduce(operator.getitem, keys_map[:-1], metainfo))[keys_map[-1]].append(value)
+        with open(metainfo_filepath) as m: json.dump(m_updated, m, indent=4)
+
+    return None
 
 
 # ==================== Auxiliary Utilities ====================
