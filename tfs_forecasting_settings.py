@@ -30,10 +30,10 @@ def write_forecasting_target_datetime(ops_name: str) -> None:
     else:
         if check_datetime(dt) is False:
             print("\033[91mWrong datetime format, try again\033[0m")
-            exit()
+            exit(code=1)
         elif option not in target_data:
             print("\033[91mWrong data forecasting target datetime, try again\033[0m")
-            exit()
+            exit(code=1)
 
 
 def read_forecasting_target_datetime(data_kind: str, ops_name: str) -> datetime:
@@ -41,10 +41,10 @@ def read_forecasting_target_datetime(data_kind: str, ops_name: str) -> datetime:
         with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "r") as m:
             target_dt = json.load(m)["forecasting"]["target_datetimes"][data_kind]
             target_dt = datetime.strptime(target_dt, forecasting_dt_format)
+            return target_dt
     except FileNotFoundError:
         print("\033[91mTarget Datetime File Not Found\033[0m")
-        exit()
-    return target_dt
+        exit(code=1)
 
 
 def rm_forecasting_target_datetime(ops_name: str) -> None:
@@ -56,10 +56,10 @@ def rm_forecasting_target_datetime(ops_name: str) -> None:
             metainfo["forecasting"]["target_datetimes"][option] = None
         with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "w") as m: json.dump(metainfo, m, indent=4)
         print("Target datetime file deleted successfully\n\n")
+        return None
     except KeyError:
         print("\033[91mTarget datetime not found\033[0m")
-        exit()
-    return None
+        exit(code=1)
 
 
 

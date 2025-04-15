@@ -219,7 +219,7 @@ class BaseLearner:
 
         except Exception as e:
             print(f"\033[91mCouldn't export trained model. Safely exited the program. Error: {e}\033[0m")
-            exit()
+            exit(code=1)
 
 
         print("\n\n")

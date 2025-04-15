@@ -369,6 +369,9 @@ def retrieve_theoretical_hours_columns() -> list:
     return [f"{i:02}" for i in range(24)]
 
 
+def check_metainfo_file() -> bool:
+    if os.path.isdir(f"{cwd}/{get_active_ops_name()}/metainfo.json"): return True
+    else: return False
 
 
 
