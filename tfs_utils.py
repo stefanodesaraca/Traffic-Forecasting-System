@@ -308,7 +308,7 @@ def get_ml_model_parameters_folder_path(target: str, road_category: str) -> str:
 
 #TODO FIND A WAY TO CHECK WHICH IS THE LAST DATETIME AVAILABLE FOR BOTH AVERAGE SPEED (CLEAN) AND TRAFFIC VOLUMES (CLEAN)
 
-def write_forecasting_target_datetime(ops_name: str) -> None:
+def write_forecasting_target_datetime() -> None:
 
     assert os.path.isdir(get_clean_traffic_volumes_folder_path()), "Clean traffic volumes folder missing. Initialize an operation first and then set a forecasting target datetime"
     assert os.path.isdir(get_clean_average_speed_folder_path()), "Clean average speeds folder missing. Initialize an operation first and then set a forecasting target datetime"
@@ -329,12 +329,11 @@ def write_forecasting_target_datetime(ops_name: str) -> None:
             exit(code=1)
 
 
-def read_forecasting_target_datetime(data_kind: str, ops_name: str) -> datetime:
+def read_forecasting_target_datetime(data_kind: str) -> datetime:
     try:
-        with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "r") as m:
-            target_dt = json.load(m)["forecasting"]["target_datetimes"][data_kind]
-            target_dt = datetime.strptime(target_dt, dt_format)
-            return target_dt
+        target_dt = read_metainfo_key(keys_map=["forecasting", "target_datetimes", data_kind])
+        target_dt = datetime.strptime(target_dt, dt_format)
+        return target_dt
     except TypeError:
         print(f"\033[91mTarget datetime for {data_kind} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
         exit(code=1)
@@ -343,14 +342,11 @@ def read_forecasting_target_datetime(data_kind: str, ops_name: str) -> datetime:
         exit(code=1)
 
 
-def rm_forecasting_target_datetime(ops_name: str) -> None:
+def rm_forecasting_target_datetime() -> None:
     try:
         print("For which data kind do you want to remove the forecasting target datetime?")
         option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds:" )
-        with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "r") as m:
-            metainfo = json.load(m)
-            metainfo["forecasting"]["target_datetimes"][option] = None
-        with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "w") as m: json.dump(metainfo, m, indent=4)
+        update_metainfo(None, ["forecasting", "target_datetimes", option], mode="equals")
         print("Target datetime file deleted successfully\n\n")
         return None
     except KeyError:
@@ -571,7 +567,7 @@ def check_metainfo_file() -> bool:
 
 def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
     """
-    This function inserts data into the right key-value pair in the metainfo.json file of the active operation.
+    This function inserts data into a specific right key-value pair in the metainfo.json file of the active operation.
 
     Parameters:
         value: the value which we want to insert or append for a specific key-value pair
@@ -607,7 +603,24 @@ def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
     return None
 
 
-#TODO CREATE A read_metainfo() METHOD WITH THE SAME LOGIC AS THE UPDATE ONE
+def read_metainfo_key(keys_map: list) -> Any:
+    """
+    This function reads data from a specific key-value pair in the metainfo.json file of the active operation.
+
+    Parameters:
+        keys_map: the list which includes all the keys which bring to the key-value pair to read (the one to read included)
+    """
+    metainfo_filepath = f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
+
+    if check_metainfo_file() is True:
+        with open(metainfo_filepath, "r") as m: payload = json.load(m)
+    else:
+        raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
+
+    for key in keys_map[:-1]: payload = payload[key]
+
+    return payload[keys_map[-1]] #Returning the metainfo key-value pair
+
 
 # ==================== Auxiliary Utilities ====================
 

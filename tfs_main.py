@@ -315,7 +315,6 @@ def execute_forecasts(functionality: str) -> None:
 
     #One-Point Forecast
     if functionality == "3.3.1":
-
         trp_id_list = get_trp_id_list()
         print("TRP IDs: ", trp_id_list)
 

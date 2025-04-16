@@ -424,7 +424,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
 
 
-        print(forecasting_window)
+        print(forecasting_window, "\n\n")
 
         return None
 
