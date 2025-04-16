@@ -27,7 +27,7 @@ def import_TRPs_data():
 
     return trp_info
 
-#TODO IMPROVE THIS FUNCTION
+#TODO IMPROVE THIS FUNCTION, AND SET THAT THIS RETURNS A LIST OF str
 def get_trp_id_list() -> list:
 
     trp_info = import_TRPs_data()
@@ -313,17 +313,13 @@ def write_forecasting_target_datetime(ops_name: str) -> None:
     assert os.path.isdir(get_clean_traffic_volumes_folder_path()), "Clean traffic volumes folder missing. Initialize an operation first and then set a forecasting target datetime"
     assert os.path.isdir(get_clean_average_speed_folder_path()), "Clean average speeds folder missing. Initialize an operation first and then set a forecasting target datetime"
 
-    option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")
+    option = str(input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: "))
     dt = str(input("Insert Target Datetime (YYYY-MM-DDTHH): ")) #The month number must be zero-padded, for example: 01, 02, etc.
 
     if check_datetime(dt) is True and option in target_data:
+        update_metainfo(value=dt, keys_map=["forecasting", "target_datetimes", option], mode="equals")
         print("Target datetime set to: ", dt, "\n\n")
-        with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "r") as m:
-            metainfo = json.load(m)
-            update_metainfo(dt, ["forecasting", "target_datetimes", option], mode="equals")
-        with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "w") as m: json.dump(metainfo, m, indent=4)
         return None
-
     else:
         if check_datetime(dt) is False:
             print("\033[91mWrong datetime format, try again\033[0m")
@@ -570,8 +566,7 @@ def write_metainfo(ops_name: str) -> None:
 
 
 def check_metainfo_file() -> bool:
-    if os.path.isfile(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"): return True
-    else: return False
+    return os.path.isfile(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json") #Either True (if file exists) or False (in case the file doesn't exist)
 
 
 def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
@@ -585,23 +580,34 @@ def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
         mode: the mode which we intend to use for a specific operation on the metainfo file. For example: we may want to set a value for a specific key, or we may want to append another value to a list (which is the value of a specific key-value pair)
     """
     metainfo_filepath = f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
+    modes = ["equals", "append"]
 
     if check_metainfo_file() is True:
-        with open(metainfo_filepath, "r") as m: metainfo = json.load(m)
+        with open(metainfo_filepath, "r") as m: payload = json.load(m)
     else:
         raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
+
+    #metainfo = payload has a specific reason to exist
+    #This is how we preserve the whole original dictionary (loaded from the JSON file), but at the same time iterate over its keys and updating them
+    #By doing to we'll assign the value (obtained from the value parameter of this method) to the right key, but preserving the rest of the dictionary
+    metainfo = payload
 
     if mode == "equals":
         for key in keys_map[:-1]: metainfo = metainfo[key]
         metainfo[keys_map[-1]] = value #Updating the metainfo file key-value pair
-        with open(metainfo_filepath, "w") as m: json.dump(metainfo, m, indent=4)
+        with open(metainfo_filepath, "w") as m: json.dump(payload, m, indent=4)
     elif mode == "append":
         for key in keys_map[:-1]: metainfo = metainfo[key]
         metainfo[keys_map[-1]].append(value) #Appending a new value to the list (which is the value of this key-value pair)
-        with open(metainfo_filepath, "w") as m: json.dump(metainfo, m, indent=4)
+        with open(metainfo_filepath, "w") as m: json.dump(payload, m, indent=4)
+    elif mode not in modes:
+        print("\033[91mWrong mode\033[0m")
+        exit(code=1)
 
     return None
 
+
+#TODO CREATE A read_metainfo() METHOD WITH THE SAME LOGIC AS THE UPDATE ONE
 
 # ==================== Auxiliary Utilities ====================
 

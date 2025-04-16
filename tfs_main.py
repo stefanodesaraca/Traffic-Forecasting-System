@@ -30,8 +30,8 @@ def manage_ops(functionality: str) -> None:
         print("Active operation: ", get_active_ops(), "\n\n")
 
     else:
-        print("Functionality not found, try again with a correct one")
-        print("Returning to the main menu...\n\n")
+        print("\033[91mFunctionality not found, try again with a correct one\033[0m")
+        print("\033[91mReturning to the main menu...\033[0m\n\n")
         main()
         
     return None
@@ -70,7 +70,7 @@ def download_data(functionality: str) -> None:
     elif functionality == "2.3":
         trp_id_list = get_trp_id_list()
         if len(os.listdir(get_raw_traffic_volumes_folder_path())) == 0:
-            print("Download volumes data before writing metadata")
+            print("\033[91mDownload volumes data before writing metadata\033[0m")
             return None
 
         print("Writing metadata files...")
@@ -329,7 +329,7 @@ def execute_forecasts(functionality: str) -> None:
             one_point_volume_forecaster.pre_process_data(forecasting_target_datetime=target_datetime)
 
         else:
-            print("Non-valid TRP ID, returning to main menu")
+            print("\033[91mNon-valid TRP ID, returning to main menu\033[0m")
             main()
 
     return None
