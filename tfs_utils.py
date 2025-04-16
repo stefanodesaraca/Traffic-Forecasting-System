@@ -5,6 +5,8 @@ import pandas as pd
 import dask.dataframe as dd
 from cleantext import clean
 from typing import Any
+import geopandas as gpd
+import geojson
 
 cwd = os.getcwd()
 ops_folder = "ops"
@@ -404,13 +406,13 @@ def create_ops_folder(ops_name: str) -> None:
     metainfo["folder_paths"] = {} #Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
 
     for mf in main_folders:
-        main_f = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_{mf}"
+        main_f = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_{mf}/"
         os.makedirs(main_f, exist_ok=True)
         metainfo["folder_paths"][mf] = {}
 
     # Data subfolders
     for dsf in data_subfolders:
-        data_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}"
+        data_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}/"
         os.makedirs(data_sub, exist_ok=True)
         metainfo["folder_paths"]["data"][dsf] = {"path": data_sub,
                                                 "subfolders": {}}
@@ -418,45 +420,45 @@ def create_ops_folder(ops_name: str) -> None:
         #Data sub-subfolders
         for dssf in data_sub_subfolders:
             if dsf != "trp_metadata":
-                data_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}/{dssf}_{dsf}"
+                data_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}/{dssf}_{dsf}/"
                 os.makedirs(data_2sub, exist_ok=True)
                 metainfo["folder_paths"]["data"][dsf]["subfolders"][dssf] = {"path": data_2sub}
 
     for e in eda_subfolders:
-        eda_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{e}"
+        eda_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{e}/"
         os.makedirs(eda_sub, exist_ok=True)
         metainfo["folder_paths"]["eda"][e] = {"path": eda_sub,
                                               "subfolders": {}}
 
         for esub in eda_sub_subfolders:
             if e != f"{ops_name}_shapiro_wilk_test":
-                eda_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{e}/{esub}_eda_plots"
+                eda_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{e}/{esub}_eda_plots/"
                 os.makedirs(eda_2sub, exist_ok=True)
                 metainfo["folder_paths"]["eda"][e]["subfolders"][esub] = {"path": eda_2sub}
 
     # Graph subfolders
     for gsf in rn_graph_subfolders:
-        gsf_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_rn_graph/{gsf}"
+        gsf_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_rn_graph/{gsf}/"
         os.makedirs(gsf_sub, exist_ok=True)
         metainfo["folder_paths"]["rn_graph"][gsf] = {"path": gsf_sub,
                                                      "subfolders": None}
 
     # Machine learning subfolders
     for mlsf in ml_subfolders:
-        ml_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}"
+        ml_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/"
         os.makedirs(ml_sub, exist_ok=True)
         metainfo["folder_paths"]["ml"][mlsf] = {"path": ml_sub,
                                                 "subfolders": {}}
 
         #Machine learning sub-subfolders
         for mlssf in ml_sub_subfolders:
-            ml_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/{ops_name}_{mlssf}_{mlsf}"
+            ml_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/{ops_name}_{mlssf}_{mlsf}/"
             os.makedirs(ml_2sub, exist_ok=True)
             metainfo["folder_paths"]["ml"][mlsf]["subfolders"][mlssf] = {"path": ml_2sub,
                                                                          "subfolders": {}}
 
             for mlsssf in ml_sub_sub_subfolders:
-                ml_3sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/{ops_name}_{mlssf}_{mlsf}/{ops_name}_{mlsssf}_{mlssf}_{mlsf}"
+                ml_3sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/{ops_name}_{mlssf}_{mlsf}/{ops_name}_{mlsssf}_{mlssf}_{mlsf}/"
                 os.makedirs(ml_3sub, exist_ok=True)
                 metainfo["folder_paths"]["ml"][mlsf]["subfolders"][mlssf]["subfolders"][mlsssf] = {"path": ml_3sub}
 
@@ -694,6 +696,67 @@ def clean_text(text: str) -> str:
     text = text.replace(" ", "_")
     text = text.lower()
     return text
+
+
+# ==================== *** Road Network Utilities *** ====================
+
+# ==================== Edges Utilities ====================
+
+def retrieve_edges():
+
+    edges_folder = read_metainfo_key(["folder_paths", "rn_graph", "traffic_edges", "path"])
+    edges_filepath = f"{cwd}/{ops_folder}/{edges_folder}/..."
+
+    with open(edges_filepath) as e: edges_raw = geojson.load(e)
+    edges_df = gpd.GeoDataFrame(edges_raw)
+
+    print(edges_df)
+
+
+    return #TODO RETURN A DATAFRAME OF EDGES, EACH ONE TO CONVERT INTO A SPECIFIC Edge OBJECT (OF THE CLASS Edge (OF COURSE))
+
+
+
+
+
+
+
+
+
+# ==================== Links Utilities ====================
+
+
+
+
+
+
+
+
+
+
+
+# ==================== TrafficRegistrationPoints Utilities ====================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

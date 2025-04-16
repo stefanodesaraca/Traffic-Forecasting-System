@@ -1,0 +1,19 @@
+from pydantic import BaseModel
+
+
+#TODO DEFINE THE RoadNetwork CLASS
+# DEFINE THE Edge CLASS
+# DEFINE THE Link CLASS (LINK BETWEEN TWO EDGES)
+# DEFINE THE TrafficRegistrationPoint CLASS
+# ALL OF THESE CLASSES WILL INHERIT FROM pydantic's BaseModel AND HAVE EACH THEIR OWN ATTRIBUTES WHICH DESCRIBE THE OBJECT ITSELF
+
+#TODO THE EDGES, THE LINKS AND THE TRAFFIC REIGSTRATION POINTS OBJECTS WILL BE CREATED IN SPECIFIC METHODS IN TEH tfs_utils.py FILE
+# HERE WE'LL ONLY DEFINE THE LOGICS, ATTRIBUTES AND METHODS WHICH EACH CLASS REPRESENTS
+# ONLY THE RoadNetwork CLASS WILL HAVE EVERYTHING (ALMOST) DEFINED INSIDE ITSELF, SO IT WILL HAVE METHODS WHICH WILL LET IT GENERATE THE NETWORK GIVEN A SET OF EDGES AND LINKS
+
+
+
+
+
+#Here we'll just define the road network graph, the operations on the graph will be defined in other files which will
+#automatically find the right graph for the current operation, import it and then execute the analyses there
