@@ -420,6 +420,11 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
     def pre_process_data(self, forecasting_target_datetime: datetime, X_test=None, y_test=None): #TODO REMOVE =None AFTER TESTING
 
+        forecasting_target_datetime = forecasting_target_datetime.strftime("%Y-%m-%d %H:%M:%S.%f")
+
+        print(datetime.now())
+        print(forecasting_target_datetime)
+
         forecasting_window = pd.date_range(start=datetime.now(), end=forecasting_target_datetime, freq="1h")
 
 

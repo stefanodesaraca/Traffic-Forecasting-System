@@ -110,14 +110,14 @@ def set_forecasting_options(functionality: str) -> None:
     active_ops = get_active_ops()
 
     if functionality == "3.1.1":
-        write_forecasting_target_datetime(active_ops)
+        write_forecasting_target_datetime()
 
     elif functionality == "3.1.2":
         option = input("Press V to read forecasting target datetime for traffic volumes or AS for average speeds: ")
-        print("Target datetime: ", read_forecasting_target_datetime(data_kind=option, ops_name=active_ops), "\n\n")
+        print("Target datetime: ", read_forecasting_target_datetime(data_kind=option), "\n\n")
 
     elif functionality == "3.1.3":
-        rm_forecasting_target_datetime(active_ops)
+        rm_forecasting_target_datetime()
 
     return None
 
@@ -311,7 +311,7 @@ def execute_forecasts(functionality: str) -> None:
     print("Which kind of data would you like to forecast?")
     print("V: Volumes | AS: Average Speeds")
     option = input("Choice: ")
-    target_datetime = read_forecasting_target_datetime(option, get_active_ops())
+    target_datetime = read_forecasting_target_datetime(option)
 
     #One-Point Forecast
     if functionality == "3.3.1":
