@@ -28,7 +28,7 @@ def import_TRPs_data():
     return trp_info
 
 #TODO IMPROVE THIS FUNCTION, AND SET THAT THIS RETURNS A LIST OF str
-def get_trp_id_list() -> list:
+def get_trp_id_list() -> list[str]:
 
     trp_info = import_TRPs_data()
 

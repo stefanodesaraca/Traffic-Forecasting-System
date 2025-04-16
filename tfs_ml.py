@@ -422,12 +422,14 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
         forecasting_target_datetime = forecasting_target_datetime.strftime("%Y-%m-%d %H:%M:%S.%f")
 
-        print(datetime.now())
+        print(datetime.now().strftime(dt_format))
         print(forecasting_target_datetime)
 
         forecasting_window = pd.date_range(start=datetime.now(), end=forecasting_target_datetime, freq="1h")
 
-
+        #TODO CHECK IF DATE ISN'T BEFORE THE ONE OF THE LAST DATA AVAILABLE
+        #TODO PARSE DATES OBTAINED IN THIS METHOD TO ONLY PRESERVE DATE AND HOUR
+        # THEN DIVIDE THEM INTO YEAR, MONTH, DAY AND HOUR
 
         print(forecasting_window, "\n\n")
 
