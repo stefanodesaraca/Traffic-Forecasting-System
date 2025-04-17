@@ -16,3 +16,5 @@ geopandas
 fiona
 tqdm
 clean-text
+pytest
+hypothesis
