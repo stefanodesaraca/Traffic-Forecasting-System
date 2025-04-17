@@ -10,6 +10,9 @@ import geojson
 from geopandas import GeoDataFrame
 import pprint
 
+pd.set_option("display.max_columns", None)
+
+
 cwd = os.getcwd()
 ops_folder = "ops"
 dt_format = "%Y-%m-%dT%H"  #Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
@@ -694,12 +697,9 @@ def retrieve_edges() -> gpd.GeoDataFrame:
     edges_folder = read_metainfo_key(["folder_paths", "rn_graph", f"{active_ops}_edges", "path"])
     edges_filepath = f"{edges_folder}/traffic-nodes-2024_2025-02-28.geojson"
 
-    with open(edges_filepath, "r") as e: edges = geojson.load(e)
+    with open(edges_filepath, "r") as e: edges = geojson.load(e)["features"]
     #pprint.pprint(edges, indent=6)
-    edges_df = GeoDataFrame(edges)
-    print(edges_df)
-
-    return edges_df #TODO RETURN A DATAFRAME OF EDGES, EACH ROW HAS TO BE CONVERTED INTO A SPECIFIC Edge OBJECT (OF THE CLASS Edge (OF COURSE))
+    return edges
 
 
 
@@ -717,12 +717,9 @@ def retrieve_arches() -> gpd.GeoDataFrame:
     arches_folder = read_metainfo_key(["folder_paths", "rn_graph", f"{active_ops}_arches", "path"])
     arches_filepath = f"{arches_folder}/traffic_links_2024_2025-02-27.geojson"
 
-    with open(arches_filepath, "r") as a: arches = geojson.load(a)
-    # pprint.pprint(edges, indent=6)
-    arches_df = GeoDataFrame(arches)
-    print(arches_df)
-
-    return arches_df
+    with open(arches_filepath, "r") as a: arches = geojson.load(a)["features"]
+    #pprint.pprint(arches, indent=6)
+    return arches
 
 
 
