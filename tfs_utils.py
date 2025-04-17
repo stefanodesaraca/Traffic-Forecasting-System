@@ -686,15 +686,14 @@ def clean_text(text: str) -> str:
 
 # ==================== Edges Utilities ====================
 
-def retrieve_edges():
+def retrieve_edges() -> gpd.GeoDataFrame:
 
     active_ops = get_active_ops()
     edges_folder = read_metainfo_key(["folder_paths", "rn_graph", f"{active_ops}_edges", "path"])
-    edges_filepath = f"{cwd}/{ops_folder}/{edges_folder}/traffic-nodes-2024_2025-02-28.geojson"
+    edges_filepath = f"{edges_folder}/traffic-nodes-2024_2025-02-28.geojson"
 
     edges_df = gpd.read_file(edges_filepath)
     print(edges_df)
-
 
     return edges_df #TODO RETURN A DATAFRAME OF EDGES, EACH ROW HAS TO BE CONVERTED INTO A SPECIFIC Edge OBJECT (OF THE CLASS Edge (OF COURSE))
 
@@ -708,15 +707,14 @@ def retrieve_edges():
 
 # ==================== Links Utilities ====================
 
-def retrieve_arches():
+def retrieve_arches() -> gpd.GeoDataFrame:
 
     active_ops = get_active_ops()
     arches_folder = read_metainfo_key(["folder_paths", "rn_graph", f"{active_ops}_arches", "path"])
-    arches_filepath = f"{cwd}/{ops_folder}/{arches_folder}/traffic_links_2024_2025-02-27.geojson"
+    arches_filepath = f"{arches_folder}/traffic_links_2024_2025-02-27.geojson"
 
     arches_df = gpd.read_file(arches_filepath)
     print(arches_df)
-
 
     return arches_df
 

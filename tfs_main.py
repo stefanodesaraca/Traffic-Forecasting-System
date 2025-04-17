@@ -1,10 +1,10 @@
-import tfs_ml
 from tfs_downloader import *
 from tfs_eda import *
 from tfs_utils import *
 from tfs_cleaning import *
 from tfs_ml import *
 from tfs_models import model_names_and_functions
+from tfs_road_network import *
 import os
 import time
 from datetime import datetime
@@ -337,6 +337,38 @@ def execute_forecasts(functionality: str) -> None:
 
 
 
+def manage_road_network(functionality: str) -> None:
+
+    if functionality == "4.1":
+        pass #TODO TO DEVELOP
+
+    elif functionality == "4.2": #TODO TESTING FOR NOW
+        retrieve_edges()
+        retrieve_arches()
+
+
+
+
+
+    return None
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -380,7 +412,10 @@ def main():
     3.3 Execute forecast
         3.3.1 One-Point Forecast
         3.3.2 A2B Forecast
- 4. Road network graph generation
+ 4. Road network graph
+    4.1 Graph generation
+    4.2 Graph read (from already existing graph)
+    4.3 Graph analysis
  5. Other options
     5.1 Set forecasting system folders (manually)
     5.2 EDA (Exploratory Data Analysis)
@@ -410,6 +445,9 @@ def main():
 
         elif option in ["3.3.1"]:
             execute_forecasts(option)
+
+        elif option in ["4.1", "4.2", "4.3"]:
+            manage_road_network(option)
 
         elif option == "5.2":
             execute_eda()
