@@ -14,7 +14,12 @@ gql
 geojson
 geopandas
 fiona
+pyogrio
 tqdm
 clean-text
 pytest
 hypothesis
+unidecode
+joblib
+geopy
+folium
