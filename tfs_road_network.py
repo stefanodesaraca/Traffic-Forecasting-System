@@ -1,9 +1,13 @@
-from pydantic import BaseModel
+from pydantic import BaseModel as PydanticBaseModel
 import geopandas as gpd
 import geojson
 import networkx
 
-
+#To allow arbitrary types in the creation of a Pydantic dataclass.
+#In our use case this is done to allow the use of GeoPandas GeoDataFrame objects as type hints in the RoadNetwork class
+class BaseModel(PydanticBaseModel):
+    class Config:
+        arbitrary_types_allowed = True
 
 class RoadNetwork(BaseModel):
     network_id: str
@@ -12,8 +16,7 @@ class RoadNetwork(BaseModel):
     n_edges: int
     n_arches: int
     n_trp: int
-
-
+    road_network_name: str
 
 
 

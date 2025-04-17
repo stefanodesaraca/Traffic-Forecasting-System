@@ -7,6 +7,8 @@ from cleantext import clean
 from typing import Any
 import geopandas as gpd
 import geojson
+from geopandas import GeoDataFrame
+import pprint
 
 cwd = os.getcwd()
 ops_folder = "ops"
@@ -692,7 +694,9 @@ def retrieve_edges() -> gpd.GeoDataFrame:
     edges_folder = read_metainfo_key(["folder_paths", "rn_graph", f"{active_ops}_edges", "path"])
     edges_filepath = f"{edges_folder}/traffic-nodes-2024_2025-02-28.geojson"
 
-    edges_df = gpd.read_file(edges_filepath)
+    with open(edges_filepath, "r") as e: edges = geojson.load(e)
+    #pprint.pprint(edges, indent=6)
+    edges_df = GeoDataFrame(edges)
     print(edges_df)
 
     return edges_df #TODO RETURN A DATAFRAME OF EDGES, EACH ROW HAS TO BE CONVERTED INTO A SPECIFIC Edge OBJECT (OF THE CLASS Edge (OF COURSE))
@@ -713,7 +717,9 @@ def retrieve_arches() -> gpd.GeoDataFrame:
     arches_folder = read_metainfo_key(["folder_paths", "rn_graph", f"{active_ops}_arches", "path"])
     arches_filepath = f"{arches_folder}/traffic_links_2024_2025-02-27.geojson"
 
-    arches_df = gpd.read_file(arches_filepath)
+    with open(arches_filepath, "r") as a: arches = geojson.load(a)
+    # pprint.pprint(edges, indent=6)
+    arches_df = GeoDataFrame(arches)
     print(arches_df)
 
     return arches_df
