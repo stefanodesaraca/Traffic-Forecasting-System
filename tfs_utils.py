@@ -656,35 +656,19 @@ def get_eda_plots_folder_path(sub: str = None) -> str:
         raise Exception("Wrong plots path")
 
 
-def ZScore(df: [pd.DataFrame | dd.DataFrame], column: str) -> [pd.DataFrame | dd.DataFrame]:
+def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
 
-    if isinstance(df, dd.DataFrame):
+    df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
 
-        df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
+    #print("Number of outliers: ", len(df[(df["z_score"] < -3) & (df["z_score"] > 3)]))
+    #print("Length before: ", len(df))
 
-        #print("Number of outliers: ", len(df[(df["z_score"] < -3) & (df["z_score"] > 3)]))
-        #print("Length before: ", len(df))
+    filtered_df = df[(df["z_score"] > -3) & (df["z_score"] < 3)]
+    filtered_df = filtered_df.drop(columns="z_score")
 
-        filtered_df = df[(df["z_score"] > -3) & (df["z_score"] < 3)]
-        filtered_df = filtered_df.drop(columns="z_score")
+    #print("Length after: ", len(filtered_df))
 
-        #print("Length after: ", len(filtered_df))
-
-        return filtered_df.persist() #TODO CHECK IF THE ADD OF .persist() IMPROVES PERFORMANCES
-
-    elif isinstance(df, pd.DataFrame):
-
-        df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
-
-        # print("Number of outliers: ", len(df[(df["z_score"] < -3) & (df["z_score"] > 3)]))
-        # print("Length before: ", len(df))
-
-        filtered_df = df[(df["z_score"] > -3) & (df["z_score"] < 3)]
-        filtered_df = filtered_df.drop(columns="z_score")
-
-        # print("Length after: ", len(filtered_df))
-
-        return filtered_df
+    return filtered_df.persist()
 
 
 def retrieve_theoretical_hours_columns() -> list:
@@ -704,16 +688,15 @@ def clean_text(text: str) -> str:
 
 def retrieve_edges():
 
-    edges_folder = read_metainfo_key(["folder_paths", "rn_graph", "traffic_edges", "path"])
-    edges_filepath = f"{cwd}/{ops_folder}/{edges_folder}/..."
+    active_ops = get_active_ops()
+    edges_folder = read_metainfo_key(["folder_paths", "rn_graph", f"{active_ops}_edges", "path"])
+    edges_filepath = f"{cwd}/{ops_folder}/{edges_folder}/traffic-nodes-2024_2025-02-28.geojson"
 
-    with open(edges_filepath) as e: edges_raw = geojson.load(e)
-    edges_df = gpd.GeoDataFrame(edges_raw)
-
+    edges_df = gpd.read_file(edges_filepath)
     print(edges_df)
 
 
-    return #TODO RETURN A DATAFRAME OF EDGES, EACH ONE TO CONVERT INTO A SPECIFIC Edge OBJECT (OF THE CLASS Edge (OF COURSE))
+    return edges_df #TODO RETURN A DATAFRAME OF EDGES, EACH ROW HAS TO BE CONVERTED INTO A SPECIFIC Edge OBJECT (OF THE CLASS Edge (OF COURSE))
 
 
 
@@ -725,8 +708,17 @@ def retrieve_edges():
 
 # ==================== Links Utilities ====================
 
+def retrieve_arches():
+
+    active_ops = get_active_ops()
+    arches_folder = read_metainfo_key(["folder_paths", "rn_graph", f"{active_ops}_arches", "path"])
+    arches_filepath = f"{cwd}/{ops_folder}/{arches_folder}/traffic_links_2024_2025-02-27.geojson"
+
+    arches_df = gpd.read_file(arches_filepath)
+    print(arches_df)
 
 
+    return arches_df
 
 
 
