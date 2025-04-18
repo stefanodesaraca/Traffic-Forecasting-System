@@ -89,6 +89,7 @@ class TrafficRegistrationPoint(BaseModel):
     road_category_extended: str
     road_reference_short_form: str #This is a string which is identifies the road reference of the TRP
     road_sequence_id: int | float
+    road_reference_history: list[dict[str, [str | None]]]
     relative_position: float
     county_name: str
     county_number: int
@@ -98,13 +99,13 @@ class TrafficRegistrationPoint(BaseModel):
     municipality_name: str
     municipality_number: int
     traffic_registration_type: str
-    first_data: datetime.datetime
-    first_data_with_quality_metrics: datetime.datetime
-    latest_data_volume_by_day: datetime.datetime
-    latest_data_volume_by_hour: datetime.datetime
-    latest_data_volume_average_daily_by_year: datetime.datetime
-    latest_data_volume_average_daily_by_season: datetime.datetime
-    latest_data_volume_average_daily_by_month: datetime.datetime
+    first_data: str | datetime
+    first_data_with_quality_metrics: str | datetime
+    latest_data_volume_by_day: str | datetime
+    latest_data_volume_by_hour: str | datetime
+    latest_data_volume_average_daily_by_year: str | datetime
+    latest_data_volume_average_daily_by_season: str | datetime
+    latest_data_volume_average_daily_by_month: str | datetime
 
 
 
