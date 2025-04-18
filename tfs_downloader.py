@@ -53,6 +53,7 @@ def fetch_traffic_registration_points(client: Client):
                 }
               }
               roadReference{
+                shortForm
                 roadCategory{
                   id
                 }
@@ -60,6 +61,10 @@ def fetch_traffic_registration_points(client: Client):
               roadLinkSequence{
                 roadLinkSequenceId
                 relativePosition
+              }
+              roadReferenceHistory{
+                validFrom
+                validTo
               }
               county{
                 name

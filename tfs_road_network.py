@@ -2,6 +2,8 @@ from pydantic import BaseModel as PydanticBaseModel
 import geopandas as gpd
 import geojson
 import networkx
+import datetime
+
 
 #To allow arbitrary types in the creation of a Pydantic dataclass.
 #In our use case this is done to allow the use of GeoPandas GeoDataFrame objects as type hints in the RoadNetwork class
@@ -27,7 +29,7 @@ class Edge(BaseModel):
     n_undirected_links: int
     legal_turning_movements: list[dict[str, [str | list[str]]]]
     road_system_references: list[str]
-    municipality_ids: list[str] #TODO TO GET THIS ONE SINCE IT DOESN'T EXIST YET IN THE DATA AVAILABLE RIGHT NOW
+    municipality_ids: list[str] = None #TODO TO GET THIS ONE SINCE IT DOESN'T EXIST YET IN THE DATA AVAILABLE RIGHT NOW. FOR NOW IT WILL BE NONE
 
 
 
@@ -38,7 +40,7 @@ class Arch(BaseModel):
     coordinates: list[list[float]]
     year_applies_to: int
     candidate_ids: list[str]
-    road_system_references: list[str]
+    road_system_references: list[str] #A list of "short form" road references. An example could be a road reference (short form) contained in the road_reference_short_form attribute of a TrafficRegistrationPoint instance
     road_category: str #One letter road category
     road_category_extended: str #Road category's full name. Examples: Europaveg, Riksveg
     road_sequence_id: int #In "roadPlacements"
@@ -75,6 +77,35 @@ class Arch(BaseModel):
     number_of_inhabitants: int
     has_anomalies: bool
     anomalies: list #TODO YET TO DEFINE THE DATA TYPE OF THE ELEMENTS OF THIS LIST
+
+
+
+class TrafficRegistrationPoint(BaseModel):
+    trp_id: str
+    name: str
+    lat: float
+    lon: float
+    road_category: str
+    road_category_extended: str
+    road_reference_short_form: str #This is a string which is identifies the road reference of the TRP
+    road_sequence_id: int | float
+    relative_position: float
+    county_name: str
+    county_number: int
+    geographic_number: int
+    country_part_id: int
+    country_part_name: str
+    municipality_name: str
+    municipality_number: int
+    traffic_registration_type: str
+    first_data: datetime.datetime
+    first_data_with_quality_metrics: datetime.datetime
+    latest_data_volume_by_day: datetime.datetime
+    latest_data_volume_by_hour: datetime.datetime
+    latest_data_volume_average_daily_by_year: datetime.datetime
+    latest_data_volume_average_daily_by_season: datetime.datetime
+    latest_data_volume_average_daily_by_month: datetime.datetime
+
 
 
 
