@@ -371,8 +371,8 @@ class AverageSpeedLearner(BaseLearner):
 
         #------------------ Creating lag features ------------------
 
-        speeds_lag_column_names = [f"mean_speed_lag{i}" for i in range(1, 62)] #TODO REDUCE THE NUMBER OF LAG FEATURES, OTHERWISE THE GRID SEARCH WILL TAKE FOREVER
-        percentile_85_lag_column_names = [f"percentile_85_lag{i}" for i in range(1, 62)]
+        speeds_lag_column_names = [f"mean_speed_lag{i}" for i in range(1, 14)] #TODO TEST WITH ONLY 14 LAG FEATURES
+        percentile_85_lag_column_names = [f"percentile_85_lag{i}" for i in range(1, 14)] #TODO TEST WITH ONLY 14 LAG FEATURES
 
         for idx, n in enumerate(speeds_lag_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 1)
         for idx, n in enumerate(percentile_85_lag_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 1)
