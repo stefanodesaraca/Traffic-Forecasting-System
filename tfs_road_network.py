@@ -99,13 +99,13 @@ class TrafficRegistrationPoint(BaseModel):
     municipality_name: str
     municipality_number: int
     traffic_registration_type: str
-    first_data: str | datetime
-    first_data_with_quality_metrics: str | datetime
-    latest_data_volume_by_day: str | datetime
-    latest_data_volume_by_hour: str | datetime
-    latest_data_volume_average_daily_by_year: str | datetime
-    latest_data_volume_average_daily_by_season: str | datetime
-    latest_data_volume_average_daily_by_month: str | datetime
+    first_data: str | datetime.datetime
+    first_data_with_quality_metrics: str | datetime.datetime
+    latest_data_volume_by_day: str | datetime.datetime
+    latest_data_volume_by_hour: str | datetime.datetime
+    latest_data_volume_average_daily_by_year: str | datetime.datetime
+    latest_data_volume_average_daily_by_season: str | datetime.datetime
+    latest_data_volume_average_daily_by_month: str | datetime.datetime
 
 
 
