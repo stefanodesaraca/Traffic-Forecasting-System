@@ -60,8 +60,8 @@ def download_data(functionality: str) -> None:
             print("Returning to the main menu...\n\n")
             main()
 
-        time_start += "00:00.000Z"
-        time_end += "00:00.000Z"
+        time_start += ":00:00.000Z"
+        time_end += ":00:00.000Z"
 
         print("Downloading traffic volumes data for every measurement point for the active operation...")
         ops_name = get_active_ops()
