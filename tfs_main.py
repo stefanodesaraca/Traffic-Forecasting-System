@@ -107,8 +107,6 @@ def clean_data(functionality: str) -> None:
 
 def set_forecasting_options(functionality: str) -> None:
 
-    active_ops = get_active_ops()
-
     if functionality == "3.1.1":
         write_forecasting_target_datetime()
 
