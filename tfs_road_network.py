@@ -4,6 +4,7 @@ import geojson
 import networkx as nx
 import datetime
 from typing import Any
+from tqdm import tqdm
 
 
 #To allow arbitrary types in the creation of a Pydantic dataclass.
@@ -118,8 +119,6 @@ class TrafficRegistrationPoint(BaseModel):
 
 
 
-
-
 class RoadNetwork(BaseModel):
     network_id: str
     vertices: list[Vertex] = None #Optional parameter
@@ -175,12 +174,13 @@ class RoadNetwork(BaseModel):
             return None
 
 
-    def generate_graph(self) -> None:
+    def build(self, verbose: bool) -> None:
+        if verbose is True: print("Loading vertices...")
+        for v in tqdm(self.vertices): self._network.add_node((v.vertex_id, v.get_vertex_data()))
 
-        for v in self.vertices: self._network.add_node((v.vertex_id, v.get_vertex_data()))
-        for a in self.arches: self._network.add_edge(a.start_traffic_node_id, a.end_traffic_node_id, **a.get_arch_data())
-
-
+        if verbose is True: print("Loading arches...")
+        for a in tqdm(self.arches): self._network.add_edge(a.start_traffic_node_id, a.end_traffic_node_id, **a.get_arch_data())
+        print()
 
         return None
 
