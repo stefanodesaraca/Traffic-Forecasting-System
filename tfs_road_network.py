@@ -261,9 +261,26 @@ class RoadNetwork(BaseModel):
         return None
 
 
+    def get_astar_path(self, source: str, target: str) -> list[tuple]:
+        """
+        Returns the shortest path calculated with the  algorithm.
+
+        Parameters:
+            source: the source vertex ID as a string
+            target: the target vertex ID as a string
+        """
+        return nx.astar_path(G=self._network, source=source, target=target)
 
 
+    def get_dijkstra_path(self, source: str, target: str) -> list[tuple]:
+        """
+        Returns the shortest path calculated with the  algorithm.
 
+        Parameters:
+            source: the source vertex ID as a string
+            target: the target vertex ID as a string
+        """
+        return nx.dijkstra_path(G=self._network, source=source, target=target)
 
 
 
