@@ -135,7 +135,7 @@ class RoadNetwork(BaseModel):
         return {attr: val for attr, val in self.__dict__.items()}
 
 
-    def load_vertices(self, vertices: list[Vertex] = None, municipality_id_filter: list[str] | None = None, **kwargs):
+    def load_vertices(self, vertices: list[Vertex] = None, municipality_id_filter: list[str] | None = None, **kwargs) -> None:
         """
         This function loads the vertices inside a RoadNetwork class instance.
 
@@ -145,15 +145,17 @@ class RoadNetwork(BaseModel):
             **kwargs: other attributes which might be needed in the process
         """
 
+        #If a RoadNetwork class instance has been created and already been provided with edges it's important to ensure that the ones that are located outside
+        # of the desired municipality get filtered
         if self.vertices is not None:
             self.vertices = [v for v in self.vertices if any(i in municipality_id_filter for i in v.municipality_ids) is False] #Only keeping the edge if all municipalities of the edge aren't included in the ones to be filtered out
-            return self.vertices
+            return None
         else:
-            vertices = [v for v in vertices if any(i in municipality_id_filter for i in v.municipality_ids) is False]
-            return vertices
+            self.vertices = [v for v in vertices if any(i in municipality_id_filter for i in v.municipality_ids) is False]
+            return None
 
 
-    def load_arches(self, arches: list[Arch] = None, municipality_id_filter: list[str] | None = None, **kwargs):
+    def load_arches(self, arches: list[Arch] = None, municipality_id_filter: list[str] | None = None, **kwargs) -> None:
         """
         This function loads the arches inside a RoadNetwork class instance.
 
@@ -163,12 +165,14 @@ class RoadNetwork(BaseModel):
             **kwargs: other attributes which might be needed in the process
         """
 
+        #If a RoadNetwork class instance has been created and already been provided with arches it's important to ensure that the ones that are located outside
+        # of the desired municipality get filtered
         if self.arches is not None:
             self.arches = [a for a in self.arches if any(i in municipality_id_filter for i in a.municipality_ids) is False] #Only keeping the edge if all municipalities of the edge aren't included in the ones to be filtered out
-            return self.arches
+            return None
         else:
-            arches = [a for a in arches if any(i in municipality_id_filter for i in a.municipality_ids) is False]
-            return arches
+            self.arches = [a for a in arches if any(i in municipality_id_filter for i in a.municipality_ids) is False]
+            return None
 
 
     def generate_graph(self) -> None:

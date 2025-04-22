@@ -103,14 +103,14 @@ speeds_models_gridsearch_parameters = {
         "warm_start": [True, False],
     },
     "DecisionTreeRegressor": {
-        "max_depth": [None, 100, 200, 300], #2, 3, 5, 7, 10, 20, 30, 40, 50,
+        "max_depth": [None, 100, 200], #2, 3, 5, 7, 10, 20, 30, 40, 50,
         "criterion": ["squared_error", "absolute_error", "friedman_mse"],
         "max_features": [None, "sqrt", "log2"],
-        "ccp_alpha": [0, 0.001, 0.0001]
+        "ccp_alpha": [0, 0.001, 0.0001, 0.005]
     },
     "HistGradientBoostingRegressor": {
         "max_iter": [20, 30, 40, 50, 60, 70, 100, 200, 300, 400, 500],
-        "max_depth": [3, 5, 7, 10, 12, 30, 50, 100, 200, 300],
+        "max_depth": [3, 5, 7, 10, 12, 30, 50, 100, 200],
         "loss": ["squared_error", "absolute_error"],
         "validation_fraction": [0.15, 0.25],
         "n_iter_no_change": [5, 10, 15, 20],
