@@ -126,15 +126,23 @@ class BaseLearner:
         time_cv = TimeSeriesSplit(n_splits=5) #A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
         gridsearch = GridSearchCV(model, param_grid=parameters_grid, scoring=self.scorer, refit="mean_absolute_error", return_train_score=True, n_jobs=retrieve_n_ml_cpus(), scheduler=self.client, cv=time_cv)  #The models_gridsearch_parameters is obtained from the tfs_models file
 
-        backend_kwargs = {"scatter": [X_train, y_train]}
-        with joblib.parallel_backend('dask'): #, **backend_kwargs):
+        with joblib.parallel_backend('dask'):
             gridsearch.fit(X=X_train, y=y_train)
 
-        gridsearch_results = pd.DataFrame(gridsearch.cv_results_)[["params", "mean_fit_time", "mean_test_r2", "mean_train_r2",
-                                                                   "mean_test_mean_squared_error", "mean_train_mean_squared_error",
-                                                                   "mean_test_root_mean_squared_error", "mean_train_root_mean_squared_error",
-                                                                   "mean_test_mean_absolute_error", "mean_train_mean_absolute_error",
-                                                                   "mean_test_mean_absolute_percentage_error", "mean_train_mean_absolute_percentage_error"]]
+        try:
+            gridsearch_results = pd.DataFrame(gridsearch.cv_results_)[["params", "mean_fit_time", "mean_test_r2", "mean_train_r2",
+                                                                       "mean_test_mean_squared_error", "mean_train_mean_squared_error",
+                                                                       "mean_test_root_mean_squared_error", "mean_train_root_mean_squared_error",
+                                                                       "mean_test_mean_absolute_error", "mean_train_mean_absolute_error",
+                                                                       "mean_test_mean_absolute_percentage_error", "mean_train_mean_absolute_percentage_error"]]
+
+        except KeyError as e:
+            print(f"\033[91mScorings not found. Error: {e}")
+
+        finally:
+            with open(f"./ops/{road_category}_{model_name}_grid_params_and_results.json") as dumper:
+                json.dump(dict(gridsearch.cv_results_), dumper, indent=4) #TODO FOR TESTING PURPOSES
+
 
         print(f"============== {model_name} grid search results ==============\n")
         print(gridsearch_results, "\n")
