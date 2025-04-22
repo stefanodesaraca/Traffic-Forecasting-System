@@ -145,7 +145,7 @@ class RoadNetwork(BaseModel):
             **kwargs: other attributes which might be needed in the process
         """
 
-        #If a RoadNetwork class instance has been created and already been provided with edges it's important to ensure that the ones that are located outside
+        # If a RoadNetwork class instance has been created and already been provided with edges it's important to ensure that the ones that are located outside
         # of the desired municipality get filtered
         if self.vertices is not None:
             self.vertices = [v for v in self.vertices if any(i in municipality_id_filter for i in v.municipality_ids) is False] #Only keeping the edge if all municipalities of the edge aren't included in the ones to be filtered out
