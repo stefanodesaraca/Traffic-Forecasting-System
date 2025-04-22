@@ -109,7 +109,7 @@ class TrafficRegistrationPoint(BaseModel):
     country_part_id: int
     country_part_name: str
     municipality_name: str
-    municipality_number: int
+    municipality_number: int #Municipality ID
     traffic_registration_type: str
     first_data: str | datetime.datetime
     first_data_with_quality_metrics: str | datetime.datetime
@@ -125,6 +125,7 @@ class RoadNetwork(BaseModel):
     network_id: str
     _vertices: list[Vertex] = None #Optional parameter
     _arches: list[Arch] = None #Optional parameter
+    _trps: list[TrafficRegistrationPoint] = None #Optional parameter. This is the list of all TRPs located within the road network
     n_vertices: int
     n_arches: int
     n_trp: int
@@ -146,7 +147,7 @@ class RoadNetwork(BaseModel):
             **kwargs: other attributes which might be needed in the process
         """
 
-        # If a RoadNetwork class instance has been created and already been provided with vertices it's important to ensure that the ones that are located outside
+        #If a RoadNetwork class instance has been created and already been provided with vertices it's important to ensure that the ones that are located outside
         # of the desired municipality get filtered
         if self._vertices is not None:
             self._vertices = [v for v in self._vertices if any(i in municipality_id_filter for i in v.municipality_ids) is False] #Only keeping the vertex if all municipalities of the vertex aren't included in the ones to be filtered out
@@ -169,10 +170,30 @@ class RoadNetwork(BaseModel):
         #If a RoadNetwork class instance has been created and already been provided with arches it's important to ensure that the ones that are located outside
         # of the desired municipality get filtered
         if self._arches is not None:
-            self._arches = [a for a in self._arches if any(i in municipality_id_filter for i in a.municipality_ids) is False] #Only keeping the vertex if all municipalities of the vertex aren't included in the ones to be filtered out
+            self._arches = [a for a in self._arches if any(i in municipality_id_filter for i in a.municipality_ids) is False] #Only keeping the arch if all municipalities of the arch itself aren't included in the ones to be filtered out
             return None
         else:
             self._arches = [a for a in arches if any(i in municipality_id_filter for i in a.municipality_ids) is False]
+            return None
+
+
+    def load_trps(self, trps: list[TrafficRegistrationPoint] = None, municipality_id_filter: list[str] | None = None, **kwargs) -> None:
+        """
+        This function loads the arches inside a RoadNetwork class instance.
+
+        Parameters:
+            trps: a list of TrafficRegistrationPoint objects
+            municipality_id_filter: a list of municipality IDs to use as filter to only keep arches which are actually located within that municipality
+            **kwargs: other attributes which might be needed in the process
+        """
+
+        #If a RoadNetwork class instance has been created and already been provided with traffic registration points it's important to ensure that the ones that are located outside
+        # of the desired municipality get filtered
+        if self._trps is not None:
+            self._trps = [trp for trp in self._trps if trp.municipality_number not in municipality_id_filter]  #Only keeping the TRP if the municipality of the TRP isn't included in the ones to be filtered out
+            return None
+        else:
+            self._trps = [trp for trp in trps if trp.municipality_number not in municipality_id_filter]
             return None
 
 
@@ -285,7 +306,7 @@ class RoadNetwork(BaseModel):
 
 
 
-
+#TODO ADD A find_trps_on_path(path: list[str]) -> list[str] FUNCTION. THIS WILL RETURN ALL TRPs ALONG A PATH (WHICH WILL BE SUPPLIED TO THE FUNCTION AS A LIST OF ARCHES)
 
 #TODO FILTER ROAD NETWORK BY A LIST OF MUNICIPALITY IDs. SO ONE CAN CREATE A NETWORK WITH VERTICES OR ARCHES FROM ONLY SPECIFIC MUNICIPALITIES
 

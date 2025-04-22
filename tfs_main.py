@@ -86,6 +86,7 @@ def clean_data(functionality: str) -> None:
 
         traffic_volumes_folder = get_raw_traffic_volumes_folder_path()
         traffic_volumes_file_list = get_raw_traffic_volume_file_list()
+
         cleaner = TrafficVolumesCleaner()
 
         for file in traffic_volumes_file_list:
