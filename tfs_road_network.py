@@ -219,6 +219,10 @@ class RoadNetwork(BaseModel):
 
 
     def to_pickle(self, filepath: str) -> None:
+        """
+        Exports the content of self._network of the RoadNetwork instance.
+        Only accepting pickle as exporting file format.
+        """
         assert filepath.endswith(".pickle") is True or filepath.endswith(".pkl") is True, "File extension missing or not pickle"
         with open(filepath, "wb") as g_dumper:
             pickle.dump(self._network, g_dumper)
@@ -226,6 +230,10 @@ class RoadNetwork(BaseModel):
 
 
     def load_graph(self, filepath: str) -> None:
+        """
+        Loads a previously exported graph into the RoadNetwork instance.
+        Only accepting graphs exported in pickle format.
+        """
         assert filepath.endswith(".pickle") is True or filepath.endswith(".pkl") is True, "File extension missing or not pickle"
         with open(filepath, "wb") as g_loader:
             self._network = pickle.load(g_loader)
