@@ -1,6 +1,7 @@
 from pydantic import BaseModel as PydanticBaseModel
 import geopandas as gpd
 import geojson
+import pickle
 import networkx as nx
 import datetime
 from typing import Any
@@ -189,33 +190,46 @@ class RoadNetwork(BaseModel):
         return self._network
 
 
-    def degree_centrality(self):
+    def degree_centrality(self) -> dict:
         """
         Returns the degree centrality for each node
         """
         return nx.degree_centrality(self._network)
 
 
-    def betweenness_centrality(self):
+    def betweenness_centrality(self) -> dict:
         """
         Returns the betweennes centrality for each node
         """
         return nx.betweenness_centrality(self._network, seed=100)
 
 
-    def eigenvector_centrality(self):
+    def eigenvector_centrality(self) -> dict:
         """
         Returns the eigenvector centrality for each node
         """
         return nx.eigenvector_centrality(self._network)
 
 
-    def load_centrality(self):
+    def load_centrality(self) -> dict:
         """
         Returns the eigenvector centrality for each node
         """
         return nx.load_centrality(self._network)
 
+
+    def to_pickle(self, filepath: str) -> None:
+        assert filepath.endswith(".pickle") is True or filepath.endswith(".pkl") is True, "File extension missing or not pickle"
+        with open(filepath, "wb") as g_dumper:
+            pickle.dump(self._network, g_dumper)
+        return None
+
+
+    def load_graph(self, filepath: str) -> None:
+        assert filepath.endswith(".pickle") is True or filepath.endswith(".pkl") is True, "File extension missing or not pickle"
+        with open(filepath, "wb") as g_loader:
+            self._network = pickle.load(g_loader)
+        return None
 
 
 
