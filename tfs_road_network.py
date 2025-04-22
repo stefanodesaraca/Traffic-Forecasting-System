@@ -140,15 +140,15 @@ class RoadNetwork(BaseModel):
         This function loads the vertices inside a RoadNetwork class instance.
 
         Parameters:
-            vertices: a list of Edge objects
+            vertices: a list of Vertex objects
             municipality_id_filter: a list of municipality IDs to use as filter to only keep vertices which are actually located within that municipality
             **kwargs: other attributes which might be needed in the process
         """
 
-        # If a RoadNetwork class instance has been created and already been provided with edges it's important to ensure that the ones that are located outside
+        # If a RoadNetwork class instance has been created and already been provided with vertices it's important to ensure that the ones that are located outside
         # of the desired municipality get filtered
         if self.vertices is not None:
-            self.vertices = [v for v in self.vertices if any(i in municipality_id_filter for i in v.municipality_ids) is False] #Only keeping the edge if all municipalities of the edge aren't included in the ones to be filtered out
+            self.vertices = [v for v in self.vertices if any(i in municipality_id_filter for i in v.municipality_ids) is False] #Only keeping the vertex if all municipalities of the vertex aren't included in the ones to be filtered out
             return None
         else:
             self.vertices = [v for v in vertices if any(i in municipality_id_filter for i in v.municipality_ids) is False]
@@ -168,7 +168,7 @@ class RoadNetwork(BaseModel):
         #If a RoadNetwork class instance has been created and already been provided with arches it's important to ensure that the ones that are located outside
         # of the desired municipality get filtered
         if self.arches is not None:
-            self.arches = [a for a in self.arches if any(i in municipality_id_filter for i in a.municipality_ids) is False] #Only keeping the edge if all municipalities of the edge aren't included in the ones to be filtered out
+            self.arches = [a for a in self.arches if any(i in municipality_id_filter for i in a.municipality_ids) is False] #Only keeping the vertex if all municipalities of the vertex aren't included in the ones to be filtered out
             return None
         else:
             self.arches = [a for a in arches if any(i in municipality_id_filter for i in a.municipality_ids) is False]
@@ -197,20 +197,20 @@ class RoadNetwork(BaseModel):
 
 
 
-#TODO CREATE THE "generate_road_network_graph()" FUNCTION WHICH GATHERS EDGES AND ARCHES FROM THE CLASS ATTRIBUTES AND BUILDS THE R.N. GRAPH
+#TODO CREATE THE "generate_road_network_graph()" FUNCTION WHICH GATHERS VERTICES AND ARCHES FROM THE CLASS ATTRIBUTES AND BUILDS THE R.N. GRAPH
 
 
-#TODO FILTER ROAD NETWORK BY A LIST OF MUNICIPALITY IDs. SO ONE CAN CREATE A NETWORK WITH EDGES OR ARCHES FROM ONLY SPECIFIC MUNICIPALITIES
+#TODO FILTER ROAD NETWORK BY A LIST OF MUNICIPALITY IDs. SO ONE CAN CREATE A NETWORK WITH VERTICES OR ARCHES FROM ONLY SPECIFIC MUNICIPALITIES
 
 
 
 #TODO DEFINE THE TrafficRegistrationPoint CLASS
 
-#TODO THE EDGES, THE LINKS AND THE TRAFFIC REIGSTRATION POINTS OBJECTS WILL BE CREATED IN SPECIFIC METHODS IN TEH tfs_utils.py FILE
+#TODO THE VERTICES, THE LINKS AND THE TRAFFIC REIGSTRATION POINTS OBJECTS WILL BE CREATED IN SPECIFIC METHODS IN TEH tfs_utils.py FILE
 # HERE WE'LL ONLY DEFINE THE LOGICS, ATTRIBUTES AND METHODS WHICH EACH CLASS REPRESENTS
-# ONLY THE RoadNetwork CLASS WILL HAVE EVERYTHING (ALMOST) DEFINED INSIDE ITSELF, SO IT WILL HAVE METHODS WHICH WILL LET IT GENERATE THE NETWORK GIVEN A SET OF EDGES AND LINKS
+# ONLY THE RoadNetwork CLASS WILL HAVE EVERYTHING (ALMOST) DEFINED INSIDE ITSELF, SO IT WILL HAVE METHODS WHICH WILL LET IT GENERATE THE NETWORK GIVEN A SET OF NODES AND LINKS
 
-#TODO WE COULD EXPORT EACH Edge OR Arch OBJECT AS A STANDALONE FILE (OR RECORD IN A DB) WITH MORE INFORMATION (COLLECTED AFTER THE ANALYSIS) ABOUT THE Edge OR THE Arch ITSELF
+#TODO WE COULD EXPORT EACH Vertex OR Arch OBJECT AS A STANDALONE FILE (OR RECORD IN A DB) WITH MORE INFORMATION (COLLECTED AFTER THE ANALYSIS) ABOUT THE Vertex OR THE Arch ITSELF
 
 
 
