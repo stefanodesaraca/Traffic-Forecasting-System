@@ -1,6 +1,7 @@
 from pydantic import BaseModel as PydanticBaseModel
 import geopandas as gpd
 import geojson
+import json
 import pickle
 import networkx as nx
 import datetime
@@ -229,15 +230,42 @@ class RoadNetwork(BaseModel):
         return None
 
 
-    def load_graph(self, filepath: str) -> None:
+    def to_json(self, filepath: str) -> None:
+        """
+        Exports the graph (contained into the self._network attribute into a json file.
+        """
+        assert filepath.endswith(".json") is True, "File extension missing or not json"
+        with open(filepath, "w") as g_dumper:
+            json.dump(nx.to_dict_of_dicts(self._network), g_dumper, indent=4)
+        return None
+
+
+    def from_pickle(self, filepath: str) -> None:
         """
         Loads a previously exported graph into the RoadNetwork instance.
         Only accepting graphs exported in pickle format.
         """
         assert filepath.endswith(".pickle") is True or filepath.endswith(".pkl") is True, "File extension missing or not pickle"
-        with open(filepath, "wb") as g_loader:
+        with open(filepath, "rb") as g_loader:
             self._network = pickle.load(g_loader)
         return None
+
+
+    def from_json(self, filepath: str) -> None:
+        """
+        Loads a graph from a json file into the self._network attribute.
+        """
+        assert filepath.endswith(".json") is True, "File extension missing or not json"
+        with open(filepath, "r") as g_loader:
+            self._network = nx.from_dict_of_dicts(json.load(g_loader))
+        return None
+
+
+
+
+
+
+
 
 
 
