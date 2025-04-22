@@ -1,8 +1,9 @@
 from pydantic import BaseModel as PydanticBaseModel
 import geopandas as gpd
 import geojson
-import networkx
+import networkx as nx
 import datetime
+from typing import Any
 
 
 #To allow arbitrary types in the creation of a Pydantic dataclass.
@@ -13,9 +14,9 @@ class BaseModel(PydanticBaseModel):
 
 
 
-#The edges are intersections, just like in most road network representations (like Google Maps, etc.)
-class Edge(BaseModel):
-    edge_id: str
+#The vertices are intersections, just like in most road network representations (like Google Maps, etc.)
+class Vertex(BaseModel):
+    vertex_id: str
     is_roundabout: bool
     type: str #Example: Feature
     geometry_type: str
@@ -30,6 +31,10 @@ class Edge(BaseModel):
     legal_turning_movements: list[dict[str, [str | list[str]]]]
     road_system_references: list[str]
     municipality_ids: list[str] = None #TODO TO GET THIS ONE SINCE IT DOESN'T EXIST YET IN THE DATA AVAILABLE RIGHT NOW. FOR NOW IT WILL BE NONE
+
+
+    def get_vertex_data(self) -> dict[Any, Any]:
+        return {attr: val for attr, val in self.__dict__.items()}
 
 
 
@@ -51,8 +56,8 @@ class Arch(BaseModel):
     end_position_with_placement_direction: float #In "roadPlacements"
     functional_road_class: int
     function_class: str
-    start_traffic_node_id: str
-    end_traffic_node_id: str
+    start_traffic_node_id: str #TODO VERIFY IF THIS IS THE START OF THE LINK
+    end_traffic_node_id: str #TODO VERIFY IF THIS IS THE END OF THE LINK
     subsumed_traffic_node_ids: list[str]
     road_link_ids: list[str]
     road_node_ids: list[str]
@@ -79,6 +84,10 @@ class Arch(BaseModel):
     anomalies: list #TODO YET TO DEFINE THE DATA TYPE OF THE ELEMENTS OF THIS LIST
 
 
+    def get_arch_data(self) -> dict[Any, Any]:
+        return {attr: val for attr, val in self.__dict__.items()}
+
+
 
 class TrafficRegistrationPoint(BaseModel):
     trp_id: str
@@ -99,13 +108,13 @@ class TrafficRegistrationPoint(BaseModel):
     municipality_name: str
     municipality_number: int
     traffic_registration_type: str
-    first_data: str | datetime
-    first_data_with_quality_metrics: str | datetime
-    latest_data_volume_by_day: str | datetime
-    latest_data_volume_by_hour: str | datetime
-    latest_data_volume_average_daily_by_year: str | datetime
-    latest_data_volume_average_daily_by_season: str | datetime
-    latest_data_volume_average_daily_by_month: str | datetime
+    first_data: str | datetime.datetime
+    first_data_with_quality_metrics: str | datetime.datetime
+    latest_data_volume_by_day: str | datetime.datetime
+    latest_data_volume_by_hour: str | datetime.datetime
+    latest_data_volume_average_daily_by_year: str | datetime.datetime
+    latest_data_volume_average_daily_by_season: str | datetime.datetime
+    latest_data_volume_average_daily_by_month: str | datetime.datetime
 
 
 
@@ -113,30 +122,35 @@ class TrafficRegistrationPoint(BaseModel):
 
 class RoadNetwork(BaseModel):
     network_id: str
-    edges: list[Edge] = None #Optional parameter
+    vertices: list[Vertex] = None #Optional parameter
     arches: list[Arch] = None #Optional parameter
-    n_edges: int
+    n_vertices: int
     n_arches: int
     n_trp: int
     road_network_name: str
+    _network: nx.Graph = nx.Graph()
 
 
-    def load_edges(self, edges: list[Edge] = None, municipality_id_filter: list[str] | None = None, **kwargs):
+    def get_network_attributes_and_values(self) -> dict[Any, Any]:
+        return {attr: val for attr, val in self.__dict__.items()}
+
+
+    def load_vertices(self, vertices: list[Vertex] = None, municipality_id_filter: list[str] | None = None, **kwargs):
         """
-        This function loads the edges inside a RoadNetwork class instance.
+        This function loads the vertices inside a RoadNetwork class instance.
 
         Parameters:
-            edges: a list of Edge objects
-            municipality_id_filter: a list of municipality IDs to use as filter to only keep edges which are actually located within that municipality
+            vertices: a list of Edge objects
+            municipality_id_filter: a list of municipality IDs to use as filter to only keep vertices which are actually located within that municipality
             **kwargs: other attributes which might be needed in the process
         """
 
-        if self.edges is not None:
-            self.edges = [e for e in self.edges if any(i in municipality_id_filter for i in e.municipality_ids) is False] #Only keeping the edge if all municipalities of the edge aren't included in the ones to be filtered out
-            return self.edges
+        if self.vertices is not None:
+            self.vertices = [v for v in self.vertices if any(i in municipality_id_filter for i in v.municipality_ids) is False] #Only keeping the edge if all municipalities of the edge aren't included in the ones to be filtered out
+            return self.vertices
         else:
-            edges = [e for e in edges if any(i in municipality_id_filter for i in e.municipality_ids) is False]
-            return edges
+            vertices = [v for v in vertices if any(i in municipality_id_filter for i in v.municipality_ids) is False]
+            return vertices
 
 
     def load_arches(self, arches: list[Arch] = None, municipality_id_filter: list[str] | None = None, **kwargs):
@@ -157,14 +171,18 @@ class RoadNetwork(BaseModel):
             return arches
 
 
+    def generate_graph(self) -> None:
+
+        for v in self.vertices: self._network.add_node((v.vertex_id, v.get_vertex_data()))
+        for a in self.arches: self._network.add_edge(a.start_traffic_node_id, a.end_traffic_node_id, **a.get_arch_data())
 
 
 
+        return None
 
 
-
-
-
+    def get_graph(self) -> nx.Graph:
+        return self._network
 
 
 

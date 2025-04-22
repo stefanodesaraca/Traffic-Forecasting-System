@@ -96,10 +96,10 @@ model_auxiliary_parameters = {
 
 speeds_models_gridsearch_parameters = {
     "RandomForestRegressor": {
-        "n_estimators": [200, 300, 400, 500, 1000], #25, 40, 50, 70, 100,
-        "max_depth": [None, 3, 5, 10, 20, 30, 50, 100, 200, 300],
+        "n_estimators": [200, 300, 400], #25, 40, 50, 70, 100, #TODO TO TRY: , 500, 1000
+        "max_depth": [None, 3, 5, 10, 20, 30, 50], #TODO TO TRY: , 100, 200, 300
         "criterion": ["squared_error", "friedman_mse"],
-        "ccp_alpha": [0, 0.001, 0.0001, 0.00001], #ccp_alpha = 1 overfits
+        "ccp_alpha": [0, 0.001, 0.0001, 0.00001], #ccp_alpha = 1 overfits #TODO TO TRY: 0.5, 0.2
         "warm_start": [True, False],
     },
     "DecisionTreeRegressor": {
