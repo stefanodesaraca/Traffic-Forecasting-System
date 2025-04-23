@@ -171,23 +171,22 @@ class TrafficVolumesCleaner(BaseCleaner):
             #Removing duplicates and keeping the time as well. This will be needed to extract the hour too
             #print(reg_datetimes)
 
-            reg_dates = set([datetime.fromisoformat(dt).date().isoformat() for dt in reg_datetimes]) #datetime.fromisoformat() converts a string to a datetime object. Then it only keeps the date and converts it into iso format again.
+            reg_dates = set([str(datetime.fromisoformat(dt).date().isoformat()) for dt in reg_datetimes]) #datetime.fromisoformat() converts a string to a datetime object. Then it only keeps the date and converts it into iso format again.
+            #The final step is converting the datetime object to a string with str()
             #Removing duplicates with set(). With the line above we'll get the unique days where data registration took place. #TODO TO TEST THIS. BEFORE IT WAS dt[:10]
             print("Number of days where registrations took place: ", len(reg_dates))
 
             # TODO EXECUTE A CHECK ON ALL NODES OF THE TRP'S VOLUME DATA (VOLUMES FILE), CHECK WHICH DATES, HOURS, ETC. ARE MISSING AND CREATE THE MISSING ROWS (WITH MULTIPLE LISTS (ONE FOR EACH VARIABLE)) TO ADD BEFORE(!) THE START OF THE FOR CYCLE BELOW!
             # TODO WHEN ALL THE ROWS HAVE BEEN CREATED AND INSERTED IN THE FOR CYCLE BELOW, SORT THE ROWS BY YEAR, MONTH, DAY, HOUR IN DESCENDING ORDER
 
-            available_day_hours = {d: [] for d in reg_dates}
+            available_day_hours = {d: [] for d in reg_dates} #These dict will have a dictionary for each day with an empty list
+            for rd in reg_datetimes: available_day_hours[rd].append(datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H"))
 
-            for rd in reg_datetimes:
-                available_day_hours[rd[:10]].append(datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H"))
-
-            theoretical_hours = retrieve_theoretical_hours()
-
-            missing_hours_by_day = {d: [h for h in theoretical_hours if h not in available_day_hours[d]] for d in available_day_hours.keys()}
-            missing_hours_by_day = {d: l for d, l in missing_hours_by_day.items() if len(l) != 0} #Removing elements with empty lists
-            print("Missing hours for each day: ", missing_hours_by_day)
+            theoretical_hours = get_theoretical_hours()
+            missing_hours_by_day = {d: [h for h in theoretical_hours if h not in available_day_hours[d]] for d in available_day_hours.keys()} #This dictionary comprehension goes like this: we'll create a day key with a list of hours for each day in the available days.
+            #Each day's list will only include registration hours (h) which SHOULD exist, but are missing in the available dates in the data
+            missing_hours_by_day = {d: l for d, l in missing_hours_by_day.items() if len(l) != 0} #Removing elements with empty lists (the days which don't have missing hours)
+            print("Missing hours by day: ", missing_hours_by_day)
 
             first_registration_date = min(reg_dates)
             last_registration_date = max(reg_dates)
@@ -195,12 +194,8 @@ class TrafficVolumesCleaner(BaseCleaner):
             print("First registration day available: ", first_registration_date)
             print("Last registration day available: ", last_registration_date)
 
-            theoretical_days_available = pd.date_range(start=first_registration_date, end=last_registration_date, freq="d")
-            missing_days = [d for d in theoretical_days_available if str(d)[:10] not in reg_dates]
-
-            #print("Theoretical days available: ", [str(d)[:10] for d in theoretical_days_available])
+            missing_days = [d for d in get_theoretical_days(first_registration_date, last_registration_date) if d not in reg_dates]
             print("Missing days: ", missing_days)
-
 
             for d, mh in missing_hours_by_day.items():
                 for h in mh:
@@ -212,6 +207,7 @@ class TrafficVolumesCleaner(BaseCleaner):
                     by_hour_structured["week"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%V"))
                     by_hour_structured["day"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%d"))
                     by_hour_structured["hour"].append(h)
+                    by_hour_structured["date"].append(d)
 
             #pprint.pprint(by_hour_structured)
 

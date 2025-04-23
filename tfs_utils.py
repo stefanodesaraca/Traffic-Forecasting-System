@@ -676,8 +676,12 @@ def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
     return filtered_df.persist()
 
 
-def retrieve_theoretical_hours() -> list:
+def get_theoretical_hours() -> list:
     return [f"{i:02}" for i in range(24)]
+
+
+def get_theoretical_days(t_start: str, t_end: str):
+    return pd.date_range(start=t_start, end=t_end, freq="d")  #All days which should be available
 
 
 def clean_text(text: str) -> str:
