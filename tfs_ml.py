@@ -313,7 +313,7 @@ class TrafficVolumesLearner(BaseLearner):
 
         lag_column_names = ["volumes_lag1", "volumes_lag2", "volumes_lag3", "volumes_lag4", "volumes_lag5", "volumes_lag6", "volumes_lag7"]
 
-        for idx, n in enumerate(lag_column_names): volumes[n] = volumes["volume"].shift(idx + 1)
+        for idx, n in enumerate(lag_column_names): volumes[n] = volumes["volume"].shift(idx + 24) #24 hours shift
 
         #print(volumes.head(10))
         #print(volumes.dtypes)
@@ -382,8 +382,8 @@ class AverageSpeedLearner(BaseLearner):
         speeds_lag_column_names = [f"mean_speed_lag{i}" for i in range(1, 14)] #TODO TEST WITH ONLY 14 LAG FEATURES
         percentile_85_lag_column_names = [f"percentile_85_lag{i}" for i in range(1, 14)] #TODO TEST WITH ONLY 14 LAG FEATURES
 
-        for idx, n in enumerate(speeds_lag_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 1)
-        for idx, n in enumerate(percentile_85_lag_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 1)
+        for idx, n in enumerate(speeds_lag_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 24)
+        for idx, n in enumerate(percentile_85_lag_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 24)
 
         #print(speeds.head(10))
         #print(speeds.dtypes)
