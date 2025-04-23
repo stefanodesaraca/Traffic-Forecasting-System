@@ -167,19 +167,20 @@ class TrafficVolumesCleaner(BaseCleaner):
 
             # ------------------ Finding all unique days in which registrations took place ------------------
 
-            registration_datetimes = set([datetime.fromisoformat(n["node"]["from"]).replace(tzinfo=None).isoformat() for n in nodes]) #Only keeping the datetime without the +00:00 at the end #TODO TO TEST THIS, BEFORE IT WAS: n["node"]["from"][:-6]
+            reg_datetimes = set([datetime.fromisoformat(n["node"]["from"]).replace(tzinfo=None).isoformat() for n in nodes]) #Only keeping the datetime without the +00:00 at the end #TODO TO TEST THIS, BEFORE IT WAS: n["node"]["from"][:-6]
             #Removing duplicates and keeping the time as well. This will be needed to extract the hour too
-            #print(registration_dates)
+            #print(reg_datetimes)
 
-            unique_registration_dates = set([dt.date().isoformat() for dt in registration_datetimes]) #Removing duplicates, this one will only keep the first 10 characters of the date, which comprehend just the date without the time. This is needed to know which are the unique days when data has been recorded. #TODO TO TEST THIS. BEFORE IT WAS dt[:10]
-            print("Number of unique registration dates: ", len(unique_registration_dates))
+            reg_dates = set([datetime.fromisoformat(dt).date().isoformat() for dt in reg_datetimes]) #datetime.fromisoformat() converts a string to a datetime object. Then it only keeps the date and converts it into iso format again.
+            #Removing duplicates with set(). With the line above we'll get the unique days where data registration took place. #TODO TO TEST THIS. BEFORE IT WAS dt[:10]
+            print("Number of days where registrations took place: ", len(reg_dates))
 
             # TODO EXECUTE A CHECK ON ALL NODES OF THE TRP'S VOLUME DATA (VOLUMES FILE), CHECK WHICH DATES, HOURS, ETC. ARE MISSING AND CREATE THE MISSING ROWS (WITH MULTIPLE LISTS (ONE FOR EACH VARIABLE)) TO ADD BEFORE(!) THE START OF THE FOR CYCLE BELOW!
             # TODO WHEN ALL THE ROWS HAVE BEEN CREATED AND INSERTED IN THE FOR CYCLE BELOW, SORT THE ROWS BY YEAR, MONTH, DAY, HOUR IN DESCENDING ORDER
 
-            available_day_hours = {d: [] for d in unique_registration_dates}
+            available_day_hours = {d: [] for d in reg_dates}
 
-            for rd in registration_datetimes:
+            for rd in reg_datetimes:
                 available_day_hours[rd[:10]].append(datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H"))
 
             theoretical_hours = retrieve_theoretical_hours()
@@ -188,15 +189,14 @@ class TrafficVolumesCleaner(BaseCleaner):
             missing_hours_by_day = {d: l for d, l in missing_hours_by_day.items() if len(l) != 0} #Removing elements with empty lists
             print("Missing hours for each day: ", missing_hours_by_day)
 
-
-            first_registration_date = min(unique_registration_dates)
-            last_registration_date = max(unique_registration_dates)
+            first_registration_date = min(reg_dates)
+            last_registration_date = max(reg_dates)
 
             print("First registration day available: ", first_registration_date)
             print("Last registration day available: ", last_registration_date)
 
             theoretical_days_available = pd.date_range(start=first_registration_date, end=last_registration_date, freq="d")
-            missing_days = [d for d in theoretical_days_available if str(d)[:10] not in unique_registration_dates]
+            missing_days = [d for d in theoretical_days_available if str(d)[:10] not in reg_dates]
 
             #print("Theoretical days available: ", [str(d)[:10] for d in theoretical_days_available])
             print("Missing days: ", missing_days)
