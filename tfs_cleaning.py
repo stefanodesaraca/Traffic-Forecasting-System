@@ -114,8 +114,6 @@ class TrafficVolumesCleaner(BaseCleaner):
         except FileNotFoundError as e: print(f"\033[91mMetadata file not found. Error: {e}\033[0m"); return None
 
 
-
-
     def restructure_traffic_volumes_data(self, volumes_payload):
 
         by_hour_structured = {"trp_id": [],
@@ -199,8 +197,7 @@ class TrafficVolumesCleaner(BaseCleaner):
             available_day_hours = {d: [] for d in reg_dates} #These dict will have a dictionary for each day with an empty list
             for rd in reg_datetimes: available_day_hours[rd[:10]].append(datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H"))
 
-            theoretical_hours = get_theoretical_hours()
-            missing_hours_by_day = {d: [h for h in theoretical_hours if h not in available_day_hours[d]] for d in available_day_hours.keys()} #This dictionary comprehension goes like this: we'll create a day key with a list of hours for each day in the available days.
+            missing_hours_by_day = {d: [h for h in get_theoretical_hours() if h not in available_day_hours[d]] for d in available_day_hours.keys()} #This dictionary comprehension goes like this: we'll create a day key with a list of hours for each day in the available days.
             #Each day's list will only include registration hours (h) which SHOULD exist, but are missing in the available dates in the data
             missing_hours_by_day = {d: l for d, l in missing_hours_by_day.items() if len(l) != 0} #Removing elements with empty lists (the days which don't have missing hours)
             print("Missing hours by day: ", missing_hours_by_day)
@@ -369,7 +366,6 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         print("Shape before MICE: ", by_hour_df.shape)
 
-
         try:
             cleaner = BaseCleaner()
             by_hour_df = cleaner.impute_missing_values(by_hour_df.drop(non_mice_columns.columns, axis=1), r="gamma") #Don't use gamma regression since, apparently it can't handle zeros
@@ -461,7 +457,7 @@ class AverageSpeedCleaner(BaseCleaner):
         super().__init__()
 
 
-    def clean_avg_speed_data(self, avg_speed_data) -> [tuple[pd.DataFrame, str, str, str] | None]:
+    def clean_avg_speed_data(self, avg_speed_data: pd.DataFrame) -> [tuple[pd.DataFrame, str, str, str] | None]: #TODO TO CHANGE IN dd.DataFrame
 
         #TODO ADDRESS FOR TOTALLY EMPTY FILES CASE (MICE)
 
@@ -523,19 +519,18 @@ class AverageSpeedCleaner(BaseCleaner):
         try:
             cleaner = BaseCleaner()
             avg_speed_data = cleaner.impute_missing_values(avg_speed_data)
-            print("Multiple imputation on average speed data executed successfully\n\n")
+            #print("Multiple imputation on average speed data executed successfully\n\n")
 
             #print(avg_speed_data.isna().sum())
 
-            print("Shape after MICE: ", avg_speed_data.shape)
+            print("Shape after MICE: ", avg_speed_data.shape, "\n\n")
 
-        except ValueError:
-            print("\03391mValue error raised. Continuing with the cleaning\0330m")
+        except ValueError as e:
+            print(f"\03391mValue error raised. Error: {e} Continuing with the cleaning\0330m")
             return None
 
         #Merging non MICE columns back into the MICEed dataframe
-        for nm_col in non_mice_cols:
-            avg_speed_data[nm_col] = df_non_mice_cols[nm_col]
+        for nm_col in non_mice_cols: avg_speed_data[nm_col] = df_non_mice_cols[nm_col]
 
         #These transformations here are necessary since after the multiple imputation every column's type becomes float
         avg_speed_data["year"] = avg_speed_data["year"].astype("int")
