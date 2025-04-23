@@ -684,6 +684,10 @@ def get_theoretical_days(t_start: str, t_end: str):
     return pd.date_range(start=t_start, end=t_end, freq="d")  #All days which should be available
 
 
+def get_covid_years() -> list[int]:
+    return [2020, 2021, 2022]
+
+
 def clean_text(text: str) -> str:
     text = clean(text, no_emoji=True, no_currency_symbols=True)
     text = text.replace(" ", "_")

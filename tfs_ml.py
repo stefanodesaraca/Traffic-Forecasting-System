@@ -21,7 +21,7 @@ from dask_ml.preprocessing import MinMaxScaler
 from dask_ml.model_selection import GridSearchCV
 
 from sklearn.model_selection import TimeSeriesSplit
-from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_absolute_error, root_mean_squared_error
+from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_absolute_error, root_mean_squared_error, PredictionErrorDisplay
 
 
 simplefilter(action='ignore', category=FutureWarning)
@@ -326,6 +326,9 @@ class TrafficVolumesLearner(BaseLearner):
         #print("Volumes dataframe tail: ")
         #print(volumes.tail(5), "\n")
 
+        # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
+
+        volumes["is_covid_year"] = np.where(volumes['year'] in get_covid_years(), 0, 1) #Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
 
         return volumes
 
