@@ -200,9 +200,7 @@ class BaseLearner:
 
         # -------------- Parameters extraction --------------
 
-        with open(model_parameters_filepath, "r") as parameters_file:
-            parameters = json.load(parameters_file)
-
+        with open(model_parameters_filepath, "r") as parameters_file: parameters = json.load(parameters_file)
         parameters = parameters[model_name] #Extracting the model parameters
 
 
@@ -220,15 +218,14 @@ class BaseLearner:
 
         try:
             joblib.dump(model, models_folder_path + model_filename + ".joblib", protocol=pickle.HIGHEST_PROTOCOL)
-
             with open(models_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
                 pickle.dump(model, ml_pkl_file, protocol=pickle.HIGHEST_PROTOCOL)
+            return None
 
         except Exception as e:
             print(f"\033[91mCouldn't export trained model. Safely exited the program. Error: {e}\033[0m")
             exit(code=1)
 
-        return None
 
 
     @staticmethod
