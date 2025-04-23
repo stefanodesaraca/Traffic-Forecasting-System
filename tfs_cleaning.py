@@ -227,6 +227,7 @@ class TrafficVolumesCleaner(BaseCleaner):
                 week = reg_datetime.strftime("%V")
                 day = reg_datetime.strftime("%d")
                 hour = reg_datetime.strftime("%H")
+                date = reg_datetime.date().isoformat()
 
                 # ----------------------- Total volumes section -----------------------
 
@@ -241,6 +242,7 @@ class TrafficVolumesCleaner(BaseCleaner):
                 by_hour_structured["hour"].append(hour)
                 by_hour_structured["volume"].append(volume)
                 by_hour_structured["coverage"].append(coverage)
+                by_hour_structured["date"].append(date)
 
 
                 #   ----------------------- By lane section -----------------------
@@ -265,6 +267,7 @@ class TrafficVolumesCleaner(BaseCleaner):
                     by_lane_structured["volume"].append(lane_volume)
                     by_lane_structured["coverage"].append(lane_coverage)
                     by_lane_structured["lane"].append(road_link_lane_number)
+                    by_lane_structured["date"].append(date)
 
 
                 #   ----------------------- By direction section -----------------------
@@ -286,19 +289,14 @@ class TrafficVolumesCleaner(BaseCleaner):
                     by_direction_structured["volume"].append(direction_volume)
                     by_direction_structured["coverage"].append(direction_coverage)
                     by_direction_structured["direction"].append(heading)
-
+                    by_direction_structured["date"].append(date)
 
                     #TODO THE SAME PRINCIPLE AS BEFORE APPLIES HERE, SAVE ALL THE AVAILABLE DIRECTIONS IN THE TRP'S METADATA FILE
 
-
-
             # ------------------ Ensuring that XXXXXXXXXXXXXXX ------------------
-
 
             #for k in by_hour_structured.keys():
                 #print(f"List length for key: {k} = ", len(by_hour_structured[k]))
-
-
 
             # ------------------ Dataframes creation and printing ------------------
 
