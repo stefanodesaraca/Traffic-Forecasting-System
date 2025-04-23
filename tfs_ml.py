@@ -22,6 +22,8 @@ from dask_ml.model_selection import GridSearchCV
 
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_absolute_error, root_mean_squared_error, PredictionErrorDisplay
+from sklearn.tree import DecisionTreeClassifier
+from sklego.meta import ZeroInflatedRegressor
 
 
 simplefilter(action='ignore', category=FutureWarning)
@@ -71,8 +73,7 @@ class BaseLearner:
         - X_train, X_test, y_train, y_test
         """
 
-        if target not in ["volume", "mean_speed"]:
-            raise ValueError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
+        if target not in ["volume", "mean_speed"]: raise ValueError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
 
         X = volumes_preprocessed.drop(columns=[target])
         y = volumes_preprocessed[[target]]
@@ -201,9 +202,7 @@ class BaseLearner:
 
         # -------------- Parameters extraction --------------
 
-        with open(model_parameters_filepath, "r") as parameters_file:
-            parameters = json.load(parameters_file)
-
+        with open(model_parameters_filepath, "r") as parameters_file: parameters = json.load(parameters_file)
         parameters = parameters[model_name] #Extracting the model parameters
 
 
@@ -212,7 +211,7 @@ class BaseLearner:
         model = model_names_and_class_objects[model_name](**parameters) #Unpacking the dictionary to set all parameters to instantiate the model's class object
 
         with joblib.parallel_backend('dask'):
-            model.fit(X_train.compute(), y_train.compute())
+            model.fit(X_train, y_train)
 
         print(f"Successfully trained {model_name} with parameters: {parameters}")
 
@@ -229,9 +228,7 @@ class BaseLearner:
             print(f"\033[91mCouldn't export trained model. Safely exited the program. Error: {e}\033[0m")
             exit(code=1)
 
-
         print("\n\n")
-
 
         return None
 
@@ -240,7 +237,6 @@ class BaseLearner:
     def test_model(X_test, y_test, target: str, model_name, road_category: str) -> None:
 
         ops_name = get_active_ops()
-
         ml_folder_path = get_ml_models_folder_path(target, road_category)
         model_filename = ops_name + "_" + road_category + "_" + model_name
 
