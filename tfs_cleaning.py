@@ -7,7 +7,7 @@ import os
 import pandas as pd
 import pprint
 
-from sklearn.linear_model import Lasso, GammaRegressor
+from sklearn.linear_model import Lasso, GammaRegressor, QuantileRegressor
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 
@@ -22,7 +22,7 @@ class BaseCleaner:
         self._cwd = os.getcwd()
         self._ops_folder = "ops"
         self._ops_name = get_active_ops()
-        self._regressor_types = ["linear_l1", "gamma"]
+        self._regressor_types = ["linear_l1", "gamma", "quantile"]
 
     #General definition of the data_overview() function. This will take two different forms: the traffic volumes one and the average speed one.
     #Thus, the generic "data" parameter will become the volumes_data or the avg_speed_data one
@@ -46,6 +46,7 @@ class BaseCleaner:
         if r in self._regressor_types:
             if r == "linear_l1": reg = Lasso(random_state=100) #Using Lasso regression (L1 Penalization) to get better results in case of non-informative columns present in the data (coverage data, because their values all the same)
             elif r == "gamma": reg = GammaRegressor(fit_intercept=True, verbose=0) #Using Gamma regression to address for the zeros present in the data (which will need to be predicted as well)
+            elif r == "quantile": reg = QuantileRegressor(fit_intercept=True)
 
         mice_imputer = IterativeImputer(estimator=reg, random_state=100, verbose=0, imputation_order="roman", initial_strategy="mean") #Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
         data = pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns) #Fitting the imputer and processing all the data columns except the date one
