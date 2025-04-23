@@ -75,9 +75,7 @@ def get_trp_metadata(trp_id: str) -> dict:
 
     ops_name = get_active_ops()
     trp_metadata_file = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata.json"
-
-    with open(trp_metadata_file, "r") as json_trp_metadata:
-        trp_metadata = json.load(json_trp_metadata)
+    with open(trp_metadata_file, "r") as json_trp_metadata: trp_metadata = json.load(json_trp_metadata)
 
     return trp_metadata
 

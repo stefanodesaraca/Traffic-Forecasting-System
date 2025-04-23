@@ -64,48 +64,52 @@ class TrafficVolumesCleaner(BaseCleaner):
     def data_overview(self, volumes_data: dict, verbose: bool = True) -> None:
 
         trp_id = volumes_data["trafficData"]["trafficRegistrationPoint"]["id"]
-        trp_metadata = get_trp_metadata(trp_id)
+        try:
+            trp_metadata = get_trp_metadata(trp_id)
 
-        if verbose is True:
+            if verbose is True:
 
-            print("******** Traffic Registration Point Information ********")
+                print("******** Traffic Registration Point Information ********")
 
-            print("ID: ", trp_metadata["trp_id"])
-            print("Name: ", trp_metadata["name"])
-            print("Road category: ", trp_metadata["road_category"])
-            print("Coordinates: ")
-            print(" - Lat: ", trp_metadata["lat"])
-            print(" - Lon: ", trp_metadata["lon"])
-            print("County name: ", trp_metadata["county_name"])
-            print("County number: ", trp_metadata["county_number"])
-            print("Geographic number: ", trp_metadata["geographic_number"])
-            print("Country part: ", trp_metadata["country_part"])
-            print("Municipality name: ", trp_metadata["municipality_name"])
+                print("ID: ", trp_metadata["trp_id"])
+                print("Name: ", trp_metadata["name"])
+                print("Road category: ", trp_metadata["road_category"])
+                print("Coordinates: ")
+                print(" - Lat: ", trp_metadata["lat"])
+                print(" - Lon: ", trp_metadata["lon"])
+                print("County name: ", trp_metadata["county_name"])
+                print("County number: ", trp_metadata["county_number"])
+                print("Geographic number: ", trp_metadata["geographic_number"])
+                print("Country part: ", trp_metadata["country_part"])
+                print("Municipality name: ", trp_metadata["municipality_name"])
 
-            print("Traffic registration type: ", trp_metadata["traffic_registration_type"])
-            print("Data time span: ")
-            print(" - First data: ", trp_metadata["first_data"])
-            print(" - First data with quality metrics: ", trp_metadata["first_data_with_quality_metrics"])
-            print(" - Latest data: ")
-            print("   > Volume by day: ", trp_metadata["latest_volume_by_day"])
-            print("   > Volume by hour: ", trp_metadata["latest_volume_byh_hour"])
-            print("   > Volume average daily by year: ", trp_metadata["latest_volume_average_daily_by_year"])
-            print("   > Volume average daily by season: ", trp_metadata["latest_volume_average_daily_by_season"])
-            print("   > Volume average daily by month: ", trp_metadata["latest_volume_average_daily_by_month"])
-            print("Number of data nodes: ", trp_metadata["number_of_data_nodes"])
+                print("Traffic registration type: ", trp_metadata["traffic_registration_type"])
+                print("Data time span: ")
+                print(" - First data: ", trp_metadata["first_data"])
+                print(" - First data with quality metrics: ", trp_metadata["first_data_with_quality_metrics"])
+                print(" - Latest data: ")
+                print("   > Volume by day: ", trp_metadata["latest_volume_by_day"])
+                print("   > Volume by hour: ", trp_metadata["latest_volume_byh_hour"])
+                print("   > Volume average daily by year: ", trp_metadata["latest_volume_average_daily_by_year"])
+                print("   > Volume average daily by season: ", trp_metadata["latest_volume_average_daily_by_season"])
+                print("   > Volume average daily by month: ", trp_metadata["latest_volume_average_daily_by_month"])
+                print("Number of data nodes: ", trp_metadata["number_of_data_nodes"])
 
-            print("\n")
+                print("\n")
 
-            #print(volumes_data)
+                #print(volumes_data)
 
-        elif verbose is False:
+            elif verbose is False:
 
-            print("******** Traffic Registration Point Information ********")
+                print("******** Traffic Registration Point Information ********")
 
-            print("ID: ", trp_metadata["trp_id"])
-            print("Name: ", trp_metadata["name"])
+                print("ID: ", trp_metadata["trp_id"])
+                print("Name: ", trp_metadata["name"])
+                return None
 
-        return None
+        except FileNotFoundError as e: print(f"\033[91mMetadata file not found. Error: {e}\033[0m"); return None
+
+
 
 
     def restructure_traffic_volumes_data(self, volumes_payload):
@@ -189,7 +193,7 @@ class TrafficVolumesCleaner(BaseCleaner):
             # TODO WHEN ALL THE ROWS HAVE BEEN CREATED AND INSERTED IN THE FOR CYCLE BELOW, SORT THE ROWS BY YEAR, MONTH, DAY, HOUR IN DESCENDING ORDER
 
             available_day_hours = {d: [] for d in reg_dates} #These dict will have a dictionary for each day with an empty list
-            for rd in reg_datetimes: available_day_hours[rd].append(datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H"))
+            for rd in reg_datetimes: available_day_hours[rd[:10]].append(datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H"))
 
             theoretical_hours = get_theoretical_hours()
             missing_hours_by_day = {d: [h for h in theoretical_hours if h not in available_day_hours[d]] for d in available_day_hours.keys()} #This dictionary comprehension goes like this: we'll create a day key with a list of hours for each day in the available days.
@@ -231,12 +235,12 @@ class TrafficVolumesCleaner(BaseCleaner):
                 #This is the datetime which will be representative of a volume, specifically, there will be multiple datetimes with the same day
                 # to address this fact we'll just re-format the data to keep track of the day, but also maintain the volume values for each hour
                 reg_datetime = datetime.fromisoformat(node["node"]["from"]).replace(tzinfo=None).isoformat()  #Only keeping the datetime without the +00:00 at the end
-                year = reg_datetime.strftime("%Y")
-                month = reg_datetime.strftime("%m")
-                week = reg_datetime.strftime("%V")
-                day = reg_datetime.strftime("%d")
-                hour = reg_datetime.strftime("%H")
-                date = reg_datetime.date().isoformat()
+                year = datetime.strptime(reg_datetime, "%Y-%m-%dT%H:%M:%S").strftime("%Y")
+                month = datetime.strptime(reg_datetime, "%Y-%m-%dT%H:%M:%S").strftime("%m")
+                week = datetime.strptime(reg_datetime, "%Y-%m-%dT%H:%M:%S").strftime("%V")
+                day = datetime.strptime(reg_datetime, "%Y-%m-%dT%H:%M:%S").strftime("%d")
+                hour = datetime.strptime(reg_datetime, "%Y-%m-%dT%H:%M:%S").strftime("%H")
+                date = datetime.strptime(reg_datetime, "%Y-%m-%dT%H:%M:%S").date().isoformat()
 
                 # ----------------------- Total volumes section -----------------------
 
@@ -366,8 +370,8 @@ class TrafficVolumesCleaner(BaseCleaner):
             for nm_col in non_mice_columns.columns:
                 by_hour_df[nm_col] = non_mice_columns[nm_col]
 
-        except ValueError:
-            print("\03391mValue error raised. Continuing with the cleaning\0330m")
+        except ValueError as e:
+            print(f"\033[91mValue error raised. Error: {e} Continuing with the cleaning.\033[0m")
             return None
 
 
