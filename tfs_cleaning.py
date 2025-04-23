@@ -45,7 +45,7 @@ class BaseCleaner:
             if r == "linear_l1": reg = Lasso(random_state=100) #Using Lasso regression (L1 Penalization) to get better results in case of non-informative columns present in the data (coverage data, because their values all the same)
             elif r == "gamma": reg = GammaRegressor(fit_intercept=True, verbose=0) #Using Gamma regression to address for the zeros present in the data (which will need to be predicted as well)
 
-        mice_imputer = IterativeImputer(estimator=reg, random_state=100, verbose=0, imputation_order="roman", initial_strategy="median") #Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
+        mice_imputer = IterativeImputer(estimator=reg, random_state=100, verbose=0, imputation_order="roman", initial_strategy="mean") #Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
         data = pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns) #Fitting the imputer and processing all the data columns except the date one
 
         return data
