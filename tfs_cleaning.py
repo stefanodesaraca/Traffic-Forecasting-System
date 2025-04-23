@@ -499,7 +499,7 @@ class AverageSpeedCleaner(BaseCleaner):
 
         # ------------------ Multiple imputation to fill NaN values ------------------
 
-        non_mice_cols = ["trp_id", "date"]
+        non_mice_cols = ["trp_id", "date", "year", "month", "day"]
         df_non_mice_cols = avg_speed_data[non_mice_cols] #To merge them later into the NaN filled dataframe
 
         avg_speed_data = avg_speed_data.drop(columns=non_mice_cols, axis=1) #Columns to not include for Multiple Imputation By Chained Equations (MICE)
@@ -507,7 +507,6 @@ class AverageSpeedCleaner(BaseCleaner):
         try:
             cleaner = BaseCleaner()
             avg_speed_data = cleaner.impute_missing_values(avg_speed_data)
-
             print("Multiple imputation on average speed data executed successfully\n\n")
 
             #print(avg_speed_data.isna().sum())
@@ -517,7 +516,6 @@ class AverageSpeedCleaner(BaseCleaner):
             avg_speed_data["month"] = avg_speed_data["month"].astype("int")
             avg_speed_data["week"] = avg_speed_data["week"].astype("int")
             avg_speed_data["day"] = avg_speed_data["day"].astype("int")
-
             avg_speed_data["hour_start"] = avg_speed_data["hour_start"].astype("int")
 
         except ValueError:
