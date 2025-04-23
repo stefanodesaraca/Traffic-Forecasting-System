@@ -622,22 +622,19 @@ class AverageSpeedCleaner(BaseCleaner):
         '''
         The avg_speed_file_path parameter is the path to the average speed file the user wants to analyze
         The avg_speed_file_name parameter is just the name of the file, needed for secondary purposes or functionalities
-
         '''
 
         try:
             average_speed_data = import_avg_speed_data(file_path=file_path)
-            trp_id = get_trp_id_from_filename(file_name)
+            #NOTE REMOVED trp_id = get_trp_id_from_filename(file_name) HERE
             #TODO IN THE FUTURE ADD THE UNIFIED data_overview() FUNCTION WHICH WILL PRINT A COMMON DATA OVERVIEW FOR BOTH TRAFFIC VOLUMES DATA AND AVERAGE SPEED ONE
 
             average_speed_data, trp_id, t_max, t_min = self.clean_avg_speed_data(average_speed_data)
             self.export_clean_avg_speed_data(average_speed_data, trp_id, t_max, t_min)
-
+            return None
         except IndexError:
             print(f"\033091mNo data available for file: {file_name}")
-
-
-        return None
+            return None
 
 
 
