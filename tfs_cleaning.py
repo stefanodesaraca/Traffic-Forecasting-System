@@ -186,21 +186,11 @@ class TrafficVolumesCleaner(BaseCleaner):
             #Removing duplicates and keeping the time as well. This will be needed to extract the hour too
             #print(reg_datetimes)
 
-            reg_dates = set([str(datetime.fromisoformat(dt).date().isoformat()) for dt in reg_datetimes]) #datetime.fromisoformat() converts a string to a datetime object. Then it only keeps the date and converts it into iso format again.
+            reg_dates = set([str(datetime.fromisoformat(dt).date().isoformat()) for dt in reg_datetimes])
+            #datetime.fromisoformat() converts a string to a datetime object. Then it only keeps the date and converts it into iso format again.
             #The final step is converting the datetime object to a string with str()
             #Removing duplicates with set(). With the line above we'll get the unique days where data registration took place. #TODO TO TEST THIS. BEFORE IT WAS dt[:10]
             print("Number of days where registrations took place: ", len(reg_dates))
-
-            # TODO EXECUTE A CHECK ON ALL NODES OF THE TRP'S VOLUME DATA (VOLUMES FILE), CHECK WHICH DATES, HOURS, ETC. ARE MISSING AND CREATE THE MISSING ROWS (WITH MULTIPLE LISTS (ONE FOR EACH VARIABLE)) TO ADD BEFORE(!) THE START OF THE FOR CYCLE BELOW!
-            # TODO WHEN ALL THE ROWS HAVE BEEN CREATED AND INSERTED IN THE FOR CYCLE BELOW, SORT THE ROWS BY YEAR, MONTH, DAY, HOUR IN DESCENDING ORDER
-
-            available_day_hours = {d: [] for d in reg_dates} #These dict will have a dictionary for each day with an empty list
-            for rd in reg_datetimes: available_day_hours[rd[:10]].append(datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H"))
-
-            missing_hours_by_day = {d: [h for h in get_theoretical_hours() if h not in available_day_hours[d]] for d in available_day_hours.keys()} #This dictionary comprehension goes like this: we'll create a day key with a list of hours for each day in the available days.
-            #Each day's list will only include registration hours (h) which SHOULD exist, but are missing in the available dates in the data
-            missing_hours_by_day = {d: l for d, l in missing_hours_by_day.items() if len(l) != 0} #Removing elements with empty lists (the days which don't have missing hours)
-            print("Missing hours by day: ", missing_hours_by_day)
 
             first_registration_date = min(reg_dates)
             last_registration_date = max(reg_dates)
@@ -208,8 +198,22 @@ class TrafficVolumesCleaner(BaseCleaner):
             print("First registration day available: ", first_registration_date)
             print("Last registration day available: ", last_registration_date)
 
-            missing_days = [d for d in get_theoretical_days(first_registration_date, last_registration_date) if d not in reg_dates]
+            # TODO EXECUTE A CHECK ON ALL NODES OF THE TRP'S VOLUME DATA (VOLUMES FILE), CHECK WHICH DATES, HOURS, ETC. ARE MISSING AND CREATE THE MISSING ROWS (WITH MULTIPLE LISTS (ONE FOR EACH VARIABLE)) TO ADD BEFORE(!) THE START OF THE FOR CYCLE BELOW!
+            # TODO WHEN ALL THE ROWS HAVE BEEN CREATED AND INSERTED IN THE FOR CYCLE BELOW, SORT THE ROWS BY YEAR, MONTH, DAY, HOUR IN DESCENDING ORDER
+
+            #The available_day_hours dict will have as key-value pairs: the day and a list with all hours which do have registrations (so that have data)
+            available_day_hours = {d: [] for d in reg_dates} #These dict will have a dictionary for each day with an empty list
+            for rd in reg_datetimes: available_day_hours[rd[:10]].append(datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H"))
+
+            missing_days = [str(d.date().isoformat()) for d in get_theoretical_days(first_registration_date, last_registration_date) if str(d.date().isoformat()) not in reg_dates]
             print("Missing days: ", missing_days)
+            print("Number of missing days: ", len(missing_days))
+
+            missing_hours_by_day = {d: [h for h in get_theoretical_hours() if h not in available_day_hours[d]] for d in available_day_hours.keys()} #This dictionary comprehension goes like this: we'll create a day key with a list of hours for each day in the available days.
+            #Each day's list will only include registration hours (h) which SHOULD exist, but are missing in the available dates in the data
+            for md in missing_days: missing_hours_by_day[md] = get_theoretical_hours() #If a whole day is missing we'll just create it and say that all hours of that day are missing
+            missing_hours_by_day = {d: l for d, l in missing_hours_by_day.items() if len(l) != 0} #Removing elements with empty lists (the days which don't have missing hours)
+            print("Missing hours by day: ", missing_hours_by_day)
 
             for d, mh in missing_hours_by_day.items():
                 for h in mh:
@@ -457,7 +461,7 @@ class AverageSpeedCleaner(BaseCleaner):
         super().__init__()
 
 
-    def clean_avg_speed_data(self, avg_speed_data: pd.DataFrame) -> [tuple[pd.DataFrame, str, str, str] | None]: #TODO TO CHANGE IN dd.DataFrame
+    def clean_avg_speed_data(self, avg_speed_data: pd.DataFrame) -> tuple[pd.DataFrame, str, str, str] | None: #TODO TO CHANGE IN dd.DataFrame
 
         #TODO ADDRESS FOR TOTALLY EMPTY FILES CASE (MICE)
 
@@ -509,10 +513,8 @@ class AverageSpeedCleaner(BaseCleaner):
 
         # ------------------ Multiple imputation to fill NaN values ------------------
 
-        non_mice_cols = ["trp_id", "date", "year", "month", "day", "week"]
-        df_non_mice_cols = avg_speed_data[non_mice_cols] #To merge them later into the NaN filled dataframe
-
-        avg_speed_data = avg_speed_data.drop(columns=non_mice_cols, axis=1) #Columns to not include for Multiple Imputation By Chained Equations (MICE)
+        non_mice_df = avg_speed_data[["trp_id", "date", "year", "month", "day", "week"]]
+        avg_speed_data = avg_speed_data.drop(columns=non_mice_df.columns, axis=1) #Columns to not include for Multiple Imputation By Chained Equations (MICE)
 
         print("Shape before MICE: ", avg_speed_data.shape)
 
@@ -530,7 +532,7 @@ class AverageSpeedCleaner(BaseCleaner):
             return None
 
         #Merging non MICE columns back into the MICEed dataframe
-        for nm_col in non_mice_cols: avg_speed_data[nm_col] = df_non_mice_cols[nm_col]
+        for nm_col in non_mice_df.columns: avg_speed_data[nm_col] = non_mice_df[nm_col]
 
         #These transformations here are necessary since after the multiple imputation every column's type becomes float
         avg_speed_data["year"] = avg_speed_data["year"].astype("int")
