@@ -102,7 +102,6 @@ def clean_data(functionality: str) -> None:
         for file in average_speed_file_list:
             cleaner.execute_cleaning(file_path=average_speed_folder + file, file_name=file)
 
-
     return None
 
 

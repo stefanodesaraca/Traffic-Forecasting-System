@@ -198,12 +198,11 @@ class TrafficVolumesCleaner(BaseCleaner):
             print("First registration day available: ", first_registration_date)
             print("Last registration day available: ", last_registration_date)
 
-            # TODO EXECUTE A CHECK ON ALL NODES OF THE TRP'S VOLUME DATA (VOLUMES FILE), CHECK WHICH DATES, HOURS, ETC. ARE MISSING AND CREATE THE MISSING ROWS (WITH MULTIPLE LISTS (ONE FOR EACH VARIABLE)) TO ADD BEFORE(!) THE START OF THE FOR CYCLE BELOW!
-            # TODO WHEN ALL THE ROWS HAVE BEEN CREATED AND INSERTED IN THE FOR CYCLE BELOW, SORT THE ROWS BY YEAR, MONTH, DAY, HOUR IN DESCENDING ORDER
-
             #The available_day_hours dict will have as key-value pairs: the day and a list with all hours which do have registrations (so that have data)
             available_day_hours = {d: [] for d in reg_dates} #These dict will have a dictionary for each day with an empty list
             for rd in reg_datetimes: available_day_hours[rd[:10]].append(datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H"))
+
+            # ------------------ Addressing missing days and hours ------------------
 
             missing_days = [str(d.date().isoformat()) for d in get_theoretical_days(first_registration_date, last_registration_date) if str(d.date().isoformat()) not in reg_dates]
             print("Missing days: ", missing_days)
