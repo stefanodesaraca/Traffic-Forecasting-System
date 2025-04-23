@@ -86,12 +86,12 @@ def ShapiroWilkTest(targetFeatureName, data, shapiroWilkPlotsPath):
 
     return plotName, SWQQPlot, shapiroWilkPlotsPath
 
-#TODO BRING THIS FUNCTION INTO tfs_utils.py
+#TODO BRING THIS FUNCTION INTO tfs_utils.py AND CHANGE TO dd.read_csv. ALSO, CORRECT THE EDA CODE FOR DASK COMPATIBILITY
 def retrieve_volumes_data(file_path: str) -> pd.DataFrame:
     volumes = pd.read_csv(file_path)
     return volumes
 
-#TODO BRING THIS FUNCTION INTO tfs_utils.py
+#TODO BRING THIS FUNCTION INTO tfs_utils.py AND CHANGE TO dd.read_csv. ALSO, CORRECT THE EDA CODE FOR DASK COMPATIBILITY
 def retrieve_avg_speed_data(file_path: str) -> pd.DataFrame:
     speeds = pd.read_csv(file_path)
     return speeds
@@ -127,6 +127,9 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
     print("TRP ID: ", trp_id, "\n")
     print("Data shape: ", data_shape, "\n")
     print("Data types: \n", volumes.dtypes, "\n")
+
+    print("Number of negative values: ", len(volumes[volumes["volume"] < 0]))
+    print("Number of zeros: ", len(volumes[volumes["volume"] == 0]))
 
     print("Percentiles for the whole distribution (all years): ")
     print("Traffic volume 25th percentile: ", percentile_25)
@@ -236,7 +239,7 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
         plt.ylabel("Volume")
         plt.xlabel("Week")
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
-        plt.title(f"Median traffic volumes aggregated (median) by week for different years | TRP: {trp_id}")
+        plt.title(f"Traffic volumes aggregated (median) by week for different years | TRP: {trp_id}")
 
         return f"{trp_id}_volume_trend_by_hour_day", plt, plot_path
 
@@ -322,6 +325,9 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
     print("Average speed 95th percentile: ", percentile_95)
     print("Average speed 99th percentile: ", percentile_99)
     print("\n")
+
+    print("Number of negative values: ", len(speeds[speeds["mean_speed"] < 0]))
+    print("Number of zeros: ", len(speeds[speeds["mean_speed"] == 0]))
 
     print("Inter-Quartile Range (IQR) for the whole distribution (all years): ", percentile_75 - percentile_25)
     print("Quartile Deviation for the whole distribution (all years): ", percentile_75 - percentile_25)
@@ -456,7 +462,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
     return None
 
 
-def test_volumes_data_for_multicollinearity(volumes: pd.DataFrame) -> None:
+def volumes_data_multicollinearity_test(volumes: pd.DataFrame) -> None:
 
     volumes = volumes.drop(columns=["volume", "date", "trp_id"])
     volumes_col_names = list(volumes.columns)
@@ -504,7 +510,7 @@ def test_volumes_data_for_multicollinearity(volumes: pd.DataFrame) -> None:
     return None
 
 
-def test_avg_speeds_data_for_multicollinearity(speeds: pd.DataFrame) -> None:
+def avg_speeds_data_multicollinearity_test(speeds: pd.DataFrame) -> None:
 
     speeds = speeds.drop(columns=["mean_speed", "percentile_85", "trp_id", "date"], axis=1)
     speeds_col_names = list(speeds.columns)
@@ -557,8 +563,7 @@ def test_avg_speeds_data_for_multicollinearity(speeds: pd.DataFrame) -> None:
 
 
 
-
-
+#TODO ANALYZE TRAFFIC VOLUMES AND AVERAGE SPEED COMBINED (ONLY FOR THE TRPs WHICH HAVE BOTH FOR THE SAME TIME PERIOD
 
 #TODO VERIFY THAT DATES STORED IN THE AVG SPEED FILES ARE "%Y-%m-%d" FORMAT AND NOT WITH / BETWEEN THE Y, M AND D
 

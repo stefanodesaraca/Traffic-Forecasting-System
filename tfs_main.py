@@ -132,7 +132,7 @@ def execute_eda() -> None:
     for v in clean_traffic_volume_files:
         volumes = retrieve_volumes_data(v)
         analyze_volumes(volumes)
-        test_volumes_data_for_multicollinearity(volumes)
+        volumes_data_multicollinearity_test(volumes)
 
 
     clean_average_speed_files = [clean_average_speed_folder_path + sf for sf in os.listdir(get_clean_average_speed_folder_path())]
@@ -141,7 +141,7 @@ def execute_eda() -> None:
     for s in clean_average_speed_files:
         speeds = retrieve_avg_speed_data(s)
         analyze_avg_speeds(speeds)
-        test_avg_speeds_data_for_multicollinearity(speeds)
+        avg_speeds_data_multicollinearity_test(speeds)
 
 
     volumes_and_speeds = [vs for vs in clean_traffic_volume_files if vs.split("/")[-1].split("_")[0] in [v.split("/")[-1].split("_")[0] for v in clean_average_speed_files]] #Determinig the TRPs which have both traffic volumes and speed data

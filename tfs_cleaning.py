@@ -409,22 +409,23 @@ class TrafficVolumesCleaner(BaseCleaner):
         return by_hour_df
 
 
+    #TODO CHANGE by_hour TO dd.DatFrame
     def export_traffic_volumes_data(self, by_hour: pd.DataFrame, volumes_file_path, trp_id: str) -> None:
 
         file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv") #TODO IMPROVE THIS THROUGH A SIMPLER FILE NAME AND A PARSER OR GETTER FUNCTION IN tfs_utils.py
 
         clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
-
         file_path = clean_traffic_volumes_folder_path + file_name #C stands for "cleaned"
-        #print(file_path)
 
         try:
             by_hour.to_csv(file_path, index=False)
+            update_metainfo(file_name, ["traffic_volumes", "clean_filenames"], mode="append")
+            update_metainfo(file_path, ["traffic_volumes", "clean_filepaths"], mode="append")
             print(f"TRP: {trp_id} data exported correctly\n\n")
+            return None
         except AttributeError:
             print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
-
-        return None
+            return None
 
 
     def cleaning_pipeline(self, volumes_file_path: str) -> None:
@@ -445,7 +446,6 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         elif by_hour_df is None:
             pass #A warning for empty nodes is given during the restructuring section
-
 
         print("--------------------------------------------------------\n\n")
 
@@ -589,7 +589,6 @@ class AverageSpeedCleaner(BaseCleaner):
                 agg_data["date"].append(ud)
                 agg_data["trp_id"].append(trp_id)
 
-
         #print(agg_data)
 
         #The old avg_data dataframe will be overwritten by this new one which will have all the previous data, but with a new structure
@@ -605,15 +604,18 @@ class AverageSpeedCleaner(BaseCleaner):
     def export_clean_avg_speed_data(self, avg_speed_data: pd.DataFrame, trp_id: str, t_max: str, t_min: str) -> None:
 
         clean_avg_data_folder_path = get_clean_average_speed_folder_path()
+        filepath = clean_avg_data_folder_path + trp_id + f"_S{t_min}_E{t_max}C.csv"
+        filename = trp_id + f"_S{t_min}_E{t_max}C.csv"
 
         try:
-            avg_speed_data.to_csv(clean_avg_data_folder_path + trp_id + f"_S{t_min}_E{t_max}C.csv", index=False) #S stands for Start (registration starting date), E stands for End and C for Clean
+            avg_speed_data.to_csv(filepath, index=False) #S stands for Start (registration starting date), E stands for End and C for Clean
+            update_metainfo(filename, ["average_speeds", "clean_filenames"], mode="append")
+            update_metainfo(filepath, ["average_speeds", "clean_filepaths"], mode="append")
             print(f"Average speed data for TRP: {trp_id} saved successfully\n\n")
+            return None
         except Exception as e:
             print(f"\033[91mCouldn't export TRP: {trp_id} volumes data. Error: {e}\033[0m")
-
-
-        return None
+            return None
 
 
     def execute_cleaning(self, file_path, file_name) -> None:
