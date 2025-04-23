@@ -495,7 +495,9 @@ def write_metainfo(ops_name: str) -> None:
                 "raw_volumes_size": None,
                 "clean_volumes_size": None,
                 "raw_average_speeds_size": None,
-                "clean_average_speeds_size": None
+                "clean_average_speeds_size": None,
+                "non_empty_volumes_trps": [],
+                "non_empty_avg_speed_trps": []
             },
             "traffic_volumes": {
                 "start_date_iso": None, #The start date which was inserted in the download section of the menu in ISO format

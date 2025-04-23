@@ -212,7 +212,7 @@ class BaseLearner:
         model = model_names_and_class_objects[model_name](**parameters) #Unpacking the dictionary to set all parameters to instantiate the model's class object
 
         with joblib.parallel_backend('dask'):
-            model.fit(X_train.compute(), y_train.compute())
+            model.fit(X_train, y_train)
 
         print(f"Successfully trained {model_name} with parameters: {parameters}")
 
@@ -228,10 +228,6 @@ class BaseLearner:
         except Exception as e:
             print(f"\033[91mCouldn't export trained model. Safely exited the program. Error: {e}\033[0m")
             exit(code=1)
-
-
-        print("\n\n")
-
 
         return None
 
