@@ -360,7 +360,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         # ------------------ Execute multiple imputation with MICE (Multiple Imputation by Chain of Equations) ------------------
 
-        non_mice_columns = by_hour_df[["trp_id", "date", "year", "month", "day"]]
+        non_mice_columns = by_hour_df[["trp_id", "date", "year", "month", "day", "week"]]
         #Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
         #Still, we're leaving the hour variable to address for the variability of the traffic volumes during the day
 
@@ -509,7 +509,7 @@ class AverageSpeedCleaner(BaseCleaner):
 
         # ------------------ Multiple imputation to fill NaN values ------------------
 
-        non_mice_cols = ["trp_id", "date", "year", "month", "day"]
+        non_mice_cols = ["trp_id", "date", "year", "month", "day", "week"]
         df_non_mice_cols = avg_speed_data[non_mice_cols] #To merge them later into the NaN filled dataframe
 
         avg_speed_data = avg_speed_data.drop(columns=non_mice_cols, axis=1) #Columns to not include for Multiple Imputation By Chained Equations (MICE)
