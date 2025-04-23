@@ -7,7 +7,7 @@ import os
 import pandas as pd
 import pprint
 
-from sklearn.linear_model import Lasso
+from sklearn.linear_model import Lasso, GammaRegressor
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 
@@ -22,6 +22,7 @@ class BaseCleaner:
         self._cwd = os.getcwd()
         self._ops_folder = "ops"
         self._ops_name = get_active_ops()
+        self._regressor_types = ["linear_l1", "gamma"]
 
     #General definition of the data_overview() function. This will take two different forms: the traffic volumes one and the average speed one.
     #Thus, the generic "data" parameter will become the volumes_data or the avg_speed_data one
@@ -31,15 +32,20 @@ class BaseCleaner:
 
 
     #Executing multiple imputation to get rid of NaNs using the MICE method (Multiple Imputation by Chained Equations)
-    @staticmethod
-    def impute_missing_values(data: pd.DataFrame) -> pd.DataFrame: #TODO TO CHANGE INTO dd.DataFrame
-        '''
+    def impute_missing_values(self, data: pd.DataFrame, r: str) -> pd.DataFrame: #TODO TO CHANGE INTO dd.DataFrame
+        """
         This function should only be supplied with numerical columns-only dataframes
-        '''
 
-        lr = Lasso(random_state=100) #Using Lasso regression (L1 Penalization) to get better results in case of non-informative columns present in the data (coverage data, because their values all the same)
+        Parameters:
+            data: the data with missing values
+            r: the regressor kind. Has to be within a specific list or regressors available
+        """
 
-        mice_imputer = IterativeImputer(estimator=lr, random_state=100, verbose=0, imputation_order="arabic", initial_strategy="median") #Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
+        if r in self._regressor_types:
+            if r == "linear_l1": reg = Lasso(random_state=100) #Using Lasso regression (L1 Penalization) to get better results in case of non-informative columns present in the data (coverage data, because their values all the same)
+            elif r == "gamma": reg = GammaRegressor(fit_intercept=True, verbose=0) #Using Gamma regression to address for the zeros present in the data (which will need to be predicted as well)
+
+        mice_imputer = IterativeImputer(estimator=reg, random_state=100, verbose=0, imputation_order="roman", initial_strategy="median") #Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
         data = pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns) #Fitting the imputer and processing all the data columns except the date one
 
         return data
@@ -305,8 +311,8 @@ class TrafficVolumesCleaner(BaseCleaner):
             #pprint.pp(by_hour_structured)
             #print(by_hour_structured)
 
-            by_hour_df = pd.DataFrame(by_hour_structured)
-            by_hour_df = by_hour_df.sort_values(by=["hour", "day", "month", "year"], ascending=True)
+            by_hour_df = pd.DataFrame(by_hour_structured) #TODO CHANGE INTO dd.DataFrame
+            by_hour_df = by_hour_df.sort_values(by=["hour", "day", "month", "year"], ascending=True) #TODO ADD THEN .persist()
             #by_hour_df = by_hour_df.reindex(sorted(by_hour_df.columns), axis=1)
             #print(by_hour_df.head(15))
 
@@ -346,7 +352,9 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         # ------------------ Execute multiple imputation with MICE (Multiple Imputation by Chain of Equations) ------------------
 
-        non_mice_columns = by_hour_df[["trp_id"]]  # Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
+        non_mice_columns = by_hour_df[["trp_id", "date", "year", "month", "day"]]
+        #Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
+        #Still, we're leaving the hour variable to address for the variability of the traffic volumes during the day
 
         try:
             cleaner = BaseCleaner()
