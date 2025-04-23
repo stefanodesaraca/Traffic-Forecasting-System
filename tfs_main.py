@@ -126,30 +126,25 @@ def execute_eda() -> None:
     clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
     clean_average_speed_folder_path = get_clean_average_speed_folder_path()
 
-    clean_traffic_volume_files = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())]
+    clean_traffic_volume_files = os.listdir(get_clean_traffic_volumes_folder_path())
     print("Clean traffic volume files: ", clean_traffic_volume_files, "\n")
+    clean_average_speed_files = os.listdir(get_clean_average_speed_folder_path())
+    print("Clean average speed files: ", clean_average_speed_files, "\n")
 
     for v in clean_traffic_volume_files:
-        volumes = retrieve_volumes_data(v)
+        volumes = retrieve_volumes_data(clean_traffic_volumes_folder_path + v)
         analyze_volumes(volumes)
         volumes_data_multicollinearity_test(volumes)
 
-
-    clean_average_speed_files = [clean_average_speed_folder_path + sf for sf in os.listdir(get_clean_average_speed_folder_path())]
-    print("Clean average speed files: ", clean_average_speed_files, "\n")
-
     for s in clean_average_speed_files:
-        speeds = retrieve_avg_speed_data(s)
+        speeds = retrieve_avg_speed_data(clean_average_speed_folder_path + s)
         analyze_avg_speeds(speeds)
         avg_speeds_data_multicollinearity_test(speeds)
 
-
-    volumes_and_speeds = [vs for vs in clean_traffic_volume_files if vs.split("/")[-1].split("_")[0] in [v.split("/")[-1].split("_")[0] for v in clean_average_speed_files]] #Determinig the TRPs which have both traffic volumes and speed data
-
-    print("\n\nClean volumes and average speeds files: ", volumes_and_speeds)
-    print("Number of clean volumes and average speeds files: ", len(volumes_and_speeds))
-
-
+    volumes_speeds = [vs for vs in clean_traffic_volume_files if get_trp_id_from_filename(vs) in [get_trp_id_from_filename(s) for s in clean_average_speed_files]] #Determinig the TRPs which have both traffic volumes and speed data
+    #Checking which TRPs have both traffic volumes and speed data available
+    print("\n\nClean volumes and average speeds files: ", volumes_speeds)
+    print("Number of clean volumes and average speeds files: ", len(volumes_speeds))
     print("\n\n")
 
     return None
