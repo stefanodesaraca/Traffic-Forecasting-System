@@ -1,3 +1,5 @@
+from sympy.physics.units import radian
+
 from tfs_utils import *
 import numpy as np
 import json
@@ -8,8 +10,10 @@ import pandas as pd
 import pprint
 
 from sklearn.linear_model import Lasso, GammaRegressor, QuantileRegressor
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
+from sklego.meta import ZeroInflatedRegressor
 
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
@@ -45,8 +49,8 @@ class BaseCleaner:
         reg = None
         if r in self._regressor_types:
             if r == "linear_l1": reg = Lasso(random_state=100) #Using Lasso regression (L1 Penalization) to get better results in case of non-informative columns present in the data (coverage data, because their values all the same)
-            elif r == "gamma": reg = GammaRegressor(fit_intercept=True, verbose=0) #Using Gamma regression to address for the zeros present in the data (which will need to be predicted as well)
-            elif r == "quantile": reg = QuantileRegressor(fit_intercept=True)
+            elif r == "gamma": reg = ZeroInflatedRegressor(regressor=GammaRegressor(fit_intercept=True, verbose=0), classifier=DecisionTreeClassifier(random_state=100)) #Using Gamma regression to address for the zeros present in the data (which will need to be predicted as well)
+            elif r == "quantile": reg = ZeroInflatedRegressor(regressor=QuantileRegressor(fit_intercept=True), classifier=DecisionTreeClassifier(random_state=100))
 
         mice_imputer = IterativeImputer(estimator=reg, random_state=100, verbose=0, imputation_order="roman", initial_strategy="mean") #Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
         data = pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns) #Fitting the imputer and processing all the data columns except the date one
@@ -234,13 +238,13 @@ class TrafficVolumesCleaner(BaseCleaner):
 
                 #This is the datetime which will be representative of a volume, specifically, there will be multiple datetimes with the same day
                 # to address this fact we'll just re-format the data to keep track of the day, but also maintain the volume values for each hour
-                reg_datetime = datetime.fromisoformat(node["node"]["from"]).replace(tzinfo=None).isoformat()  #Only keeping the datetime without the +00:00 at the end
-                year = datetime.strptime(reg_datetime, "%Y-%m-%dT%H:%M:%S").strftime("%Y")
-                month = datetime.strptime(reg_datetime, "%Y-%m-%dT%H:%M:%S").strftime("%m")
-                week = datetime.strptime(reg_datetime, "%Y-%m-%dT%H:%M:%S").strftime("%V")
-                day = datetime.strptime(reg_datetime, "%Y-%m-%dT%H:%M:%S").strftime("%d")
-                hour = datetime.strptime(reg_datetime, "%Y-%m-%dT%H:%M:%S").strftime("%H")
-                date = datetime.strptime(reg_datetime, "%Y-%m-%dT%H:%M:%S").date().isoformat()
+                reg_datetime = datetime.strptime(datetime.fromisoformat(node["node"]["from"]).replace(tzinfo=None).isoformat(), "%Y-%m-%dT%H:%M:%S").strftime("%Y-%m-%dT%H")  #Only keeping the datetime without the +00:00 at the end
+                year = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%Y")
+                month = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%m")
+                week = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%V")
+                day = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%d")
+                hour = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%H")
+                date = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").date().isoformat()
 
                 # ----------------------- Total volumes section -----------------------
 
@@ -319,7 +323,7 @@ class TrafficVolumesCleaner(BaseCleaner):
             #print(by_hour_structured)
 
             by_hour_df = pd.DataFrame(by_hour_structured) #TODO CHANGE INTO dd.DataFrame
-            by_hour_df = by_hour_df.sort_values(by=["hour", "day", "month", "year"], ascending=True) #TODO ADD THEN .persist()
+            by_hour_df = by_hour_df.sort_values(by=["date", "hour"], ascending=True) #TODO ADD THEN .persist()
             #by_hour_df = by_hour_df.reindex(sorted(by_hour_df.columns), axis=1)
             #print(by_hour_df.head(15))
 
@@ -363,12 +367,17 @@ class TrafficVolumesCleaner(BaseCleaner):
         #Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
         #Still, we're leaving the hour variable to address for the variability of the traffic volumes during the day
 
+        print("Shape before MICE: ", by_hour_df.shape)
+
+
         try:
             cleaner = BaseCleaner()
-            by_hour_df = cleaner.impute_missing_values(by_hour_df.drop(non_mice_columns.columns, axis=1), r="gamma")
+            by_hour_df = cleaner.impute_missing_values(by_hour_df.drop(non_mice_columns.columns, axis=1), r="gamma") #Don't use gamma regression since, apparently it can't handle zeros
 
             for nm_col in non_mice_columns.columns:
                 by_hour_df[nm_col] = non_mice_columns[nm_col]
+
+            print("Shape after MICE: ", by_hour_df.shape)
 
         except ValueError as e:
             print(f"\033[91mValue error raised. Error: {e} Continuing with the cleaning.\033[0m")
@@ -509,6 +518,8 @@ class AverageSpeedCleaner(BaseCleaner):
 
         avg_speed_data = avg_speed_data.drop(columns=non_mice_cols, axis=1) #Columns to not include for Multiple Imputation By Chained Equations (MICE)
 
+        print("Shape before MICE: ", avg_speed_data.shape)
+
         try:
             cleaner = BaseCleaner()
             avg_speed_data = cleaner.impute_missing_values(avg_speed_data)
@@ -516,12 +527,7 @@ class AverageSpeedCleaner(BaseCleaner):
 
             #print(avg_speed_data.isna().sum())
 
-            #These transformations here are necessary since after the multiple imputation every column's type becomes float
-            avg_speed_data["year"] = avg_speed_data["year"].astype("int")
-            avg_speed_data["month"] = avg_speed_data["month"].astype("int")
-            avg_speed_data["week"] = avg_speed_data["week"].astype("int")
-            avg_speed_data["day"] = avg_speed_data["day"].astype("int")
-            avg_speed_data["hour_start"] = avg_speed_data["hour_start"].astype("int")
+            print("Shape after MICE: ", avg_speed_data.shape)
 
         except ValueError:
             print("\03391mValue error raised. Continuing with the cleaning\0330m")
@@ -530,6 +536,13 @@ class AverageSpeedCleaner(BaseCleaner):
         #Merging non MICE columns back into the MICEed dataframe
         for nm_col in non_mice_cols:
             avg_speed_data[nm_col] = df_non_mice_cols[nm_col]
+
+        #These transformations here are necessary since after the multiple imputation every column's type becomes float
+        avg_speed_data["year"] = avg_speed_data["year"].astype("int")
+        avg_speed_data["month"] = avg_speed_data["month"].astype("int")
+        avg_speed_data["week"] = avg_speed_data["week"].astype("int")
+        avg_speed_data["day"] = avg_speed_data["day"].astype("int")
+        avg_speed_data["hour_start"] = avg_speed_data["hour_start"].astype("int")
 
         print("Dataframe overview: \n", avg_speed_data.head(15), "\n")
         print("Basic descriptive statistics on the dataframe: \n", avg_speed_data.drop(columns=["year", "month", "week", "day", "hour_start"], axis=1).describe(), "\n")
