@@ -32,7 +32,7 @@ class BaseCleaner:
 
 
     #Executing multiple imputation to get rid of NaNs using the MICE method (Multiple Imputation by Chained Equations)
-    def impute_missing_values(self, data: pd.DataFrame, r: str) -> pd.DataFrame: #TODO TO CHANGE INTO dd.DataFrame
+    def impute_missing_values(self, data: pd.DataFrame, r: str = "linear_l1") -> pd.DataFrame: #TODO TO CHANGE INTO dd.DataFrame
         """
         This function should only be supplied with numerical columns-only dataframes
 
@@ -40,7 +40,9 @@ class BaseCleaner:
             data: the data with missing values
             r: the regressor kind. Has to be within a specific list or regressors available
         """
+        if r not in self._regressor_types: raise ValueError(f"Regressor type '{r}' is not supported. Must be one of: {self._regressor_types}")
 
+        reg = None
         if r in self._regressor_types:
             if r == "linear_l1": reg = Lasso(random_state=100) #Using Lasso regression (L1 Penalization) to get better results in case of non-informative columns present in the data (coverage data, because their values all the same)
             elif r == "gamma": reg = GammaRegressor(fit_intercept=True, verbose=0) #Using Gamma regression to address for the zeros present in the data (which will need to be predicted as well)
@@ -340,7 +342,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
 
     #This function is design only to clean by_hour data since that's the data we're going to use for the main purposes of this project
-    def clean_traffic_volumes_data(self, by_hour_df: pd.DataFrame) -> [pd.DataFrame | None]:
+    def clean_traffic_volumes_data(self, by_hour_df: pd.DataFrame) -> pd.DataFrame | None:
 
         #Short dataframe overview
         #print("Short overview on the dataframe: \n", by_hour_df.describe())
@@ -358,7 +360,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         try:
             cleaner = BaseCleaner()
-            by_hour_df = cleaner.impute_missing_values(by_hour_df.drop(non_mice_columns.columns, axis=1))
+            by_hour_df = cleaner.impute_missing_values(by_hour_df.drop(non_mice_columns.columns, axis=1), r="gamma")
 
             for nm_col in non_mice_columns.columns:
                 by_hour_df[nm_col] = non_mice_columns[nm_col]
