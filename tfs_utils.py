@@ -692,16 +692,7 @@ def clean_text(text: str) -> str:
 
 
 def slice_by_time(data: dd.DataFrame, time_start: str, time_end: str) -> dd.DataFrame:
-
-
-
-    data = data[data[]]
-
-
-
-    return
-
-
+    return data[data["date"] >= time_start and data["date"] <= time_end].persist()
 
 
 # ==================== *** Road Network Utilities *** ====================
