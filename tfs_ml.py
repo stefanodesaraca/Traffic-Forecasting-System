@@ -71,8 +71,7 @@ class BaseLearner:
         - X_train, X_test, y_train, y_test
         """
 
-        if target not in ["volume", "mean_speed"]:
-            raise ValueError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
+        if target not in ["volume", "mean_speed"]: raise ValueError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
 
         X = volumes_preprocessed.drop(columns=[target])
         y = volumes_preprocessed[[target]]
@@ -83,14 +82,14 @@ class BaseLearner:
         n_rows = volumes_preprocessed.shape[0].compute()
         p_70 = int(n_rows * 0.70)
 
-        X_train = X.head(p_70)
-        X_test = X.tail(len(X) - p_70)
+        X_train = dd.from_pandas(X.head(p_70))
+        X_test = dd.from_pandas(X.tail(len(X) - p_70))
 
         #print(X_train.head(10))
         #print(X_test.head(10))
 
-        y_train = y.head(p_70)
-        y_test = y.tail(len(y) - p_70)
+        y_train = dd.from_pandas(y.head(p_70))
+        y_test = dd.from_pandas(y.tail(len(y) - p_70))
 
         #print(y_train.head(10))
         #print(y_test.head(10))
@@ -211,8 +210,11 @@ class BaseLearner:
 
         model = model_names_and_class_objects[model_name](**parameters) #Unpacking the dictionary to set all parameters to instantiate the model's class object
 
+        print(type(X_train))
+        print(type(y_train))
+
         with joblib.parallel_backend('dask'):
-            model.fit(X_train, y_train)
+            model.fit(X_train.compute(), y_train.compute())
 
         print(f"Successfully trained {model_name} with parameters: {parameters}")
 
@@ -319,7 +321,7 @@ class TrafficVolumesLearner(BaseLearner):
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
-        volumes = volumes.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1) #Keeping year and hour data
+        volumes = volumes.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist() #Keeping year and hour data
 
         #print("Volumes dataframe head: ")
         #print(volumes.head(5), "\n")
@@ -327,11 +329,9 @@ class TrafficVolumesLearner(BaseLearner):
         #print("Volumes dataframe tail: ")
         #print(volumes.tail(5), "\n")
 
-
-
         #print(volumes.compute().head(10))
 
-        return volumes.persist()
+        return volumes
 
 
 
