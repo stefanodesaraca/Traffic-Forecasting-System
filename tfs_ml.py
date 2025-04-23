@@ -308,7 +308,6 @@ class TrafficVolumesLearner(BaseLearner):
         scaler = MinMaxScaler()
         volumes[["volume", "coverage"]] = scaler.fit_transform(volumes[["volume", "coverage"]])
 
-
         #------------------ Creating lag features ------------------
 
         lag_column_names = ["volumes_lag1", "volumes_lag2", "volumes_lag3", "volumes_lag4", "volumes_lag5", "volumes_lag6", "volumes_lag7"]
@@ -318,7 +317,13 @@ class TrafficVolumesLearner(BaseLearner):
         #print(volumes.head(10))
         #print(volumes.dtypes)
 
-        volumes = volumes.drop(columns=["year", "month", "week", "day", "trp_id"], axis=1).persist()
+        # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
+
+        volumes["is_covid_year"] = (volumes['year'].isin(get_covid_years())).astype("int") #Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
+
+        # ------------------ Dropping columns which won't be fed to the ML models ------------------
+
+        volumes = volumes.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1) #Keeping year and hour data
 
         #print("Volumes dataframe head: ")
         #print(volumes.head(5), "\n")
@@ -326,11 +331,11 @@ class TrafficVolumesLearner(BaseLearner):
         #print("Volumes dataframe tail: ")
         #print(volumes.tail(5), "\n")
 
-        # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
 
-        volumes["is_covid_year"] = np.where(volumes['year'] in get_covid_years(), 0, 1) #Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
 
-        return volumes
+        #print(volumes.compute().head(10))
+
+        return volumes.persist()
 
 
 
@@ -382,14 +387,20 @@ class AverageSpeedLearner(BaseLearner):
 
         #------------------ Creating lag features ------------------
 
-        speeds_lag_column_names = [f"mean_speed_lag{i}" for i in range(1, 14)] #TODO TEST WITH ONLY 14 LAG FEATURES
-        percentile_85_lag_column_names = [f"percentile_85_lag{i}" for i in range(1, 14)] #TODO TEST WITH ONLY 14 LAG FEATURES
+        speeds_lag_column_names = [f"mean_speed_lag{i}" for i in range(1, 7)]
+        percentile_85_lag_column_names = [f"percentile_85_lag{i}" for i in range(1, 7)]
 
         for idx, n in enumerate(speeds_lag_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 24)
         for idx, n in enumerate(percentile_85_lag_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 24)
 
         #print(speeds.head(10))
         #print(speeds.dtypes)
+
+        # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
+
+        speeds["is_covid_year"] = (speeds['year'].isin(get_covid_years())).astype("int") #Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
+
+        # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
         speeds = speeds.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist()
 
