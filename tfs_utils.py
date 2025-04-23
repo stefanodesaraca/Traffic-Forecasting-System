@@ -676,7 +676,7 @@ def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
     return filtered_df.persist()
 
 
-def retrieve_theoretical_hours_columns() -> list:
+def retrieve_theoretical_hours() -> list:
     return [f"{i:02}" for i in range(24)]
 
 
@@ -685,6 +685,19 @@ def clean_text(text: str) -> str:
     text = text.replace(" ", "_")
     text = text.lower()
     return text
+
+
+def slice_by_time(data: dd.DataFrame, time_start: str, time_end: str) -> dd.DataFrame:
+
+
+
+    data = data[data[]]
+
+
+
+    return
+
+
 
 
 # ==================== *** Road Network Utilities *** ====================

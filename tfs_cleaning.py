@@ -32,7 +32,7 @@ class BaseCleaner:
 
     #Executing multiple imputation to get rid of NaNs using the MICE method (Multiple Imputation by Chained Equations)
     @staticmethod
-    def impute_missing_values(data: pd.DataFrame):
+    def impute_missing_values(data: pd.DataFrame) -> pd.DataFrame: #TODO TO CHANGE INTO dd.DataFrame
         '''
         This function should only be supplied with numerical columns-only dataframes
         '''
@@ -108,7 +108,8 @@ class TrafficVolumesCleaner(BaseCleaner):
                               "month": [],
                               "week": [],
                               "day": [],
-                              "hour": []}
+                              "hour": [],
+                              "date": []}
 
         by_lane_structured = {"trp_id": [],
                               "volume": [],
@@ -118,6 +119,7 @@ class TrafficVolumesCleaner(BaseCleaner):
                               "week": [],
                               "day": [],
                               "hour": [],
+                              "date": [],
                               "lane": []}
 
         by_direction_structured = {"trp_id": [],
@@ -128,6 +130,7 @@ class TrafficVolumesCleaner(BaseCleaner):
                                    "week": [],
                                    "day": [],
                                    "hour": [],
+                                   "date": [],
                                    "direction": []}
 
 
@@ -135,18 +138,13 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         nodes = volumes_payload["trafficData"]["volume"]["byHour"]["edges"]
         number_of_nodes = len(nodes)
-
         trp_id = volumes_payload["trafficData"]["trafficRegistrationPoint"]["id"]
-
-        #print(nodes)
 
         if number_of_nodes == 0:
             print(f"\033[91mNo data found for TRP: {volumes_payload['trafficData']['trafficRegistrationPoint']['id']}\033[0m\n\n")
-
             return None
 
         else:
-
             # ------------------ Finding the number of lanes available for the TRP taken into consideration ------------------
 
             lane_sample_node = nodes[0]["node"]["byLane"]
@@ -160,41 +158,31 @@ class TrafficVolumesCleaner(BaseCleaner):
             # and consequently put the right data in it.
             # This is also made to address the fact that a node could contain data from slightly more than one day
 
-            #This could be inserted as additional data into the graph nodes
-            #TODO WRITE A METADATA FILE FOR EACH TRP, SAVE THEM IN A SPECIFIC FOLDER IN THE GRAPH'S ONE (IN THE ops FOLDER)
-
-
             # ------------------ Finding all the available directions for the TRP ------------------
 
             direction_sample_node = nodes[0]["node"]["byDirection"]
             directions = [d["heading"] for d in direction_sample_node]
-
             print("Directions available: ", directions)
 
 
             # ------------------ Finding all unique days in which registrations took place ------------------
 
-
-            registration_dates = [n["node"]["from"][:-6] for n in nodes] #Only keeping the datetime without the +00:00 at the end
+            registration_datetimes = set([datetime.fromisoformat(n["node"]["from"]).replace(tzinfo=None).isoformat() for n in nodes]) #Only keeping the datetime without the +00:00 at the end #TODO TO TEST THIS, BEFORE IT WAS: n["node"]["from"][:-6]
+            #Removing duplicates and keeping the time as well. This will be needed to extract the hour too
             #print(registration_dates)
 
-            registration_dates = set(registration_dates) #Removing duplicates and keeping the time as well. This will be needed to extract the hour too
-            unique_registration_dates = set([r_date[:10] for r_date in registration_dates]) #Removing duplicates, this one will only keep the first 10 characters of the date, which comprehend just the date without the time. This is needed to know which are the unique days when data has been recorded
+            unique_registration_dates = set([dt.date().isoformat() for dt in registration_datetimes]) #Removing duplicates, this one will only keep the first 10 characters of the date, which comprehend just the date without the time. This is needed to know which are the unique days when data has been recorded. #TODO TO TEST THIS. BEFORE IT WAS dt[:10]
             print("Number of unique registration dates: ", len(unique_registration_dates))
-
 
             # TODO EXECUTE A CHECK ON ALL NODES OF THE TRP'S VOLUME DATA (VOLUMES FILE), CHECK WHICH DATES, HOURS, ETC. ARE MISSING AND CREATE THE MISSING ROWS (WITH MULTIPLE LISTS (ONE FOR EACH VARIABLE)) TO ADD BEFORE(!) THE START OF THE FOR CYCLE BELOW!
             # TODO WHEN ALL THE ROWS HAVE BEEN CREATED AND INSERTED IN THE FOR CYCLE BELOW, SORT THE ROWS BY YEAR, MONTH, DAY, HOUR IN DESCENDING ORDER
 
-
             available_day_hours = {d: [] for d in unique_registration_dates}
 
-            for rd in registration_dates:
+            for rd in registration_datetimes:
                 available_day_hours[rd[:10]].append(datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H"))
 
-            #print(available_day_hours)
-
-            theoretical_hours = retrieve_theoretical_hours_columns()
+            theoretical_hours = retrieve_theoretical_hours()
 
             missing_hours_by_day = {d: [h for h in theoretical_hours if h not in available_day_hours[d]] for d in available_day_hours.keys()}
             missing_hours_by_day = {d: l for d, l in missing_hours_by_day.items() if len(l) != 0} #Removing elements with empty lists
@@ -370,7 +358,6 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         #If all values aren't 0 then execute multiple imputation to fill NaNs:
 
-
         # ------------------ Execute multiple imputation with MICE (Multiple Imputation by Chain of Equations) ------------------
 
         non_mice_columns = by_hour_df[["trp_id"]]  # Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
@@ -465,7 +452,6 @@ class AverageSpeedCleaner(BaseCleaner):
 
 
     def clean_avg_speed_data(self, avg_speed_data) -> [tuple[pd.DataFrame, str, str, str] | None]:
-
 
         #TODO ADDRESS FOR TOTALLY EMPTY FILES CASE (MICE)
 
