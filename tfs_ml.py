@@ -30,13 +30,13 @@ pd.set_option('display.max_columns', None)
 
 
 
-def sin_transformer(timeframe: int, data: [dd.Series | dd.DataFrame]) -> [dd.Series | dd.DataFrame]:
+def sin_transformer(timeframe: int, data: [dd.Series | dd.DataFrame]) -> dd.Series | dd.DataFrame:
     """
     The timeframe indicates a number of days
     """
     return np.sin(data * (2. * np.pi / timeframe))
 
-def cos_transformer(timeframe: int, data: [dd.Series | dd.DataFrame]) -> [dd.Series | dd.DataFrame]:
+def cos_transformer(timeframe: int, data: [dd.Series | dd.DataFrame]) -> dd.Series | dd.DataFrame:
     """
     The timeframe indicates a number of days
     """
@@ -183,7 +183,7 @@ class BaseLearner:
 
 
     @staticmethod
-    def train_model(X_train, y_train, target: str, model_name: str, road_category: str) -> None:
+    def train_model(X_train: dd.DataFrame, y_train: dd.DataFrame, target: str, model_name: str, road_category: str) -> None:
 
         # -------------- Filenames, etc. --------------
 
@@ -210,9 +210,6 @@ class BaseLearner:
 
         model = model_names_and_class_objects[model_name](**parameters) #Unpacking the dictionary to set all parameters to instantiate the model's class object
 
-        print(type(X_train))
-        print(type(y_train))
-
         with joblib.parallel_backend('dask'):
             model.fit(X_train.compute(), y_train.compute())
 
@@ -235,7 +232,7 @@ class BaseLearner:
 
 
     @staticmethod
-    def test_model(X_test, y_test, target: str, model_name, road_category: str) -> None:
+    def test_model(X_test: dd.DataFrame, y_test: dd.DataFrame, target: str, model_name: str, road_category: str) -> None:
 
         ops_name = get_active_ops()
 
@@ -249,15 +246,14 @@ class BaseLearner:
         #print(model.get_params())
 
         with joblib.parallel_backend('dask'):
-            y_pred = model.predict(X_test)
+            y_pred = model.predict(X_test.compute())
 
 
         print(f"================= {model_name} testing metrics =================")
-        print("R^2: ", r2_score(y_true=y_test, y_pred=y_pred))
-        print("Mean Absolute Error: ", mean_absolute_error(y_true=y_test, y_pred=y_pred))
-        print("Mean Squared Error: ", mean_squared_error(y_true=y_test, y_pred=y_pred))
-        print("Root Mean Squared Error: ", root_mean_squared_error(y_true=y_test, y_pred=y_pred))
-
+        print("R^2: ", r2_score(y_true=y_test.compute(), y_pred=y_pred))
+        print("Mean Absolute Error: ", mean_absolute_error(y_true=y_test.compute(), y_pred=y_pred))
+        print("Mean Squared Error: ", mean_squared_error(y_true=y_test.compute(), y_pred=y_pred))
+        print("Root Mean Squared Error: ", root_mean_squared_error(y_true=y_test.compute(), y_pred=y_pred))
 
         return None
 
@@ -265,7 +261,7 @@ class BaseLearner:
 
 class TrafficVolumesLearner(BaseLearner):
 
-    def __init__(self, volumes_data: [dd.DataFrame | pd.DataFrame], client: Client):
+    def __init__(self, volumes_data: dd.DataFrame | pd.DataFrame, client: Client):
         super().__init__(client)
         self.volumes_data = volumes_data
 
