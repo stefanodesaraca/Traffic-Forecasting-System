@@ -217,29 +217,21 @@ class TrafficVolumesCleaner(BaseCleaner):
             # ------------------ Extracting the data from JSON file and converting it into tabular format ------------------
 
             for node in nodes:
-
                 # ---------------------- Fetching registration datetime ----------------------
 
                 #This is the datetime which will be representative of a volume, specifically, there will be multiple datetimes with the same day
                 # to address this fact we'll just re-format the data to keep track of the day, but also maintain the volume values for each hour
-                registration_datetime = node["node"]["from"][:-6] #Only keeping the datetime without the +00:00 at the end
-
-                registration_datetime = datetime.strptime(registration_datetime, "%Y-%m-%dT%H:%M:%S")
-                year = registration_datetime.strftime("%Y")
-                month = registration_datetime.strftime("%m")
-                week = registration_datetime.strftime("%V")
-                day = registration_datetime.strftime("%d")
-                hour = registration_datetime.strftime("%H")
-
-                #print(registration_datetime)
-
-                #print(day)
-                #print(hour)
+                reg_datetime = datetime.fromisoformat(node["node"]["from"]).replace(tzinfo=None).isoformat()  #Only keeping the datetime without the +00:00 at the end
+                year = reg_datetime.strftime("%Y")
+                month = reg_datetime.strftime("%m")
+                week = reg_datetime.strftime("%V")
+                day = reg_datetime.strftime("%d")
+                hour = reg_datetime.strftime("%H")
 
                 # ----------------------- Total volumes section -----------------------
 
-                total_volume = node["node"]["total"]["volumeNumbers"]["volume"] if node["node"]["total"]["volumeNumbers"] is not None else None #In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
-                coverage_perc = node["node"]["total"]["coverage"]["percentage"] if node["node"]["total"]["coverage"] is not None else None #For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
+                volume = node["node"]["total"]["volumeNumbers"]["volume"] if node["node"]["total"]["volumeNumbers"] is not None else None #In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
+                coverage = node["node"]["total"]["coverage"]["percentage"] if node["node"]["total"]["coverage"] is not None else None #For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
 
                 by_hour_structured["trp_id"].append(trp_id)
                 by_hour_structured["year"].append(year)
@@ -247,8 +239,8 @@ class TrafficVolumesCleaner(BaseCleaner):
                 by_hour_structured["week"].append(week)
                 by_hour_structured["day"].append(day)
                 by_hour_structured["hour"].append(hour)
-                by_hour_structured["volume"].append(total_volume)
-                by_hour_structured["coverage"].append(coverage_perc)
+                by_hour_structured["volume"].append(volume)
+                by_hour_structured["coverage"].append(coverage)
 
 
                 #   ----------------------- By lane section -----------------------
@@ -262,7 +254,7 @@ class TrafficVolumesCleaner(BaseCleaner):
                     lane_volume = lane["total"]["volumeNumbers"]["volume"] if lane["total"]["volumeNumbers"] is not None else None #In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
                     lane_coverage = lane["total"]["coverage"]["percentage"] if lane["total"]["coverage"] is not None else None
 
-                    # ------- XXXXXXX ------- TODO WRITE MISSING TITLES
+                    # ------- Extracting data from the dictionary and appending it into by_lane_structured -------
 
                     by_lane_structured["trp_id"].append(trp_id)
                     by_lane_structured["year"].append(year)
