@@ -9,6 +9,8 @@ import geopandas as gpd
 import geojson
 from geopandas import GeoDataFrame
 import pprint
+import asyncio
+import aiofiles
 
 pd.set_option("display.max_columns", None)
 
@@ -20,6 +22,8 @@ dt_format = "%Y-%m-%dT%H"  #Datetime format, the hour (H) must be zero-padded an
 metainfo_filename = "metainfo"
 target_data = ["V", "AS"]
 active_ops_filename = "active_ops"
+metainfo_lock = asyncio.Lock()
+
 
 # ==================== TRP Utilities ====================
 
@@ -537,7 +541,7 @@ def write_metainfo(ops_name: str) -> None:
                 "end_hour": None, #The hour obtained from the end_date_iso datetime
                 "n_days": None, #The total number of days which we have data about
                 "n_months": None, #The total number of months which we have data about
-                "n_years:": None, #The total number of years which we have data about
+                "n_years": None, #The total number of years which we have data about
                 "n_weeks": None, #The total number of weeks which we have data about
                 "raw_filenames": [], #The list of raw average speed file names
                 "raw_filepaths": [], #The list of file raw average speed file path
@@ -606,6 +610,50 @@ def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
     elif mode not in modes:
         print("\033[91mWrong mode\033[0m")
         exit(code=1)
+
+    return None
+
+
+async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
+    """
+    This function is the asynchronous version of the update_metainfo() one. It inserts data into a specific right key-value pair in the metainfo.json file of the active operation.
+
+    Parameters:
+        value: the value which we want to insert or append for a specific key-value pair
+        keys_map: the list which includes all the keys which bring to the key-value pair to update or to append another value to (the last key value pair has to be included).
+                  The elements in the list must be ordered in which the keys are located in the metainfo dictionary
+        mode: the mode which we intend to use for a specific operation on the metainfo file. For example: we may want to set a value for a specific key, or we may want to append another value to a list (which is the value of a specific key-value pair)
+    """
+    metainfo_filepath = f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
+    modes = ["equals", "append"]
+
+    async with metainfo_lock:
+
+        if check_metainfo_file() is True:
+            async with aiofiles.open(metainfo_filepath, "r") as m:
+                content = await m.read()
+                payload = json.loads(content)
+        else:
+            raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
+
+        #metainfo = payload has a specific reason to exist
+        #This is how we preserve the whole original dictionary (loaded from the JSON file), but at the same time iterate over its keys and updating them
+        #By doing to we'll assign the value (obtained from the value parameter of this method) to the right key, but preserving the rest of the dictionary
+        metainfo = payload
+
+        if mode == "equals":
+            for key in keys_map[:-1]: metainfo = metainfo[key]
+            metainfo[keys_map[-1]] = value #Updating the metainfo file key-value pair
+            async with aiofiles.open(metainfo_filepath, "w") as f:
+                await f.write(json.dumps(payload, indent=4))
+        elif mode == "append":
+            for key in keys_map[:-1]: metainfo = metainfo[key]
+            metainfo[keys_map[-1]].append(value) #Appending a new value to the list (which is the value of this key-value pair)
+            async with aiofiles.open(metainfo_filepath, "w") as f:
+                await f.write(json.dumps(payload, indent=4))
+        elif mode not in modes:
+            print("\033[91mWrong mode\033[0m")
+            exit(code=1)
 
     return None
 

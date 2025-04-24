@@ -41,7 +41,7 @@ def manage_ops(functionality: str) -> None:
     return None
 
 
-def download_data(functionality: str) -> None:
+async def download_data(functionality: str) -> None:
 
     if functionality == "2.1":
         try:
@@ -67,32 +67,32 @@ def download_data(functionality: str) -> None:
         time_start += ":00:00.000Z"
         time_end += ":00:00.000Z"
 
-        update_metainfo(time_start, ["traffic_volumes", "start_date_iso"], mode="equals")
-        update_metainfo(time_end, ["traffic_volumes", "end_date_iso"], mode="equals")
+        await update_metainfo_async(time_start, ["traffic_volumes", "start_date_iso"], mode="equals")
+        await update_metainfo_async(time_end, ["traffic_volumes", "end_date_iso"], mode="equals")
 
-        update_metainfo(datetime.strptime(time_start, dt_iso_format).strftime("%Y"), ["traffic_volumes", "start_year"], mode="equals")
-        update_metainfo(datetime.strptime(time_start, dt_iso_format).strftime("%m"), ["traffic_volumes", "start_month"], mode="equals")
-        update_metainfo(datetime.strptime(time_start, dt_iso_format).strftime("%d"), ["traffic_volumes", "start_day"], mode="equals")
-        update_metainfo(datetime.strptime(time_start, dt_iso_format).strftime("%H"), ["traffic_volumes", "start_hour"], mode="equals")
+        await update_metainfo_async(datetime.strptime(time_start, dt_iso_format).strftime("%Y"), ["traffic_volumes", "start_year"], mode="equals")
+        await update_metainfo_async(datetime.strptime(time_start, dt_iso_format).strftime("%m"), ["traffic_volumes", "start_month"], mode="equals")
+        await update_metainfo_async(datetime.strptime(time_start, dt_iso_format).strftime("%d"), ["traffic_volumes", "start_day"], mode="equals")
+        await update_metainfo_async(datetime.strptime(time_start, dt_iso_format).strftime("%H"), ["traffic_volumes", "start_hour"], mode="equals")
 
-        update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("%Y"), ["traffic_volumes", "end_year"], mode="equals")
-        update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("%m"), ["traffic_volumes", "end_month"], mode="equals")
-        update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("%d"), ["traffic_volumes", "end_day"], mode="equals")
-        update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("%H"), ["traffic_volumes", "end_hour"], mode="equals")
+        await update_metainfo_async(datetime.strptime(time_end, dt_iso_format).strftime("%Y"), ["traffic_volumes", "end_year"], mode="equals")
+        await update_metainfo_async(datetime.strptime(time_end, dt_iso_format).strftime("%m"), ["traffic_volumes", "end_month"], mode="equals")
+        await update_metainfo_async(datetime.strptime(time_end, dt_iso_format).strftime("%d"), ["traffic_volumes", "end_day"], mode="equals")
+        await update_metainfo_async(datetime.strptime(time_end, dt_iso_format).strftime("%H"), ["traffic_volumes", "end_hour"], mode="equals")
 
         relative_delta = relativedelta(datetime.strptime(time_end, dt_iso_format).date(), datetime.strptime(time_start, dt_iso_format).date())
         days_delta = (datetime.strptime(time_end, dt_iso_format).date() - datetime.strptime(time_start, dt_iso_format).date()).days
-        years_delta = relative_delta.years
+        years_delta = relative_delta.years if relative_delta.years is not None else 0
         months_delta = relative_delta.months + (years_delta * 12)
         weeks_delta = days_delta // 7
 
-        update_metainfo(days_delta, ["traffic_volumes", "n_days"], mode="equals")
-        update_metainfo(months_delta, ["traffic_volumes", "n_months"], mode="equals")
-        update_metainfo(years_delta, ["traffic_volumes", "n_years"], mode="equals")
-        update_metainfo(weeks_delta, ["traffic_volumes", "n_weeks"], mode="equals")
+        await update_metainfo_async(days_delta, ["traffic_volumes", "n_days"], mode="equals")
+        await update_metainfo_async(months_delta, ["traffic_volumes", "n_months"], mode="equals")
+        await update_metainfo_async(years_delta, ["traffic_volumes", "n_years"], mode="equals")
+        await update_metainfo_async(weeks_delta, ["traffic_volumes", "n_weeks"], mode="equals")
 
         print("Downloading traffic volumes data for every measurement point for the active operation...")
-        asyncio.run(traffic_volumes_data_to_json(time_start=time_start, time_end=time_end))
+        await traffic_volumes_data_to_json(time_start=time_start, time_end=time_end)
 
     elif functionality == "2.3":
         trp_id_list = get_trp_id_list()
@@ -455,7 +455,7 @@ def main():
             manage_ops(option)
 
         elif option in ["2.1", "2.2", "2.3"]:
-            download_data(option)
+            asyncio.run(download_data(option))
 
         elif option in ["3.1.1", "3.1.2", "3.1.3"]:
             set_forecasting_options(option)

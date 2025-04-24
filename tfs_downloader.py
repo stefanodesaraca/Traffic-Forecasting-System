@@ -12,9 +12,7 @@ from tqdm import tqdm, trange
 from collections import ChainMap
 import pprint
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from tfs_utils import *
-from tqdm.asyncio import tqdm_asyncio
 
 
 simplefilter("ignore")
@@ -346,16 +344,16 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
     async def process_trp(trp_id):
         volumes_data = await download_trp_data(trp_id)
 
-        folder_path = await asyncio.to_thread(read_metainfo_key, ["folder_paths", "data", "traffic_volumes", "path"])
+        folder_path = await asyncio.to_thread(read_metainfo_key, ["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"])
         filename = f"{trp_id}_volumes_S{time_start[:18].replace(':', '_')}_E{time_end[:18].replace(':', '_')}.json"
         full_path = folder_path + filename
 
         async with aiofiles.open(full_path, "w") as f:
             await f.write(json.dumps(volumes_data, indent=4))
 
-        await asyncio.to_thread(write_trp_metadata, trp_id)
-        await asyncio.to_thread(update_metainfo, filename, ["traffic_volumes", "raw_filenames"], mode="append")
-        await asyncio.to_thread(update_metainfo, full_path, ["traffic_volumes", "raw_filepaths"], mode="append")
+        #await asyncio.to_thread(write_trp_metadata, trp_id)
+        await asyncio.to_thread(update_metainfo_async, filename, ["traffic_volumes", "raw_filenames"], mode="append")
+        await asyncio.to_thread(update_metainfo_async, full_path, ["traffic_volumes", "raw_filepaths"], mode="append")
 
     async def limited_task(trp_id):
             async with semaphore:
