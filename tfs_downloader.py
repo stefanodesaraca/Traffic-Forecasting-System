@@ -299,7 +299,7 @@ def traffic_registration_points_to_json(ops_name: str):
     return None
 
 
-async def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str) -> None:
+async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
     client = start_client()
     trps = import_TRPs_data()
     ids = [trp["id"] for trp in trps["trafficRegistrationPoints"]]

@@ -91,8 +91,7 @@ def download_data(functionality: str) -> None:
         update_metainfo(weeks_delta, ["traffic_volumes", "n_weeks"], mode="equals")
 
         print("Downloading traffic volumes data for every measurement point for the active operation...")
-        ops_name = get_active_ops()
-        traffic_volumes_data_to_json(ops_name, time_start=time_start, time_end=time_end)
+        traffic_volumes_data_to_json(time_start=time_start, time_end=time_end)
 
     elif functionality == "2.3":
         trp_id_list = get_trp_id_list()
