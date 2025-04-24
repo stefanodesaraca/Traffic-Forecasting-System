@@ -351,7 +351,6 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
         async with aiofiles.open(full_path, "w") as f:
             await f.write(json.dumps(volumes_data, indent=4))
 
-        #await asyncio.to_thread(write_trp_metadata, trp_id)
         await asyncio.to_thread(update_metainfo_async, filename, ["traffic_volumes", "raw_filenames"], mode="append")
         await asyncio.to_thread(update_metainfo_async, full_path, ["traffic_volumes", "raw_filepaths"], mode="append")
 
