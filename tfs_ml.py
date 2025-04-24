@@ -134,15 +134,10 @@ class BaseLearner:
             gridsearch_results = pd.DataFrame(gridsearch.cv_results_)[["params", "mean_fit_time", "mean_test_r2", "mean_train_r2",
                                                                        "mean_test_mean_squared_error", "mean_train_mean_squared_error",
                                                                        "mean_test_root_mean_squared_error", "mean_train_root_mean_squared_error",
-                                                                       "mean_test_mean_absolute_error", "mean_train_mean_absolute_error",
-                                                                       "mean_test_mean_absolute_percentage_error", "mean_train_mean_absolute_percentage_error"]]
+                                                                       "mean_test_mean_absolute_error", "mean_train_mean_absolute_error"]]
 
         except KeyError as e:
-            print(f"\033[91mScorings not found. Error: {e}")
-
-        finally:
-            with open(f"./ops/{road_category}_{model_name}_grid_params_and_results.json") as dumper:
-                json.dump(dict(gridsearch.cv_results_), dumper, indent=4) #TODO FOR TESTING PURPOSES
+            print(f"\033[91mScoring not found. Error: {e}")
 
 
         print(f"============== {model_name} grid search results ==============\n")
