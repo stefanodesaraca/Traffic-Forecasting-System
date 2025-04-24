@@ -117,7 +117,7 @@ def clean_data(functionality: str) -> None:
         cleaner = TrafficVolumesCleaner()
 
         for file in traffic_volumes_file_list:
-            cleaner.execute_cleaning(traffic_volumes_folder + file)
+            if file.endswith(".DS_Store") is not True: cleaner.execute_cleaning(traffic_volumes_folder + file)
 
     elif functionality == "5.6.2":
 
@@ -127,7 +127,7 @@ def clean_data(functionality: str) -> None:
         cleaner = AverageSpeedCleaner()
 
         for file in average_speed_file_list:
-            cleaner.execute_cleaning(file_path=average_speed_folder + file, file_name=file)
+            if file.endswith(".DS_Store") is not True: cleaner.execute_cleaning(file_path=average_speed_folder + file, file_name=file)
 
     return None
 

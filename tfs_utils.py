@@ -195,10 +195,10 @@ def get_raw_traffic_volume_file_list() -> list:
 
 
 def import_volumes_data(file):
-    '''
+    """
     This function returns json traffic volumes data about a specific TRP
-    '''
-    with open(file, "r") as f: data = json.load(f)
+    """
+    with open(file, "r", encoding="utf-8") as f: data = json.load(f)
     return data
 
 

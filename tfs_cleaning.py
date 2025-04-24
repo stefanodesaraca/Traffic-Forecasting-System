@@ -426,7 +426,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
 
     def cleaning_pipeline(self, volumes_file_path: str) -> None:
-
+        print(volumes_file_path)
         volumes = import_volumes_data(volumes_file_path)
         trp_id = volumes["trafficData"]["trafficRegistrationPoint"]["id"]
 
