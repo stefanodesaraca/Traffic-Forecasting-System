@@ -22,8 +22,6 @@ from dask_ml.model_selection import GridSearchCV
 
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_absolute_error, root_mean_squared_error, PredictionErrorDisplay
-from sklearn.tree import DecisionTreeClassifier
-from sklego.meta import ZeroInflatedRegressor
 
 
 simplefilter(action='ignore', category=FutureWarning)
@@ -84,14 +82,14 @@ class BaseLearner:
         n_rows = volumes_preprocessed.shape[0].compute()
         p_70 = int(n_rows * 0.70)
 
-        X_train = X.head(p_70)
-        X_test = X.tail(len(X) - p_70)
+        X_train = dd.from_pandas(X.head(p_70)).persist()
+        X_test = dd.from_pandas(X.tail(len(X) - p_70)).persist()
 
         #print(X_train.head(10))
         #print(X_test.head(10))
 
-        y_train = y.head(p_70)
-        y_test = y.tail(len(y) - p_70)
+        y_train = dd.from_pandas(y.head(p_70)).persist()
+        y_test = dd.from_pandas(y.tail(len(y) - p_70)).persist()
 
         #print(y_train.head(10))
         #print(y_test.head(10))
@@ -169,9 +167,7 @@ class BaseLearner:
         true_best_parameters["best_GridSearchCV_model_index"] = best_parameters_by_model[model_name]
         true_best_parameters["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_parameters_by_model[model_name]].to_dict() #to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
-
         print(f"True best parameters for {model_name}: ", true_best_parameters, "\n")
-
 
         with open(ml_parameters_folder_path + model_filename + ".json", "w") as parameters_file:
             json.dump(true_best_parameters, parameters_file, indent=4)
@@ -428,7 +424,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
     def pre_process_data(self, forecasting_target_datetime: datetime, X_test=None, y_test=None): #TODO REMOVE =None AFTER TESTING
 
-        forecasting_target_datetime = forecasting_target_datetime.strftime("%Y-%m-%d %H:%M:%S.%f")
+        forecasting_target_datetime = forecasting_target_datetime.strftime("%Y-%m-%dT%H")
 
         print(datetime.now().strftime(dt_format))
         print(forecasting_target_datetime)

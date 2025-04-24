@@ -46,7 +46,7 @@ class BaseCleaner:
 
         reg = None
         if r in self._regressor_types:
-            if r == "lasso": reg = Lasso(random_state=100) #Using Lasso regression (L1 Penalization) to get better results in case of non-informative columns present in the data (coverage data, because their values all the same)
+            if r == "lasso": reg = ZeroInflatedRegressor(regressor=Lasso(random_state=100, fit_intercept=True), classifier=DecisionTreeClassifier(random_state=100)) #Using Lasso regression (L1 Penalization) to get better results in case of non-informative columns present in the data (coverage data, because their values all the same)
             elif r == "gamma": reg = ZeroInflatedRegressor(regressor=GammaRegressor(fit_intercept=True, verbose=0), classifier=DecisionTreeClassifier(random_state=100)) #Using Gamma regression to address for the zeros present in the data (which will need to be predicted as well)
             elif r == "quantile": reg = ZeroInflatedRegressor(regressor=QuantileRegressor(fit_intercept=True), classifier=DecisionTreeClassifier(random_state=100))
 

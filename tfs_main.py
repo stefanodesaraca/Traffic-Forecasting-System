@@ -14,7 +14,7 @@ import math
 import dask.distributed
 from dask.distributed import Client, LocalCluster
 
-
+dt_iso_format = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 def manage_ops(functionality: str) -> None:
 
@@ -62,6 +62,19 @@ def download_data(functionality: str) -> None:
 
         time_start += ":00:00.000Z"
         time_end += ":00:00.000Z"
+
+        update_metainfo(time_start, ["traffic_volumes", "start_date_iso"], mode="equals")
+        update_metainfo(time_end, ["traffic_volumes", "end_date_iso"], mode="equals")
+
+        update_metainfo(datetime.strptime(time_start, dt_iso_format).strftime("Y"), ["traffic_volumes", "start_year"], mode="equals")
+        update_metainfo(datetime.strptime(time_start, dt_iso_format).strftime("m"), ["traffic_volumes", "start_month"], mode="equals")
+        update_metainfo(datetime.strptime(time_start, dt_iso_format).strftime("d"), ["traffic_volumes", "start_day"], mode="equals")
+        update_metainfo(datetime.strptime(time_start, dt_iso_format).strftime("H"), ["traffic_volumes", "start_hour"], mode="equals")
+
+        update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("Y"), ["traffic_volumes", "end_year"], mode="equals")
+        update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("m"), ["traffic_volumes", "end_month"], mode="equals")
+        update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("d"), ["traffic_volumes", "end_day"], mode="equals")
+        update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("H"), ["traffic_volumes", "end_hour"], mode="equals")
 
         print("Downloading traffic volumes data for every measurement point for the active operation...")
         ops_name = get_active_ops()
