@@ -24,3 +24,4 @@ joblib
 geopy
 folium
 scikit-lego
+aiofiles
