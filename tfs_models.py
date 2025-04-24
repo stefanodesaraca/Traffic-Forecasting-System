@@ -41,17 +41,17 @@ def get_histgradientboosting_regressor() -> HistGradientBoostingRegressor:
 
 volumes_models_gridsearch_parameters = {
     "RandomForestRegressor": {
-        "n_estimators": [25, 40, 50, 70],
-        "max_depth": [None, 3, 5, 10],
+        "n_estimators": [100, 200, 300],
+        "max_depth": [None],
         "criterion": ["squared_error", "friedman_mse"],
         "ccp_alpha": [0] #ccp_alpha = 1 overfits
     },
     "DecisionTreeRegressor": {
-        "max_depth": [None, 2, 3, 5]
+        "max_depth": [None, 10, 20, 30]
     },
     "HistGradientBoostingRegressor": {
-        "max_iter": [50, 70],
-        "max_depth": [3, 5],
+        "max_iter": [100, 200, 300],
+        "max_depth": [None, 10, 20],
         "loss": ["squared_error", "absolute_error"],
         "validation_fraction": [0.25],
         "n_iter_no_change": [5, 10],

@@ -76,6 +76,16 @@ def download_data(functionality: str) -> None:
         update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("d"), ["traffic_volumes", "end_day"], mode="equals")
         update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("H"), ["traffic_volumes", "end_hour"], mode="equals")
 
+        days_delta = (datetime.strptime(time_end, dt_iso_format).isoformat() - datetime.strptime(time_start, dt_iso_format).isoformat()).days
+        months_delta = (datetime.strptime(time_end, dt_iso_format).isoformat() - datetime.strptime(time_start, dt_iso_format).isoformat()).months
+        years_delta = (datetime.strptime(time_end, dt_iso_format).isoformat() - datetime.strptime(time_start, dt_iso_format).isoformat()).years
+        weeks_delta = (datetime.strptime(time_end, dt_iso_format).isoformat() - datetime.strptime(time_start, dt_iso_format).isoformat()).weeks
+
+        update_metainfo(days_delta, ["traffic_volumes", "n_days"], mode="equals")
+        update_metainfo(months_delta, ["traffic_volumes", "n_months"], mode="equals")
+        update_metainfo(years_delta, ["traffic_volumes", "n_years"], mode="equals")
+        update_metainfo(weeks_delta, ["traffic_volumes", "n_weeks"], mode="equals")
+
         print("Downloading traffic volumes data for every measurement point for the active operation...")
         ops_name = get_active_ops()
         traffic_volumes_data_to_json(ops_name, time_start=time_start, time_end=time_end)
