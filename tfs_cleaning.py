@@ -1,5 +1,3 @@
-from sympy.physics.units import radian
-
 from tfs_utils import *
 import numpy as np
 import json
@@ -26,7 +24,7 @@ class BaseCleaner:
         self._cwd = os.getcwd()
         self._ops_folder = "ops"
         self._ops_name = get_active_ops()
-        self._regressor_types = ["linear_l1", "gamma", "quantile"]
+        self._regressor_types = ["lasso", "gamma", "quantile"]
 
     #General definition of the data_overview() function. This will take two different forms: the traffic volumes one and the average speed one.
     #Thus, the generic "data" parameter will become the volumes_data or the avg_speed_data one
@@ -36,7 +34,7 @@ class BaseCleaner:
 
 
     #Executing multiple imputation to get rid of NaNs using the MICE method (Multiple Imputation by Chained Equations)
-    def impute_missing_values(self, data: pd.DataFrame, r: str = "linear_l1") -> pd.DataFrame: #TODO TO CHANGE INTO dd.DataFrame
+    def impute_missing_values(self, data: pd.DataFrame, r: str = "lasso") -> pd.DataFrame: #TODO TO CHANGE INTO dd.DataFrame
         """
         This function should only be supplied with numerical columns-only dataframes
 
@@ -48,7 +46,7 @@ class BaseCleaner:
 
         reg = None
         if r in self._regressor_types:
-            if r == "linear_l1": reg = Lasso(random_state=100) #Using Lasso regression (L1 Penalization) to get better results in case of non-informative columns present in the data (coverage data, because their values all the same)
+            if r == "lasso": reg = Lasso(random_state=100) #Using Lasso regression (L1 Penalization) to get better results in case of non-informative columns present in the data (coverage data, because their values all the same)
             elif r == "gamma": reg = ZeroInflatedRegressor(regressor=GammaRegressor(fit_intercept=True, verbose=0), classifier=DecisionTreeClassifier(random_state=100)) #Using Gamma regression to address for the zeros present in the data (which will need to be predicted as well)
             elif r == "quantile": reg = ZeroInflatedRegressor(regressor=QuantileRegressor(fit_intercept=True), classifier=DecisionTreeClassifier(random_state=100))
 
@@ -160,6 +158,9 @@ class TrafficVolumesCleaner(BaseCleaner):
             return None
 
         else:
+
+            update_metainfo(trp_id, ["common", "non_empty_volumes_trps"], mode="append")
+
             # ------------------ Finding the number of lanes available for the TRP taken into consideration ------------------
 
             lane_sample_node = nodes[0]["node"]["byLane"]
@@ -371,7 +372,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         try:
             cleaner = BaseCleaner()
-            by_hour_df = cleaner.impute_missing_values(by_hour_df.drop(non_mice_columns.columns, axis=1), r="gamma") #Don't use gamma regression since, apparently it can't handle zeros
+            by_hour_df = cleaner.impute_missing_values(by_hour_df.drop(non_mice_columns.columns, axis=1), r="gamma")  #Don't use gamma regression since, apparently it can't handle zeros
 
             for nm_col in non_mice_columns.columns:
                 by_hour_df[nm_col] = non_mice_columns[nm_col]
@@ -460,11 +461,13 @@ class AverageSpeedCleaner(BaseCleaner):
         super().__init__()
 
 
-    def clean_avg_speed_data(self, avg_speed_data: pd.DataFrame) -> tuple[pd.DataFrame, str, str, str] | None: #TODO TO CHANGE IN dd.DataFrame
-
-        #TODO ADDRESS FOR TOTALLY EMPTY FILES CASE (MICE)
+    @staticmethod
+    def clean_avg_speed_data(avg_speed_data: pd.DataFrame) -> tuple[pd.DataFrame, str, str, str] | None: #TODO TO CHANGE IN dd.DataFrame
 
         trp_id = str(avg_speed_data["trp_id"].unique()[0]) #There'll be only one value since each file only represents the data for one TRP only
+
+        if len(avg_speed_data) > 0: update_metainfo(trp_id, ["common", "non_empty_avg_speed_trps"], mode="append") #And continue with the code execution...
+        else: return None #In case a file is completely empty we'll just return None and not insert its TRP into the "non_empty_avg_speed_trps" key of the metainfo file
 
         # Determining the days range of the data
         t_min = pd.to_datetime(avg_speed_data["date"]).min()
@@ -519,7 +522,7 @@ class AverageSpeedCleaner(BaseCleaner):
 
         try:
             cleaner = BaseCleaner()
-            avg_speed_data = cleaner.impute_missing_values(avg_speed_data)
+            avg_speed_data = cleaner.impute_missing_values(avg_speed_data, r="gamma")
             #print("Multiple imputation on average speed data executed successfully\n\n")
 
             #print(avg_speed_data.isna().sum())
@@ -527,7 +530,7 @@ class AverageSpeedCleaner(BaseCleaner):
             print("Shape after MICE: ", avg_speed_data.shape, "\n\n")
 
         except ValueError as e:
-            print(f"\03391mValue error raised. Error: {e} Continuing with the cleaning\0330m")
+            print(f"\033[91mValue error raised. Error: {e} Continuing with the cleaning\033[0m")
             return None
 
         #Merging non MICE columns back into the MICEed dataframe
@@ -623,11 +626,15 @@ class AverageSpeedCleaner(BaseCleaner):
             #NOTE REMOVED trp_id = get_trp_id_from_filename(file_name) HERE
             #TODO IN THE FUTURE ADD THE UNIFIED data_overview() FUNCTION WHICH WILL PRINT A COMMON DATA OVERVIEW FOR BOTH TRAFFIC VOLUMES DATA AND AVERAGE SPEED ONE
 
-            average_speed_data, trp_id, t_max, t_min = self.clean_avg_speed_data(average_speed_data)
-            self.export_clean_avg_speed_data(average_speed_data, trp_id, t_max, t_min)
-            return None
-        except IndexError:
-            print(f"\033091mNo data available for file: {file_name}")
+            #Addressing for the empty files problem
+            if len(average_speed_data) > 0:
+                average_speed_data, trp_id, t_max, t_min = self.clean_avg_speed_data(average_speed_data)
+                self.export_clean_avg_speed_data(average_speed_data, trp_id, t_max, t_min)
+                return None
+            else:
+                return None
+        except IndexError as e:
+            print(f"\033[91mNo data available for file: {file_name}. Error: {e}\033[0m\n")
             return None
 
 

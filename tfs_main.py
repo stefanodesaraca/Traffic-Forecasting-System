@@ -73,7 +73,7 @@ def download_data(functionality: str) -> None:
             print("\033[91mDownload volumes data before writing metadata\033[0m")
             return None
 
-        print("Writing metadata files...")
+        print("Writing metadata files...\n")
         for trp_id in tqdm(trp_id_list): write_trp_metadata(trp_id)
         print("Metadata files successfully written\n\n")
 

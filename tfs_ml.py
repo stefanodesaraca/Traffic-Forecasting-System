@@ -32,13 +32,13 @@ pd.set_option('display.max_columns', None)
 
 
 
-def sin_transformer(timeframe: int, data: [dd.Series | dd.DataFrame]) -> [dd.Series | dd.DataFrame]:
+def sin_transformer(timeframe: int, data: [dd.Series | dd.DataFrame]) -> dd.Series | dd.DataFrame:
     """
     The timeframe indicates a number of days
     """
     return np.sin(data * (2. * np.pi / timeframe))
 
-def cos_transformer(timeframe: int, data: [dd.Series | dd.DataFrame]) -> [dd.Series | dd.DataFrame]:
+def cos_transformer(timeframe: int, data: [dd.Series | dd.DataFrame]) -> dd.Series | dd.DataFrame:
     """
     The timeframe indicates a number of days
     """
@@ -185,7 +185,7 @@ class BaseLearner:
 
 
     @staticmethod
-    def train_model(X_train, y_train, target: str, model_name: str, road_category: str) -> None:
+    def train_model(X_train: dd.DataFrame, y_train: dd.DataFrame, target: str, model_name: str, road_category: str) -> None:
 
         # -------------- Filenames, etc. --------------
 
@@ -220,21 +220,18 @@ class BaseLearner:
 
         try:
             joblib.dump(model, models_folder_path + model_filename + ".joblib", protocol=pickle.HIGHEST_PROTOCOL)
-
             with open(models_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
                 pickle.dump(model, ml_pkl_file, protocol=pickle.HIGHEST_PROTOCOL)
+            return None
 
         except Exception as e:
             print(f"\033[91mCouldn't export trained model. Safely exited the program. Error: {e}\033[0m")
             exit(code=1)
 
-        print("\n\n")
-
-        return None
 
 
     @staticmethod
-    def test_model(X_test, y_test, target: str, model_name, road_category: str) -> None:
+    def test_model(X_test: dd.DataFrame, y_test: dd.DataFrame, target: str, model_name: str, road_category: str) -> None:
 
         ops_name = get_active_ops()
         ml_folder_path = get_ml_models_folder_path(target, road_category)
@@ -263,7 +260,7 @@ class BaseLearner:
 
 class TrafficVolumesLearner(BaseLearner):
 
-    def __init__(self, volumes_data: [dd.DataFrame | pd.DataFrame], client: Client):
+    def __init__(self, volumes_data: dd.DataFrame | pd.DataFrame, client: Client):
         super().__init__(client)
         self.volumes_data = volumes_data
 
@@ -319,7 +316,7 @@ class TrafficVolumesLearner(BaseLearner):
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
-        volumes = volumes.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1) #Keeping year and hour data
+        volumes = volumes.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist() #Keeping year and hour data
 
         #print("Volumes dataframe head: ")
         #print(volumes.head(5), "\n")
@@ -327,11 +324,9 @@ class TrafficVolumesLearner(BaseLearner):
         #print("Volumes dataframe tail: ")
         #print(volumes.tail(5), "\n")
 
-
-
         #print(volumes.compute().head(10))
 
-        return volumes.persist()
+        return volumes
 
 
 
