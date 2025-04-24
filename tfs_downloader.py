@@ -26,12 +26,11 @@ cwd = os.getcwd()
 # --------------------------------- GraphQL Client Start ---------------------------------
 
 
-def start_client():
+async def start_client():
     transport = AIOHTTPTransport(url="https://trafikkdata-api.atlas.vegvesen.no/")
     client = Client(transport=transport, fetch_schema_from_transport=True)
 
     return client
-
 
 
 # --------------------------------- GraphQL Queries Section (Data Fetching) ---------------------------------
@@ -300,11 +299,12 @@ def traffic_registration_points_to_json(ops_name: str):
 
 
 async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
-    client = start_client()
+    semaphore = asyncio.Semaphore(5)  # Limit to 5 concurrent tasks
     trps = import_TRPs_data()
     ids = [trp["id"] for trp in trps["trafficRegistrationPoints"]]
 
     async def download_trp_data(trp_id):
+        client = await start_client()
         volumes = {}
         pages_counter = 0
         end_cursor = None
@@ -315,7 +315,7 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
                     fetch_traffic_volumes_for_trp_id,
                     client, trp_id, time_start, time_end,
                     last_end_cursor=end_cursor,
-                    next_page_query=pages_counter > 0 #Boolean condition, so this can be either True or False
+                    next_page_query=pages_counter > 0
                 )
 
                 page_info = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]
@@ -335,10 +335,11 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
 
         return volumes
 
+
     async def process_trp(trp_id):
         volumes_data = await download_trp_data(trp_id)
-        folder_path = await asyncio.to_thread(read_metainfo_key, ["folder_paths", "data", "traffic_volumes", "path"])
 
+        folder_path = await asyncio.to_thread(read_metainfo_key, ["folder_paths", "data", "traffic_volumes", "path"])
         filename = f"{trp_id}_volumes_S{time_start[:18].replace(':', '_')}_E{time_end[:18].replace(':', '_')}.json"
         full_path = folder_path + filename
 
@@ -349,8 +350,12 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
         await asyncio.to_thread(update_metainfo, filename, ["traffic_volumes", "raw_filenames"], mode="append")
         await asyncio.to_thread(update_metainfo, full_path, ["traffic_volumes", "raw_filepaths"], mode="append")
 
-    #Run all downloads in parallel
-    await tqdm_asyncio.gather(*[process_trp(trp_id) for trp_id in ids])
+    async def limited_task(trp_id):
+            async with semaphore:
+                return await process_trp(trp_id)
+
+    #Run all downloads in parallel with a maximum of 5 processes at the same time
+    await asyncio.gather(*(limited_task(trp_id) for trp_id in ids))
 
     print("\n\n")
 

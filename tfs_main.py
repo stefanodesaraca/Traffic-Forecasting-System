@@ -12,6 +12,7 @@ from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 import pprint
 import math
+import asyncio
 import dask.distributed
 from dask.distributed import Client, LocalCluster
 
@@ -91,7 +92,7 @@ def download_data(functionality: str) -> None:
         update_metainfo(weeks_delta, ["traffic_volumes", "n_weeks"], mode="equals")
 
         print("Downloading traffic volumes data for every measurement point for the active operation...")
-        traffic_volumes_data_to_json(time_start=time_start, time_end=time_end)
+        asyncio.run(traffic_volumes_data_to_json(time_start=time_start, time_end=time_end))
 
     elif functionality == "2.3":
         trp_id_list = get_trp_id_list()
