@@ -395,7 +395,7 @@ def create_ops_folder(ops_name: str) -> None:
 
     write_metainfo(ops_name)
 
-    main_folders = [f"data", f"eda", f"rn_graph", f"ml"]
+    main_folders = ["data", "eda", "rn_graph", "ml"]
     data_subfolders = ["traffic_volumes", "average_speed", "travel_times", "trp_metadata"]
     data_sub_subfolders = ["raw", "clean"] #To isolate raw data from the clean one
     eda_subfolders = [f"{ops_name}_shapiro_wilk_test", f"{ops_name}_plots"]
@@ -418,7 +418,7 @@ def create_ops_folder(ops_name: str) -> None:
         data_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}/"
         os.makedirs(data_sub, exist_ok=True)
         metainfo["folder_paths"]["data"][dsf] = {"path": data_sub,
-                                                "subfolders": {}}
+                                                 "subfolders": {}}
 
         #Data sub-subfolders
         for dssf in data_sub_subfolders:

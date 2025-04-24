@@ -2,6 +2,8 @@ from gql import gql, Client
 from gql.transport.aiohttp import AIOHTTPTransport
 import json
 import os
+import asyncio
+import aiofiles
 from warnings import simplefilter
 import math
 import numpy as np
@@ -12,6 +14,7 @@ import pprint
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tfs_utils import *
+from tqdm.asyncio import tqdm_asyncio
 
 
 simplefilter("ignore")
@@ -296,76 +299,58 @@ def traffic_registration_points_to_json(ops_name: str):
     return None
 
 
-def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str):
-
+async def traffic_volumes_data_to_json(ops_name: str, time_start: str, time_end: str) -> None:
     client = start_client()
-
     trps = import_TRPs_data()
-    ids = []
+    ids = [trp["id"] for trp in trps["trafficRegistrationPoints"]]
 
-    trafficRegistrationPoints = trps["trafficRegistrationPoints"]
-
-    for trp in trafficRegistrationPoints:
-        ids.append(trp["id"])
-
-    #print(ids)
-
-
-    def download_trp_data(trp_id):
-
+    async def download_trp_data(trp_id):
         volumes = {}
-        query_result = {}
-
         pages_counter = 0
-        end_cursor = ""
+        end_cursor = None
 
-        while end_cursor is not None:
+        while True:
             try:
-                if pages_counter == 0:
-                    query_result = fetch_traffic_volumes_for_trp_id(client=client, traffic_registration_point=trp_id, time_start=time_start, time_end=time_end, last_end_cursor=None, next_page_query=False)
+                query_result = await asyncio.to_thread(
+                    fetch_traffic_volumes_for_trp_id,
+                    client, trp_id, time_start, time_end,
+                    last_end_cursor=end_cursor,
+                    next_page_query=pages_counter > 0 #Boolean condition, so this can be either True or False
+                )
 
-                    end_cursor = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]["endCursor"] if query_result["trafficData"]["volume"]["byHour"]["pageInfo"]["hasNextPage"] is True else None
-                    pages_counter += 1
-                    #print(end_cursor)
+                page_info = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]
+                end_cursor = page_info["endCursor"] if page_info["hasNextPage"] else None
+                pages_counter += 1
 
+                if pages_counter == 1:
                     volumes = query_result
-
-                elif pages_counter > 0:
-                    query_result = fetch_traffic_volumes_for_trp_id(client=client, traffic_registration_point=trp_id, time_start=time_start, time_end=time_end, last_end_cursor=end_cursor, next_page_query=True)
-
-                    end_cursor = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]["endCursor"] if query_result["trafficData"]["volume"]["byHour"]["pageInfo"]["hasNextPage"] is True else None
-                    pages_counter += 1
-                    #print(end_cursor)
-
+                else:
                     volumes["trafficData"]["volume"]["byHour"]["edges"].extend(query_result["trafficData"]["volume"]["byHour"]["edges"])
+
+                if end_cursor is None:
+                    break
 
             except TimeoutError:
                 continue
-                #This error shouldn't be a problem, but it's important to manage it well.
-                #The error gets raised in the fetch_traffic_volumes_for_trp_id() function, so the end cursor won't get updated. Thus, if a TimeoutError gets raised the program will just start downloading data from where it stopped before
-
-        #pprint.pprint(query_result)
 
         return volumes
 
-    elements = tqdm(ids)
-    for i in elements:
-        volumes_data = download_trp_data(i)
-        elements.set_postfix({f"writing data for TRP": i})
+    async def process_trp(trp_id):
+        volumes_data = await download_trp_data(trp_id)
+        folder_path = await asyncio.to_thread(read_metainfo_key, ["folder_paths", "data", "traffic_volumes", "path"])
 
-        folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
-        filename = f"{i}_volumes_S{time_start[:18].replace(':', '_')}_E{time_end[:18].replace(':', '_')}.json"
-        #Exporting traffic volumes to a json file, S stands for "Start" and E stands for "End". They represent the time frame in which the data was collected (for a specific traffic measurement point)
-        with open(folder_path + filename, "w") as tv_w:
-            json.dump(volumes_data, tv_w, indent=4)
+        filename = f"{trp_id}_volumes_S{time_start[:18].replace(':', '_')}_E{time_end[:18].replace(':', '_')}.json"
+        full_path = folder_path + filename
 
-        time.sleep(1)
+        async with aiofiles.open(full_path, "w") as f:
+            await f.write(json.dumps(volumes_data, indent=4))
 
-        write_trp_metadata(i)
-        #print("Data successfully written in memory\n")
+        await asyncio.to_thread(write_trp_metadata, trp_id)
+        await asyncio.to_thread(update_metainfo, filename, ["traffic_volumes", "raw_filenames"], mode="append")
+        await asyncio.to_thread(update_metainfo, full_path, ["traffic_volumes", "raw_filepaths"], mode="append")
 
-        update_metainfo(filename, ["traffic_volumes", "raw_filenames"], mode="append")
-        update_metainfo(folder_path + filename, ["traffic_volumes", "raw_filepaths"], mode="append")
+    #Run all downloads in parallel
+    await tqdm_asyncio.gather(*[process_trp(trp_id) for trp_id in ids])
 
     print("\n\n")
 
