@@ -8,6 +8,7 @@ from tfs_road_network import *
 import os
 import time
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 import pprint
 import math
@@ -15,6 +16,8 @@ import dask.distributed
 from dask.distributed import Client, LocalCluster
 
 dt_iso_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+
+
 
 def manage_ops(functionality: str) -> None:
 
@@ -56,7 +59,7 @@ def download_data(functionality: str) -> None:
         if check_datetime(time_start) is True and check_datetime(time_end) is True:
             pass
         else:
-            print("Wrong datetime format, try again with a correct one")
+            print("\033[91mWrong datetime format, try again with a correct one\033[0m")
             print("Returning to the main menu...\n\n")
             main()
 
@@ -66,20 +69,21 @@ def download_data(functionality: str) -> None:
         update_metainfo(time_start, ["traffic_volumes", "start_date_iso"], mode="equals")
         update_metainfo(time_end, ["traffic_volumes", "end_date_iso"], mode="equals")
 
-        update_metainfo(datetime.strptime(time_start, dt_iso_format).strftime("Y"), ["traffic_volumes", "start_year"], mode="equals")
-        update_metainfo(datetime.strptime(time_start, dt_iso_format).strftime("m"), ["traffic_volumes", "start_month"], mode="equals")
-        update_metainfo(datetime.strptime(time_start, dt_iso_format).strftime("d"), ["traffic_volumes", "start_day"], mode="equals")
-        update_metainfo(datetime.strptime(time_start, dt_iso_format).strftime("H"), ["traffic_volumes", "start_hour"], mode="equals")
+        update_metainfo(datetime.strptime(time_start, dt_iso_format).strftime("%Y"), ["traffic_volumes", "start_year"], mode="equals")
+        update_metainfo(datetime.strptime(time_start, dt_iso_format).strftime("%m"), ["traffic_volumes", "start_month"], mode="equals")
+        update_metainfo(datetime.strptime(time_start, dt_iso_format).strftime("%d"), ["traffic_volumes", "start_day"], mode="equals")
+        update_metainfo(datetime.strptime(time_start, dt_iso_format).strftime("%H"), ["traffic_volumes", "start_hour"], mode="equals")
 
-        update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("Y"), ["traffic_volumes", "end_year"], mode="equals")
-        update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("m"), ["traffic_volumes", "end_month"], mode="equals")
-        update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("d"), ["traffic_volumes", "end_day"], mode="equals")
-        update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("H"), ["traffic_volumes", "end_hour"], mode="equals")
+        update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("%Y"), ["traffic_volumes", "end_year"], mode="equals")
+        update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("%m"), ["traffic_volumes", "end_month"], mode="equals")
+        update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("%d"), ["traffic_volumes", "end_day"], mode="equals")
+        update_metainfo(datetime.strptime(time_end, dt_iso_format).strftime("%H"), ["traffic_volumes", "end_hour"], mode="equals")
 
-        days_delta = (datetime.strptime(time_end, dt_iso_format).isoformat() - datetime.strptime(time_start, dt_iso_format).isoformat()).days
-        months_delta = (datetime.strptime(time_end, dt_iso_format).isoformat() - datetime.strptime(time_start, dt_iso_format).isoformat()).months
-        years_delta = (datetime.strptime(time_end, dt_iso_format).isoformat() - datetime.strptime(time_start, dt_iso_format).isoformat()).years
-        weeks_delta = (datetime.strptime(time_end, dt_iso_format).isoformat() - datetime.strptime(time_start, dt_iso_format).isoformat()).weeks
+        relative_delta = relativedelta(datetime.strptime(time_end, dt_iso_format).date(), datetime.strptime(time_start, dt_iso_format).date())
+        days_delta = (datetime.strptime(time_end, dt_iso_format).date() - datetime.strptime(time_start, dt_iso_format).date()).days
+        years_delta = relative_delta.years
+        months_delta = relative_delta.months + (years_delta * 12)
+        weeks_delta = days_delta // 7
 
         update_metainfo(days_delta, ["traffic_volumes", "n_days"], mode="equals")
         update_metainfo(months_delta, ["traffic_volumes", "n_months"], mode="equals")
