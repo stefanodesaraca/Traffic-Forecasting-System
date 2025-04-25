@@ -106,7 +106,7 @@ async def download_data(functionality: str) -> None:
 
     return None
 
-
+#TODO ASYNCHRONIZE CLEANING AS WELL
 def clean_data(functionality: str) -> None:
 
     if functionality == "5.6.1":
@@ -176,7 +176,7 @@ def execute_eda() -> None:
 
     return None
 
-#TODO IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL
+#TODO IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL. EXPLICITELY PRINT THAT FILES METADATA IS NEEDED BEFORE EXECUTING THE WARMUP
 def execute_forecast_warmup(functionality: str) -> None:
 
     models = [m for m in model_names_and_functions.keys()]
@@ -185,8 +185,8 @@ def execute_forecast_warmup(functionality: str) -> None:
     trps = get_trp_id_list()
 
     #TRPs - Volumes files and road categories
-    trps_ids_volumes_by_road_category = {category: [retrieve_trp_clean_volumes_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_volumes_filepath_by_id(trp_id)) is False] for category in
-                                         get_all_available_road_categories()}
+    trps_ids_volumes_by_road_category = {category: [retrieve_trp_clean_volumes_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_volumes_filepath_by_id(trp_id)) is False]
+                                         for category in get_all_available_road_categories()}
     #The isdir() method is needed since there could be some cases where the volumes files are absent, but TRPs are included in the trps list, so if there isn't on we'll just obtain the path for the clean volumes files folder. Thus, if the string is a path to a folder then don't include it in the trps_ids_by_road_category
     #pprint.pprint(trps_ids_by_road_category)
 

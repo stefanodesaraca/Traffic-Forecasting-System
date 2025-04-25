@@ -67,9 +67,9 @@ def get_trp_road_category(trp_id: str) -> str:
 
 
 def get_traffic_registration_points_file_path() -> str:
-    '''
+    """
     This function returns the path to the traffic_measurement_points.json file which contains all TRPs' data (downloaded previously)
-    '''
+    """
     ops_name = get_active_ops()
     traffic_registration_points_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_registration_points.json"
     return traffic_registration_points_path
@@ -79,6 +79,7 @@ def get_trp_metadata(trp_id: str) -> dict:
 
     ops_name = get_active_ops()
     trp_metadata_file = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata.json"
+    #assert os.path.isfile(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata.json") is True, f"Metadata file for TRP: {trp_id} missing"
     with open(trp_metadata_file, "r") as json_trp_metadata: trp_metadata = json.load(json_trp_metadata)
 
     return trp_metadata
@@ -162,28 +163,27 @@ def retrieve_trp_clean_average_speed_filepath_by_id(trp_id: str):
 # ==================== Volumes Utilities ====================
 
 def get_raw_traffic_volumes_folder_path() -> str:
-    '''
+    """
     This function returns the path to the raw_traffic_volumes folder where all the raw traffic volume files are located
-    '''
+    """
     ops_name = get_active_ops()
     raw_traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
     return raw_traffic_volumes_folder_path
 
 
 def get_clean_traffic_volumes_folder_path() -> str:
-    '''
+    """
     This function returns the path for the clean_traffic_volumes folder where all the cleaned traffic volumes data files are located
-    '''
+    """
     ops_name = get_active_ops()
     clean_traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/"
     return clean_traffic_volumes_folder_path
 
 
 def get_raw_traffic_volume_file_list() -> list:
-    '''
+    """
     This function returns the name of every file contained in the raw_traffic_volumes folder, so every specific TRP's volumes
-    '''
-
+    """
     ops_name = get_active_ops()
     traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
 
@@ -213,25 +213,24 @@ def get_clean_volume_files_list() -> list:
 
 
 def merge_volumes_data(trp_filepaths_list: list, road_category: str) -> dd.DataFrame:
-
-    dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
-    merged_data = dd.concat(dataframes_list, axis=0)
-    merged_data = merged_data.repartition(partition_size="512MB")
-    merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
-    merged_data = merged_data.persist()
-    #print(merged_data.head(10))
-    #print(merged_data.dtypes)
-    print(f"Shape of the merged volumes data for road category {road_category}: ", (merged_data.shape[0].compute(), merged_data.shape[1]))
-
-    return merged_data
-
+    try:
+        dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
+        merged_data = dd.concat(dataframes_list, axis=0)
+        merged_data = merged_data.repartition(partition_size="512MB")
+        merged_data = merged_data.sort_values(["date"], ascending=True) #Sorting records by date
+        merged_data = merged_data.persist()
+        print(f"Shape of the merged volumes data for road category {road_category}: ", (merged_data.shape[0].compute(), merged_data.shape[1]))
+        return merged_data
+    except ValueError as e:
+        print(f"\033[91mNo data to concatenate. Error: {e}")
+        exit(code=-1)
 
 # ==================== Average Speed Utilities ====================
 
 def get_raw_average_speed_folder_path() -> str:
-    '''
+    """
     This function returns the path for the raw_average_speed folder where all the average speed files are located. Each file contains the average speeds for one TRP
-    '''
+    """
     ops_name = get_active_ops()
     average_speed_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/"
 
@@ -239,18 +238,18 @@ def get_raw_average_speed_folder_path() -> str:
 
 
 def get_clean_average_speed_folder_path() -> str:
-    '''
+    """
     This function returns the path for the clean_average_speed folder where all the cleaned average speed data files are located
-    '''
+    """
     ops_name = get_active_ops()
     clean_average_speed_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/clean_average_speed/"
     return clean_average_speed_folder_path
 
 
 def get_raw_avg_speed_file_list() -> list:
-    '''
+    """
     This function returns the name of every file contained in the raw_average_speed folder
-    '''
+    """
     ops_name = get_active_ops()
     average_speed_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/"
 
