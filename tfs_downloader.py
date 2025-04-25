@@ -1,4 +1,5 @@
 from gql import gql, Client
+from gql.transport.exceptions import TransportServerError
 from gql.transport.aiohttp import AIOHTTPTransport
 import json
 import os
@@ -335,6 +336,8 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
                     break
 
             except TimeoutError:
+                continue
+            except TransportServerError: #If error code is 503: Service Unavailable
                 continue
 
         return volumes
