@@ -127,7 +127,8 @@ def clean_data(functionality: str) -> None:
         cleaner = AverageSpeedCleaner()
 
         for file in average_speed_file_list:
-            if file.endswith(".DS_Store") is not True: cleaner.execute_cleaning(file_path=average_speed_folder + file, file_name=file)
+            if file.endswith(".DS_Store") is not True: cleaner.execute_cleaning(
+                file_path=average_speed_folder + file, file_name=file)
 
     return None
 
@@ -320,6 +321,11 @@ def execute_forecast_warmup(functionality: str) -> None:
 
 
 
+
+
+
+
+
 def execute_forecasts(functionality: str) -> None:
 
     #We'll check if the target datetime exists before any forecasting operation could begin.
@@ -352,6 +358,11 @@ def execute_forecasts(functionality: str) -> None:
             main()
 
     return None
+
+
+
+
+
 
 
 

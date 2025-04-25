@@ -616,10 +616,10 @@ class AverageSpeedCleaner(BaseCleaner):
 
 
     def execute_cleaning(self, file_path, file_name) -> None:
-        '''
+        """
         The avg_speed_file_path parameter is the path to the average speed file the user wants to analyze
         The avg_speed_file_name parameter is just the name of the file, needed for secondary purposes or functionalities
-        '''
+        """
 
         try:
             average_speed_data = import_avg_speed_data(file_path=file_path)

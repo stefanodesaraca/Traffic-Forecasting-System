@@ -262,9 +262,9 @@ def get_raw_avg_speed_file_list() -> list:
 
 
 def import_avg_speed_data(file_path: str) -> pd.DataFrame:
-    '''
+    """
     This function returns the average speed data for a specific TRP
-    '''
+    """
     data = pd.read_csv(file_path, sep=";", engine="c")
     return data
 
@@ -274,13 +274,16 @@ def get_clean_average_speed_files_list() -> list:
 
 
 def merge_avg_speed_data(trp_filepaths_list: list) -> dd.DataFrame:
+    try:
+        dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
+        merged_data = dd.concat(dataframes_list, axis=0)
+        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
+        merged_data = merged_data.persist()
+        return merged_data
+    except ValueError as e:
+        print(f"\033[91mNo data to concatenate. Error: {e}")
+        exit(code=-1)
 
-    dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
-    merged_data = dd.concat(dataframes_list, axis=0)
-    merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
-    merged_data = merged_data.persist()
-
-    return merged_data
 
 
 # ==================== ML Related Utilities ====================
@@ -741,10 +744,6 @@ def clean_text(text: str) -> str:
     text = text.replace(" ", "_")
     text = text.lower()
     return text
-
-
-def slice_by_time(data: dd.DataFrame, time_start: str, time_end: str) -> dd.DataFrame:
-    return data[data["date"] >= time_start and data["date"] <= time_end].persist()
 
 
 # ==================== *** Road Network Utilities *** ====================

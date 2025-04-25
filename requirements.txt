@@ -2,15 +2,15 @@ numpy
 pandas
 matplotlib
 seaborn
-scikit-learn
-dask
-dask-ml
+scikit-learn >= 1.6.1
+dask >= 2025.3.0
+dask-ml >= 2025.1.0
 plotly
-networkx
-pydantic
+networkx >= 3.4.2
+pydantic >= 2.10.3
 scipy
 statsmodels
-gql
+gql >= 3.5.2
 geojson
 geopandas
 fiona
@@ -23,5 +23,6 @@ unidecode
 joblib
 geopy
 folium
-scikit-lego
+scikit-lego >= 0.9.1
 aiofiles
+dateutil
