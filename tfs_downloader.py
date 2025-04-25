@@ -42,7 +42,7 @@ async def start_client_async():
 
 
 #The number 3 indicates the Oslo og Viken county, which only includes the Oslo municipality
-def fetch_traffic_registration_points(client: Client):
+async def fetch_traffic_registration_points(client: Client):
 
     tmp_query = gql(
         '''
@@ -103,7 +103,7 @@ def fetch_traffic_registration_points(client: Client):
         }
         ''')
 
-    traffic_registration_points = client.execute(tmp_query)
+    traffic_registration_points = await client.execute_async(tmp_query)
 
     return traffic_registration_points
 
@@ -286,19 +286,18 @@ def fetch_areas(client: Client):
 # --------------------------------- JSON Writing Section ---------------------------------
 
 
-def traffic_registration_points_to_json(ops_name: str):
+async def traffic_registration_points_to_json(ops_name: str):
     """
     The _ops_name parameter is needed to identify the operation where the data needs to be downloaded.
     This implies that the same data can be downloaded multiple times, but downloaded into different operation folders,
     so reducing the risk of data loss or corruption in case of malfunctions.
     """
 
-    client = start_client()
+    client = await start_client_async()
+    TRPs = await fetch_traffic_registration_points(client)
 
-    TMPs = fetch_traffic_registration_points(client)
-
-    with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_registration_points.json", "w") as tmps_w:
-        json.dump(TMPs, tmps_w, indent=4)
+    async with aiofiles.open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_registration_points.json", "w") as trps_w:
+        await trps_w.write(json.dumps(TRPs, indent=4))
 
     return None
 

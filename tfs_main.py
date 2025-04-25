@@ -45,12 +45,12 @@ async def download_data(functionality: str) -> None:
 
     if functionality == "2.1":
         try:
-            print("\nDownloading traffic measurement points information for the active operation...")
+            print("\nDownloading traffic registration points information for the active operation...")
             ops_name = get_active_ops()
-            traffic_registration_points_to_json(ops_name)
-            print("Traffic measurement points information downloaded successfully\n\n")
+            await traffic_registration_points_to_json(ops_name)
+            print("Traffic registration points information downloaded successfully\n\n")
         except Exception as e:
-            print(f"\033[91mCouldn't download traffic measurement points information for the active operation. Error: {e}\033[0m")
+            print(f"\033[91mCouldn't download traffic registration points information for the active operation. Error: {e}\033[0m")
             exit(code=1)
 
     elif functionality == "2.2":
@@ -91,7 +91,7 @@ async def download_data(functionality: str) -> None:
         await update_metainfo_async(years_delta, ["traffic_volumes", "n_years"], mode="equals")
         await update_metainfo_async(weeks_delta, ["traffic_volumes", "n_weeks"], mode="equals")
 
-        print("Downloading traffic volumes data for every measurement point for the active operation...")
+        print("Downloading traffic volumes data for every registration point for the active operation...")
         await traffic_volumes_data_to_json(time_start=time_start, time_end=time_end)
 
     elif functionality == "2.3":
