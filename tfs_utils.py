@@ -11,6 +11,7 @@ from geopandas import GeoDataFrame
 import pprint
 import asyncio
 import aiofiles
+from functools import lru_cache
 
 pd.set_option("display.max_columns", None)
 
@@ -27,18 +28,19 @@ metainfo_lock = asyncio.Lock()
 
 # ==================== TRP Utilities ====================
 
+@lru_cache()
 def import_TRPs_data():
-    '''
+    """
     This function returns json data about all TRPs (downloaded previously)
-    '''
+    """
     assert os.path.isfile(get_traffic_registration_points_file_path()) is True, "Traffic registration points file missing"
     traffic_registration_points_path = get_traffic_registration_points_file_path()
-    with open(traffic_registration_points_path, "r") as TRPs:
-        trp_info = json.load(TRPs)
+    with open(traffic_registration_points_path, "r") as TRPs: trp_info = json.load(TRPs)
 
     return trp_info
 
 #TODO IMPROVE THIS FUNCTION, AND SET THAT THIS RETURNS A LIST OF str
+@lru_cache()
 def get_trp_id_list() -> list[str]:
 
     trp_info = import_TRPs_data()
@@ -202,16 +204,6 @@ def import_volumes_data(file):
     return data
 
 
-def get_clean_volume_files_list() -> list:
-
-    clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
-
-    clean_traffic_volumes = [clean_traffic_volumes_folder_path + vf for vf in os.listdir(get_clean_traffic_volumes_folder_path())]
-    print("Clean traffic volumes files: ", clean_traffic_volumes)
-
-    return clean_traffic_volumes
-
-
 def merge_volumes_data(trp_filepaths_list: list, road_category: str) -> dd.DataFrame:
     try:
         dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
@@ -224,6 +216,7 @@ def merge_volumes_data(trp_filepaths_list: list, road_category: str) -> dd.DataF
     except ValueError as e:
         print(f"\033[91mNo data to concatenate. Error: {e}")
         exit(code=-1)
+
 
 # ==================== Average Speed Utilities ====================
 
@@ -376,6 +369,7 @@ def write_active_ops_file(ops_name: str) -> None:
 
 
 #Reading operations file, it indicates which road network we're taking into consideration
+@lru_cache()
 def get_active_ops():
     try:
         with open(f"{active_ops_filename}.txt", "r") as ops_file: op = ops_file.read()
@@ -384,7 +378,7 @@ def get_active_ops():
         print("\033[91mOperations file not found\033[0m")
         exit(code=1)
 
-
+#TODO TO IMPLEMENT
 def del_active_ops_file() -> None:
     try:
         os.remove(f"{active_ops_filename}.txt")
@@ -476,7 +470,7 @@ def create_ops_folder(ops_name: str) -> None:
 
     return None
 
-
+#TODO TO IMPLEMENT
 def del_ops_folder(ops_name: str) -> None:
     try:
         os.rmdir(ops_name)
@@ -694,6 +688,7 @@ def get_shapiro_wilk_plots_path() -> str:
     return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_shapiro_wilk_test/"
 
 
+@lru_cache()
 def get_eda_plots_folder_path(sub: str = None) -> str:
 
     ops_name = get_active_ops()

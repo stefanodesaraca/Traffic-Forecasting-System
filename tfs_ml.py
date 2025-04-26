@@ -13,6 +13,9 @@ from tqdm import tqdm
 from scipy import stats
 from scipy.special import softmax
 import time
+import gc
+import numba
+from functools import lru_cache
 
 from dask.distributed import Client
 import joblib
@@ -30,21 +33,23 @@ pd.set_option('display.max_columns', None)
 
 
 
-def sin_transformer(timeframe: int, data: [dd.Series | dd.DataFrame]) -> dd.Series | dd.DataFrame:
+def sin_transformer(timeframe: int, data: dd.Series | dd.DataFrame) -> dd.Series | dd.DataFrame:
     """
     The timeframe indicates a number of days
     """
     return np.sin(data * (2. * np.pi / timeframe))
 
-def cos_transformer(timeframe: int, data: [dd.Series | dd.DataFrame]) -> dd.Series | dd.DataFrame:
+
+def cos_transformer(timeframe: int, data: dd.Series | dd.DataFrame) -> dd.Series | dd.DataFrame:
     """
     The timeframe indicates a number of days
     """
     return np.cos((data-1)*(2.*np.pi/timeframe))
 
+
 def retrieve_n_ml_cpus() -> int:
     n_cpu = os.cpu_count()
-    ml_dedicated_cores = int(n_cpu * 0.80)  #To avoid crashing while executing parallel computing in the GridSearchCV algorithm
+    ml_dedicated_cores = int(n_cpu * 0.90)  #To avoid crashing while executing parallel computing in the GridSearchCV algorithm
     return ml_dedicated_cores
 
 
@@ -172,6 +177,8 @@ class BaseLearner:
         with open(ml_parameters_folder_path + model_filename + ".json", "w") as parameters_file:
             json.dump(true_best_parameters, parameters_file, indent=4)
 
+        gc.collect()
+
         return None
 
 
@@ -294,9 +301,13 @@ class TrafficVolumesLearner(BaseLearner):
 
         #------------------ Creating lag features ------------------
 
-        lag_column_names = ["volumes_lag1", "volumes_lag2", "volumes_lag3", "volumes_lag4", "volumes_lag5", "volumes_lag6", "volumes_lag7"]
+        lag6h_column_names = [f"volumes_lag6h_{i}" for i in range(1, 7)]
+        lag12h_column_names = [f"volumes_lag12h_{i}" for i in range(1, 7)]
+        lag24h_column_names = [f"volumes_lag24h_{i}" for i in range(1, 7)]
 
-        for idx, n in enumerate(lag_column_names): volumes[n] = volumes["volume"].shift(idx + 24) #24 hours shift
+        for idx, n in enumerate(lag6h_column_names): volumes[n] = volumes["volume"].shift(idx + 6) #24 hours shift
+        for idx, n in enumerate(lag12h_column_names): volumes[n] = volumes["volume"].shift(idx + 12) #24 hours shift
+        for idx, n in enumerate(lag24h_column_names): volumes[n] = volumes["volume"].shift(idx + 24) #24 hours shift #TODO IF THE TEST WITH MULTIPLE LAGS WORKS REPLICATE THAT ON AVG SPEED LAGS
 
         #print(volumes.head(10))
         #print(volumes.dtypes)

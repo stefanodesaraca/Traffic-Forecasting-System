@@ -5,7 +5,7 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, A
 
 def retrieve_n_ml_cpus() -> int:
     n_cpu = os.cpu_count()
-    ml_dedicated_cores = int(n_cpu * 0.70)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
+    ml_dedicated_cores = int(n_cpu * 0.90)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
     return ml_dedicated_cores
 
 
@@ -41,28 +41,28 @@ def get_histgradientboosting_regressor() -> HistGradientBoostingRegressor:
 
 volumes_models_gridsearch_parameters = {
     "RandomForestRegressor": {
-        "n_estimators": [100, 200, 300],
-        "max_depth": [None],
+        "n_estimators": [400, 600, 800, 1000],
+        "max_depth": [None, 30, 60], #TODO TO TRY: , 120, 200
         "criterion": ["squared_error", "friedman_mse"],
-        "ccp_alpha": [0] #ccp_alpha = 1 overfits
+        "ccp_alpha": [0, 0.002, 0.0002] #ccp_alpha = 1 overfits
     },
     "DecisionTreeRegressor": {
-        "max_depth": [None, 10, 20, 30]
+        "max_depth": [None, 100, 200] #TODO TO TRY: , 300
     },
     "HistGradientBoostingRegressor": {
-        "max_iter": [100, 200, 300],
-        "max_depth": [None, 10, 20],
+        "max_iter": [500, 1000, 1500],
+        "max_depth": [None, 50, 100], #TODO TO TRY: , 200
         "loss": ["squared_error", "absolute_error"],
         "validation_fraction": [0.25],
-        "n_iter_no_change": [5, 10],
-        "tol": [1e-4, 1e-3],
-        "l2_regularization": [0]
+        "n_iter_no_change": [20],
+        "tol": [1e-7, 1e-4, 1e-3],
+        "l2_regularization": [0, 0.001, 0.0001]
     }
 }
 
-volumes_best_parameters_by_model = {"RandomForestRegressor": 12,
-                                    "HistGradientBoostingRegressor": 26,
-                                    "DecisionTreeRegressor": 3} #TODO CHOOSE SPECIFIC HYPERPARAMETERS FOR EACH MODEL AND FOR EACH ROAD CATEOGRY TO MAXIMISE PREDICTIVE ACCURACY
+volumes_best_parameters_by_model = {"RandomForestRegressor": 1,
+                                    "HistGradientBoostingRegressor": 1,
+                                    "DecisionTreeRegressor": 1} #TODO CHOOSE SPECIFIC HYPERPARAMETERS FOR EACH MODEL AND FOR EACH ROAD CATEOGRY TO MAXIMISE PREDICTIVE ACCURACY
 
 
 
