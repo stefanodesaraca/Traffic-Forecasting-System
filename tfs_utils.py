@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import json
 import pandas as pd
@@ -12,16 +12,21 @@ import pprint
 import asyncio
 import aiofiles
 from functools import lru_cache
+from pydantic.types import PositiveInt
 
 pd.set_option("display.max_columns", None)
 
 
 cwd = os.getcwd()
 ops_folder = "ops"
+dt_iso_format = "%Y-%m-%dT%H:%M:%S.%fZ"
 dt_format = "%Y-%m-%dT%H"  #Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
 #In this case we'll only ask for the hour value since, for now, it's the maximum granularity for the predictions we're going to make
 metainfo_filename = "metainfo"
 target_data = ["V", "AS"]
+target_data_mapping = {"V": "traffic_volumes",
+                       "AS": "average_speeds"}
+default_max_forecasting_window_size = 14
 active_ops_filename = "active_ops"
 metainfo_lock = asyncio.Lock()
 
@@ -312,13 +317,25 @@ def get_ml_model_parameters_folder_path(target: str, road_category: str) -> str:
 
 #TODO FIND A WAY TO CHECK WHICH IS THE LAST DATETIME AVAILABLE FOR BOTH AVERAGE SPEED (CLEAN) AND TRAFFIC VOLUMES (CLEAN)
 
-def write_forecasting_target_datetime() -> None:
-
+def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = default_max_forecasting_window_size) -> None:
+    """
+    Parameters:
+        forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24
+    """
     assert os.path.isdir(get_clean_traffic_volumes_folder_path()), "Clean traffic volumes folder missing. Initialize an operation first and then set a forecasting target datetime"
     assert os.path.isdir(get_clean_average_speed_folder_path()), "Clean average speeds folder missing. Initialize an operation first and then set a forecasting target datetime"
 
+    max_forecasting_window_size = max(default_max_forecasting_window_size, forecasting_window_size)
+
     option = str(input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: "))
+    print("Maximum number of days to forecast: ", max_forecasting_window_size)
     dt = str(input("Insert Target Datetime (YYYY-MM-DDTHH): ")) #The month number must be zero-padded, for example: 01, 02, etc.
+
+    last_available_data_dt = read_metainfo_key(keys_map=[target_data_mapping[option], "end_date_iso"])
+    print("Latest data available: ", datetime.strptime(last_available_data_dt, dt_iso_format))
+
+    assert datetime.strptime(dt, dt_format) > datetime.strptime(last_available_data_dt, dt_iso_format), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"
+    assert (datetime.strptime(dt, dt_format) - datetime.strptime(last_available_data_dt, dt_iso_format)).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"
 
     if check_datetime(dt) is True and option in target_data:
         update_metainfo(value=dt, keys_map=["forecasting", "target_datetimes", option], mode="equals")

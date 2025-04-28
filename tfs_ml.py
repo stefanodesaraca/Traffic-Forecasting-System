@@ -434,6 +434,14 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
     def pre_process_data(self, forecasting_target_datetime: datetime, X_test=None, y_test=None): #TODO REMOVE =None AFTER TESTING
 
+        #The predictions will follow these rule:
+            # 1. For each datetime to forecast we'll extract (from the available data) a time window made by the previous 7 days
+            #    so we'll have data from the 14 days prior to the datetime to forecast
+            #    Example: If the datetime to forecast is: 2025-01-01T00 the time window to extract will be: 2025-01-01T00 - 7 days -> from 2024-12-24T00 to 2024-12-31T00
+
+        first_available_volumes_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "start_date_iso"])
+        last_available_volumes_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"])
+
         forecasting_target_datetime = forecasting_target_datetime.strftime("%Y-%m-%dT%H")
 
         print(datetime.now().strftime(dt_format))
