@@ -329,7 +329,7 @@ def write_forecasting_target_datetime() -> None:
             print("\033[91mWrong datetime format, try again\033[0m")
             exit(code=1)
         elif option not in target_data:
-            print("\033[91mWrong data forecasting target datetime, try again\033[0m")
+            print("\033[91mWrong data option, try again\033[0m")
             exit(code=1)
 
 
