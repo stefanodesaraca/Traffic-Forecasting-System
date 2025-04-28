@@ -325,7 +325,7 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
     assert os.path.isdir(get_clean_traffic_volumes_folder_path()), "Clean traffic volumes folder missing. Initialize an operation first and then set a forecasting target datetime"
     assert os.path.isdir(get_clean_average_speed_folder_path()), "Clean average speeds folder missing. Initialize an operation first and then set a forecasting target datetime"
 
-    max_forecasting_window_size = max(default_max_forecasting_window_size, forecasting_window_size)
+    max_forecasting_window_size = max(default_max_forecasting_window_size, forecasting_window_size) #The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
     option = str(input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: "))
     print("Maximum number of days to forecast: ", max_forecasting_window_size)
@@ -334,8 +334,10 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
     last_available_data_dt = read_metainfo_key(keys_map=[target_data_mapping[option], "end_date_iso"])
     print("Latest data available: ", datetime.strptime(last_available_data_dt, dt_iso_format))
 
-    assert datetime.strptime(dt, dt_format) > datetime.strptime(last_available_data_dt, dt_iso_format), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"
-    assert (datetime.strptime(dt, dt_format) - datetime.strptime(last_available_data_dt, dt_iso_format)).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"
+    forecasting_window_size = (datetime.strptime(dt, dt_format) - datetime.strptime(last_available_data_dt, dt_iso_format)).days #The number of days to forecast
+
+    assert datetime.strptime(dt, dt_format) > datetime.strptime(last_available_data_dt, dt_iso_format), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available" #Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
+    assert forecasting_window_size <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}" #Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
 
     if check_datetime(dt) is True and option in target_data:
         update_metainfo(value=dt, keys_map=["forecasting", "target_datetimes", option], mode="equals")
