@@ -459,10 +459,14 @@ class AverageSpeedCleaner(BaseCleaner):
 
     def __init__(self):
         super().__init__()
+        min_date: datetime.datetime | None = None
+        max_date: datetime.datetime | None = None
+
+        min_date = read_metainfo_key(keys_map=["average_speeds", "start_date_iso"])
+        max_date = read_metainfo_key(keys_map=["average_speeds", "end_date_iso"])
 
 
-    @staticmethod
-    def clean_avg_speed_data(avg_speed_data: pd.DataFrame) -> tuple[pd.DataFrame, str, str, str] | None: #TODO TO CHANGE IN dd.DataFrame
+    def clean_avg_speed_data(self, avg_speed_data: pd.DataFrame) -> tuple[pd.DataFrame, str, str, str] | None: #TODO TO CHANGE IN dd.DataFrame
 
         trp_id = str(avg_speed_data["trp_id"].unique()[0]) #There'll be only one value since each file only represents the data for one TRP only
 
@@ -471,11 +475,15 @@ class AverageSpeedCleaner(BaseCleaner):
 
         # Determining the days range of the data
         t_min = pd.to_datetime(avg_speed_data["date"]).min()
-        t_max = pd.to_datetime(avg_speed_data["date"].max())
+        t_max = pd.to_datetime(avg_speed_data["date"]).max()
 
         print("Registrations time-range: ")
         print("First day of data registration: ", t_min)
         print("Last day of data registration: ", t_max, "\n\n")
+
+        # TODO THE SAME WITH MAX DATE
+        if self.min_date > t_min: pass
+        else: update_metainfo(t_min, keys_map=["average_speeds", "start_date_iso"], mode="equals")
 
 
         avg_speed_data["coverage"] = avg_speed_data["coverage"].apply(lambda x: x.replace(",", ".")) #Replacing commas with dots
