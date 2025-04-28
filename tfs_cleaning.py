@@ -481,11 +481,9 @@ class AverageSpeedCleaner(BaseCleaner):
         print("First day of data registration: ", t_min)
         print("Last day of data registration: ", t_max, "\n\n")
 
-        if self.min_date > t_min:
-            pass
-        else:
-            update_metainfo() #TODO WITH THE NEW MIN AND MAX DATES
-
+        # TODO THE SAME WITH MAX DATE
+        if self.min_date > t_min: pass
+        else: update_metainfo(t_min, keys_map=["average_speeds", "start_date_iso"], mode="equals")
 
 
         avg_speed_data["coverage"] = avg_speed_data["coverage"].apply(lambda x: x.replace(",", ".")) #Replacing commas with dots
