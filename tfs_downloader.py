@@ -1,3 +1,5 @@
+from tfs_utils import *
+import numpy as np
 from gql import gql, Client
 from gql.transport.exceptions import TransportServerError
 from gql.transport.aiohttp import AIOHTTPTransport
@@ -7,13 +9,11 @@ import asyncio
 import aiofiles
 from warnings import simplefilter
 import math
-import numpy as np
 import sys
 from tqdm import tqdm, trange
 from collections import ChainMap
 import pprint
 import time
-from tfs_utils import *
 
 
 simplefilter("ignore")

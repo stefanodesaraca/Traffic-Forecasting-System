@@ -14,7 +14,6 @@ from scipy import stats
 from scipy.special import softmax
 import time
 import gc
-import numba
 from functools import lru_cache
 
 from dask.distributed import Client

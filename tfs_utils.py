@@ -690,18 +690,13 @@ def get_shapiro_wilk_plots_path() -> str:
 
 @lru_cache()
 def get_eda_plots_folder_path(sub: str = None) -> str:
-
     ops_name = get_active_ops()
-
     if sub == "volumes":
-        return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_plots/traffic_volumes_eda_plots/"
-
+        return read_metainfo_key(keys_map=["folder_paths", "eda", f"{ops_name}_plots", "traffic_volumes_eda_plots"])
     elif sub == "avg_speeds":
-        return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_plots/avg_speeds_eda_plots/"
-
+        return read_metainfo_key(keys_map=["folder_paths", "eda", f"{ops_name}_plots", "avg_speeds_eda_plots"])
     elif sub is None:
-        return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_plots/"
-
+        return read_metainfo_key(keys_map=["folder_paths", "eda", f"{ops_name}_plots"])
     else:
         raise Exception("Wrong plots path")
 
