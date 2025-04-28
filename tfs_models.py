@@ -41,22 +41,24 @@ def get_histgradientboosting_regressor() -> HistGradientBoostingRegressor:
 
 volumes_models_gridsearch_parameters = {
     "RandomForestRegressor": {
-        "n_estimators": [400, 600, 800, 1000],
-        "max_depth": [None, 30, 60], #TODO TO TRY: , 120, 200
-        "criterion": ["squared_error", "friedman_mse"],
-        "ccp_alpha": [0, 0.002, 0.0002] #ccp_alpha = 1 overfits
+        "n_estimators": [200, 400, 800],
+        "max_depth": [None, 10, 30], #NOTE 60 WORKS GOOD AS WELL
+        "criterion": ["friedman_mse"],
+        "ccp_alpha": [0, 0.0002, 0.00002] #ccp_alpha = 1 overfits
     },
     "DecisionTreeRegressor": {
-        "max_depth": [None, 100, 200] #TODO TO TRY: , 300
+        "criterion": ["squared_error", "friedman_mse"],
+        "max_depth": [None, 100, 200], #TODO TO TRY: , 300
+        "ccp_alpha": [0, 0.00002]
     },
     "HistGradientBoostingRegressor": {
-        "max_iter": [500, 1000, 1500],
-        "max_depth": [None, 50, 100], #TODO TO TRY: , 200
-        "loss": ["squared_error", "absolute_error"],
+        "max_iter": [500, 1500],
+        "max_depth": [None, 100], #TODO TO TRY: , 200
+        "loss": ["absolute_error"],
         "validation_fraction": [0.25],
         "n_iter_no_change": [20],
-        "tol": [1e-7, 1e-4, 1e-3],
-        "l2_regularization": [0, 0.001, 0.0001]
+        "tol": [1e-7, 1e-4, 1e-3], #NOTE 1e-3 WORKS GOOD AS WELL
+        "l2_regularization": [0.001, 0.0001]
     }
 }
 
