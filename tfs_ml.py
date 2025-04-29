@@ -32,14 +32,13 @@ pd.set_option('display.max_columns', None)
 
 
 
-def sin_transformer(timeframe: int, data: dd.Series | dd.DataFrame) -> dd.Series | dd.DataFrame:
+def sin_transformer(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
     """
     The timeframe indicates a number of days
     """
     return np.sin(data * (2. * np.pi / timeframe))
 
-
-def cos_transformer(timeframe: int, data: dd.Series | dd.DataFrame) -> dd.Series | dd.DataFrame:
+def cos_transformer(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
     """
     The timeframe indicates a number of days
     """
@@ -296,7 +295,7 @@ class TrafficVolumesLearner(BaseLearner):
         # ------------------ TRP ID Target-Encoding ------------------
 
         encoder = LabelEncoder(use_categorical=True)
-        volumes["trp_id_encoded"] = encoder.fit_transform(volumes["trp_id"])
+        volumes["trp_id_encoded"] = encoder.fit_transform(dd.Series(volumes["trp_id"]))
         print("Encoded:", volumes.head(10))
 
         # ------------------ Variables normalization ------------------
