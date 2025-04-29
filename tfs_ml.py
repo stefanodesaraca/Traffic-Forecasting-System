@@ -22,6 +22,7 @@ import joblib
 from dask_ml.preprocessing import MinMaxScaler
 from dask_ml.model_selection import GridSearchCV
 
+from sklearn.preprocessing import TargetEncoder
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_absolute_error, root_mean_squared_error, PredictionErrorDisplay
 
@@ -48,7 +49,8 @@ def cos_transformer(timeframe: int, data: dd.Series | dd.DataFrame) -> dd.Series
 
 def retrieve_n_ml_cpus() -> int:
     n_cpu = os.cpu_count()
-    ml_dedicated_cores = int(n_cpu * 0.90)  #To avoid crashing while executing parallel computing in the GridSearchCV algorithm
+    ml_dedicated_cores = int(n_cpu * 0.80)  #To avoid crashing while executing parallel computing in the GridSearchCV algorithm
+    #The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
     return ml_dedicated_cores
 
 

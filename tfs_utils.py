@@ -31,7 +31,14 @@ active_ops_filename = "active_ops"
 metainfo_lock = asyncio.Lock()
 
 
+#TODO CREATE AN import_single_trp_data FUNCTION WHICH GETS THE SINGLE TRP's DATA FROM THE by_trp dict IN METAINFO
+
 # ==================== TRP Utilities ====================
+
+@lru_cache()
+def find_file(folder_path, trp_id) -> str:
+    files = [file for file in os.listdir(folder_path) if trp_id in file]
+    return files[0] if files else ''
 
 @lru_cache()
 def import_TRPs_data():
@@ -96,7 +103,7 @@ def write_trp_metadata(trp_id: str) -> None:
 
     ops_name = get_active_ops()
     trps = import_TRPs_data()
-    trp_data = [i for i in trps["trafficRegistrationPoints"] if i["id"] == trp_id][0]
+    trp_data = [i for i in trps["trafficRegistrationPoints"] if i["id"] == trp_id][0] #TODO IMPROVE THIS PART HERE
 
     raw_volume_files_folder_path = get_raw_traffic_volumes_folder_path()
     raw_volume_files = get_raw_traffic_volume_file_list()
@@ -106,8 +113,8 @@ def write_trp_metadata(trp_id: str) -> None:
         trp_volumes_file = trp_volumes_file[0]
     else: return None
 
-
-    with open(raw_volume_files_folder_path + trp_volumes_file, "r") as f: volumes = json.load(f)
+    with open(raw_volume_files_folder_path + trp_volumes_file, "r") as f:
+        volumes = json.load(f)
 
     trp_metadata_filepath = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/"
     trp_metadata_filename = f"{trp_id}_metadata"
@@ -122,10 +129,10 @@ def write_trp_metadata(trp_id: str) -> None:
 
     metadata = {"trp_id": trp_data["id"],
                 "name": trp_data["name"],
-                "raw_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{[file for file in os.listdir(get_raw_traffic_volumes_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_raw_traffic_volumes_folder_path()) if trp_id in file]) != 0 else ''}",
-                "clean_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/{[file for file in os.listdir(get_clean_traffic_volumes_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_clean_traffic_volumes_folder_path()) if trp_id in file]) != 0 else ''}",
-                "raw_average_speed_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/{[file for file in os.listdir(get_raw_average_speed_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_raw_average_speed_folder_path()) if trp_id in file]) != 0 else ''}",
-                "clean_average_speed_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/clean_average_speed/{[file for file in os.listdir(get_clean_average_speed_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_clean_average_speed_folder_path()) if trp_id in file]) != 0 else ''}",
+                "raw_volumes_filepath": find_file(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"]), trp_id=trp_id),
+                "clean_volumes_filepath": find_file(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]), trp_id=trp_id),
+                "raw_average_speed_filepath": find_file(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]), trp_id=trp_id),
+                "clean_average_speed_filepath": find_file(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]), trp_id=trp_id),
                 "road_category": trp_data["location"]["roadReference"]["roadCategory"]["id"],
                 "lat": trp_data["location"]["coordinates"]["latLon"]["lat"],
                 "lon": trp_data["location"]["coordinates"]["latLon"]["lon"],

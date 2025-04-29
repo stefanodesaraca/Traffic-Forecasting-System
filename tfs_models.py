@@ -5,7 +5,8 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, A
 
 def retrieve_n_ml_cpus() -> int:
     n_cpu = os.cpu_count()
-    ml_dedicated_cores = int(n_cpu * 0.90)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
+    ml_dedicated_cores = int(n_cpu * 0.80) #To avoid crashing while executing parallel computing in the GridSearchCV algorithm.
+    #The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
     return ml_dedicated_cores
 
 

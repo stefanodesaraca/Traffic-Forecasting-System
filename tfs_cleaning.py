@@ -16,6 +16,8 @@ from sklego.meta import ZeroInflatedRegressor
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 
+dt_format = "%Y-%m-%dT%H"
+
 
 
 class BaseCleaner:
@@ -459,11 +461,11 @@ class AverageSpeedCleaner(BaseCleaner):
 
     def __init__(self):
         super().__init__()
-        min_date: datetime.datetime | None = None
-        max_date: datetime.datetime | None = None
+        self.min_date: datetime.datetime | None = None
+        self.max_date: datetime.datetime | None = None
 
-        min_date = read_metainfo_key(keys_map=["average_speeds", "start_date_iso"])
-        max_date = read_metainfo_key(keys_map=["average_speeds", "end_date_iso"])
+        self.min_date = datetime.strptime(read_metainfo_key(keys_map=["average_speeds", "start_date_iso"]), dt_format)
+        self.max_date = datetime.strptime(read_metainfo_key(keys_map=["average_speeds", "end_date_iso"]), dt_format)
 
 
     def clean_avg_speed_data(self, avg_speed_data: pd.DataFrame) -> tuple[pd.DataFrame, str, str, str] | None: #TODO TO CHANGE IN dd.DataFrame
@@ -482,7 +484,9 @@ class AverageSpeedCleaner(BaseCleaner):
         print("Last day of data registration: ", t_max, "\n\n")
 
         # TODO THE SAME WITH MAX DATE
-        if self.min_date > t_min: pass
+        if self.min_date is not None and self.min_date > t_min: pass
+        elif self.min_date is None: update_metainfo(t_min, keys_map=["average_speeds", "start_date_iso"], mode="equals")
+        elif self.min_date is not None and self.min_date < t_min: update_metainfo(t_min, keys_map=["average_speeds", "start_date_iso"], mode="equals") #TODO RIGHT NOW WE'RE TAKING THE LATEST MNINUM DATE AVAILABLE
         else: update_metainfo(t_min, keys_map=["average_speeds", "start_date_iso"], mode="equals")
 
 
