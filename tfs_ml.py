@@ -19,10 +19,9 @@ from functools import lru_cache
 from dask.distributed import Client
 import joblib
 
-from dask_ml.preprocessing import MinMaxScaler
+from dask_ml.preprocessing import MinMaxScaler, OrdinalEncoder
 from dask_ml.model_selection import GridSearchCV
 
-from sklearn.preprocessing import TargetEncoder
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import make_scorer, r2_score, mean_squared_error, mean_absolute_error, root_mean_squared_error, PredictionErrorDisplay
 
@@ -288,12 +287,17 @@ class TrafficVolumesLearner(BaseLearner):
 
         #print("\n\n")
 
-        #------------------ Outliers filtering with Z-Score ------------------
+        # ------------------ Outliers filtering with Z-Score ------------------
 
         volumes = ZScore(volumes, "volume")
 
-        volumes = volumes.sort_values(by=["year", "month", "day"], ascending=True)
+        volumes = volumes.sort_values(by=["date"], ascending=True)
 
+        # ------------------ TRP ID Target-Encoding ------------------
+
+        encoder = OrdinalEncoder(columns=["trp_id"])
+        volumes["trp_id_encoded"] = encoder.fit_transform(volumes[["trp_id"]])
+        print("Encoded:", volumes.head(10))
 
         # ------------------ Variables normalization ------------------
 
@@ -306,9 +310,9 @@ class TrafficVolumesLearner(BaseLearner):
         lag12h_column_names = [f"volumes_lag12h_{i}" for i in range(1, 7)]
         lag24h_column_names = [f"volumes_lag24h_{i}" for i in range(1, 7)]
 
-        for idx, n in enumerate(lag6h_column_names): volumes[n] = volumes["volume"].shift(idx + 6) #24 hours shift
-        for idx, n in enumerate(lag12h_column_names): volumes[n] = volumes["volume"].shift(idx + 12) #24 hours shift
-        for idx, n in enumerate(lag24h_column_names): volumes[n] = volumes["volume"].shift(idx + 24) #24 hours shift #TODO IF THE TEST WITH MULTIPLE LAGS WORKS REPLICATE THAT ON AVG SPEED LAGS
+        for idx, n in enumerate(lag6h_column_names): volumes[n] = volumes["volume"].shift(idx + 6) #6 hours shift
+        for idx, n in enumerate(lag12h_column_names): volumes[n] = volumes["volume"].shift(idx + 12) #12 hours shift
+        for idx, n in enumerate(lag24h_column_names): volumes[n] = volumes["volume"].shift(idx + 24) #24 hours shift
 
         #print(volumes.head(10))
         #print(volumes.dtypes)
@@ -319,7 +323,7 @@ class TrafficVolumesLearner(BaseLearner):
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
-        volumes = volumes.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist() #Keeping year and hour data
+        volumes = volumes.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist() #Keeping year and hour data and the encoded_trp_id
 
         #print("Volumes dataframe head: ")
         #print(volumes.head(5), "\n")
@@ -370,7 +374,7 @@ class AverageSpeedLearner(BaseLearner):
         speeds = ZScore(speeds, "mean_speed")
 
 
-        speeds = speeds.sort_values(by=["year", "month", "day"], ascending=True)
+        speeds = speeds.sort_values(by=["date"], ascending=True)
 
 
         # ------------------ Variables normalization ------------------
@@ -381,18 +385,27 @@ class AverageSpeedLearner(BaseLearner):
 
         #------------------ Creating lag features ------------------
 
-        speeds_lag_column_names = [f"mean_speed_lag{i}" for i in range(1, 7)]
-        percentile_85_lag_column_names = [f"percentile_85_lag{i}" for i in range(1, 7)]
+        lag6h_column_names = [f"mean_speed_lag6h_{i}" for i in range(1, 7)]
+        lag12h_column_names = [f"mean_speed_lag12_{i}" for i in range(1, 7)]
+        lag24h_column_names = [f"mean_speed_lag24_{i}" for i in range(1, 7)]
+        percentile_85_lag6_column_names = [f"percentile_85_lag{i}" for i in range(1, 7)]
+        percentile_85_lag12_column_names = [f"percentile_85_lag{i}" for i in range(1, 7)]
+        percentile_85_lag24_column_names = [f"percentile_85_lag{i}" for i in range(1, 7)]
 
-        for idx, n in enumerate(speeds_lag_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 24)
-        for idx, n in enumerate(percentile_85_lag_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 24)
+        for idx, n in enumerate(lag6h_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 6) #6 hours shift
+        for idx, n in enumerate(lag12h_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 12) #12 hours shift
+        for idx, n in enumerate(lag24h_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 24) #24 hours shift
+
+        for idx, n in enumerate(percentile_85_lag6_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 6) #6 hours shift
+        for idx, n in enumerate(percentile_85_lag12_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 12) #12 hours shift
+        for idx, n in enumerate(percentile_85_lag24_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 24) #24 hours shift
 
         #print(speeds.head(10))
         #print(speeds.dtypes)
 
         # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
 
-        speeds["is_covid_year"] = (speeds['year'].isin(get_covid_years())).astype("int") #Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
+        speeds["is_covid_year"] = (speeds['year'].isin(get_covid_years())).astype("int") #Creating a dummy variable which indicates if the average speed for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
