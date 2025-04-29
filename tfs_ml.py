@@ -16,6 +16,7 @@ import time
 import gc
 from functools import lru_cache
 
+import dask.array as da
 from dask.distributed import Client
 import joblib
 
@@ -34,14 +35,22 @@ pd.set_option('display.max_columns', None)
 
 def sin_transformer(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
     """
-    The timeframe indicates a number of days
+    The timeframe indicates a number of days.
+    Details:
+        - The order of the function parameters has a specific reason. Since this function will be used with Dask's map_partition() (which takes a function and its parameters as input), it's important that the first parameter
+          of sin_transformer is actually the data where to execute the transformation itself by map_partition()
     """
+    #For more information about Dask's map_partition() function: https://docs.dask.org/en/stable/generated/dask.dataframe.DataFrame.map_partitions.html
     return np.sin(data * (2. * np.pi / timeframe))
 
 def cos_transformer(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
     """
     The timeframe indicates a number of days
+    Details:
+        - The order of the function parameters has a specific reason. Since this function will be used with Dask's map_partition() (which takes a function and its parameters as input), it's important that the first parameter
+          of sin_transformer is actually the data where to execute the transformation itself by map_partition()
     """
+    #For more information about Dask's map_partition() function: https://docs.dask.org/en/stable/generated/dask.dataframe.DataFrame.map_partitions.html
     return np.cos((data-1)*(2.*np.pi/timeframe))
 
 
@@ -294,9 +303,13 @@ class TrafficVolumesLearner(BaseLearner):
 
         # ------------------ TRP ID Target-Encoding ------------------
 
-        encoder = LabelEncoder(use_categorical=True)
-        volumes["trp_id_encoded"] = encoder.fit_transform(dd.Series(volumes["trp_id"]))
-        print("Encoded:", volumes.head(10))
+        volumes["trp_id"] = volumes["trp_id"].astype("category")
+
+        encoder = LabelEncoder(use_categorical=True) #Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
+        volumes = volumes.assign(trp_id_encoded=encoder.fit_transform(volumes["trp_id"])) #The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
+        volumes.persist()
+
+        #print("Encoded TRP IDs:", sorted(volumes["trp_id_encoded"].unique().compute()))
 
         # ------------------ Variables normalization ------------------
 
@@ -354,17 +367,17 @@ class AverageSpeedLearner(BaseLearner):
 
         # ------------------ Cyclical variables encoding ------------------
 
-        speeds["hour_sin"] = sin_transformer(data=speeds["hour_start"], timeframe=24)
-        speeds["hour_cos"] = sin_transformer(data=speeds["hour_start"], timeframe=24)
+        speeds["hour_sin"] = speeds["hour"].map_partitions(sin_transformer, timeframe=24)
+        speeds["hour_cos"] = speeds["hour"].map_partitions(cos_transformer, timeframe=24)
 
-        speeds["week_sin"] = sin_transformer(data=speeds["week"], timeframe=52)
-        speeds["week_cos"] = sin_transformer(data=speeds["week"], timeframe=52)
+        speeds["week_sin"] = speeds["week"].map_partitions(sin_transformer, timeframe=52)
+        speeds["week_cos"] = speeds["week"].map_partitions(cos_transformer, timeframe=52)
 
-        speeds["day_sin"] = sin_transformer(data=speeds["day"], timeframe=31)
-        speeds["day_cos"] = sin_transformer(data=speeds["day"], timeframe=31)
+        speeds["day_sin"] = speeds["day"].map_partitions(sin_transformer, timeframe=31)
+        speeds["day_cos"] = speeds["day"].map_partitions(cos_transformer, timeframe=31)
 
-        speeds["month_sin"] = sin_transformer(data=speeds["month"], timeframe=12)
-        speeds["month_cos"] = sin_transformer(data=speeds["month"], timeframe=12)
+        speeds["month_sin"] = speeds["month"].map_partitions(sin_transformer, timeframe=12)
+        speeds["month_cos"] = speeds["month"].map_partitions(cos_transformer, timeframe=12)
 
         print("\n\n")
 
@@ -372,9 +385,17 @@ class AverageSpeedLearner(BaseLearner):
 
         speeds = ZScore(speeds, "mean_speed")
 
-
         speeds = speeds.sort_values(by=["date"], ascending=True)
 
+        # ------------------ TRP ID Target-Encoding ------------------
+
+        speeds["trp_id"] = speeds["trp_id"].astype("category")
+
+        encoder = LabelEncoder(use_categorical=True)  # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
+        speeds = speeds.assign(trp_id_encoded=encoder.fit_transform(speeds["trp_id"]))  # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
+        speeds.persist()
+
+        #print("Encoded TRP IDs:", sorted(volumes["trp_id_encoded"].unique().compute()))
 
         # ------------------ Variables normalization ------------------
 
