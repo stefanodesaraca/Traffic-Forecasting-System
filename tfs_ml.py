@@ -19,7 +19,7 @@ from functools import lru_cache
 from dask.distributed import Client
 import joblib
 
-from dask_ml.preprocessing import MinMaxScaler, OrdinalEncoder
+from dask_ml.preprocessing import MinMaxScaler, LabelEncoder
 from dask_ml.model_selection import GridSearchCV
 
 from sklearn.model_selection import TimeSeriesSplit
@@ -273,17 +273,17 @@ class TrafficVolumesLearner(BaseLearner):
 
         # ------------------ Cyclical variables encoding ------------------
 
-        volumes["hour_sin"] = sin_transformer(data=volumes["hour"], timeframe=24)
-        volumes["hour_cos"] = sin_transformer(data=volumes["hour"], timeframe=24)
+        volumes["hour_sin"] = volumes["hour"].map_partitions(sin_transformer, timeframe=24)
+        volumes["hour_cos"] = volumes["hour"].map_partitions(cos_transformer, timeframe=24)
 
-        volumes["week_sin"] = sin_transformer(data=volumes["week"], timeframe=52)
-        volumes["week_cos"] = sin_transformer(data=volumes["week"], timeframe=52)
+        volumes["week_sin"] = volumes["week"].map_partitions(sin_transformer, timeframe=52)
+        volumes["week_cos"] = volumes["week"].map_partitions(cos_transformer, timeframe=52)
 
-        volumes["day_sin"] = sin_transformer(data=volumes["day"], timeframe=31)
-        volumes["day_cos"] = sin_transformer(data=volumes["day"], timeframe=31)
+        volumes["day_sin"] = volumes["day"].map_partitions(sin_transformer, timeframe=31)
+        volumes["day_cos"] = volumes["day"].map_partitions(cos_transformer, timeframe=31)
 
-        volumes["month_sin"] = sin_transformer(data=volumes["month"], timeframe=12)
-        volumes["month_cos"] = sin_transformer(data=volumes["month"], timeframe=12)
+        volumes["month_sin"] = volumes["month"].map_partitions(sin_transformer, timeframe=12)
+        volumes["month_cos"] = volumes["month"].map_partitions(cos_transformer, timeframe=12)
 
         #print("\n\n")
 
@@ -295,8 +295,8 @@ class TrafficVolumesLearner(BaseLearner):
 
         # ------------------ TRP ID Target-Encoding ------------------
 
-        encoder = OrdinalEncoder(columns=["trp_id"])
-        volumes["trp_id_encoded"] = encoder.fit_transform(volumes[["trp_id"]])
+        encoder = LabelEncoder(use_categorical=True)
+        volumes["trp_id_encoded"] = encoder.fit_transform(volumes["trp_id"])
         print("Encoded:", volumes.head(10))
 
         # ------------------ Variables normalization ------------------

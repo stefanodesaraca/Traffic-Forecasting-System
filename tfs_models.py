@@ -5,8 +5,7 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, A
 
 def retrieve_n_ml_cpus() -> int:
     n_cpu = os.cpu_count()
-    ml_dedicated_cores = int(n_cpu * 0.80) #To avoid crashing while executing parallel computing in the GridSearchCV algorithm.
-    #The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
+    ml_dedicated_cores = int(n_cpu * 0.80)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
     return ml_dedicated_cores
 
 
@@ -42,15 +41,15 @@ def get_histgradientboosting_regressor() -> HistGradientBoostingRegressor:
 
 volumes_models_gridsearch_parameters = {
     "RandomForestRegressor": {
-        "n_estimators": [200, 400, 800],
-        "max_depth": [None, 10, 30], #NOTE 60 WORKS GOOD AS WELL
+        "n_estimators": [200, 400],
+        "max_depth": [20, 40], #NOTE 60 WORKS GOOD AS WELL, BUT ABSOLUTELY THIS SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE 10 CRASHES THE GRIDSEARCH ALGORITHM
         "criterion": ["friedman_mse"],
         "ccp_alpha": [0, 0.0002, 0.00002] #ccp_alpha = 1 overfits
     },
     "DecisionTreeRegressor": {
         "criterion": ["squared_error", "friedman_mse"],
         "max_depth": [None, 100, 200], #TODO TO TRY: , 300
-        "ccp_alpha": [0, 0.00002]
+        "ccp_alpha": [0, 0.0002, 0.00002]
     },
     "HistGradientBoostingRegressor": {
         "max_iter": [500, 1500],
