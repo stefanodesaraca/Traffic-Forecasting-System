@@ -61,6 +61,11 @@ def retrieve_n_ml_cpus() -> int:
 
 
 class BaseLearner:
+    """
+    The base class for other classes which implement machine learning or statistical methods to learn a predict traffic volumes, average speed or other data about traffic.
+    Parameters:
+        client: a Dask distributed local cluster client to use to distribute processes
+    """
     def __init__(self, client: Client):
         self.scorer = {"r2": make_scorer(r2_score),
                        "mean_squared_error": make_scorer(mean_squared_error),
