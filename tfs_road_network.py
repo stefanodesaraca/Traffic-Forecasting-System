@@ -37,7 +37,16 @@ class Vertex(BaseModel):
 
 
     def get_vertex_data(self) -> dict[Any, Any]:
+        """
+        Returns all attributes and respective values of the Vertex instance.
+        """
         return {attr: val for attr, val in self.__dict__.items()}
+
+
+    def export_vertex(self, filepath: str) -> None:
+        with open(filepath, "w"):
+            json.dump(self.get_vertex_data(), filepath, indent=4)
+        return None
 
 
 
@@ -88,7 +97,16 @@ class Arch(BaseModel):
 
 
     def get_arch_data(self) -> dict[Any, Any]:
+        """
+        Returns all attributes and respective values of the Arch instance.
+        """
         return {attr: val for attr, val in self.__dict__.items()}
+
+
+    def export_arch(self, filepath: str) -> None:
+        with open(filepath, "w"):
+            json.dump(self.get_arch_data(), filepath, indent=4)
+        return None
 
 
 
