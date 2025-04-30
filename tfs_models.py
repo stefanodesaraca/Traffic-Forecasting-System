@@ -98,10 +98,10 @@ model_auxiliary_parameters = {
 
 speeds_models_gridsearch_parameters = {
     "RandomForestRegressor": {
-        "n_estimators": [200, 400],
-        "max_depth": [20, 40], #NOTE max_depth ABSOLUTELY SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE 10 CRASHES THE GRIDSEARCH ALGORITHM
-        "criterion": ["friedman_mse"],
-        "ccp_alpha": [0, 0.00002] #ccp_alpha = 1 overfits
+        "n_estimators": [200, 400, 500],
+        "max_depth": [20, 40, 50], #NOTE max_depth ABSOLUTELY SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE 10 CRASHES THE GRIDSEARCH ALGORITHM
+        "criterion": ["friedman_mse", "absolute_error"],
+        "ccp_alpha": [0, 0.002, 0.0002] #ccp_alpha = 1 overfits
     },
     "DecisionTreeRegressor": {
         "criterion": ["friedman_mse"],
