@@ -534,6 +534,7 @@ class AverageSpeedCleaner(BaseCleaner):
         avg_speed_data = avg_speed_data.drop(columns=non_mice_df.columns, axis=1) #Columns to not include for Multiple Imputation By Chained Equations (MICE)
 
         print("Shape before MICE: ", avg_speed_data.shape)
+        print("Number of zeros before MICE: ", len(avg_speed_data[avg_speed_data["volume"] == 0]))
 
         try:
             cleaner = BaseCleaner()
@@ -543,6 +544,8 @@ class AverageSpeedCleaner(BaseCleaner):
             #print(avg_speed_data.isna().sum())
 
             print("Shape after MICE: ", avg_speed_data.shape, "\n\n")
+            print("Number of zeros after MICE: ", len(avg_speed_data[avg_speed_data["volume"] == 0]))
+            print("Number of negative values (after MICE): ", len(avg_speed_data[avg_speed_data["volume"] < 0]))
 
         except ValueError as e:
             print(f"\033[91mValue error raised. Error: {e} Continuing with the cleaning\033[0m")
