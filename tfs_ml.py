@@ -116,7 +116,7 @@ class BaseLearner:
         return X_train, X_test, y_train, y_test
 
 
-    def gridsearch_for_model(self, X_train, y_train, target: str, model_name: str, road_category: str) -> None:
+    def gridsearch(self, X_train, y_train, target: str, model_name: str, road_category: str) -> None:
 
         ops_name = get_active_ops()
 
@@ -278,7 +278,7 @@ class TrafficVolumesLearner(BaseLearner):
         return self.volumes_data
 
 
-    def volumes_ml_preprocessing_pipeline(self) -> dd.DataFrame:
+    def preprocess(self) -> dd.DataFrame:
 
         volumes = self.get_volumes_data()
 
@@ -364,7 +364,7 @@ class AverageSpeedLearner(BaseLearner):
         return speeds
 
 
-    def avg_speeds_ml_preprocessing_pipeline(self) -> dd.DataFrame:
+    def preprocess(self) -> dd.DataFrame:
 
         speeds = self.get_average_speed_data()
 
@@ -471,7 +471,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
 
     @staticmethod
-    def pre_process_data(forecasting_target_datetime: datetime, X_test=None, y_test=None): #TODO REMOVE =None AFTER TESTING
+    def preprocess_data(forecasting_target_datetime: datetime, X_test=None, y_test=None): #TODO REMOVE =None AFTER TESTING
 
         #The predictions will follow these rule:
             # 1. For each datetime to forecast we'll extract (from the available data) a time window made by the previous 7 days

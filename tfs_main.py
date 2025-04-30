@@ -217,13 +217,14 @@ def execute_forecast_warmup(functionality: str) -> None:
             print(f"\n********************* Executing hyperparameter tuning on traffic volumes data for road category: {road_category} *********************\n")
 
             volumes_learner = TrafficVolumesLearner(v, client)
-            volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
+            volumes_preprocessed = volumes_learner.preprocess()
 
             X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
 
             # -------------- GridSearchCV phase --------------
             for model_name in models:
-                volumes_learner.gridsearch_for_model(X_train, y_train, target=targets[0], model_name=model_name, road_category=road_category)
+                volumes_learner.gridsearch(X_train, y_train, target=targets[0], model_name=model_name,
+                                           road_category=road_category)
 
                 #Check if workers are still alive
                 print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
@@ -240,12 +241,13 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         for s in clean_average_speed_files[:2]:  #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
             avg_speed_learner = AverageSpeedLearner(s, client)
-            avg_speeds_preprocessed = avg_speed_learner.avg_speeds_ml_preprocessing_pipeline()
+            avg_speeds_preprocessed = avg_speed_learner.preprocess()
 
             X_train, X_test, y_train, y_test = avg_speed_learner.split_data(avg_speeds_preprocessed, target=targets[1])
 
             for model_name in models:
-                avg_speed_learner.gridsearch_for_model(X_train, y_train, target=targets[1], road_category="E", model_name=model_name) #TODO "E" IS JUST FOR TESTING PURPOSES
+                avg_speed_learner.gridsearch(X_train, y_train, target=targets[1], model_name=model_name,
+                                             road_category="E")  #TODO "E" IS JUST FOR TESTING PURPOSES
 
                 # Check if workers are still alive
                 print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
@@ -267,7 +269,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             print(f"\n********************* Training models on traffic volumes data for road category: {road_category} *********************\n")
 
             volumes_learner = TrafficVolumesLearner(v, client)
-            volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
+            volumes_preprocessed = volumes_learner.preprocess()
 
             X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
 
@@ -295,7 +297,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             print(f"\n********************* Testing models on traffic volumes data for road category: {road_category} *********************\n")
 
             volumes_learner = TrafficVolumesLearner(v, client)
-            volumes_preprocessed = volumes_learner.volumes_ml_preprocessing_pipeline()
+            volumes_preprocessed = volumes_learner.preprocess()
 
             X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
 
@@ -351,7 +353,7 @@ def execute_forecasts(functionality: str) -> None:
 
             if option == "V":
                 one_point_volume_forecaster = OnePointVolumesForecaster(trp_id=trp_id, road_category=trp_road_category)
-                one_point_volume_forecaster.pre_process_data(forecasting_target_datetime=target_datetime)
+                one_point_volume_forecaster.preprocess_data(forecasting_target_datetime=target_datetime)
             elif option == "AS":
                 pass #TODO DEVELEOP HERE
 
