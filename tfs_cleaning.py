@@ -371,6 +371,7 @@ class TrafficVolumesCleaner(BaseCleaner):
         #Still, we're leaving the hour variable to address for the variability of the traffic volumes during the day
 
         print("Shape before MICE: ", by_hour_df.shape)
+        print("Number of zeros before MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
 
         try:
             cleaner = BaseCleaner()
@@ -380,6 +381,8 @@ class TrafficVolumesCleaner(BaseCleaner):
                 by_hour_df[nm_col] = non_mice_columns[nm_col]
 
             print("Shape after MICE: ", by_hour_df.shape)
+            print("Number of zeros after MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
+            print("Number of negative values (after MICE): ", len(by_hour_df[by_hour_df["volume"] < 0]))
 
         except ValueError as e:
             print(f"\033[91mValue error raised. Error: {e} Continuing with the cleaning.\033[0m")
