@@ -1,4 +1,5 @@
 from pydantic import BaseModel as PydanticBaseModel
+from pydantic.types import PositiveFloat, PositiveInt
 import geopandas as gpd
 import geojson
 import json
@@ -28,9 +29,9 @@ class Vertex(BaseModel):
     lon: float
     connected_traffic_link_ids: list[str]
     road_node_ids: list[str]
-    n_incoming_links: int
-    n_outgoing_links: int
-    n_undirected_links: int
+    n_incoming_links: PositiveInt
+    n_outgoing_links: PositiveInt
+    n_undirected_links: PositiveInt
     legal_turning_movements: list[dict[str, [str | list[str]]]]
     road_system_references: list[str]
     municipality_ids: list[str] = None #TODO TO GET THIS ONE SINCE IT DOESN'T EXIST YET IN THE DATA AVAILABLE RIGHT NOW. FOR NOW IT WILL BE NONE
@@ -55,7 +56,7 @@ class Arch(BaseModel):
     type: str #Example: Feature
     geometry_type: str
     coordinates: list[list[float]]
-    year_applies_to: int
+    year_applies_to: PositiveInt
     candidate_ids: list[str]
     road_system_references: list[str] #A list of "short form" road references. An example could be a road reference (short form) contained in the road_reference_short_form attribute of a TrafficRegistrationPoint instance
     road_category: str #One letter road category
@@ -75,12 +76,12 @@ class Arch(BaseModel):
     road_node_ids: list[str]
     municipality_ids: list[int]
     county_ids: list[int]
-    highest_speed_limit: int
-    lowest_speed_limit: int
-    max_lanes: int
-    min_lanes: int
+    highest_speed_limit: PositiveInt
+    lowest_speed_limit: PositiveInt
+    max_lanes: PositiveInt
+    min_lanes: PositiveInt
     has_only_public_transport_lanes: bool
-    length: float
+    length: PositiveFloat
     traffic_direction_wrt_metering_direction: str
     is_norwegian_scenic_route: bool
     is_ferry_route: bool
@@ -90,10 +91,11 @@ class Arch(BaseModel):
     traffic_volumes: list[dict[str, [str | float | int | None]]]
     urban_ratio: int | float | None
     number_of_establishments: int
-    number_of_employees: int
-    number_of_inhabitants: int
+    number_of_employees: PositiveInt
+    number_of_inhabitants: PositiveInt
     has_anomalies: bool
     anomalies: list #TODO YET TO DEFINE THE DATA TYPE OF THE ELEMENTS OF THIS LIST
+    weight: PositiveFloat | None = None #Only set when executing forecasting with weighted arches
 
 
     def get_arch_data(self) -> dict[Any, Any]:
