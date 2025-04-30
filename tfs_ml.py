@@ -370,8 +370,8 @@ class AverageSpeedLearner(BaseLearner):
 
         # ------------------ Cyclical variables encoding ------------------
 
-        speeds["hour_sin"] = speeds["hour"].map_partitions(sin_transformer, timeframe=24)
-        speeds["hour_cos"] = speeds["hour"].map_partitions(cos_transformer, timeframe=24)
+        speeds["hour_start_sin"] = speeds["hour_start"].map_partitions(sin_transformer, timeframe=24)
+        speeds["hour_start_cos"] = speeds["hour_start"].map_partitions(cos_transformer, timeframe=24)
 
         speeds["week_sin"] = speeds["week"].map_partitions(sin_transformer, timeframe=52)
         speeds["week_cos"] = speeds["week"].map_partitions(cos_transformer, timeframe=52)
