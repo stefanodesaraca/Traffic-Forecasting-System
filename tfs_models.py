@@ -98,24 +98,24 @@ model_auxiliary_parameters = {
 
 speeds_models_gridsearch_parameters = {
     "RandomForestRegressor": {
-        "n_estimators": [200, 400, 500],
-        "max_depth": [20, 40, 50], #NOTE max_depth ABSOLUTELY SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE 10 CRASHES THE GRIDSEARCH ALGORITHM
-        "criterion": ["friedman_mse", "absolute_error"],
-        "ccp_alpha": [0, 0.002, 0.0002] #ccp_alpha = 1 overfits
+        "n_estimators": [100],
+        "max_depth": [10, 20], #NOTE max_depth ABSOLUTELY SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE 10 CRASHES THE GRIDSEARCH ALGORITHM
+        "criterion": ["squared_error", "friedman_mse"], #Setting "absolute_error" within the metrics to try in the grid will raise errors due to the NaNs present in the lag features
+        "ccp_alpha": [0.002, 0.0002] #ccp_alpha = 1 overfits
     },
     "DecisionTreeRegressor": {
-        "criterion": ["friedman_mse"],
-        "max_depth": [None, 100, 200],
-        "ccp_alpha": [0.0002, 0.00002]
+        "criterion": ["squared_error", "friedman_mse"],
+        "max_depth": [None, 30],
+        "ccp_alpha": [0, 0.0002, 0.00002]
     },
     "HistGradientBoostingRegressor": {
-        "max_iter": [500, 1500],
-        "max_depth": [None, 100],
+        "max_iter": [100, 200, 300],
+        "max_depth": [None, 20, 50, 100],
         "loss": ["absolute_error"],
         "validation_fraction": [0.25],
-        "n_iter_no_change": [20],
+        "n_iter_no_change": [20, 50],
         "tol": [1e-7, 1e-4, 1e-3],
-        "l2_regularization": [0.001, 0.0001]
+        "l2_regularization": [0, 0.001, 0.0001]
     }
 }
 
