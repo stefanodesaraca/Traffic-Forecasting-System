@@ -98,8 +98,8 @@ model_auxiliary_parameters = {
 
 speeds_models_gridsearch_parameters = {
     "RandomForestRegressor": {
-        "n_estimators": [100],
-        "max_depth": [10, 20], #NOTE max_depth ABSOLUTELY SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE 10 CRASHES THE GRIDSEARCH ALGORITHM
+        "n_estimators": [100, 300],
+        "max_depth": [40, 70], #NOTE max_depth ABSOLUTELY SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE 10 CRASHES THE GRIDSEARCH ALGORITHM
         "criterion": ["squared_error", "friedman_mse"], #Setting "absolute_error" within the metrics to try in the grid will raise errors due to the NaNs present in the lag features
         "ccp_alpha": [0.002, 0.0002] #ccp_alpha = 1 overfits
     },
