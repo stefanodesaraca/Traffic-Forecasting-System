@@ -64,8 +64,8 @@ def get_trp_id_list() -> list[str]:
 def get_trp_id_from_filename(filename: str) -> str:
     return filename.split("_")[0]
 
-
-def get_all_available_road_categories() -> list:
+#TODO TO IMPROVE
+def get_all_available_road_categories() -> list[str]:
     trp_info = import_TRPs_data()
     trp_road_category_list = list(set([trp["location"]["roadReference"]["roadCategory"]["id"] for trp in trp_info["trafficRegistrationPoints"]]))
     return trp_road_category_list
