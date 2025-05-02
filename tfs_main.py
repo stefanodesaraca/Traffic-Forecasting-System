@@ -192,8 +192,8 @@ def execute_forecast_warmup(functionality: str) -> None:
 
 
     #TRPs - Average files and road categories
-    trps_ids_avg_speeds_by_road_category = {category: [retrieve_trp_clean_average_speed_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_average_speed_filepath_by_id(trp_id)) is False] for category in
-                                            get_all_available_road_categories()}
+    trps_ids_avg_speeds_by_road_category = {category: [retrieve_trp_clean_average_speed_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_average_speed_filepath_by_id(trp_id)) is False]
+                                            for category in get_all_available_road_categories()}
 
     #Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
     #It's important to instantiate it here since, if it was done in the gridsearch function, it would mean the client would be started and closed everytime the function runs (which is not good)
@@ -210,7 +210,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         # Merge all volumes files by category
         for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category)
+            merged_volumes_by_category[road_category] = merge(volumes_files, road_category=road_category)
 
         for road_category, v in merged_volumes_by_category.items():
 
@@ -223,8 +223,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
             # -------------- GridSearchCV phase --------------
             for model_name in models:
-                volumes_learner.gridsearch(X_train, y_train, target=targets[0], model_name=model_name,
-                                           road_category=road_category)
+                volumes_learner.gridsearch(X_train, y_train, target=targets[0], model_name=model_name, road_category=road_category)
 
                 #Check if workers are still alive
                 print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
@@ -235,21 +234,25 @@ def execute_forecast_warmup(functionality: str) -> None:
     # ------------ Hyperparameter tuning for average speed ML models ------------
     elif functionality == "3.2.2":
 
-        clean_average_speed_files = get_clean_average_speed_files_list()
+        merged_speeds_by_category = {}
 
-        #TODO TO ADD print(f"********************* Executing hyperparameter tuning on traffic volumes data for road category: {road_category} *********************")
+        for road_category, speeds_files in trps_ids_avg_speeds_by_road_category.items():
+            merged_speeds_by_category[road_category] = merge(speeds_files, road_category=road_category)
 
-        for s in clean_average_speed_files[:2]:  #TODO AFTER TESTING -> REMOVE [:2] COMBINE ALL FILES DATA INTO ONE BIG DASK DATAFRAME AND REMOVE THIS FOR CYCLE
-            avg_speed_learner = AverageSpeedLearner(s, client)
-            avg_speeds_preprocessed = avg_speed_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = avg_speed_learner.split_data(avg_speeds_preprocessed, target=targets[1])
+        for road_category, s in merged_speeds_by_category.items():
+
+            print(f"********************* Executing hyperparameter tuning on average speed data for road category: {road_category} *********************")
+
+            speeds_learner = AverageSpeedLearner(s, client)
+            speeds_preprocessed = speeds_learner.preprocess()
+
+            X_train, X_test, y_train, y_test = speeds_learner.split_data(speeds_preprocessed, target=targets[1])
 
             for model_name in models:
-                avg_speed_learner.gridsearch(X_train, y_train, target=targets[1], model_name=model_name,
-                                             road_category="E")  #TODO "E" IS JUST FOR TESTING PURPOSES
+                speeds_learner.gridsearch(X_train, y_train, target=targets[1], model_name=model_name, road_category=road_category)
 
-                # Check if workers are still alive
+                #Check if workers are still alive
                 print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
 
                 time.sleep(1) #To cool down the system
@@ -262,7 +265,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         # Merge all volumes files by category
         for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category)
+            merged_volumes_by_category[road_category] = merge(volumes_files, road_category=road_category)
 
         for road_category, v in merged_volumes_by_category.items():
 
@@ -290,7 +293,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         # Merge all volumes files by category
         for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge_volumes_data(volumes_files, road_category=road_category)
+            merged_volumes_by_category[road_category] = merge(volumes_files, road_category=road_category)
 
         for road_category, v in merged_volumes_by_category.items():
 

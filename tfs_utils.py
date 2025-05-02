@@ -211,14 +211,20 @@ def import_volumes_data(file):
     return data
 
 
-def merge_volumes_data(trp_filepaths_list: list, road_category: str) -> dd.DataFrame:
+def merge(trp_filepaths: list[str], road_category: str) -> dd.DataFrame:
+    """
+    Data merger function for traffic volumes or average speed data
+    Parameters:
+        trp_filepaths: a list of files to read data from
+        road_category: self explaining
+    """
     try:
-        dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
+        dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths]
         merged_data = dd.concat(dataframes_list, axis=0)
         merged_data = merged_data.repartition(partition_size="512MB")
         merged_data = merged_data.sort_values(["date"], ascending=True) #Sorting records by date
         merged_data = merged_data.persist()
-        print(f"Shape of the merged volumes data for road category {road_category}: ", (merged_data.shape[0].compute(), merged_data.shape[1]))
+        print(f"Shape of the merged data for road category {road_category}: ", (merged_data.shape[0].compute(), merged_data.shape[1]))
         return merged_data
     except ValueError as e:
         print(f"\033[91mNo data to concatenate. Error: {e}")
@@ -270,19 +276,6 @@ def import_avg_speed_data(file_path: str) -> pd.DataFrame:
 
 def get_clean_average_speed_files_list() -> list:
     return [get_clean_average_speed_folder_path() + f for f in os.listdir(get_clean_average_speed_folder_path())]
-
-
-def merge_avg_speed_data(trp_filepaths_list: list) -> dd.DataFrame:
-    try:
-        dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths_list]
-        merged_data = dd.concat(dataframes_list, axis=0)
-        merged_data = merged_data.sort_values(["year", "month", "day"], ascending=True)
-        merged_data = merged_data.persist()
-        return merged_data
-    except ValueError as e:
-        print(f"\033[91mNo data to concatenate. Error: {e}")
-        exit(code=-1)
-
 
 
 # ==================== ML Related Utilities ====================
