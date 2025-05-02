@@ -471,22 +471,32 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
 
     @staticmethod
-    def preprocess_data(forecasting_target_datetime: datetime, X_test=None, y_test=None): #TODO REMOVE =None AFTER TESTING
+    def preprocess_data(target_datetime: datetime, max_days: int = 14, X_test=None, y_test=None): #TODO REMOVE =None AFTER TESTING
+        """
+        Parameters:
+            target_datetime: the target datetime which the user wants to predict data for
+            max_days: maximum number of days we want to predict
+            X_test: the training dataset
+            y_test: the testing dataset
+        """
+        #The predictions will follow these rules:
+            # 1. The user has to impute a target datetime for which it wants to predict data
+            # 1.1 Since the predictions' confidence varies with how much in the future we want to predict, we'll set a limit on the number of days in future that the user may want to forecast
+            #     This limit is set by default as 14 days, but can be modified by the specific max_days parameter
+            # 2. Given the number of days in the future to predict we'll calculate the number of hours from the last datetime available for the trp which we want to predict the data for and the nth day in the future
+            # 3. Once the number of hours to predict has been calculated we'll multiply it by 24, which means that for each hour to predict we'll use 24 hours in the past as reference
 
-        #The predictions will follow these rule:
-            # 1. For each datetime to forecast we'll extract (from the available data) a time window made by the previous 7 days
-            #    so we'll have data from the 14 days prior to the datetime to forecast
             #    Example: If the datetime to forecast is: 2025-01-01T00 the time window to extract will be: 2025-01-01T00 - 7 days -> from 2024-12-24T00 to 2024-12-31T00
 
         first_available_volumes_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "start_date_iso"])
         last_available_volumes_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"])
 
-        forecasting_target_datetime = forecasting_target_datetime.strftime("%Y-%m-%dT%H")
+        target_datetime = target_datetime.strftime("%Y-%m-%dT%H")
 
         print(datetime.now().strftime(dt_format))
-        print(forecasting_target_datetime)
+        print(target_datetime)
 
-        forecasting_window = pd.date_range(start=datetime.now(), end=forecasting_target_datetime, freq="1h")
+        forecasting_window = pd.date_range(start=datetime.now(), end=target_datetime, freq="1h")
 
         #TODO CHECK IF DATE ISN'T BEFORE THE ONE OF THE LAST DATA AVAILABLE
         #TODO PARSE DATES OBTAINED IN THIS METHOD TO ONLY PRESERVE DATE AND HOUR
