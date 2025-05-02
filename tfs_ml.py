@@ -274,13 +274,9 @@ class TrafficVolumesLearner(BaseLearner):
         self.volumes_data = volumes_data
 
 
-    def get_volumes_data(self) -> dd.DataFrame:
-        return self.volumes_data
-
-
     def preprocess(self) -> dd.DataFrame:
 
-        volumes = self.get_volumes_data()
+        volumes = self.volumes_data
 
         # ------------------ Cyclical variables encoding ------------------
 
@@ -354,19 +350,14 @@ class TrafficVolumesLearner(BaseLearner):
 
 class AverageSpeedLearner(BaseLearner):
 
-    def __init__(self, average_speed_file_path: str, client: Client):
+    def __init__(self, speeds_data: dd.DataFrame, client: Client):
         super().__init__(client)
-        self.average_speed_file_path = average_speed_file_path
-
-
-    def get_average_speed_data(self) -> dd.DataFrame:
-        speeds = dd.read_csv(self.average_speed_file_path)
-        return speeds
+        self.speeds_data = speeds_data
 
 
     def preprocess(self) -> dd.DataFrame:
 
-        speeds = self.get_average_speed_data()
+        speeds = self.speeds_data
 
         # ------------------ Cyclical variables encoding ------------------
 
