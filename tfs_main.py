@@ -202,6 +202,7 @@ def execute_forecast_warmup(functionality: str) -> None:
     client = Client(cluster)
     #More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
 
+    #TODO SIMPLIFY THIS WHOLE SECTION BELOW SINCE MOST OF THE CODE IS REPEATED VVVV
 
     # ------------ Hyperparameter tuning for traffic volumes ML models ------------
     if functionality == "3.2.1":
@@ -277,13 +278,31 @@ def execute_forecast_warmup(functionality: str) -> None:
             X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
 
             # -------------- Training phase --------------
-            for model_name in models: volumes_learner.train_model(X_train, y_train, model_name=model_name, target=targets[0], road_category=road_category)
+            for model_name in models:
+                volumes_learner.train_model(X_train, y_train, model_name=model_name, target=targets[0], road_category=road_category)
 
 
-
+    # ------------ Train ML models on average speeds data ------------
     elif functionality == "3.2.4":
 
-        print()
+        merged_speeds_by_category = {}
+
+        # Merge all volumes files by category
+        for road_category, speeds_files in trps_ids_volumes_by_road_category.items():
+            merged_speeds_by_category[road_category] = merge(speeds_files, road_category=road_category)
+
+        for road_category, s in merged_speeds_by_category.items():
+
+            print(f"\n********************* Training models on average speeds data for road category: {road_category} *********************\n")
+
+            speeds_learner = AverageSpeedLearner(s, client)
+            speeds_preprocessed = speeds_learner.preprocess()
+
+            X_train, X_test, y_train, y_test = speeds_learner.split_data(speeds_preprocessed, target=targets[0])
+
+            # -------------- Training phase --------------
+            for model_name in models:
+                speeds_learner.train_model(X_train, y_train, model_name=model_name, target=targets[1], road_category=road_category)
 
 
     # ------------ Test ML models on traffic volumes data ------------
@@ -305,22 +324,38 @@ def execute_forecast_warmup(functionality: str) -> None:
             X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
 
             # -------------- Testing phase --------------
-            for model_name in models: volumes_learner.test_model(X_test, y_test, model_name=model_name, target=targets[0], road_category=road_category)
-
-
-        print("\n\n")
+            for model_name in models:
+                volumes_learner.test_model(X_test, y_test, model_name=model_name, target=targets[0], road_category=road_category)
 
 
 
+    # ------------ Test ML models on average speeds data ------------
     elif functionality == "3.2.6":
 
-        print()
+        merged_speeds_by_category = {}
+
+        # Merge all volumes files by category
+        for road_category, speeds_files in trps_ids_volumes_by_road_category.items():
+            merged_speeds_by_category[road_category] = merge(speeds_files, road_category=road_category)
+
+        for road_category, s in merged_speeds_by_category.items():
+
+            print(f"\n********************* Testing models on average speeds data for road category: {road_category} *********************\n")
+
+            speeds_learner = AverageSpeedLearner(s, client)
+            speeds_preprocessed = speeds_learner.preprocess()
+
+            X_train, X_test, y_train, y_test = speeds_learner.split_data(speeds_preprocessed, target=targets[0])
+
+            # -------------- Training phase --------------
+            for model_name in models:
+                speeds_learner.test_model(X_train, y_train, model_name=model_name, target=targets[1], road_category=road_category)
 
 
+    print("\n\n")
 
-
-    client.close()
-    cluster.close()
+    client.close() #Closing the Dask client
+    cluster.close() #Closing the Dask cluster
 
     return None
 
