@@ -489,8 +489,6 @@ class OnePointVolumesForecaster(OnePointForecaster):
             # 5. We'll create n rows (where each row will be one specific hour of the future to predict)
             # 6. Finally, we'll return the new dataset ready to be fed to the model
 
-
-
         first_available_volumes_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "start_date_iso"])
         last_available_volumes_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"])
 
