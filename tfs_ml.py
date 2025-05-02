@@ -479,7 +479,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
             X_test: the training dataset
             y_test: the testing dataset
         """
-        #The predictions will follow these rules:
+        #Function workflow:
             # 1. The user has to impute a target datetime for which it wants to predict data
             # 1.1 Since the predictions' confidence varies with how much in the future we want to predict, we'll set a limit on the number of days in future that the user may want to forecast
             #     This limit is set by default as 14 days, but can be modified by the specific max_days parameter
@@ -487,10 +487,9 @@ class OnePointVolumesForecaster(OnePointForecaster):
             # 3. Once the number of hours to predict has been calculated we'll multiply it by 24, which means that for each hour to predict we'll use 24 hours in the past as reference
             # 4. We'll get exactly n rows from the TRP's individual data (where n = d * 24 and d is the number of days in the future to predict)
             # 5. We'll create n rows (where each row will be one specific hour of the future to predict)
-            # 6. Finally, we'll return the new dataset ready for the model to be tested with
+            # 6. Finally, we'll return the new dataset ready to be fed to the model
 
 
-            #    Example: If the datetime to forecast is: 2025-01-01T00 the time window to extract will be: 2025-01-01T00 - 7 days -> from 2024-12-24T00 to 2024-12-31T00
 
         first_available_volumes_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "start_date_iso"])
         last_available_volumes_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"])
