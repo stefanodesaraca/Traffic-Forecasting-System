@@ -480,21 +480,36 @@ class OnePointVolumesForecaster(OnePointForecaster):
             # 5. We'll create n rows (where each row will be one specific hour of the future to predict)
             # 6. Finally, we'll return the new dataset ready to be fed to the model
 
-        first_available_volumes_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "start_date_iso"])
+        target_datetime = target_datetime.strftime("%Y-%m-%dT%H")
         last_available_volumes_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"])
 
-        target_datetime = target_datetime.strftime("%Y-%m-%dT%H")
+        #Checking if the target datetime isn't prior to the datetime of the latest data available
+        assert target_datetime >= last_available_volumes_data_dt, "Target datetime is set to a past date-time for which registered data is already available"
 
-        print(datetime.now().strftime(dt_format))
-        print(target_datetime)
+        # Checking if the target datetime isn't ahead of the maximum number of days to forecast
+        assert (target_datetime - last_available_volumes_data_dt).days <= max_days
 
-        forecasting_window = pd.date_range(start=datetime.now(), end=target_datetime, freq="1h")
+        #Creating a datetime range with datetimes to predict. These will be inserted in the empty rows to be fed to the models for predictions
+        forecasting_window = pd.date_range(start=last_available_volumes_data_dt, end=target_datetime, freq="1h")
 
-        #TODO CHECK IF DATE ISN'T BEFORE THE ONE OF THE LAST DATA AVAILABLE
-        #TODO PARSE DATES OBTAINED IN THIS METHOD TO ONLY PRESERVE DATE AND HOUR
-        # THEN DIVIDE THEM INTO YEAR, MONTH, DAY AND HOUR
+        n_records = len(forecasting_window) * 24 #Number of records to collect from the TRP's individual data
 
-        print(forecasting_window, "\n\n")
+        rows_to_predict = []
+        for dt in forecasting_window:
+            rows_to_predict.append({
+                "volume": None,
+                "coverage": None,
+                "day": datetime.strptime(dt, "%Y-%m-%d").strftime("%d"),
+                "month": datetime.strptime(dt, "%Y-%m-%d").strftime("%m"),
+                "year": datetime.strptime(dt, "%Y-%m-%d").strftime("%Y"),
+                "hour": datetime.strptime(dt, "%Y-%m-%dT%H").strftime("%H"),
+                "week": datetime.strptime(dt, "%Y-%m-%d").strftime("%V"),
+                "date": dt,
+                "trp_id": self.trp_id
+            })
+
+
+        print(rows_to_predict, "\n\n")
 
         return None
 

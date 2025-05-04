@@ -358,7 +358,7 @@ def execute_forecasts(functionality: str) -> None:
                 one_point_volume_forecaster = OnePointVolumesForecaster(trp_id=trp_id, road_category=trp_road_category)
                 one_point_volume_forecaster.preprocess_data(target_datetime=target_datetime)
             elif option == "AS":
-                pass #TODO DEVELEOP HERE
+                pass #TODO DEVELOP HERE
 
         else:
             print("\033[91mNon-valid TRP ID, returning to main menu\033[0m")
