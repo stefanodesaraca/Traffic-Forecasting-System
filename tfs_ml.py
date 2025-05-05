@@ -15,7 +15,6 @@ import matplotlib.pyplot as plt
 from scipy import stats
 from scipy.special import softmax
 
-
 from dask.distributed import Client
 import joblib
 
@@ -591,7 +590,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
     def __init__(self, trp_id: str, road_category: str):
         super().__init__(
             trp_id, road_category
-        )  # Calling the father class with its arguments
+        )  # Calling the father class
         self.trp_id = trp_id
         self.road_category = road_category
 

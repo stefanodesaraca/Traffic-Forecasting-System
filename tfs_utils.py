@@ -113,9 +113,7 @@ def get_trp_metadata(trp_id: str) -> dict:
     trp_metadata_file = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata.json"
     # assert os.path.isfile(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata.json") is True, f"Metadata file for TRP: {trp_id} missing"
     with open(trp_metadata_file, "r", encoding="utf-8") as json_trp_metadata:
-        trp_metadata = json.load(json_trp_metadata)
-
-    return trp_metadata
+        return json.load(json_trp_metadata)
 
 
 def write_trp_metadata(trp_id: str) -> None:
@@ -209,8 +207,7 @@ def write_trp_metadata(trp_id: str) -> None:
 
 
 def retrieve_trp_road_category(trp_id: str) -> str:
-    trp_road_category = get_trp_metadata(trp_id)["road_category"]
-    return trp_road_category
+    return get_trp_metadata(trp_id)["road_category"]
 
 
 def retrieve_trp_clean_volumes_filepath_by_id(trp_id: str):
@@ -229,8 +226,7 @@ def get_raw_traffic_volumes_folder_path() -> str:
     This function returns the path to the raw_traffic_volumes folder where all the raw traffic volume files are located
     """
     ops_name = get_active_ops()
-    raw_traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
-    return raw_traffic_volumes_folder_path
+    return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
 
 
 def get_clean_traffic_volumes_folder_path() -> str:
@@ -238,8 +234,7 @@ def get_clean_traffic_volumes_folder_path() -> str:
     This function returns the path for the clean_traffic_volumes folder where all the cleaned traffic volumes data files are located
     """
     ops_name = get_active_ops()
-    clean_traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/"
-    return clean_traffic_volumes_folder_path
+    return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/"
 
 
 def get_raw_traffic_volume_file_list() -> list:
@@ -247,13 +242,8 @@ def get_raw_traffic_volume_file_list() -> list:
     This function returns the name of every file contained in the raw_traffic_volumes folder, so every specific TRP's volumes
     """
     ops_name = get_active_ops()
-    traffic_volumes_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
-
-    # Identifying all the raw traffic volume files
-    volume_files = os.listdir(traffic_volumes_folder_path)
-    # print("Raw traffic volumes files: ", volume_files, "\n\n")
-
-    return volume_files
+    # Returning all the raw traffic volume files
+    return os.listdir(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/")
 
 
 def import_volumes_data(file):
@@ -261,8 +251,7 @@ def import_volumes_data(file):
     This function returns json traffic volumes data about a specific TRP
     """
     with open(file, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    return data
+        return json.load(f)
 
 
 def merge(trp_filepaths: list[str], road_category: str) -> dd.DataFrame:
@@ -273,8 +262,7 @@ def merge(trp_filepaths: list[str], road_category: str) -> dd.DataFrame:
         road_category: self explaining
     """
     try:
-        dataframes_list = [dd.read_csv(trp) for trp in trp_filepaths]
-        merged_data = dd.concat(dataframes_list, axis=0)
+        merged_data = dd.concat([dd.read_csv(trp) for trp in trp_filepaths], axis=0)
         merged_data = merged_data.repartition(partition_size="512MB")
         merged_data = merged_data.sort_values(
             ["date"], ascending=True
@@ -298,9 +286,7 @@ def get_raw_average_speed_folder_path() -> str:
     This function returns the path for the raw_average_speed folder where all the average speed files are located. Each file contains the average speeds for one TRP
     """
     ops_name = get_active_ops()
-    average_speed_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/"
-
-    return average_speed_folder_path
+    return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/"
 
 
 def get_clean_average_speed_folder_path() -> str:
@@ -308,8 +294,7 @@ def get_clean_average_speed_folder_path() -> str:
     This function returns the path for the clean_average_speed folder where all the cleaned average speed data files are located
     """
     ops_name = get_active_ops()
-    clean_average_speed_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/clean_average_speed/"
-    return clean_average_speed_folder_path
+    return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/clean_average_speed/"
 
 
 def get_raw_avg_speed_file_list() -> list:
@@ -317,21 +302,15 @@ def get_raw_avg_speed_file_list() -> list:
     This function returns the name of every file contained in the raw_average_speed folder
     """
     ops_name = get_active_ops()
-    average_speed_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/"
-
-    # Identifying all the raw average speed files
-    average_speed_files = os.listdir(average_speed_folder_path)
-    print("Average speed files: ", average_speed_files, "\n\n")
-
-    return average_speed_files
+    # Returning all the raw average speed files
+    return os.listdir(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/")
 
 
 def import_avg_speed_data(file_path: str) -> pd.DataFrame:
     """
     This function returns the average speed data for a specific TRP
     """
-    data = pd.read_csv(file_path, sep=";", engine="c")
-    return data
+    return pd.read_csv(file_path, sep=";", engine="c")
 
 
 def get_clean_average_speed_files_list() -> list:
@@ -451,8 +430,7 @@ def read_forecasting_target_datetime(data_kind: str) -> datetime:
         target_dt = read_metainfo_key(
             keys_map=["forecasting", "target_datetimes", data_kind]
         )
-        target_dt = datetime.strptime(target_dt, dt_format)
-        return target_dt
+        return datetime.strptime(target_dt, dt_format)
     except TypeError:
         print(
             f"\033[91mTarget datetime for {data_kind} isn't set yet. Set it first and then execute a one-point forecast\033[0m"
@@ -500,8 +478,7 @@ def write_active_ops_file(ops_name: str) -> None:
 def get_active_ops():
     try:
         with open(f"{active_ops_filename}.txt", "r", encoding="utf-8") as ops_file:
-            op = ops_file.read()
-        return op
+            return ops_file.read()
     except FileNotFoundError:
         print("\033[91mOperations file not found\033[0m")
         sys.exit(1)
@@ -827,10 +804,9 @@ def read_metainfo_key(keys_map: list) -> Any:
     Parameters:
         keys_map: the list which includes all the keys which bring to the key-value pair to read (the one to read included)
     """
-    metainfo_filepath = f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
 
     if check_metainfo_file() is True:
-        with open(metainfo_filepath, "r", encoding="utf-8") as m:
+        with open(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
             payload = json.load(m)
     else:
         raise FileNotFoundError(
