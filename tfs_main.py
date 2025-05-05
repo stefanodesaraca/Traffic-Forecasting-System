@@ -93,7 +93,7 @@ async def download_data(functionality: str) -> None:
 
     elif functionality == "2.3":
         trp_id_list = get_trp_id_list()
-        if len(os.listdir(get_raw_traffic_volumes_folder_path())) == 0:
+        if len(os.listdir(get_raw_volumes_folder_path())) == 0:
             print("\033[91mDownload volumes data before writing metadata\033[0m")
             return None
 
@@ -108,8 +108,8 @@ async def download_data(functionality: str) -> None:
 # TODO ASYNCHRONIZE CLEANING AS WELL
 def clean_data(functionality: str) -> None:
     if functionality == "5.6.1":
-        traffic_volumes_folder = get_raw_traffic_volumes_folder_path()
-        traffic_volumes_file_list = get_raw_traffic_volume_file_list()
+        traffic_volumes_folder = get_raw_volumes_folder_path()
+        traffic_volumes_file_list = get_raw_volumes_files()
 
         cleaner = TrafficVolumesCleaner()
 
@@ -118,8 +118,8 @@ def clean_data(functionality: str) -> None:
                 cleaner.execute_cleaning(traffic_volumes_folder + file)
 
     elif functionality == "5.6.2":
-        average_speed_folder = get_raw_average_speed_folder_path()
-        average_speed_file_list = get_raw_avg_speed_file_list()
+        average_speed_folder = get_raw_as_folder_path()
+        average_speed_file_list = get_raw_as_files()
 
         cleaner = AverageSpeedCleaner()
 
@@ -145,12 +145,12 @@ def set_forecasting_options(functionality: str) -> None:
 
 
 def execute_eda() -> None:
-    clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
-    clean_average_speed_folder_path = get_clean_average_speed_folder_path()
+    clean_traffic_volumes_folder_path = get_clean_volumes_folder_path()
+    clean_average_speed_folder_path = get_clean_as_folder_path()
 
-    clean_traffic_volume_files = os.listdir(get_clean_traffic_volumes_folder_path())
+    clean_traffic_volume_files = os.listdir(get_clean_volumes_folder_path())
     print("Clean traffic volume files: ", clean_traffic_volume_files, "\n")
-    clean_average_speed_files = os.listdir(get_clean_average_speed_folder_path())
+    clean_average_speed_files = os.listdir(get_clean_as_folder_path())
     print("Clean average speed files: ", clean_average_speed_files, "\n")
 
     for v in clean_traffic_volume_files:
@@ -371,7 +371,7 @@ def execute_forecasts(functionality: str) -> None:
                 one_point_volume_forecaster = OnePointVolumesForecaster(trp_id=trp_id, road_category=trp_road_category)
                 one_point_volume_forecaster.preprocess_data(target_datetime=target_datetime)
             elif option == "AS":
-                pass  # TODO DEVELOP HERE
+                pass  #TODO DEVELOP HERE
 
         else:
             print("\033[91mNon-valid TRP ID, returning to main menu\033[0m")

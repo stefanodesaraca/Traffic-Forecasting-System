@@ -6,7 +6,6 @@ import traceback
 import logging
 from datetime import datetime
 
-import dask.distributed
 import numpy as np
 import pickle
 import warnings
@@ -15,7 +14,6 @@ import pandas as pd
 import dask.dataframe as dd
 import matplotlib.pyplot as plt
 from scipy import stats
-from scipy.special import softmax
 
 from dask.distributed import Client
 import joblib

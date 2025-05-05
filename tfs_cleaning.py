@@ -30,11 +30,13 @@ class BaseCleaner:
         self._ops_name = get_active_ops()
         self._regressor_types = ["lasso", "gamma", "quantile"]
 
+
     # General definition of the data_overview() function. This will take two different forms: the traffic volumes one and the average speed one.
     # Thus, the generic "data" parameter will become the volumes_data or the avg_speed_data one
     @staticmethod
     def data_overview(trp_data, data: dict, verbose: bool):
         return data
+
 
     # Executing multiple imputation to get rid of NaNs using the MICE method (Multiple Imputation by Chained Equations)
     def impute_missing_values(
@@ -48,9 +50,7 @@ class BaseCleaner:
             r: the regressor kind. Has to be within a specific list or regressors available
         """
         if r not in self._regressor_types:
-            raise ValueError(
-                f"Regressor type '{r}' is not supported. Must be one of: {self._regressor_types}"
-            )
+            raise ValueError(f"Regressor type '{r}' is not supported. Must be one of: {self._regressor_types}")
 
         reg = None
         if r in self._regressor_types:
@@ -77,16 +77,16 @@ class BaseCleaner:
             imputation_order="roman",
             initial_strategy="mean",
         )  # Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
-        data = pd.DataFrame(
-            mice_imputer.fit_transform(data), columns=data.columns
-        )  # Fitting the imputer and processing all the data columns except the date one
+        data = pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns)  # Fitting the imputer and processing all the data columns except the date one
 
         return data
+
 
 
 class TrafficVolumesCleaner(BaseCleaner):
     def __init__(self):
         super().__init__()
+
 
     # This function is only to give the user an overview of the data which we're currently cleaning, and some specific information about the TRP (Traffic Registration Point) which has collected it
     def data_overview(self, volumes_data: dict, verbose: bool = True) -> None:
@@ -109,31 +109,16 @@ class TrafficVolumesCleaner(BaseCleaner):
                 print("Country part: ", trp_metadata["country_part"])
                 print("Municipality name: ", trp_metadata["municipality_name"])
 
-                print(
-                    "Traffic registration type: ",
-                    trp_metadata["traffic_registration_type"],
-                )
+                print("Traffic registration type: ",trp_metadata["traffic_registration_type"])
                 print("Data time span: ")
                 print(" - First data: ", trp_metadata["first_data"])
-                print(
-                    " - First data with quality metrics: ",
-                    trp_metadata["first_data_with_quality_metrics"],
-                )
+                print(" - First data with quality metrics: ",trp_metadata["first_data_with_quality_metrics"])
                 print(" - Latest data: ")
                 print("   > Volume by day: ", trp_metadata["latest_volume_by_day"])
                 print("   > Volume by hour: ", trp_metadata["latest_volume_byh_hour"])
-                print(
-                    "   > Volume average daily by year: ",
-                    trp_metadata["latest_volume_average_daily_by_year"],
-                )
-                print(
-                    "   > Volume average daily by season: ",
-                    trp_metadata["latest_volume_average_daily_by_season"],
-                )
-                print(
-                    "   > Volume average daily by month: ",
-                    trp_metadata["latest_volume_average_daily_by_month"],
-                )
+                print("   > Volume average daily by year: ", trp_metadata["latest_volume_average_daily_by_year"])
+                print("   > Volume average daily by season: ", trp_metadata["latest_volume_average_daily_by_season"])
+                print("   > Volume average daily by month: ", trp_metadata["latest_volume_average_daily_by_month"])
                 print("Number of data nodes: ", trp_metadata["number_of_data_nodes"])
 
                 print("\n")
@@ -150,6 +135,7 @@ class TrafficVolumesCleaner(BaseCleaner):
         except FileNotFoundError as e:
             print(f"\033[91mMetadata file not found. Error: {e}\033[0m")
             return None
+
 
     def restructure_traffic_volumes_data(self, volumes_payload):
         by_hour_structured = {
@@ -468,6 +454,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
             return by_hour_df  # TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, BUT FOR NOW IT'S BETTER TO SAVE PERFORMANCES AND MEMORY BY JUST RETURNING TWO STRINGS AND NOT EVEN CREATING THE DFs
 
+
     # This function is design only to clean by_hour data since that's the data we're going to use for the main purposes of this project
     def clean_traffic_volumes_data(
         self, by_hour_df: pd.DataFrame
@@ -538,6 +525,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         return by_hour_df
 
+
     # TODO CHANGE by_hour TO dd.DatFrame
     def export_traffic_volumes_data(
         self, by_hour: pd.DataFrame, volumes_file_path, trp_id: str
@@ -550,7 +538,7 @@ class TrafficVolumesCleaner(BaseCleaner):
             ".json", "C.csv"
         )  # TODO IMPROVE THIS THROUGH A SIMPLER FILE NAME AND A PARSER OR GETTER FUNCTION IN tfs_utils.py
 
-        clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
+        clean_traffic_volumes_folder_path = get_clean_volumes_folder_path()
         file_path = (
             clean_traffic_volumes_folder_path + file_name
         )  # C stands for "cleaned"
@@ -569,15 +557,15 @@ class TrafficVolumesCleaner(BaseCleaner):
             print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
             return None
 
+
     def cleaning_pipeline(self, volumes_file_path: str) -> None:
         print(volumes_file_path)
-        volumes = import_volumes_data(volumes_file_path)
+        with open(volumes_file_path, "r", encoding="utf-8") as f:
+            volumes = json.load(f)
         trp_id = volumes["trafficData"]["trafficRegistrationPoint"]["id"]
 
         self.data_overview(volumes_data=volumes, verbose=True)
-        by_hour_df = self.restructure_traffic_volumes_data(
-            volumes
-        )  # TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, IN THAT CASE WE'LL REPLACE THE _, _ WITH by_lane_df, by_direction_df
+        by_hour_df = self.restructure_traffic_volumes_data(volumes)  # TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, IN THAT CASE WE'LL REPLACE THE _, _ WITH by_lane_df, by_direction_df
 
         # TODO TO-NOTE TRPs WITH NO DATA WON'T BE INCLUDED IN THE ROAD NETWORK CREATION SINCE THEY WON'T RETURN A DATAFRAME (BECAUSE THEY DON'T HAVE DATA TO STORE IN A DF)
 
@@ -585,16 +573,15 @@ class TrafficVolumesCleaner(BaseCleaner):
             by_hour_df = self.clean_traffic_volumes_data(by_hour_df)
 
             if by_hour_df is not None:
-                self.export_traffic_volumes_data(
-                    by_hour_df, volumes_file_path, trp_id=trp_id
-                )
+                self.export_traffic_volumes_data(by_hour_df, volumes_file_path, trp_id=trp_id)
 
         elif by_hour_df is None:
-            pass  # A warning for empty nodes is given during the restructuring section
+            pass # A warning for empty nodes is given during the restructuring section
 
         print("--------------------------------------------------------\n\n")
 
         return None
+
 
     def execute_cleaning(self, volumes_file_path: str) -> None:
         self.cleaning_pipeline(volumes_file_path=volumes_file_path)
@@ -846,7 +833,7 @@ class AverageSpeedCleaner(BaseCleaner):
     def export_clean_avg_speed_data(
         self, avg_speed_data: pd.DataFrame, trp_id: str, t_max: str, t_min: str
     ) -> None:
-        clean_avg_data_folder_path = get_clean_average_speed_folder_path()
+        clean_avg_data_folder_path = get_clean_as_folder_path()
         filepath = clean_avg_data_folder_path + trp_id + f"_S{t_min}_E{t_max}C.csv"
         filename = trp_id + f"_S{t_min}_E{t_max}C.csv"
 
