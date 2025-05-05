@@ -44,37 +44,23 @@ def import_TRPs_data():
     """
     This function returns json data about all TRPs (downloaded previously)
     """
-    assert os.path.isfile(get_traffic_registration_points_file_path()) is True, (
-        "Traffic registration points file missing"
-    )
-    traffic_registration_points_path = get_traffic_registration_points_file_path()
-    with open(traffic_registration_points_path, "r", encoding="utf-8") as TRPs:
-        trp_info = json.load(TRPs)
-
-    return trp_info
+    assert os.path.isfile(get_traffic_registration_points_file_path()), "Traffic registration points file missing"
+    with open(get_traffic_registration_points_file_path(), "r", encoding="utf-8") as TRPs:
+        return json.load(TRPs)
 
 
 # TODO IMPROVE THIS FUNCTION, AND SET THAT THIS RETURNS A LIST OF str
 @lru_cache()
 def get_trp_id_list() -> list[str]:
-    trp_info = import_TRPs_data()
-
     # If there aren't volumes files yet, then just return all the TRP IDs available in the traffic_registration_points_file
     if len(os.listdir(get_raw_traffic_volumes_folder_path())) == 0:
-        trp_id_list = [
-            trp["id"] for trp in trp_info["trafficRegistrationPoints"]
-        ]  # This list may contain IDs of TRPs which don't have a volumes file associated with them
+        trp_id_list = [trp["id"] for trp in import_TRPs_data()["trafficRegistrationPoints"]]  # This list may contain IDs of TRPs which don't have a volumes file associated with them
     else:
-        trp_id_list = list({
-            trp["id"]
-            for trp in trp_info["trafficRegistrationPoints"]
-            if trp["id"]
-            in [
-                get_trp_id_from_filename(file)
-                for file in os.listdir(get_raw_traffic_volumes_folder_path())
-            ]
-        })  # Keep only the TRPs which actually have a volumes file associated with them. Using list() on a set comprehension to avoid duplicates
-
+        trp_id_list = list({trp["id"]
+                            for trp in import_TRPs_data()["trafficRegistrationPoints"]
+                            if trp["id"]
+                            in [get_trp_id_from_filename(file) for file in os.listdir(get_raw_traffic_volumes_folder_path())]
+                        })  # Keep only the TRPs which actually have a volumes file associated with them. Using list() on a set comprehension to avoid duplicates
     return trp_id_list
 
 
@@ -83,16 +69,7 @@ def get_trp_id_from_filename(filename: str) -> str:
 
 
 def get_all_available_road_categories() -> list:
-    trp_info = import_TRPs_data()
-    trp_road_category_list = list(
-        set(
-            [
-                trp["location"]["roadReference"]["roadCategory"]["id"]
-                for trp in trp_info["trafficRegistrationPoints"]
-            ]
-        )
-    )
-    return trp_road_category_list
+    return list(set((trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data()["trafficRegistrationPoints"])))
 
 
 def get_trp_road_category(trp_id: str) -> str:
@@ -119,15 +96,11 @@ def get_trp_metadata(trp_id: str) -> dict:
 def write_trp_metadata(trp_id: str) -> None:
     ops_name = get_active_ops()
     trps = import_TRPs_data()
-    trp_data = [i for i in trps["trafficRegistrationPoints"] if i["id"] == trp_id][
-        0
-    ]  # TODO IMPROVE THIS PART HERE
+    trp_data = [i for i in trps["trafficRegistrationPoints"] if i["id"] == trp_id][0]  # TODO IMPROVE THIS PART HERE
 
     raw_volume_files_folder_path = get_raw_traffic_volumes_folder_path()
     raw_volume_files = get_raw_traffic_volume_file_list()
-    trp_volumes_file = [
-        f for f in raw_volume_files if trp_id in f
-    ]  # Find the right TRP file by checking if the TRP ID is in the filename and if it is in the raw traffic volumes folder
+    trp_volumes_file = [f for f in raw_volume_files if trp_id in f]  # Find the right TRP file by checking if the TRP ID is in the filename and if it is in the raw traffic volumes folder
 
     if len(trp_volumes_file) == 1:
         trp_volumes_file = trp_volumes_file[0]
@@ -137,24 +110,14 @@ def write_trp_metadata(trp_id: str) -> None:
     with open(raw_volume_files_folder_path + trp_volumes_file, "r", encoding="utf-8") as f:
         volumes = json.load(f)
 
-    trp_metadata_filepath = (
-        f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/"
-    )
+    trp_metadata_filepath = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/"
     trp_metadata_filename = f"{trp_id}_metadata"
 
-    assert os.path.isdir(get_raw_traffic_volumes_folder_path()) is True, (
-        "Raw traffic volumes folder missing"
-    )
-    assert os.path.isdir(get_clean_traffic_volumes_folder_path()) is True, (
-        "Clean traffic volumes folder missing"
-    )
+    assert os.path.isdir(get_raw_traffic_volumes_folder_path()) is True, "Raw traffic volumes folder missing"
+    assert os.path.isdir(get_clean_traffic_volumes_folder_path()) is True, "Clean traffic volumes folder missing"
 
-    assert os.path.isdir(get_raw_average_speed_folder_path()) is True, (
-        "Raw average speed folder missing"
-    )
-    assert os.path.isdir(get_clean_average_speed_folder_path()) is True, (
-        "Clean average speed folder missing"
-    )
+    assert os.path.isdir(get_raw_average_speed_folder_path()) is True, "Raw average speed folder missing"
+    assert os.path.isdir(get_clean_average_speed_folder_path()) is True, "Clean average speed folder missing"
 
     check_metainfo_file()
 
@@ -175,25 +138,13 @@ def write_trp_metadata(trp_id: str) -> None:
         "municipality_name": trp_data["location"]["municipality"]["name"],
         "traffic_registration_type": trp_data["trafficRegistrationType"],
         "first_data": trp_data["dataTimeSpan"]["firstData"],
-        "first_data_with_quality_metrics": trp_data["dataTimeSpan"][
-            "firstDataWithQualityMetrics"
-        ],
+        "first_data_with_quality_metrics": trp_data["dataTimeSpan"]["firstDataWithQualityMetrics"],
         "latest_volume_by_day": trp_data["dataTimeSpan"]["latestData"]["volumeByDay"],
-        "latest_volume_byh_hour": trp_data["dataTimeSpan"]["latestData"][
-            "volumeByHour"
-        ],
-        "latest_volume_average_daily_by_year": trp_data["dataTimeSpan"]["latestData"][
-            "volumeAverageDailyByYear"
-        ],
-        "latest_volume_average_daily_by_season": trp_data["dataTimeSpan"]["latestData"][
-            "volumeAverageDailyBySeason"
-        ],
-        "latest_volume_average_daily_by_month": trp_data["dataTimeSpan"]["latestData"][
-            "volumeAverageDailyByMonth"
-        ],
-        "number_of_data_nodes": len(
-            volumes["trafficData"]["volume"]["byHour"]["edges"]
-        ),
+        "latest_volume_byh_hour": trp_data["dataTimeSpan"]["latestData"]["volumeByHour"],
+        "latest_volume_average_daily_by_year": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByYear"],
+        "latest_volume_average_daily_by_season": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"],
+        "latest_volume_average_daily_by_month": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"],
+        "number_of_data_nodes": len(volumes["trafficData"]["volume"]["byHour"]["edges"])
     }  # (Volumes data nodes)
 
     metadata_filepath = trp_metadata_filepath + trp_metadata_filename + ".json"
@@ -264,14 +215,9 @@ def merge(trp_filepaths: list[str], road_category: str) -> dd.DataFrame:
     try:
         merged_data = dd.concat([dd.read_csv(trp) for trp in trp_filepaths], axis=0)
         merged_data = merged_data.repartition(partition_size="512MB")
-        merged_data = merged_data.sort_values(
-            ["date"], ascending=True
-        )  # Sorting records by date
+        merged_data = merged_data.sort_values(["date"], ascending=True)  # Sorting records by date
         merged_data = merged_data.persist()
-        print(
-            f"Shape of the merged data for road category {road_category}: ",
-            (merged_data.shape[0].compute(), merged_data.shape[1]),
-        )
+        print(f"Shape of the merged data for road category {road_category}: ", (merged_data.shape[0].compute(), merged_data.shape[1]))
         return merged_data
     except ValueError as e:
         print(f"\033[91mNo data to concatenate. Error: {e}")
@@ -331,9 +277,7 @@ def get_ml_models_folder_path(target: str, road_category: str) -> str:
     elif target == "mean_speed":
         ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/{ops_name}_average_speed_models/{ops_name}_{road_category}_average_speed_models/"
     else:
-        raise Exception(
-            "Wrong target variable in the get_ml_models_folder_path() function"
-        )
+        raise Exception("Wrong target variable in the get_ml_models_folder_path() function")
 
     return ml_folder_path
 
@@ -346,9 +290,7 @@ def get_ml_model_parameters_folder_path(target: str, road_category: str) -> str:
     elif target == "mean_speed":
         ml_parameters_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models_parameters/{ops_name}_average_speed_models_parameters/{ops_name}_{road_category}_average_speed_models_parameters/"
     else:
-        raise Exception(
-            "Wrong target variable in the get_ml_model_parameters_folder_path() function"
-        )
+        raise Exception("Wrong target variable in the get_ml_model_parameters_folder_path() function")
 
     return ml_parameters_folder_path
 
@@ -395,14 +337,10 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
 
 def read_forecasting_target_datetime(data_kind: str) -> datetime:
     try:
-        target_dt = read_metainfo_key(
-            keys_map=["forecasting", "target_datetimes", data_kind]
-        )
+        target_dt = read_metainfo_key(keys_map=["forecasting", "target_datetimes", data_kind])
         return datetime.strptime(target_dt, dt_format)
     except TypeError:
-        print(
-            f"\033[91mTarget datetime for {data_kind} isn't set yet. Set it first and then execute a one-point forecast\033[0m"
-        )
+        print(f"\033[91mTarget datetime for {data_kind} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
         sys.exit(1)
     except FileNotFoundError:
         print("\033[91mTarget Datetime File Not Found\033[0m")
@@ -411,15 +349,9 @@ def read_forecasting_target_datetime(data_kind: str) -> datetime:
 
 def rm_forecasting_target_datetime() -> None:
     try:
-        print(
-            "For which data kind do you want to remove the forecasting target datetime?"
-        )
-        option = input(
-            "Press V to set forecasting target datetime for traffic volumes or AS for average speeds:"
-        )
-        update_metainfo(
-            None, ["forecasting", "target_datetimes", option], mode="equals"
-        )
+        print("For which data kind do you want to remove the forecasting target datetime?")
+        option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds:")
+        update_metainfo(None, ["forecasting", "target_datetimes", option], mode="equals")
         print("Target datetime file deleted successfully\n\n")
         return None
     except KeyError:
@@ -433,9 +365,7 @@ def rm_forecasting_target_datetime() -> None:
 # The user sets the current operation
 def write_active_ops_file(ops_name: str) -> None:
     ops_name = clean_text(ops_name)
-    assert os.path.isfile(f"{ops_folder}/{ops_name}") is True, (
-        f"{ops_name} operation folder not found. Create an operation with that name first."
-    )
+    assert os.path.isfile(f"{ops_folder}/{ops_name}") is True, f"{ops_name} operation folder not found. Create an operation with that name first."
     with open(f"{active_ops_filename}.txt", "w", encoding="utf-8") as ops_file:
         ops_file.write(ops_name)
     return None
@@ -486,15 +416,11 @@ def create_ops_folder(ops_name: str) -> None:
     ]
     ml_subfolders = ["models_parameters", "models", "models_performance", "ml_reports"]
     ml_sub_subfolders = ["traffic_volumes", "average_speed"]
-    ml_sub_sub_subfolders = [
-        road_category for road_category in ["E", "R", "F", "K", "P"]
-    ]
+    ml_sub_sub_subfolders = [road_category for road_category in ["E", "R", "F", "K", "P"]]
 
     with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "r", encoding="utf-8") as m:
         metainfo = json.load(m)
-    metainfo[
-        "folder_paths"
-    ] = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
+    metainfo["folder_paths"] = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
 
     for mf in main_folders:
         main_f = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_{mf}/"
@@ -510,13 +436,9 @@ def create_ops_folder(ops_name: str) -> None:
         # Data sub-subfolders
         for dssf in data_sub_subfolders:
             if dsf != "trp_metadata":
-                data_2sub = (
-                    f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}/{dssf}_{dsf}/"
-                )
+                data_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}/{dssf}_{dsf}/"
                 os.makedirs(data_2sub, exist_ok=True)
-                metainfo["folder_paths"]["data"][dsf]["subfolders"][dssf] = {
-                    "path": data_2sub
-                }
+                metainfo["folder_paths"]["data"][dsf]["subfolders"][dssf] = {"path": data_2sub}
 
     for e in eda_subfolders:
         eda_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{e}/"
@@ -527,18 +449,13 @@ def create_ops_folder(ops_name: str) -> None:
             if e != f"{ops_name}_shapiro_wilk_test":
                 eda_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{e}/{esub}_eda_plots/"
                 os.makedirs(eda_2sub, exist_ok=True)
-                metainfo["folder_paths"]["eda"][e]["subfolders"][esub] = {
-                    "path": eda_2sub
-                }
+                metainfo["folder_paths"]["eda"][e]["subfolders"][esub] = {"path": eda_2sub}
 
     # Graph subfolders
     for gsf in rn_graph_subfolders:
         gsf_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_rn_graph/{gsf}/"
         os.makedirs(gsf_sub, exist_ok=True)
-        metainfo["folder_paths"]["rn_graph"][gsf] = {
-            "path": gsf_sub,
-            "subfolders": None,
-        }
+        metainfo["folder_paths"]["rn_graph"][gsf] = {"path": gsf_sub, "subfolders": None}
 
     # Machine learning subfolders
     for mlsf in ml_subfolders:
@@ -550,17 +467,12 @@ def create_ops_folder(ops_name: str) -> None:
         for mlssf in ml_sub_subfolders:
             ml_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/{ops_name}_{mlssf}_{mlsf}/"
             os.makedirs(ml_2sub, exist_ok=True)
-            metainfo["folder_paths"]["ml"][mlsf]["subfolders"][mlssf] = {
-                "path": ml_2sub,
-                "subfolders": {},
-            }
+            metainfo["folder_paths"]["ml"][mlsf]["subfolders"][mlssf] = {"path": ml_2sub,"subfolders": {}}
 
             for mlsssf in ml_sub_sub_subfolders:
                 ml_3sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/{ops_name}_{mlssf}_{mlsf}/{ops_name}_{mlsssf}_{mlssf}_{mlsf}/"
                 os.makedirs(ml_3sub, exist_ok=True)
-                metainfo["folder_paths"]["ml"][mlsf]["subfolders"][mlssf]["subfolders"][
-                    mlsssf
-                ] = {"path": ml_3sub}
+                metainfo["folder_paths"]["ml"][mlsf]["subfolders"][mlssf]["subfolders"][mlsssf] = {"path": ml_3sub}
 
     with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "w", encoding="utf-8") as m:
         json.dump(metainfo, m, indent=4)

@@ -368,12 +368,8 @@ def execute_forecasts(functionality: str) -> None:
             print("\nTRP road category:", trp_road_category)
 
             if option == "V":
-                one_point_volume_forecaster = OnePointVolumesForecaster(
-                    trp_id=trp_id, road_category=trp_road_category
-                )
-                one_point_volume_forecaster.preprocess_data(
-                    target_datetime=target_datetime
-                )
+                one_point_volume_forecaster = OnePointVolumesForecaster(trp_id=trp_id, road_category=trp_road_category)
+                one_point_volume_forecaster.preprocess_data(target_datetime=target_datetime)
             elif option == "AS":
                 pass  # TODO DEVELOP HERE
 

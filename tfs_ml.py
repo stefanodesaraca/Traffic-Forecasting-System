@@ -5,6 +5,8 @@ import sys
 import traceback
 import logging
 from datetime import datetime
+
+import dask.distributed
 import numpy as np
 import pickle
 import warnings
@@ -74,18 +76,17 @@ class BaseLearner:
     """
 
     def __init__(self, client: Client):
-        self.scorer = {
+        self.scorer: dict = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
             "root_mean_squared_error": make_scorer(root_mean_squared_error),
             "mean_absolute_error": make_scorer(mean_absolute_error),
         }
-        self.client = client
+        self.client: Client = client
+
 
     @staticmethod
-    def split_data(
-        volumes_preprocessed: dd.DataFrame, target: str
-    ) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
+    def split_data(volumes_preprocessed: dd.DataFrame, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
         """
         Splits the Dask DataFrame into training and testing sets based on the target column.
 
@@ -98,9 +99,7 @@ class BaseLearner:
         """
 
         if target not in ["volume", "mean_speed"]:
-            raise ValueError(
-                "Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'."
-            )
+            raise ValueError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
 
         X = volumes_preprocessed.drop(columns=[target])
         y = volumes_preprocessed[[target]]
@@ -128,9 +127,8 @@ class BaseLearner:
 
         return X_train, X_test, y_train, y_test
 
-    def gridsearch(
-        self, X_train, y_train, target: str, model_name: str, road_category: str
-    ) -> None:
+
+    def gridsearch(self, X_train, y_train, target: str, model_name: str, road_category: str) -> None:
         ops_name = get_active_ops()
 
         if target == "volume":
@@ -142,23 +140,15 @@ class BaseLearner:
         else:
             raise Exception("Wrong target variable in GridSearchCV executor function")
 
-        model = model_names_and_functions[
-            model_name
-        ]()  # Finding the function which returns the model and executing it
+        model = model_names_and_functions[model_name]()  # Finding the function which returns the model and executing it
 
-        ml_parameters_folder_path = get_ml_model_parameters_folder_path(
-            target=target, road_category=road_category
-        )
-        model_filename = (
-            ops_name + "_" + road_category + "_" + model_name + "_" + "parameters"
-        )
+        ml_parameters_folder_path = get_ml_model_parameters_folder_path(target=target, road_category=road_category)
+        model_filename = (ops_name + "_" + road_category + "_" + model_name + "_" + "parameters")
 
         t_start = datetime.now()
         print(f"{model_name} GridSearchCV started at {t_start}\n")
 
-        time_cv = TimeSeriesSplit(
-            n_splits=5
-        )  # A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
+        time_cv = TimeSeriesSplit(n_splits=5)  # A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
         gridsearch = GridSearchCV(
             model,
             param_grid=parameters_grid,
@@ -199,27 +189,19 @@ class BaseLearner:
         print(f"{model_name} GridSearchCV finished at {t_end}\n")
         print(f"Time passed: {t_end - t_start}")
 
-        gridsearch_results.to_json(
-            f"./ops/{road_category}_{model_name}_grid_params_and_results.json", indent=4
-        )  # TODO FOR TESTING PURPOSES
+        gridsearch_results.to_json(f"./ops/{road_category}_{model_name}_grid_params_and_results.json", indent=4)  # TODO FOR TESTING PURPOSES
 
         print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
         print("GridSearchCV best parameters: ", gridsearch.best_params_)
         print("GridSearchCV best score: ", gridsearch.best_score_)
 
-        print(
-            "GridSearchCV best combination index (in the results dataframe): ",
-            gridsearch.best_index_,
-            "\n",
-        )
+        print("GridSearchCV best combination index (in the results dataframe): ",gridsearch.best_index_,"\n",)
 
         # print(gridsearch.scorer_, "\n")
 
         # The best_parameters_by_model variable is obtained from the tfs_models file
         true_best_parameters = {
-            model_name: gridsearch_results["params"].loc[
-                best_parameters_by_model[model_name]
-            ]
+            model_name: gridsearch_results["params"].loc[best_parameters_by_model[model_name]]
             if gridsearch_results["params"].loc[best_parameters_by_model[model_name]]
             is not None
             else {}
@@ -231,18 +213,12 @@ class BaseLearner:
         for par, val in auxiliary_parameters.items():
             true_best_parameters[model_name][par] = val
 
-        true_best_parameters["best_GridSearchCV_model_index"] = (
-            best_parameters_by_model[model_name]
-        )
-        true_best_parameters["best_GridSearchCV_model_scores"] = gridsearch_results.loc[
-            best_parameters_by_model[model_name]
-        ].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
+        true_best_parameters["best_GridSearchCV_model_index"] = (best_parameters_by_model[model_name])
+        true_best_parameters["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_parameters_by_model[model_name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
         print(f"True best parameters for {model_name}: ", true_best_parameters, "\n")
 
-        with open(
-            ml_parameters_folder_path + model_filename + ".json", "w", encoding="utf-8"
-        ) as parameters_file:
+        with open(ml_parameters_folder_path + model_filename + ".json", "w", encoding="utf-8") as parameters_file:
             json.dump(true_best_parameters, parameters_file, indent=4)
 
         gc.collect()
@@ -250,37 +226,18 @@ class BaseLearner:
         return None
 
     @staticmethod
-    def train_model(
-        X_train: dd.DataFrame,
-        y_train: dd.DataFrame,
-        target: str,
-        model_name: str,
-        road_category: str,
-    ) -> None:
+    def train_model(X_train: dd.DataFrame, y_train: dd.DataFrame, target: str, model_name: str, road_category: str) -> None:
         # -------------- Filenames, etc. --------------
 
         ops_name = get_active_ops()
 
-        models_parameters_folder_path = get_ml_model_parameters_folder_path(
-            target, road_category
-        )
+        models_parameters_folder_path = get_ml_model_parameters_folder_path(target, road_category)
         models_folder_path = get_ml_models_folder_path(target, road_category)
 
         model_filename = ops_name + "_" + road_category + "_" + model_name
 
-        model_parameters_filename = (
-            ops_name
-            + "_"
-            + road_category
-            + "_"
-            + model_name
-            + "_"
-            + "parameters"
-            + ".json"
-        )
-        model_parameters_filepath = (
-            models_parameters_folder_path + model_parameters_filename
-        )
+        model_parameters_filename = (ops_name+ "_" + road_category + "_"+ model_name + "_" + "parameters" + ".json")
+        model_parameters_filepath = (models_parameters_folder_path + model_parameters_filename)
 
         # -------------- Parameters extraction --------------
 
@@ -290,11 +247,7 @@ class BaseLearner:
 
         # -------------- Training --------------
 
-        model = model_names_and_class_objects[
-            model_name
-        ](
-            **parameters
-        )  # Unpacking the dictionary to set all parameters to instantiate the model's class object
+        model = model_names_and_class_objects[model_name](**parameters)  # Unpacking the dictionary to set all parameters to instantiate the model's class object
 
         with joblib.parallel_backend("dask"):
             model.fit(X_train, y_train)
@@ -304,14 +257,9 @@ class BaseLearner:
         # -------------- Model exporting --------------
 
         try:
-            joblib.dump(
-                model,
-                models_folder_path + model_filename + ".joblib",
-                protocol=pickle.HIGHEST_PROTOCOL,
-            )
+            joblib.dump(model, models_folder_path + model_filename + ".joblib", protocol=pickle.HIGHEST_PROTOCOL)
             with open(
-                models_folder_path + model_filename + ".pkl", "wb"
-            ) as ml_pkl_file:
+                models_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
                 pickle.dump(model, ml_pkl_file, protocol=pickle.HIGHEST_PROTOCOL)
             return None
 
@@ -357,42 +305,26 @@ class BaseLearner:
 
 
 class TrafficVolumesLearner(BaseLearner):
-    def __init__(self, volumes_data: dd.DataFrame | pd.DataFrame, client: Client):
+    def __init__(self, volumes_data: dd.DataFrame, client: Client):
         super().__init__(client)
-        self.volumes_data = volumes_data
+        self.volumes_data: dd.DataFrame = volumes_data
 
     def preprocess(self) -> dd.DataFrame:
         volumes = self.volumes_data
 
         # ------------------ Cyclical variables encoding ------------------
 
-        volumes["hour_sin"] = volumes["hour"].map_partitions(
-            sin_transformer, timeframe=24
-        )
-        volumes["hour_cos"] = volumes["hour"].map_partitions(
-            cos_transformer, timeframe=24
-        )
+        volumes["hour_sin"] = volumes["hour"].map_partitions(sin_transformer, timeframe=24)
+        volumes["hour_cos"] = volumes["hour"].map_partitions(cos_transformer, timeframe=24)
 
-        volumes["week_sin"] = volumes["week"].map_partitions(
-            sin_transformer, timeframe=52
-        )
-        volumes["week_cos"] = volumes["week"].map_partitions(
-            cos_transformer, timeframe=52
-        )
+        volumes["week_sin"] = volumes["week"].map_partitions(sin_transformer, timeframe=52)
+        volumes["week_cos"] = volumes["week"].map_partitions(cos_transformer, timeframe=52)
 
-        volumes["day_sin"] = volumes["day"].map_partitions(
-            sin_transformer, timeframe=31
-        )
-        volumes["day_cos"] = volumes["day"].map_partitions(
-            cos_transformer, timeframe=31
-        )
+        volumes["day_sin"] = volumes["day"].map_partitions(sin_transformer, timeframe=31)
+        volumes["day_cos"] = volumes["day"].map_partitions(cos_transformer, timeframe=31)
 
-        volumes["month_sin"] = volumes["month"].map_partitions(
-            sin_transformer, timeframe=12
-        )
-        volumes["month_cos"] = volumes["month"].map_partitions(
-            cos_transformer, timeframe=12
-        )
+        volumes["month_sin"] = volumes["month"].map_partitions(sin_transformer, timeframe=12)
+        volumes["month_cos"] = volumes["month"].map_partitions(cos_transformer, timeframe=12)
 
         # print("\n\n")
 
@@ -406,12 +338,8 @@ class TrafficVolumesLearner(BaseLearner):
 
         volumes["trp_id"] = volumes["trp_id"].astype("category")
 
-        encoder = LabelEncoder(
-            use_categorical=True
-        )  # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
-        volumes = volumes.assign(
-            trp_id_encoded=encoder.fit_transform(volumes["trp_id"])
-        )  # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
+        encoder = LabelEncoder(use_categorical=True)  # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
+        volumes = volumes.assign(trp_id_encoded=encoder.fit_transform(volumes["trp_id"]))  # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
         volumes.persist()
 
         # print("Encoded TRP IDs:", sorted(volumes["trp_id_encoded"].unique().compute()))
@@ -419,9 +347,7 @@ class TrafficVolumesLearner(BaseLearner):
         # ------------------ Variables normalization ------------------
 
         scaler = MinMaxScaler()
-        volumes[["volume", "coverage"]] = scaler.fit_transform(
-            volumes[["volume", "coverage"]]
-        )
+        volumes[["volume", "coverage"]] = scaler.fit_transform(volumes[["volume", "coverage"]])
 
         # ------------------ Creating lag features ------------------
 
@@ -429,27 +355,20 @@ class TrafficVolumesLearner(BaseLearner):
         lag12h_column_names = [f"volumes_lag12h_{i}" for i in range(1, 7)]
         lag24h_column_names = [f"volumes_lag24h_{i}" for i in range(1, 7)]
 
-        for idx, n in enumerate(lag6h_column_names):
-            volumes[n] = volumes["volume"].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate(lag12h_column_names):
-            volumes[n] = volumes["volume"].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate(lag24h_column_names):
-            volumes[n] = volumes["volume"].shift(idx + 24)  # 24 hours shift
+        for idx, n in enumerate(lag6h_column_names):volumes[n] = volumes["volume"].shift(idx + 6)  # 6 hours shift
+        for idx, n in enumerate(lag12h_column_names):volumes[n] = volumes["volume"].shift(idx + 12)  # 12 hours shift
+        for idx, n in enumerate(lag24h_column_names):volumes[n] = volumes["volume"].shift(idx + 24)  # 24 hours shift
 
         # print(volumes.head(10))
         # print(volumes.dtypes)
 
         # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
 
-        volumes["is_covid_year"] = (volumes["year"].isin(get_covid_years())).astype(
-            "int"
-        )  # Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
+        volumes["is_covid_year"] = (volumes["year"].isin(get_covid_years())).astype("int")  # Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
-        volumes = volumes.drop(
-            columns=["year", "month", "week", "day", "trp_id", "date"], axis=1
-        ).persist()  # Keeping year and hour data and the encoded_trp_id
+        volumes = volumes.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist()  # Keeping year and hour data and the encoded_trp_id
 
         # print("Volumes dataframe head: ")
         # print(volumes.head(5), "\n")
@@ -465,36 +384,24 @@ class TrafficVolumesLearner(BaseLearner):
 class AverageSpeedLearner(BaseLearner):
     def __init__(self, speeds_data: dd.DataFrame, client: Client):
         super().__init__(client)
-        self.speeds_data = speeds_data
+        self.speeds_data: dd.DataFrame = speeds_data
 
     def preprocess(self) -> dd.DataFrame:
         speeds = self.speeds_data
 
         # ------------------ Cyclical variables encoding ------------------
 
-        speeds["hour_start_sin"] = speeds["hour_start"].map_partitions(
-            sin_transformer, timeframe=24
-        )
-        speeds["hour_start_cos"] = speeds["hour_start"].map_partitions(
-            cos_transformer, timeframe=24
-        )
+        speeds["hour_start_sin"] = speeds["hour_start"].map_partitions(sin_transformer, timeframe=24)
+        speeds["hour_start_cos"] = speeds["hour_start"].map_partitions(cos_transformer, timeframe=24)
 
-        speeds["week_sin"] = speeds["week"].map_partitions(
-            sin_transformer, timeframe=52
-        )
-        speeds["week_cos"] = speeds["week"].map_partitions(
-            cos_transformer, timeframe=52
-        )
+        speeds["week_sin"] = speeds["week"].map_partitions(sin_transformer, timeframe=52)
+        speeds["week_cos"] = speeds["week"].map_partitions(cos_transformer, timeframe=52)
 
         speeds["day_sin"] = speeds["day"].map_partitions(sin_transformer, timeframe=31)
         speeds["day_cos"] = speeds["day"].map_partitions(cos_transformer, timeframe=31)
 
-        speeds["month_sin"] = speeds["month"].map_partitions(
-            sin_transformer, timeframe=12
-        )
-        speeds["month_cos"] = speeds["month"].map_partitions(
-            cos_transformer, timeframe=12
-        )
+        speeds["month_sin"] = speeds["month"].map_partitions(sin_transformer, timeframe=12)
+        speeds["month_cos"] = speeds["month"].map_partitions(cos_transformer, timeframe=12)
 
         print("\n\n")
 
@@ -508,12 +415,8 @@ class AverageSpeedLearner(BaseLearner):
 
         speeds["trp_id"] = speeds["trp_id"].astype("category")
 
-        encoder = LabelEncoder(
-            use_categorical=True
-        )  # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
-        speeds = speeds.assign(
-            trp_id_encoded=encoder.fit_transform(speeds["trp_id"])
-        )  # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
+        encoder = LabelEncoder(use_categorical=True)  # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
+        speeds = speeds.assign(trp_id_encoded=encoder.fit_transform(speeds["trp_id"]))  # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
         speeds.persist()
 
         # print("Encoded TRP IDs:", sorted(volumes["trp_id_encoded"].unique().compute()))
@@ -521,9 +424,7 @@ class AverageSpeedLearner(BaseLearner):
         # ------------------ Variables normalization ------------------
 
         scaler = MinMaxScaler()
-        speeds[["mean_speed", "percentile_85", "coverage"]] = scaler.fit_transform(
-            speeds[["mean_speed", "percentile_85", "coverage"]]
-        )
+        speeds[["mean_speed", "percentile_85", "coverage"]] = scaler.fit_transform(speeds[["mean_speed", "percentile_85", "coverage"]])
 
         # ------------------ Creating lag features ------------------
 
@@ -531,41 +432,27 @@ class AverageSpeedLearner(BaseLearner):
         lag12h_column_names = [f"mean_speed_lag12_{i}" for i in range(1, 7)]
         lag24h_column_names = [f"mean_speed_lag24_{i}" for i in range(1, 7)]
         percentile_85_lag6_column_names = [f"percentile_85_lag{i}" for i in range(1, 7)]
-        percentile_85_lag12_column_names = [
-            f"percentile_85_lag{i}" for i in range(1, 7)
-        ]
-        percentile_85_lag24_column_names = [
-            f"percentile_85_lag{i}" for i in range(1, 7)
-        ]
+        percentile_85_lag12_column_names = [f"percentile_85_lag{i}" for i in range(1, 7)]
+        percentile_85_lag24_column_names = [f"percentile_85_lag{i}" for i in range(1, 7)]
 
-        for idx, n in enumerate(lag6h_column_names):
-            speeds[n] = speeds["mean_speed"].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate(lag12h_column_names):
-            speeds[n] = speeds["mean_speed"].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate(lag24h_column_names):
-            speeds[n] = speeds["mean_speed"].shift(idx + 24)  # 24 hours shift
+        for idx, n in enumerate(lag6h_column_names):speeds[n] = speeds["mean_speed"].shift(idx + 6)  # 6 hours shift
+        for idx, n in enumerate(lag12h_column_names):speeds[n] = speeds["mean_speed"].shift(idx + 12)  # 12 hours shift
+        for idx, n in enumerate(lag24h_column_names):speeds[n] = speeds["mean_speed"].shift(idx + 24)  # 24 hours shift
 
-        for idx, n in enumerate(percentile_85_lag6_column_names):
-            speeds[n] = speeds["percentile_85"].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate(percentile_85_lag12_column_names):
-            speeds[n] = speeds["percentile_85"].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate(percentile_85_lag24_column_names):
-            speeds[n] = speeds["percentile_85"].shift(idx + 24)  # 24 hours shift
+        for idx, n in enumerate(percentile_85_lag6_column_names):speeds[n] = speeds["percentile_85"].shift(idx + 6)  # 6 hours shift
+        for idx, n in enumerate(percentile_85_lag12_column_names):speeds[n] = speeds["percentile_85"].shift(idx + 12)  # 12 hours shift
+        for idx, n in enumerate(percentile_85_lag24_column_names):speeds[n] = speeds["percentile_85"].shift(idx + 24)  # 24 hours shift
 
         # print(speeds.head(10))
         # print(speeds.dtypes)
 
         # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
 
-        speeds["is_covid_year"] = (speeds["year"].isin(get_covid_years())).astype(
-            "int"
-        )  # Creating a dummy variable which indicates if the average speed for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
+        speeds["is_covid_year"] = (speeds["year"].isin(get_covid_years())).astype("int")  # Creating a dummy variable which indicates if the average speed for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
-        speeds = speeds.drop(
-            columns=["year", "month", "week", "day", "trp_id", "date"], axis=1
-        ).persist()
+        speeds = speeds.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist()
 
         # print("Average speeds dataframe head: ")
         # print(speeds.head(5), "\n")
@@ -582,21 +469,17 @@ class OnePointForecaster:
     """
 
     def __init__(self, trp_id: str, road_category: str):
-        self.trp_id = trp_id
-        self.road_category = road_category
+        self._trp_id: str = trp_id
+        self._road_category: str = road_category
 
 
 class OnePointVolumesForecaster(OnePointForecaster):
     def __init__(self, trp_id: str, road_category: str):
-        super().__init__(
-            trp_id, road_category
-        )  # Calling the father class
-        self.trp_id = trp_id
-        self.road_category = road_category
+        super().__init__(trp_id, road_category)  # Calling the father class
+        self._trp_id: str = trp_id
+        self._road_category: str = road_category
 
-    def preprocess_data(
-        self, target_datetime: datetime, max_days: int = default_max_forecasting_window_size, X_test=None, y_test=None
-    ):  # TODO REMOVE =None AFTER TESTING
+    def preprocess_data(self, target_datetime: datetime, max_days: int = default_max_forecasting_window_size, X_test=None, y_test=None):  # TODO REMOVE =None AFTER TESTING
         """
         Parameters:
             target_datetime: the target datetime which the user wants to predict data for
@@ -638,7 +521,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
                 "hour": datetime.strptime(dt, "%Y-%m-%dT%H").strftime("%H"),
                 "week": datetime.strptime(dt, "%Y-%m-%d").strftime("%V"),
                 "date": dt,
-                "trp_id": self.trp_id,
+                "trp_id": self._trp_id,
             }
             for dt in forecasting_window
         ))
