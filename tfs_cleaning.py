@@ -7,6 +7,7 @@ import pandas as pd
 import pprint
 import traceback
 import logging
+import dask.dataframe as dd
 
 from sklearn.linear_model import Lasso, GammaRegressor, QuantileRegressor
 from sklearn.tree import DecisionTreeClassifier
@@ -275,14 +276,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
                 # This is the datetime which will be representative of a volume, specifically, there will be multiple datetimes with the same day
                 # to address this fact we'll just re-format the data to keep track of the day, but also maintain the volume values for each hour
-                reg_datetime = datetime.strptime(
-                    datetime.fromisoformat(node["node"]["from"])
-                    .replace(tzinfo=None)
-                    .isoformat(),
-                    "%Y-%m-%dT%H:%M:%S",
-                ).strftime(
-                    "%Y-%m-%dT%H"
-                )  # Only keeping the datetime without the +00:00 at the end
+                reg_datetime = datetime.strptime(datetime.fromisoformat(node["node"]["from"]).replace(tzinfo=None).isoformat(),"%Y-%m-%dT%H:%M:%S").strftime("%Y-%m-%dT%H")  # Only keeping the datetime without the +00:00 at the end
                 year = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%Y")
                 month = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%m")
                 week = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%V")
@@ -292,16 +286,8 @@ class TrafficVolumesCleaner(BaseCleaner):
 
                 # ----------------------- Total volumes section -----------------------
 
-                volume = (
-                    node["node"]["total"]["volumeNumbers"]["volume"]
-                    if node["node"]["total"]["volumeNumbers"] is not None
-                    else None
-                )  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
-                coverage = (
-                    node["node"]["total"]["coverage"]["percentage"]
-                    if node["node"]["total"]["coverage"] is not None
-                    else None
-                )  # For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
+                volume = (node["node"]["total"]["volumeNumbers"]["volume"] if node["node"]["total"]["volumeNumbers"] is not None else None)  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
+                coverage = (node["node"]["total"]["coverage"]["percentage"] if node["node"]["total"]["coverage"] is not None else None)  # For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
 
                 by_hour_structured["trp_id"].append(trp_id)
                 by_hour_structured["year"].append(year)
@@ -319,19 +305,9 @@ class TrafficVolumesCleaner(BaseCleaner):
 
                 # Every lane's data is kept isolated from the other lanes' data, so a for cycle is needed to extract all the data from each lane's section
                 for lane in lanes_data:
-                    road_link_lane_number = lane["lane"][
-                        "laneNumberAccordingToRoadLink"
-                    ]
-                    lane_volume = (
-                        lane["total"]["volumeNumbers"]["volume"]
-                        if lane["total"]["volumeNumbers"] is not None
-                        else None
-                    )  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
-                    lane_coverage = (
-                        lane["total"]["coverage"]["percentage"]
-                        if lane["total"]["coverage"] is not None
-                        else None
-                    )
+                    road_link_lane_number = lane["lane"]["laneNumberAccordingToRoadLink"]
+                    lane_volume = (lane["total"]["volumeNumbers"]["volume"] if lane["total"]["volumeNumbers"] is not None else None)  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
+                    lane_coverage = (lane["total"]["coverage"]["percentage"] if lane["total"]["coverage"] is not None else None)
 
                     # ------- Extracting data from the dictionary and appending it into by_lane_structured -------
 
@@ -353,16 +329,8 @@ class TrafficVolumesCleaner(BaseCleaner):
                 # Every direction's data is kept isolated from the other directions' data, so a for cycle is needed
                 for direction_section in by_direction_data:
                     heading = direction_section["heading"]
-                    direction_volume = (
-                        direction_section["total"]["volumeNumbers"]["volume"]
-                        if direction_section["total"]["volumeNumbers"] is not None
-                        else None
-                    )  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
-                    direction_coverage = (
-                        direction_section["total"]["coverage"]["percentage"]
-                        if direction_section["total"]["coverage"] is not None
-                        else None
-                    )
+                    direction_volume = direction_section["total"]["volumeNumbers"]["volume"] if direction_section["total"]["volumeNumbers"] is not None else None  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
+                    direction_coverage = direction_section["total"]["coverage"]["percentage"] if direction_section["total"]["coverage"] is not None else None
 
                     by_direction_structured["trp_id"].append(trp_id)
                     by_direction_structured["year"].append(year)
@@ -388,12 +356,7 @@ class TrafficVolumesCleaner(BaseCleaner):
             # pprint.pp(by_hour_structured)
             # print(by_hour_structured)
 
-            by_hour_df = pd.DataFrame(
-                by_hour_structured
-            )  # TODO CHANGE INTO dd.DataFrame
-            by_hour_df = by_hour_df.sort_values(
-                by=["date", "hour"], ascending=True
-            )  # TODO ADD THEN .persist()
+            by_hour_df = dd.DataFrame(by_hour_structured).sort_values(by=["date", "hour"], ascending=True)
             # by_hour_df = by_hour_df.reindex(sorted(by_hour_df.columns), axis=1)
             # print(by_hour_df.head(15))
 
@@ -415,13 +378,11 @@ class TrafficVolumesCleaner(BaseCleaner):
 
             # print("\n\n")
 
-            return by_hour_df  # TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, BUT FOR NOW IT'S BETTER TO SAVE PERFORMANCES AND MEMORY BY JUST RETURNING TWO STRINGS AND NOT EVEN CREATING THE DFs
+            return by_hour_df.persist()  # TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, BUT FOR NOW IT'S BETTER TO SAVE PERFORMANCES AND MEMORY BY JUST RETURNING TWO STRINGS AND NOT EVEN CREATING THE DFs
 
 
     # This function is design only to clean by_hour data since that's the data we're going to use for the main purposes of this project
-    def clean_traffic_volumes_data(
-        self, by_hour_df: pd.DataFrame
-    ) -> pd.DataFrame | None:
+    def clean_traffic_volumes_data(self, by_hour_df: dd.DataFrame) -> dd.DataFrame | None:
         # Short dataframe overview
         # print("Short overview on the dataframe: \n", by_hour_df.describe())
 
@@ -432,40 +393,26 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         # ------------------ Execute multiple imputation with MICE (Multiple Imputation by Chain of Equations) ------------------
 
-        non_mice_columns = by_hour_df[
-            ["trp_id", "date", "year", "month", "day", "week"]
-        ]
+        non_mice_columns = by_hour_df[["trp_id", "date", "year", "month", "day", "week"]]
         # Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
         # Still, we're leaving the hour variable to address for the variability of the traffic volumes during the day
 
-        print("Shape before MICE: ", by_hour_df.shape)
-        print(
-            "Number of zeros before MICE: ", len(by_hour_df[by_hour_df["volume"] == 0])
-        )
+        print("Shape before MICE: ", len(by_hour_df), len(by_hour_df.columns))
+        print("Number of zeros before MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
 
         try:
             cleaner = BaseCleaner()
-            by_hour_df = cleaner.impute_missing_values(
-                by_hour_df.drop(non_mice_columns.columns, axis=1), r="gamma"
-            )  # Don't use gamma regression since, apparently it can't handle zeros
+            by_hour_df = cleaner.impute_missing_values(by_hour_df.compute().drop(non_mice_columns.columns, axis=1), r="gamma")  # Don't use gamma regression since, apparently it can't handle zeros
 
             for nm_col in non_mice_columns.columns:
                 by_hour_df[nm_col] = non_mice_columns[nm_col]
 
-            print("Shape after MICE: ", by_hour_df.shape)
-            print(
-                "Number of zeros after MICE: ",
-                len(by_hour_df[by_hour_df["volume"] == 0]),
-            )
-            print(
-                "Number of negative values (after MICE): ",
-                len(by_hour_df[by_hour_df["volume"] < 0]),
-            )
+            print("Shape after MICE: ", len(by_hour_df), len(by_hour_df.columns))
+            print("Number of zeros after MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
+            print("Number of negative values (after MICE): ", len(by_hour_df[by_hour_df["volume"] < 0]))
 
         except ValueError as e:
-            print(
-                f"\033[91mValue error raised. Error: {e} Continuing with the cleaning.\033[0m"
-            )
+            print(f"\033[91mValue error raised. Error: {e} Continuing with the cleaning.\033[0m")
             return None
 
         # ------------------ Data types transformation ------------------
@@ -486,34 +433,19 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         print("\n\n")
 
-        return by_hour_df
+        return by_hour_df.persist()
 
 
     # TODO CHANGE by_hour TO dd.DatFrame
-    def export_traffic_volumes_data(
-        self, by_hour: pd.DataFrame, volumes_file_path, trp_id: str
-    ) -> None:
-        file_name = volumes_file_path.split(
-            "/"
-        )[
-            -1
-        ].replace(
-            ".json", "C.csv"
-        )  # TODO IMPROVE THIS THROUGH A SIMPLER FILE NAME AND A PARSER OR GETTER FUNCTION IN tfs_utils.py
+    def export_traffic_volumes_data(self, by_hour: dd.DataFrame, volumes_file_path, trp_id: str) -> None:
 
-        clean_traffic_volumes_folder_path = get_clean_volumes_folder_path()
-        file_path = (
-            clean_traffic_volumes_folder_path + file_name
-        )  # C stands for "cleaned"
+        file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv")  # TODO IMPROVE THIS THROUGH A SIMPLER FILE NAME AND A PARSER OR GETTER FUNCTION IN tfs_utils.py
+        file_path = get_clean_volumes_folder_path() + file_name # C stands for "cleaned"
 
         try:
             by_hour.to_csv(file_path, index=False)
-            update_metainfo(
-                file_name, ["traffic_volumes", "clean_filenames"], mode="append"
-            )
-            update_metainfo(
-                file_path, ["traffic_volumes", "clean_filepaths"], mode="append"
-            )
+            update_metainfo(file_name, ["traffic_volumes", "clean_filenames"], mode="append")
+            update_metainfo(file_path, ["traffic_volumes", "clean_filepaths"], mode="append")
             print(f"TRP: {trp_id} data exported correctly\n\n")
             return None
         except AttributeError:
