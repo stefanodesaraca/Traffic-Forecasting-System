@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Generator
 import os
 import json
 import pprint
@@ -876,14 +876,8 @@ def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
     return filtered_df.persist()
 
 
-def get_theoretical_hours() -> list:
-    return [f"{i:02}" for i in range(24)]
-
-
-def get_theoretical_days(t_start: str, t_end: str):
-    return pd.date_range(
-        start=t_start, end=t_end, freq="d"
-    )  # All days which should be available
+def get_24_hours() -> Generator[str]:
+    return (f"{i:02}" for i in range(24))
 
 
 def get_covid_years() -> list[int]:
@@ -891,19 +885,14 @@ def get_covid_years() -> list[int]:
 
 
 def clean_text(text: str) -> str:
-    text = clean(text, no_emoji=True, no_currency_symbols=True)
-    text = text.replace(" ", "_")
-    text = text.lower()
-    return text
+    return clean(text, no_emoji=True, no_currency_symbols=True).replace(" ", "_").lower()
 
 
 def retrieve_n_ml_cpus() -> int:
-    n_cpu = os.cpu_count()
-    ml_dedicated_cores = int(
-        n_cpu * 0.75
+    return int(
+        os.cpu_count() * 0.75
     )  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
     # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
-    return ml_dedicated_cores
 
 
 # ==================== *** Road Network Utilities *** ====================
@@ -916,12 +905,8 @@ def retrieve_edges() -> gpd.GeoDataFrame:
     edges_folder = read_metainfo_key(
         ["folder_paths", "rn_graph", f"{active_ops}_edges", "path"]
     )
-    edges_filepath = f"{edges_folder}/traffic-nodes-2024_2025-02-28.geojson"
-
-    with open(edges_filepath, "r") as e:
-        edges = geojson.load(e)["features"]
-    # pprint.pprint(edges, indent=6)
-    return edges
+    with open(f"{edges_folder}/traffic-nodes-2024_2025-02-28.geojson", "r") as e:
+        return geojson.load(e)["features"]
 
 
 # ==================== Links Utilities ====================
@@ -932,12 +917,9 @@ def retrieve_arches() -> gpd.GeoDataFrame:
     arches_folder = read_metainfo_key(
         ["folder_paths", "rn_graph", f"{active_ops}_arches", "path"]
     )
-    arches_filepath = f"{arches_folder}/traffic_links_2024_2025-02-27.geojson"
+    with open(f"{arches_folder}/traffic_links_2024_2025-02-27.geojson", "r") as a:
+        return geojson.load(a)["features"]
 
-    with open(arches_filepath, "r") as a:
-        arches = geojson.load(a)["features"]
-    # pprint.pprint(arches, indent=6)
-    return arches
 
 
 # ==================== TrafficRegistrationPoints Utilities ====================

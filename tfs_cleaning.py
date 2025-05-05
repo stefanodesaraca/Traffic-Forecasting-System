@@ -269,8 +269,8 @@ class TrafficVolumesCleaner(BaseCleaner):
 
             missing_days = [
                 str(d.date().isoformat())
-                for d in get_theoretical_days(
-                    first_registration_date, last_registration_date
+                for d in pd.date_range(
+                    start=first_registration_date, end=last_registration_date, freq="d"
                 )
                 if str(d.date().isoformat()) not in reg_dates
             ]
@@ -280,15 +280,15 @@ class TrafficVolumesCleaner(BaseCleaner):
             missing_hours_by_day = {
                 d: [
                     h
-                    for h in get_theoretical_hours()
+                    for h in get_24_hours()
                     if h not in available_day_hours[d]
                 ]
                 for d in available_day_hours.keys()
             }  # This dictionary comprehension goes like this: we'll create a day key with a list of hours for each day in the available days.
             # Each day's list will only include registration hours (h) which SHOULD exist, but are missing in the available dates in the data
             for md in missing_days:
-                missing_hours_by_day[md] = (
-                    get_theoretical_hours()
+                missing_hours_by_day[md] = list(
+                    get_24_hours()
                 )  # If a whole day is missing we'll just create it and say that all hours of that day are missing
             missing_hours_by_day = {
                 d: l for d, l in missing_hours_by_day.items() if len(l) != 0
