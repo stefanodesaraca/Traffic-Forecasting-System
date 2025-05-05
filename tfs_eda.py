@@ -25,11 +25,7 @@ tab10 = sns.color_palette("tab10")
 
 def savePlots(plotFunction):
     def checkPlots(plotNames, plots):
-        if isinstance(plotNames, list) and isinstance(plots, list):
-            return True
-        else:
-            # print("\033[91mCheckPlots: object obtained are not lists\033[0m")
-            return False
+        return bool(isinstance(plotNames, list) and isinstance(plots, list))
 
     def checkPlotsTypeAndSave(plotName, plots, filePath):
         if isinstance(

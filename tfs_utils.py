@@ -1,21 +1,22 @@
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Any
 import os
 import json
-import pandas as pd
-import dask.dataframe as dd
-from cleantext import clean
-from typing import Any
-import geopandas as gpd
-import geojson
-from geopandas import GeoDataFrame
 import pprint
-import asyncio
-import aiofiles
-from functools import lru_cache
-from pydantic.types import PositiveInt
 import sys
 import traceback
 import logging
+import asyncio
+import aiofiles
+from functools import lru_cache
+import pandas as pd
+import dask.dataframe as dd
+from cleantext import clean
+import geopandas as gpd
+import geojson
+from geopandas import GeoDataFrame
+from pydantic.types import PositiveInt
+
 
 pd.set_option("display.max_columns", None)
 
@@ -47,7 +48,7 @@ def import_TRPs_data():
         "Traffic registration points file missing"
     )
     traffic_registration_points_path = get_traffic_registration_points_file_path()
-    with open(traffic_registration_points_path, "r") as TRPs:
+    with open(traffic_registration_points_path, "r", encoding="utf-8") as TRPs:
         trp_info = json.load(TRPs)
 
     return trp_info
@@ -135,7 +136,7 @@ def write_trp_metadata(trp_id: str) -> None:
     else:
         return None
 
-    with open(raw_volume_files_folder_path + trp_volumes_file, "r") as f:
+    with open(raw_volume_files_folder_path + trp_volumes_file, "r", encoding="utf-8") as f:
         volumes = json.load(f)
 
     trp_metadata_filepath = (
@@ -198,7 +199,7 @@ def write_trp_metadata(trp_id: str) -> None:
     }  # (Volumes data nodes)
 
     metadata_filepath = trp_metadata_filepath + trp_metadata_filename + ".json"
-    with open(metadata_filepath, "w") as json_metadata:
+    with open(metadata_filepath, "w", encoding="utf-8") as json_metadata:
         json.dump(metadata, json_metadata, indent=4)
 
     update_metainfo(trp_metadata_filename, ["metadata_filenames"], "append")
@@ -498,7 +499,7 @@ def write_active_ops_file(ops_name: str) -> None:
 @lru_cache()
 def get_active_ops():
     try:
-        with open(f"{active_ops_filename}.txt", "r") as ops_file:
+        with open(f"{active_ops_filename}.txt", "r", encoding="utf-8") as ops_file:
             op = ops_file.read()
         return op
     except FileNotFoundError:
@@ -544,7 +545,7 @@ def create_ops_folder(ops_name: str) -> None:
         road_category for road_category in ["E", "R", "F", "K", "P"]
     ]
 
-    with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "r") as m:
+    with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "r", encoding="utf-8") as m:
         metainfo = json.load(m)
     metainfo[
         "folder_paths"
@@ -616,7 +617,7 @@ def create_ops_folder(ops_name: str) -> None:
                     mlsssf
                 ] = {"path": ml_3sub}
 
-    with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "w") as m:
+    with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "w", encoding="utf-8") as m:
         json.dump(metainfo, m, indent=4)
 
     return None
@@ -711,7 +712,7 @@ def write_metainfo(ops_name: str) -> None:
             },
         }
 
-        with open(target_folder + metainfo_filename + ".json", "w") as tf:
+        with open(target_folder + metainfo_filename + ".json", "w", encoding="utf-8") as tf:
             json.dump(metainfo, tf, indent=4)
 
     return None
@@ -737,7 +738,7 @@ def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
     modes = ["equals", "append"]
 
     if check_metainfo_file() is True:
-        with open(metainfo_filepath, "r") as m:
+        with open(metainfo_filepath, "r", encoding="utf-8") as m:
             payload = json.load(m)
     else:
         raise FileNotFoundError(
@@ -753,7 +754,7 @@ def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
         for key in keys_map[:-1]:
             metainfo = metainfo[key]
         metainfo[keys_map[-1]] = value  # Updating the metainfo file key-value pair
-        with open(metainfo_filepath, "w") as m:
+        with open(metainfo_filepath, "w", encoding="utf-8") as m:
             json.dump(payload, m, indent=4)
     elif mode == "append":
         for key in keys_map[:-1]:
@@ -761,7 +762,7 @@ def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
         metainfo[keys_map[-1]].append(
             value
         )  # Appending a new value to the list (which is the value of this key-value pair)
-        with open(metainfo_filepath, "w") as m:
+        with open(metainfo_filepath, "w", encoding="utf-8") as m:
             json.dump(payload, m, indent=4)
     elif mode not in modes:
         print("\033[91mWrong mode\033[0m")
@@ -829,7 +830,7 @@ def read_metainfo_key(keys_map: list) -> Any:
     metainfo_filepath = f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
 
     if check_metainfo_file() is True:
-        with open(metainfo_filepath, "r") as m:
+        with open(metainfo_filepath, "r", encoding="utf-8") as m:
             payload = json.load(m)
     else:
         raise FileNotFoundError(
