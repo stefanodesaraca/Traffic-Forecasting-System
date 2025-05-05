@@ -1,20 +1,14 @@
-from tfs_utils import *
-import numpy as np
-from gql import gql, Client
-from gql.transport.exceptions import TransportServerError
-from gql.transport.aiohttp import AIOHTTPTransport
+import pprint
 import json
 import os
 import asyncio
 import aiofiles
 from warnings import simplefilter
-import math
-import sys
-from tqdm import tqdm, trange
-from collections import ChainMap
-import pprint
-import time
+from gql import gql, Client
+from gql.transport.exceptions import TransportServerError
+from gql.transport.aiohttp import AIOHTTPTransport
 
+from tfs_utils import *
 
 simplefilter("ignore")
 
@@ -116,7 +110,7 @@ def fetch_traffic_volumes_for_trp_id(
     traffic_registration_point: str,
     time_start: str,
     time_end: str,
-    last_end_cursor,
+    last_end_cursor: str,
     next_page_query: bool,
 ):
     tv_query = {}
