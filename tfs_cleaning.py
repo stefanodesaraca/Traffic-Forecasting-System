@@ -436,7 +436,6 @@ class TrafficVolumesCleaner(BaseCleaner):
         return by_hour_df.persist()
 
 
-    # TODO CHANGE by_hour TO dd.DatFrame
     def export_traffic_volumes_data(self, by_hour: dd.DataFrame, volumes_file_path, trp_id: str) -> None:
 
         file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv")  # TODO IMPROVE THIS THROUGH A SIMPLER FILE NAME AND A PARSER OR GETTER FUNCTION IN tfs_utils.py
@@ -451,7 +450,6 @@ class TrafficVolumesCleaner(BaseCleaner):
         except AttributeError:
             print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
             return None
-
 
     def cleaning_pipeline(self, volumes_file_path: str) -> None:
         print(volumes_file_path)
@@ -486,27 +484,15 @@ class TrafficVolumesCleaner(BaseCleaner):
 class AverageSpeedCleaner(BaseCleaner):
     def __init__(self):
         super().__init__()
-        self.min_date: datetime.datetime | None = None
-        self.max_date: datetime.datetime | None = None
+        self.min_date: datetime.datetime = datetime.strptime(read_metainfo_key(keys_map=["average_speeds", "start_date_iso"]), dt_format) | None
+        self.max_date: datetime.datetime = datetime.strptime(read_metainfo_key(keys_map=["average_speeds", "end_date_iso"]), dt_format) | None
 
-        self.min_date = datetime.strptime(
-            read_metainfo_key(keys_map=["average_speeds", "start_date_iso"]), dt_format
-        )
-        self.max_date = datetime.strptime(
-            read_metainfo_key(keys_map=["average_speeds", "end_date_iso"]), dt_format
-        )
 
-    def clean_avg_speed_data(
-        self, avg_speed_data: pd.DataFrame
-    ) -> tuple[pd.DataFrame, str, str, str] | None:  # TODO TO CHANGE IN dd.DataFrame
-        trp_id = str(
-            avg_speed_data["trp_id"].unique()[0]
-        )  # There'll be only one value since each file only represents the data for one TRP only
+    def clean_avg_speed_data(self, avg_speed_data: pd.DataFrame) -> tuple[pd.DataFrame, str, str, str] | None:  # TODO TO CHANGE IN dd.DataFrame
+        trp_id = str(avg_speed_data["trp_id"].unique()[0])  # There'll be only one value since each file only represents the data for one TRP only
 
         if len(avg_speed_data) > 0:
-            update_metainfo(
-                trp_id, ["common", "non_empty_avg_speed_trps"], mode="append"
-            )  # And continue with the code execution...
+            update_metainfo(trp_id, ["common", "non_empty_avg_speed_trps"], mode="append")  # And continue with the code execution...
         else:
             return None  # In case a file is completely empty we'll just return None and not insert its TRP into the "non_empty_avg_speed_trps" key of the metainfo file
 
@@ -522,45 +508,23 @@ class AverageSpeedCleaner(BaseCleaner):
         if self.min_date is not None and self.min_date > t_min:
             pass
         elif self.min_date is None:
-            update_metainfo(
-                t_min, keys_map=["average_speeds", "start_date_iso"], mode="equals"
-            )
+            update_metainfo(t_min, keys_map=["average_speeds", "start_date_iso"], mode="equals")
         elif self.min_date is not None and self.min_date < t_min:
-            update_metainfo(
-                t_min, keys_map=["average_speeds", "start_date_iso"], mode="equals"
-            )  # TODO RIGHT NOW WE'RE TAKING THE LATEST MNINUM DATE AVAILABLE
+            update_metainfo(t_min, keys_map=["average_speeds", "start_date_iso"], mode="equals")  # TODO RIGHT NOW WE'RE TAKING THE LATEST MNINUM DATE AVAILABLE
         else:
-            update_metainfo(
-                t_min, keys_map=["average_speeds", "start_date_iso"], mode="equals"
-            )
+            update_metainfo(t_min, keys_map=["average_speeds", "start_date_iso"], mode="equals")
 
-        avg_speed_data["coverage"] = avg_speed_data["coverage"].apply(
-            lambda x: x.replace(",", ".")
-        )  # Replacing commas with dots
-        avg_speed_data["coverage"] = avg_speed_data["coverage"].astype(
-            "float"
-        )  # Converting the coverage column to float data type
-        avg_speed_data["coverage"] = (
-            avg_speed_data["coverage"] * 100
-        )  # Transforming the coverage values from 0.0 to 1.0 to 0 to 100 (percent)
+        avg_speed_data["coverage"] = avg_speed_data["coverage"].apply(lambda x: x.replace(",", "."))  # Replacing commas with dots
+        avg_speed_data["coverage"] = avg_speed_data["coverage"].astype("float")  # Converting the coverage column to float data type
+        avg_speed_data["coverage"] = (avg_speed_data["coverage"] * 100)  # Transforming the coverage values from 0.0 to 1.0 to 0 to 100 (percent)
 
-        avg_speed_data["mean_speed"] = avg_speed_data["mean_speed"].replace(
-            ",", ".", regex=True
-        )  # The regex=True parameter is necessary, otherwise the function, for some reason, won't be able to perform the replacement
-        avg_speed_data["mean_speed"] = avg_speed_data["mean_speed"].astype(
-            "float"
-        )  # Converting the mean_speed column to float data type
+        avg_speed_data["mean_speed"] = avg_speed_data["mean_speed"].replace(",", ".", regex=True)  # The regex=True parameter is necessary, otherwise the function, for some reason, won't be able to perform the replacement
+        avg_speed_data["mean_speed"] = avg_speed_data["mean_speed"].astype("float")  # Converting the mean_speed column to float data type
 
-        avg_speed_data["percentile_85"] = avg_speed_data["percentile_85"].replace(
-            ",", ".", regex=True
-        )  # The regex=True parameter is necessary, otherwise the function, for some reason, won't be able to perform the replacement
-        avg_speed_data["percentile_85"] = avg_speed_data["percentile_85"].astype(
-            "float"
-        )  # Converting the percentile_85 column to float data type
+        avg_speed_data["percentile_85"] = avg_speed_data["percentile_85"].replace(",", ".", regex=True)  # The regex=True parameter is necessary, otherwise the function, for some reason, won't be able to perform the replacement
+        avg_speed_data["percentile_85"] = avg_speed_data["percentile_85"].astype("float")  # Converting the percentile_85 column to float data type
 
-        avg_speed_data["hour_start"] = avg_speed_data["hour_start"].apply(
-            lambda x: x[:2]
-        )  # Keeping only the first two characters (which represent only the hour data)
+        avg_speed_data["hour_start"] = avg_speed_data["hour_start"].apply(lambda x: x[:2])  # Keeping only the first two characters (which represent only the hour data)
 
         # print(avg_speed_data.isna().sum())
         # print(avg_speed_data.dtypes)
@@ -587,15 +551,10 @@ class AverageSpeedCleaner(BaseCleaner):
         # ------------------ Multiple imputation to fill NaN values ------------------
 
         non_mice_df = avg_speed_data[["trp_id", "date", "year", "month", "day", "week"]]
-        avg_speed_data = avg_speed_data.drop(
-            columns=non_mice_df.columns, axis=1
-        )  # Columns to not include for Multiple Imputation By Chained Equations (MICE)
+        avg_speed_data = avg_speed_data.drop(columns=non_mice_df.columns, axis=1)  # Columns to not include for Multiple Imputation By Chained Equations (MICE)
 
         print("Shape before MICE: ", avg_speed_data.shape)
-        print(
-            "Number of zeros before MICE: ",
-            len(avg_speed_data[avg_speed_data["volume"] == 0]),
-        )
+        print("Number of zeros before MICE: ", len(avg_speed_data[avg_speed_data["volume"] == 0]),)
 
         try:
             cleaner = BaseCleaner()
@@ -605,19 +564,11 @@ class AverageSpeedCleaner(BaseCleaner):
             # print(avg_speed_data.isna().sum())
 
             print("Shape after MICE: ", avg_speed_data.shape, "\n\n")
-            print(
-                "Number of zeros after MICE: ",
-                len(avg_speed_data[avg_speed_data["volume"] == 0]),
-            )
-            print(
-                "Number of negative values (after MICE): ",
-                len(avg_speed_data[avg_speed_data["volume"] < 0]),
-            )
+            print("Number of zeros after MICE: ", len(avg_speed_data[avg_speed_data["volume"] == 0]))
+            print("Number of negative values (after MICE): ", len(avg_speed_data[avg_speed_data["volume"] < 0]))
 
         except ValueError as e:
-            print(
-                f"\033[91mValue error raised. Error: {e} Continuing with the cleaning\033[0m"
-            )
+            print(f"\033[91mValue error raised. Error: {e} Continuing with the cleaning\033[0m")
             return None
 
         # Merging non MICE columns back into the MICEed dataframe
@@ -632,13 +583,7 @@ class AverageSpeedCleaner(BaseCleaner):
         avg_speed_data["hour_start"] = avg_speed_data["hour_start"].astype("int")
 
         print("Dataframe overview: \n", avg_speed_data.head(15), "\n")
-        print(
-            "Basic descriptive statistics on the dataframe: \n",
-            avg_speed_data.drop(
-                columns=["year", "month", "week", "day", "hour_start"], axis=1
-            ).describe(),
-            "\n",
-        )
+        print("Basic descriptive statistics on the dataframe: \n", avg_speed_data.drop(columns=["year", "month", "week", "day", "hour_start"], axis=1 ).describe(), "\n")
 
         # ------------------ Restructuring the data ------------------
         # Here we'll restructure the data into a more convenient, efficient and readable format
@@ -668,49 +613,14 @@ class AverageSpeedCleaner(BaseCleaner):
             for h in day_data["hour_start"].unique():
                 # print(day_data[["mean_speed", "hour_start"]].query(f"hour_start == {h}")["mean_speed"])
                 # Using the median to have a more robust indicator which won't be influenced by outliers as much as the mean
-                agg_data["mean_speed"].append(
-                    np.round(
-                        np.median(
-                            day_data[["mean_speed", "hour_start"]].query(
-                                f"hour_start == {h}"
-                            )["mean_speed"]
-                        ),
-                        decimals=2,
-                    )
-                )
-                agg_data["percentile_85"].append(
-                    np.round(
-                        np.median(
-                            day_data[["percentile_85", "hour_start"]].query(
-                                f"hour_start == {h}"
-                            )["percentile_85"]
-                        ),
-                        decimals=2,
-                    )
-                )
-                agg_data["coverage"].append(
-                    np.round(
-                        np.median(
-                            day_data[["coverage", "hour_start"]].query(
-                                f"hour_start == {h}"
-                            )["coverage"]
-                        ),
-                        decimals=2,
-                    )
-                )
+                agg_data["mean_speed"].append(np.round(np.median(day_data[["mean_speed", "hour_start"]].query(f"hour_start == {h}")["mean_speed"]), decimals=2))
+                agg_data["percentile_85"].append(np.round(np.median(day_data[["percentile_85", "hour_start"]].query(f"hour_start == {h}")["percentile_85"]), decimals=2))
+                agg_data["coverage"].append(np.round(np.median(day_data[["coverage", "hour_start"]].query(f"hour_start == {h}")["coverage"]), decimals=2))
                 agg_data["hour_start"].append(h)
-                agg_data["year"].append(
-                    int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%Y"))
-                )
-                agg_data["month"].append(
-                    int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%m"))
-                )
-                agg_data["week"].append(
-                    int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%V"))
-                )
-                agg_data["day"].append(
-                    int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%d"))
-                )
+                agg_data["year"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%Y")))
+                agg_data["month"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%m")))
+                agg_data["week"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%V")))
+                agg_data["day"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%d")))
                 agg_data["date"].append(ud)
                 agg_data["trp_id"].append(trp_id)
 
@@ -725,31 +635,22 @@ class AverageSpeedCleaner(BaseCleaner):
 
         return avg_speed_data, trp_id, str(t_max)[:10], str(t_min)[:10]
 
-    def export_clean_avg_speed_data(
-        self, avg_speed_data: pd.DataFrame, trp_id: str, t_max: str, t_min: str
-    ) -> None:
-        clean_avg_data_folder_path = get_clean_as_folder_path()
-        filepath = clean_avg_data_folder_path + trp_id + f"_S{t_min}_E{t_max}C.csv"
+
+    def export_clean_avg_speed_data(self, avg_speed_data: pd.DataFrame, trp_id: str, t_max: str, t_min: str) -> None:
+        filepath = get_clean_as_folder_path() + trp_id + f"_S{t_min}_E{t_max}C.csv"
         filename = trp_id + f"_S{t_min}_E{t_max}C.csv"
 
         try:
-            avg_speed_data.to_csv(
-                filepath, index=False
-            )  # S stands for Start (registration starting date), E stands for End and C for Clean
-            update_metainfo(
-                filename, ["average_speeds", "clean_filenames"], mode="append"
-            )
-            update_metainfo(
-                filepath, ["average_speeds", "clean_filepaths"], mode="append"
-            )
+            avg_speed_data.to_csv(filepath, index=False)  # S stands for Start (registration starting date), E stands for End and C for Clean
+            update_metainfo(filename, ["average_speeds", "clean_filenames"], mode="append")
+            update_metainfo(filepath, ["average_speeds", "clean_filepaths"], mode="append")
             print(f"Average speed data for TRP: {trp_id} saved successfully\n\n")
             return None
         except Exception as e:
             logging.error(traceback.format_exc())
-            print(
-                f"\033[91mCouldn't export TRP: {trp_id} volumes data. Error: {e}\033[0m"
-            )
+            print(f"\033[91mCouldn't export TRP: {trp_id} volumes data. Error: {e}\033[0m")
             return None
+
 
     def execute_cleaning(self, file_path, file_name) -> None:
         """
@@ -764,17 +665,11 @@ class AverageSpeedCleaner(BaseCleaner):
 
             # Addressing for the empty files problem
             if len(average_speed_data) > 0:
-                average_speed_data, trp_id, t_max, t_min = self.clean_avg_speed_data(
-                    average_speed_data
-                )
-                self.export_clean_avg_speed_data(
-                    average_speed_data, trp_id, t_max, t_min
-                )
+                average_speed_data, trp_id, t_max, t_min = self.clean_avg_speed_data(average_speed_data)
+                self.export_clean_avg_speed_data(average_speed_data, trp_id, t_max, t_min)
             else:
                 pass
             return None
         except IndexError as e:
-            print(
-                f"\033[91mNo data available for file: {file_name}. Error: {e}\033[0m\n"
-            )
+            print(f"\033[91mNo data available for file: {file_name}. Error: {e}\033[0m\n")
             return None
