@@ -136,7 +136,7 @@ class BaseLearner:
 
         model = model_names_and_functions[model_name]()  # Finding the function which returns the model and executing it
 
-        ml_parameters_folder_path = get_ml_model_parameters_folder_path(target=target, road_category=road_category)
+        ml_parameters_folder_path = get_ml_models_parameters_folder_path(target=target, road_category=road_category)
         model_filename = (ops_name + "_" + road_category + "_" + model_name + "_" + "parameters")
 
         t_start = datetime.now()
@@ -226,7 +226,7 @@ class BaseLearner:
 
         ops_name = get_active_ops()
 
-        models_parameters_folder_path = get_ml_model_parameters_folder_path(target, road_category)
+        models_parameters_folder_path = get_ml_models_parameters_folder_path(target, road_category)
         models_folder_path = get_ml_models_folder_path(target, road_category)
 
         model_filename = ops_name + "_" + road_category + "_" + model_name

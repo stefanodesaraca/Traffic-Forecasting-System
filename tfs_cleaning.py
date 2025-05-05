@@ -652,16 +652,14 @@ class AverageSpeedCleaner(BaseCleaner):
             return None
 
 
-    def execute_cleaning(self, file_path, file_name) -> None:
+    def execute_cleaning(self, file_path: str, file_name: str) -> None:
         """
         The avg_speed_file_path parameter is the path to the average speed file the user wants to analyze
         The avg_speed_file_name parameter is just the name of the file, needed for secondary purposes or functionalities
         """
-
         try:
-            average_speed_data = import_avg_speed_data(file_path=file_path)
-            # NOTE REMOVED trp_id = get_trp_id_from_filename(file_name) HERE
-            # TODO IN THE FUTURE ADD THE UNIFIED data_overview() FUNCTION WHICH WILL PRINT A COMMON DATA OVERVIEW FOR BOTH TRAFFIC VOLUMES DATA AND AVERAGE SPEED ONE
+            average_speed_data = pd.read_csv(file_path, sep=";", engine="c")
+            #TODO IN THE FUTURE ADD THE UNIFIED data_overview() FUNCTION WHICH WILL PRINT A COMMON DATA OVERVIEW FOR BOTH TRAFFIC VOLUMES DATA AND AVERAGE SPEED ONE
 
             # Addressing for the empty files problem
             if len(average_speed_data) > 0:

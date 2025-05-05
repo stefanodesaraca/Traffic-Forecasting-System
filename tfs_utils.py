@@ -244,14 +244,7 @@ def get_raw_as_files() -> list:
     return os.listdir(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/")
 
 
-def import_avg_speed_data(file_path: str) -> pd.DataFrame:
-    """
-    This function returns the average speed data for a specific TRP
-    """
-    return pd.read_csv(file_path, sep=";", engine="c")
-
-
-def get_clean_average_speed_files_list() -> list:
+def get_clean_as_files() -> list:
     return [
         get_clean_as_folder_path() + f
         for f in os.listdir(get_clean_as_folder_path())
@@ -274,7 +267,7 @@ def get_ml_models_folder_path(target: str, road_category: str) -> str:
     return ml_folder_path
 
 
-def get_ml_model_parameters_folder_path(target: str, road_category: str) -> str:
+def get_ml_models_parameters_folder_path(target: str, road_category: str) -> str:
     ops_name = get_active_ops()
 
     if target == "volume":
@@ -701,23 +694,9 @@ def get_shapiro_wilk_plots_path() -> str:
 def get_eda_plots_folder_path(sub: str = None) -> str:
     ops_name = get_active_ops()
     if sub == "volumes":
-        return read_metainfo_key(
-            keys_map=[
-                "folder_paths",
-                "eda",
-                f"{ops_name}_plots",
-                "traffic_volumes_eda_plots",
-            ]
-        )
+        return read_metainfo_key(keys_map=["folder_paths", "eda", f"{ops_name}_plots", "traffic_volumes_eda_plots"])
     elif sub == "avg_speeds":
-        return read_metainfo_key(
-            keys_map=[
-                "folder_paths",
-                "eda",
-                f"{ops_name}_plots",
-                "avg_speeds_eda_plots",
-            ]
-        )
+        return read_metainfo_key(keys_map=["folder_paths", "eda", f"{ops_name}_plots", "avg_speeds_eda_plots"])
     elif sub is None:
         return read_metainfo_key(keys_map=["folder_paths", "eda", f"{ops_name}_plots"])
     else:
@@ -751,9 +730,7 @@ def clean_text(text: str) -> str:
 
 
 def retrieve_n_ml_cpus() -> int:
-    return int(
-        os.cpu_count() * 0.75
-    )  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
+    return int(os.cpu_count() * 0.75) # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
     # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
 
 
