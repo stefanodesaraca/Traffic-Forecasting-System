@@ -595,7 +595,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
         self.road_category = road_category
 
     def preprocess_data(
-        self, target_datetime: datetime, max_days: int = 14, X_test=None, y_test=None
+        self, target_datetime: datetime, max_days: int = default_max_forecasting_window_size, X_test=None, y_test=None
     ):  # TODO REMOVE =None AFTER TESTING
         """
         Parameters:
@@ -615,29 +615,18 @@ class OnePointVolumesForecaster(OnePointForecaster):
         # 6. Finally, we'll return the new dataset ready to be fed to the model
 
         target_datetime = target_datetime.strftime("%Y-%m-%dT%H")
-        last_available_volumes_data_dt = read_metainfo_key(
-            keys_map=["traffic_volumes", "end_date_iso"]
-        )
+        last_available_volumes_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"])
 
         # Checking if the target datetime isn't prior to the datetime of the latest data available
-        assert target_datetime >= last_available_volumes_data_dt, (
-            "Target datetime is set to a past date-time for which registered data is already available"
-        )
+        assert target_datetime >= last_available_volumes_data_dt, "Target datetime is set to a past date-time for which registered data is already available"
 
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
-        assert (
-            datetime.strptime(target_datetime, "%Y-%m-%dT%H")
-            - datetime.strptime(last_available_volumes_data_dt, "%Y-%m-%dT%H")
-        ).days <= max_days
+        assert (datetime.strptime(target_datetime, "%Y-%m-%dT%H")- datetime.strptime(last_available_volumes_data_dt, "%Y-%m-%dT%H")).days <= max_days
 
         # Creating a datetime range with datetimes to predict. These will be inserted in the empty rows to be fed to the models for predictions
-        forecasting_window = pd.date_range(
-            start=last_available_volumes_data_dt, end=target_datetime, freq="1h"
-        )
+        forecasting_window = pd.date_range(start=last_available_volumes_data_dt, end=target_datetime, freq="1h")
 
-        n_records = (
-            len(forecasting_window) * 24
-        )  # Number of records to collect from the TRP's individual data
+        n_records = len(forecasting_window) * 24  # Number of records to collect from the TRP's individual data
 
         rows_to_predict = dd.DataFrame((
             {

@@ -358,62 +358,30 @@ def get_ml_model_parameters_folder_path(target: str, road_category: str) -> str:
 # TODO FIND A WAY TO CHECK WHICH IS THE LAST DATETIME AVAILABLE FOR BOTH AVERAGE SPEED (CLEAN) AND TRAFFIC VOLUMES (CLEAN)
 
 
-def write_forecasting_target_datetime(
-    forecasting_window_size: PositiveInt = default_max_forecasting_window_size,
-) -> None:
+def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = default_max_forecasting_window_size) -> None:
     """
     Parameters:
         forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24
     """
-    assert os.path.isdir(get_clean_traffic_volumes_folder_path()), (
-        "Clean traffic volumes folder missing. Initialize an operation first and then set a forecasting target datetime"
-    )
-    assert os.path.isdir(get_clean_average_speed_folder_path()), (
-        "Clean average speeds folder missing. Initialize an operation first and then set a forecasting target datetime"
-    )
+    assert os.path.isdir(get_clean_traffic_volumes_folder_path()), "Clean traffic volumes folder missing. Initialize an operation first and then set a forecasting target datetime"
+    assert os.path.isdir(get_clean_average_speed_folder_path()), "Clean average speeds folder missing. Initialize an operation first and then set a forecasting target datetime"
 
-    max_forecasting_window_size = max(
-        default_max_forecasting_window_size, forecasting_window_size
-    )  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
+    max_forecasting_window_size = max(default_max_forecasting_window_size, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
-    option = str(
-        input(
-            "Press V to set forecasting target datetime for traffic volumes or AS for average speeds: "
-        )
-    )
+    option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")
     print("Maximum number of days to forecast: ", max_forecasting_window_size)
-    dt = str(
-        input("Insert Target Datetime (YYYY-MM-DDTHH): ")
-    )  # The month number must be zero-padded, for example: 01, 02, etc.
+    dt = input("Insert Target Datetime (YYYY-MM-DDTHH): ") # The month number must be zero-padded, for example: 01, 02, etc.
 
-    last_available_data_dt = read_metainfo_key(
-        keys_map=[target_data_mapping[option], "end_date_iso"]
-    )
-    print(
-        "Latest data available: ",
-        datetime.strptime(last_available_data_dt, dt_iso_format),
-    )
+    last_available_data_dt = read_metainfo_key(keys_map=[target_data_mapping[option], "end_date_iso"])
+    print("Latest data available: ",datetime.strptime(last_available_data_dt, dt_iso_format),)
 
-    forecasting_window_size = (
-        datetime.strptime(dt, dt_format)
-        - datetime.strptime(last_available_data_dt, dt_iso_format)
-    ).days  # The number of days to forecast
+    forecasting_window_size = (datetime.strptime(dt, dt_format)- datetime.strptime(last_available_data_dt, dt_iso_format)).days  # The number of days to forecast
 
-    assert datetime.strptime(dt, dt_format) > datetime.strptime(
-        last_available_data_dt, dt_iso_format
-    ), (
-        "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"
-    )  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
-    assert forecasting_window_size <= max_forecasting_window_size, (
-        f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"
-    )  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
+    assert datetime.strptime(dt, dt_format) > datetime.strptime(last_available_data_dt, dt_iso_format), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
+    assert forecasting_window_size <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
 
     if check_datetime(dt) is True and option in target_data:
-        update_metainfo(
-            value=dt,
-            keys_map=["forecasting", "target_datetimes", option],
-            mode="equals",
-        )
+        update_metainfo(value=dt, keys_map=["forecasting", "target_datetimes", option], mode="equals",)
         print("Target datetime set to: ", dt, "\n\n")
         return None
     else:
@@ -718,9 +686,7 @@ def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
         with open(metainfo_filepath, "r", encoding="utf-8") as m:
             payload = json.load(m)
     else:
-        raise FileNotFoundError(
-            f'Metainfo file for "{get_active_ops()}" operation not found'
-        )
+        raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
 
     # metainfo = payload has a specific reason to exist
     # This is how we preserve the whole original dictionary (loaded from the JSON file), but at the same time iterate over its keys and updating them
@@ -736,9 +702,7 @@ def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
     elif mode == "append":
         for key in keys_map[:-1]:
             metainfo = metainfo[key]
-        metainfo[keys_map[-1]].append(
-            value
-        )  # Appending a new value to the list (which is the value of this key-value pair)
+        metainfo[keys_map[-1]].append(value)  # Appending a new value to the list (which is the value of this key-value pair)
         with open(metainfo_filepath, "w", encoding="utf-8") as m:
             json.dump(payload, m, indent=4)
     elif mode not in modes:
@@ -767,9 +731,7 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
                 content = await m.read()
                 payload = json.loads(content)
         else:
-            raise FileNotFoundError(
-                f'Metainfo file for "{get_active_ops()}" operation not found'
-            )
+            raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
 
         # metainfo = payload has a specific reason to exist
         # This is how we preserve the whole original dictionary (loaded from the JSON file), but at the same time iterate over its keys and updating them
@@ -785,9 +747,7 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
         elif mode == "append":
             for key in keys_map[:-1]:
                 metainfo = metainfo[key]
-            metainfo[keys_map[-1]].append(
-                value
-            )  # Appending a new value to the list (which is the value of this key-value pair)
+            metainfo[keys_map[-1]].append(value)  # Appending a new value to the list (which is the value of this key-value pair)
             async with aiofiles.open(metainfo_filepath, "w") as f:
                 await f.write(json.dumps(payload, indent=4))
         elif mode not in modes:
@@ -809,9 +769,7 @@ def read_metainfo_key(keys_map: list) -> Any:
         with open(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
             payload = json.load(m)
     else:
-        raise FileNotFoundError(
-            f'Metainfo file for "{get_active_ops()}" operation not found'
-        )
+        raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
 
     for key in keys_map[:-1]:
         payload = payload[key]
@@ -902,9 +860,7 @@ def retrieve_n_ml_cpus() -> int:
 
 def retrieve_edges() -> gpd.GeoDataFrame:
     active_ops = get_active_ops()
-    edges_folder = read_metainfo_key(
-        ["folder_paths", "rn_graph", f"{active_ops}_edges", "path"]
-    )
+    edges_folder = read_metainfo_key(["folder_paths", "rn_graph", f"{active_ops}_edges", "path"])
     with open(f"{edges_folder}/traffic-nodes-2024_2025-02-28.geojson", "r", encoding="utf-8") as e:
         return geojson.load(e)["features"]
 
@@ -914,9 +870,7 @@ def retrieve_edges() -> gpd.GeoDataFrame:
 
 def retrieve_arches() -> gpd.GeoDataFrame:
     active_ops = get_active_ops()
-    arches_folder = read_metainfo_key(
-        ["folder_paths", "rn_graph", f"{active_ops}_arches", "path"]
-    )
+    arches_folder = read_metainfo_key(["folder_paths", "rn_graph", f"{active_ops}_arches", "path"])
     with open(f"{arches_folder}/traffic_links_2024_2025-02-27.geojson", "r", encoding="utf-8") as a:
         return geojson.load(a)["features"]
 

@@ -42,25 +42,17 @@ def manage_ops(functionality: str) -> None:
 async def download_data(functionality: str) -> None:
     if functionality == "2.1":
         try:
-            print(
-                "\nDownloading traffic registration points information for the active operation..."
-            )
+            print("\nDownloading traffic registration points information for the active operation...")
             ops_name = get_active_ops()
             await traffic_registration_points_to_json(ops_name)
             print("Traffic registration points information downloaded successfully\n\n")
         except Exception as e:
-            print(
-                f"\033[91mCouldn't download traffic registration points information for the active operation. Error: {e}\033[0m"
-            )
+            print(f"\033[91mCouldn't download traffic registration points information for the active operation. Error: {e}\033[0m")
             sys.exit(1)
 
     elif functionality == "2.2":
-        time_start = input(
-            "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: "
-        )
-        time_end = input(
-            "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: "
-        )
+        time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
+        time_end = input("Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
 
         if check_datetime(time_start) is True and check_datetime(time_end) is True:
             pass
@@ -72,83 +64,31 @@ async def download_data(functionality: str) -> None:
         time_start += ":00:00.000Z"
         time_end += ":00:00.000Z"
 
-        await update_metainfo_async(
-            time_start, ["traffic_volumes", "start_date_iso"], mode="equals"
-        )
-        await update_metainfo_async(
-            time_end, ["traffic_volumes", "end_date_iso"], mode="equals"
-        )
+        await update_metainfo_async(time_start, ["traffic_volumes", "start_date_iso"], mode="equals")
+        await update_metainfo_async(time_end, ["traffic_volumes", "end_date_iso"], mode="equals")
 
-        await update_metainfo_async(
-            datetime.strptime(time_start, dt_iso_format).strftime("%Y"),
-            ["traffic_volumes", "start_year"],
-            mode="equals",
-        )
-        await update_metainfo_async(
-            datetime.strptime(time_start, dt_iso_format).strftime("%m"),
-            ["traffic_volumes", "start_month"],
-            mode="equals",
-        )
-        await update_metainfo_async(
-            datetime.strptime(time_start, dt_iso_format).strftime("%d"),
-            ["traffic_volumes", "start_day"],
-            mode="equals",
-        )
-        await update_metainfo_async(
-            datetime.strptime(time_start, dt_iso_format).strftime("%H"),
-            ["traffic_volumes", "start_hour"],
-            mode="equals",
-        )
+        await update_metainfo_async(datetime.strptime(time_start, dt_iso_format).strftime("%Y"),["traffic_volumes", "start_year"], mode="equals",)
+        await update_metainfo_async(datetime.strptime(time_start, dt_iso_format).strftime("%m"),["traffic_volumes", "start_month"], mode="equals",)
+        await update_metainfo_async(datetime.strptime(time_start, dt_iso_format).strftime("%d"),["traffic_volumes", "start_day"], mode="equals",)
+        await update_metainfo_async(datetime.strptime(time_start, dt_iso_format).strftime("%H"),["traffic_volumes", "start_hour"], mode="equals",)
 
-        await update_metainfo_async(
-            datetime.strptime(time_end, dt_iso_format).strftime("%Y"),
-            ["traffic_volumes", "end_year"],
-            mode="equals",
-        )
-        await update_metainfo_async(
-            datetime.strptime(time_end, dt_iso_format).strftime("%m"),
-            ["traffic_volumes", "end_month"],
-            mode="equals",
-        )
-        await update_metainfo_async(
-            datetime.strptime(time_end, dt_iso_format).strftime("%d"),
-            ["traffic_volumes", "end_day"],
-            mode="equals",
-        )
-        await update_metainfo_async(
-            datetime.strptime(time_end, dt_iso_format).strftime("%H"),
-            ["traffic_volumes", "end_hour"],
-            mode="equals",
-        )
+        await update_metainfo_async(datetime.strptime(time_end, dt_iso_format).strftime("%Y"),["traffic_volumes", "end_year"], mode="equals",)
+        await update_metainfo_async(datetime.strptime(time_end, dt_iso_format).strftime("%m"),["traffic_volumes", "end_month"], mode="equals",)
+        await update_metainfo_async(datetime.strptime(time_end, dt_iso_format).strftime("%d"),["traffic_volumes", "end_day"], mode="equals",)
+        await update_metainfo_async(datetime.strptime(time_end, dt_iso_format).strftime("%H"),["traffic_volumes", "end_hour"], mode="equals",)
 
-        relative_delta = relativedelta(
-            datetime.strptime(time_end, dt_iso_format).date(),
-            datetime.strptime(time_start, dt_iso_format).date(),
-        )
-        days_delta = (
-            datetime.strptime(time_end, dt_iso_format).date()
-            - datetime.strptime(time_start, dt_iso_format).date()
-        ).days
+        relative_delta = relativedelta(datetime.strptime(time_end, dt_iso_format).date(), datetime.strptime(time_start, dt_iso_format).date(),)
+        days_delta = (datetime.strptime(time_end, dt_iso_format).date() - datetime.strptime(time_start, dt_iso_format).date()).days
         years_delta = relative_delta.years if relative_delta.years is not None else 0
         months_delta = relative_delta.months + (years_delta * 12)
         weeks_delta = days_delta // 7
 
-        await update_metainfo_async(
-            days_delta, ["traffic_volumes", "n_days"], mode="equals"
-        )
-        await update_metainfo_async(
-            months_delta, ["traffic_volumes", "n_months"], mode="equals"
-        )
-        await update_metainfo_async(
-            years_delta, ["traffic_volumes", "n_years"], mode="equals"
-        )
-        await update_metainfo_async(
-            weeks_delta, ["traffic_volumes", "n_weeks"], mode="equals"
-        )
+        await update_metainfo_async(days_delta, ["traffic_volumes", "n_days"], mode="equals")
+        await update_metainfo_async(months_delta, ["traffic_volumes", "n_months"], mode="equals")
+        await update_metainfo_async(years_delta, ["traffic_volumes", "n_years"], mode="equals")
+        await update_metainfo_async( weeks_delta, ["traffic_volumes", "n_weeks"], mode="equals")
 
-        print(
-            "Downloading traffic volumes data for every registration point for the active operation..."
-        )
+        print("Downloading traffic volumes data for every registration point for the active operation...")
         await traffic_volumes_data_to_json(time_start=time_start, time_end=time_end)
 
     elif functionality == "2.3":
@@ -185,9 +125,7 @@ def clean_data(functionality: str) -> None:
 
         for file in average_speed_file_list:
             if file.endswith(".DS_Store") is not True:
-                cleaner.execute_cleaning(
-                    file_path=average_speed_folder + file, file_name=file
-                )
+                cleaner.execute_cleaning(file_path=average_speed_folder + file, file_name=file)
 
     return None
 
@@ -197,14 +135,8 @@ def set_forecasting_options(functionality: str) -> None:
         write_forecasting_target_datetime()
 
     elif functionality == "3.1.2":
-        option = input(
-            "Press V to read forecasting target datetime for traffic volumes or AS for average speeds: "
-        )
-        print(
-            "Target datetime: ",
-            read_forecasting_target_datetime(data_kind=option),
-            "\n\n",
-        )
+        option = input("Press V to read forecasting target datetime for traffic volumes or AS for average speeds: ")
+        print("Target datetime: ", read_forecasting_target_datetime(data_kind=option), "\n\n",)
 
     elif functionality == "3.1.3":
         rm_forecasting_target_datetime()
@@ -291,21 +223,15 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         # Merge all volumes files by category
         for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge(
-                volumes_files, road_category=road_category
-            )
+            merged_volumes_by_category[road_category] = merge(volumes_files, road_category=road_category)
 
         for road_category, v in merged_volumes_by_category.items():
-            print(
-                f"\n********************* Executing hyperparameter tuning on traffic volumes data for road category: {road_category} *********************\n"
-            )
+            print(f"\n********************* Executing hyperparameter tuning on traffic volumes data for road category: {road_category} *********************\n")
 
             volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = volumes_learner.split_data(
-                volumes_preprocessed, target=targets[0]
-            )
+            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
 
             # -------------- GridSearchCV phase --------------
             for model_name in models:
@@ -318,10 +244,7 @@ def execute_forecast_warmup(functionality: str) -> None:
                 )
 
                 # Check if workers are still alive
-                print(
-                    "Alive Dask cluster workers: ",
-                    dask.distributed.worker.Worker._instances,
-                )
+                print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
 
                 time.sleep(1)  # To cool down the system
 
@@ -330,21 +253,15 @@ def execute_forecast_warmup(functionality: str) -> None:
         merged_speeds_by_category = {}
 
         for road_category, speeds_files in trps_ids_avg_speeds_by_road_category.items():
-            merged_speeds_by_category[road_category] = merge(
-                speeds_files, road_category=road_category
-            )
+            merged_speeds_by_category[road_category] = merge(speeds_files, road_category=road_category)
 
         for road_category, s in merged_speeds_by_category.items():
-            print(
-                f"********************* Executing hyperparameter tuning on average speed data for road category: {road_category} *********************"
-            )
+            print(f"********************* Executing hyperparameter tuning on average speed data for road category: {road_category} *********************")
 
             speeds_learner = AverageSpeedLearner(s, client)
             speeds_preprocessed = speeds_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = speeds_learner.split_data(
-                speeds_preprocessed, target=targets[1]
-            )
+            X_train, X_test, y_train, y_test = speeds_learner.split_data(speeds_preprocessed, target=targets[1])
 
             for model_name in models:
                 speeds_learner.gridsearch(
@@ -356,10 +273,7 @@ def execute_forecast_warmup(functionality: str) -> None:
                 )
 
                 # Check if workers are still alive
-                print(
-                    "Alive Dask cluster workers: ",
-                    dask.distributed.worker.Worker._instances,
-                )
+                print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
 
                 time.sleep(1)  # To cool down the system
 
@@ -369,21 +283,15 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         # Merge all volumes files by category
         for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge(
-                volumes_files, road_category=road_category
-            )
+            merged_volumes_by_category[road_category] = merge(volumes_files, road_category=road_category)
 
         for road_category, v in merged_volumes_by_category.items():
-            print(
-                f"\n********************* Training models on traffic volumes data for road category: {road_category} *********************\n"
-            )
+            print(f"\n********************* Training models on traffic volumes data for road category: {road_category} *********************\n")
 
             volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = volumes_learner.split_data(
-                volumes_preprocessed, target=targets[0]
-            )
+            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
 
             # -------------- Training phase --------------
             for model_name in models:
@@ -404,9 +312,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         # Merge all volumes files by category
         for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge(
-                volumes_files, road_category=road_category
-            )
+            merged_volumes_by_category[road_category] = merge(volumes_files, road_category=road_category)
 
         for road_category, v in merged_volumes_by_category.items():
             print(
@@ -416,9 +322,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = volumes_learner.split_data(
-                volumes_preprocessed, target=targets[0]
-            )
+            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
 
             # -------------- Testing phase --------------
             for model_name in models:
