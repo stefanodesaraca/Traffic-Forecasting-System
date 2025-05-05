@@ -1,7 +1,6 @@
 import pandas as pd
 import dask.dataframe as dd
 import tfs_cleaning
-from tfs_cleaning import *
 import numpy as np
 from numpy.linalg import eigvals
 import json
@@ -16,6 +15,10 @@ import os
 import inspect
 from functools import wraps
 from typing import Any
+import traceback
+import logging
+
+from tfs_cleaning import *
 
 tab10 = sns.color_palette("tab10")
 
@@ -44,9 +47,10 @@ def savePlots(plotFunction):
             try:
                 plt.savefig(f"{filePath}{plotName}.png", dpi=300)
                 print(f"{plotName} exported correctly")
-            except:
+            except Exception as e:
+                logging.error(traceback.format_exc())
                 print(
-                    "\033[91mExporting the plots wasn't possible, the returned type is not included in the decorator function\033[0m"
+                    f"\033[91mExporting the plots wasn't possible, the returned type is not included in the decorator function. Error: {e}\033[0m"
                 )
 
         return None

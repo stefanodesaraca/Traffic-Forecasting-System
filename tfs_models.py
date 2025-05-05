@@ -1,4 +1,3 @@
-from tfs_utils import retrieve_n_ml_cpus
 import os
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import (
@@ -7,6 +6,7 @@ from sklearn.ensemble import (
     AdaBoostRegressor,
     HistGradientBoostingRegressor,
 )
+from tfs_utils import retrieve_n_ml_cpus
 
 # ------------------- Functions that return the models themselves -------------------
 

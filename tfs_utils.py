@@ -13,6 +13,9 @@ import asyncio
 import aiofiles
 from functools import lru_cache
 from pydantic.types import PositiveInt
+import sys
+import traceback
+import logging
 
 pd.set_option("display.max_columns", None)
 
@@ -61,7 +64,7 @@ def get_trp_id_list() -> list[str]:
             trp["id"] for trp in trp_info["trafficRegistrationPoints"]
         ]  # This list may contain IDs of TRPs which don't have a volumes file associated with them
     else:
-        trp_id_list = [
+        trp_id_list = list({
             trp["id"]
             for trp in trp_info["trafficRegistrationPoints"]
             if trp["id"]
@@ -69,7 +72,7 @@ def get_trp_id_list() -> list[str]:
                 get_trp_id_from_filename(file)
                 for file in os.listdir(get_raw_traffic_volumes_folder_path())
             ]
-        ]  # Keep only the TRPs which actually have a volumes file associated with them
+        })  # Keep only the TRPs which actually have a volumes file associated with them. Using list() on a set comprehension to avoid duplicates
 
     return trp_id_list
 
@@ -108,7 +111,7 @@ def get_trp_metadata(trp_id: str) -> dict:
     ops_name = get_active_ops()
     trp_metadata_file = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata.json"
     # assert os.path.isfile(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata.json") is True, f"Metadata file for TRP: {trp_id} missing"
-    with open(trp_metadata_file, "r") as json_trp_metadata:
+    with open(trp_metadata_file, "r", encoding="utf-8") as json_trp_metadata:
         trp_metadata = json.load(json_trp_metadata)
 
     return trp_metadata
@@ -283,7 +286,7 @@ def merge(trp_filepaths: list[str], road_category: str) -> dd.DataFrame:
         return merged_data
     except ValueError as e:
         print(f"\033[91mNo data to concatenate. Error: {e}")
-        exit(code=-1)
+        sys.exit(1)
 
 
 # ==================== Average Speed Utilities ====================
@@ -436,10 +439,10 @@ def write_forecasting_target_datetime(
     else:
         if check_datetime(dt) is False:
             print("\033[91mWrong datetime format, try again\033[0m")
-            exit(code=1)
+            sys.exit(1)
         elif option not in target_data:
             print("\033[91mWrong data option, try again\033[0m")
-            exit(code=1)
+            sys.exit(1)
 
 
 def read_forecasting_target_datetime(data_kind: str) -> datetime:
@@ -453,10 +456,10 @@ def read_forecasting_target_datetime(data_kind: str) -> datetime:
         print(
             f"\033[91mTarget datetime for {data_kind} isn't set yet. Set it first and then execute a one-point forecast\033[0m"
         )
-        exit(code=1)
+        sys.exit(1)
     except FileNotFoundError:
         print("\033[91mTarget Datetime File Not Found\033[0m")
-        exit(code=1)
+        sys.exit(1)
 
 
 def rm_forecasting_target_datetime() -> None:
@@ -474,7 +477,7 @@ def rm_forecasting_target_datetime() -> None:
         return None
     except KeyError:
         print("\033[91mTarget datetime not found\033[0m")
-        exit(code=1)
+        sys.exit(1)
 
 
 # ==================== Operations' Settings Utilities ====================
@@ -486,7 +489,7 @@ def write_active_ops_file(ops_name: str) -> None:
     assert os.path.isfile(f"{ops_folder}/{ops_name}") is True, (
         f"{ops_name} operation folder not found. Create an operation with that name first."
     )
-    with open(f"{active_ops_filename}.txt", "w") as ops_file:
+    with open(f"{active_ops_filename}.txt", "w", encoding="utf-8") as ops_file:
         ops_file.write(ops_name)
     return None
 
@@ -500,7 +503,7 @@ def get_active_ops():
         return op
     except FileNotFoundError:
         print("\033[91mOperations file not found\033[0m")
-        exit(code=1)
+        sys.exit(1)
 
 
 # TODO TO IMPLEMENT
@@ -762,7 +765,7 @@ def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
             json.dump(payload, m, indent=4)
     elif mode not in modes:
         print("\033[91mWrong mode\033[0m")
-        exit(code=1)
+        sys.exit(1)
 
     return None
 
@@ -811,7 +814,7 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
                 await f.write(json.dumps(payload, indent=4))
         elif mode not in modes:
             print("\033[91mWrong mode\033[0m")
-            exit(code=1)
+            sys.exit(1)
 
     return None
 

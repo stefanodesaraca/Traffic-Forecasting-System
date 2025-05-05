@@ -1,10 +1,4 @@
-from tfs_downloader import *
-from tfs_eda import *
-from tfs_utils import *
-from tfs_cleaning import *
-from tfs_ml import *
 from tfs_models import model_names_and_functions
-from tfs_road_network import *
 import os
 import time
 from datetime import datetime
@@ -15,6 +9,13 @@ import math
 import asyncio
 import dask.distributed
 from dask.distributed import Client, LocalCluster
+
+from tfs_downloader import *
+from tfs_eda import *
+from tfs_utils import *
+from tfs_cleaning import *
+from tfs_ml import *
+from tfs_road_network import *
 
 dt_iso_format = "%Y-%m-%dT%H:%M:%S.%fZ"
 
@@ -52,7 +53,7 @@ async def download_data(functionality: str) -> None:
             print(
                 f"\033[91mCouldn't download traffic registration points information for the active operation. Error: {e}\033[0m"
             )
-            exit(code=1)
+            sys.exit(1)
 
     elif functionality == "2.2":
         time_start = input(
@@ -561,7 +562,7 @@ def main():
             clean_data(option)
 
         elif option == "0":
-            exit(code=0)
+            sys.exit(0)
 
         else:
             print("Wrong option. Insert a valid one")

@@ -48,10 +48,10 @@ class Vertex(BaseModel):
         """
         Returns all attributes and respective values of the Vertex instance.
         """
-        return {attr: val for attr, val in self.__dict__.items()}
+        return self.__dict__
 
     def export_vertex(self, filepath: str) -> None:
-        with open(filepath, "w"):
+        with open(filepath, "w", encoding="utf-8"):
             json.dump(self.get_vertex_data(), filepath, indent=4)
         return None
 
@@ -112,10 +112,10 @@ class Arch(BaseModel):
         """
         Returns all attributes and respective values of the Arch instance.
         """
-        return {attr: val for attr, val in self.__dict__.items()}
+        return self.__dict__
 
     def export_arch(self, filepath: str) -> None:
-        with open(filepath, "w"):
+        with open(filepath, "w", encoding="utf-8"):
             json.dump(self.get_arch_data(), filepath, indent=4)
         return None
 
@@ -164,7 +164,7 @@ class RoadNetwork(BaseModel):
     _network: nx.Graph = nx.Graph()
 
     def get_network_attributes_and_values(self) -> dict[Any, Any]:
-        return {attr: val for attr, val in self.__dict__.items()}
+        return self.__dict__
 
     def load_vertices(
         self,
@@ -189,14 +189,14 @@ class RoadNetwork(BaseModel):
                 for v in self._vertices
                 if any(i in municipality_id_filter for i in v.municipality_ids) is False
             ]  # Only keeping the vertex if all municipalities of the vertex aren't included in the ones to be filtered out
-            return None
         else:
             self._vertices = [
                 v
                 for v in vertices
                 if any(i in municipality_id_filter for i in v.municipality_ids) is False
             ]
-            return None
+
+        return None
 
     def load_arches(
         self,
@@ -221,14 +221,14 @@ class RoadNetwork(BaseModel):
                 for a in self._arches
                 if any(i in municipality_id_filter for i in a.municipality_ids) is False
             ]  # Only keeping the arch if all municipalities of the arch itself aren't included in the ones to be filtered out
-            return None
         else:
             self._arches = [
                 a
                 for a in arches
                 if any(i in municipality_id_filter for i in a.municipality_ids) is False
             ]
-            return None
+
+        return None
 
     def load_trps(
         self,
@@ -253,14 +253,14 @@ class RoadNetwork(BaseModel):
                 for trp in self._trps
                 if trp.municipality_number not in municipality_id_filter
             ]  # Only keeping the TRP if the municipality of the TRP isn't included in the ones to be filtered out
-            return None
         else:
             self._trps = [
                 trp
                 for trp in trps
                 if trp.municipality_number not in municipality_id_filter
             ]
-            return None
+
+        return None
 
     def build(self, verbose: bool) -> None:
         if verbose is True:
@@ -322,7 +322,7 @@ class RoadNetwork(BaseModel):
         Exports the graph (contained into the self._network attribute into a json file.
         """
         assert filepath.endswith(".json") is True, "File extension missing or not json"
-        with open(filepath, "w") as g_dumper:
+        with open(filepath, "w", encoding="utf-8") as g_dumper:
             json.dump(nx.to_dict_of_dicts(self._network), g_dumper, indent=4)
         return None
 
@@ -343,7 +343,7 @@ class RoadNetwork(BaseModel):
         Loads a graph from a json file into the self._network attribute.
         """
         assert filepath.endswith(".json") is True, "File extension missing or not json"
-        with open(filepath, "r") as g_loader:
+        with open(filepath, "r", encoding="utf-8") as g_loader:
             self._network = nx.from_dict_of_dicts(json.load(g_loader))
         return None
 

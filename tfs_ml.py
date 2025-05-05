@@ -1,5 +1,3 @@
-from tfs_utils import *
-from tfs_models import *
 import os
 import numpy as np
 import pickle
@@ -14,6 +12,9 @@ from scipy import stats
 from scipy.special import softmax
 import time
 import gc
+import sys
+import traceback
+import logging
 
 from dask.distributed import Client
 import joblib
@@ -30,6 +31,9 @@ from sklearn.metrics import (
     root_mean_squared_error,
     PredictionErrorDisplay,
 )
+
+from tfs_utils import *
+from tfs_models import *
 
 
 simplefilter(action="ignore", category=FutureWarning)
@@ -238,7 +242,7 @@ class BaseLearner:
         print(f"True best parameters for {model_name}: ", true_best_parameters, "\n")
 
         with open(
-            ml_parameters_folder_path + model_filename + ".json", "w"
+            ml_parameters_folder_path + model_filename + ".json", "w", encoding="utf-8"
         ) as parameters_file:
             json.dump(true_best_parameters, parameters_file, indent=4)
 
@@ -313,10 +317,11 @@ class BaseLearner:
             return None
 
         except Exception as e:
+            logging.error(traceback.format_exc())
             print(
                 f"\033[91mCouldn't export trained model. Safely exited the program. Error: {e}\033[0m"
             )
-            exit(code=1)
+            sys.exit(1)
 
     @staticmethod
     def test_model(

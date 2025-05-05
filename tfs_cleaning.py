@@ -1,4 +1,3 @@
-from tfs_utils import *
 import numpy as np
 import json
 import datetime
@@ -6,12 +5,17 @@ from datetime import datetime
 import os
 import pandas as pd
 import pprint
+import traceback
+import logging
 
 from sklearn.linear_model import Lasso, GammaRegressor, QuantileRegressor
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 from sklego.meta import ZeroInflatedRegressor
+
+from tfs_utils import *
+
 
 pd.set_option("display.max_rows", None)
 pd.set_option("display.max_columns", None)
@@ -205,8 +209,8 @@ class TrafficVolumesCleaner(BaseCleaner):
 
             lane_sample_node = nodes[0]["node"]["byLane"]
             n_lanes = max(
-                [ln["lane"]["laneNumberAccordingToRoadLink"] for ln in lane_sample_node]
-            )  # Determining the total number of lanes for the TRP taken into consideration
+                (ln["lane"]["laneNumberAccordingToRoadLink"] for ln in lane_sample_node)
+            )  # Determining the total number of lanes for the TRP taken into consideration. Using a generator comprehension to improve performances
             print("Number of lanes: ", n_lanes)
 
             # The number of lanes is calculated because, as opposed to by_hour_structured, where the list index will be the row index in the dataframe,
@@ -225,21 +229,21 @@ class TrafficVolumesCleaner(BaseCleaner):
             # ------------------ Finding all unique days in which registrations took place ------------------
 
             reg_datetimes = set(
-                [
+                (
                     datetime.fromisoformat(n["node"]["from"])
                     .replace(tzinfo=None)
                     .isoformat()
                     for n in nodes
-                ]
+                )
             )  # Only keeping the datetime without the +00:00 at the end #TODO TO TEST THIS, BEFORE IT WAS: n["node"]["from"][:-6]
             # Removing duplicates and keeping the time as well. This will be needed to extract the hour too
             # print(reg_datetimes)
 
             reg_dates = set(
-                [
+                (
                     str(datetime.fromisoformat(dt).date().isoformat())
                     for dt in reg_datetimes
-                ]
+                )
             )
             # datetime.fromisoformat() converts a string to a datetime object. Then it only keeps the date and converts it into iso format again.
             # The final step is converting the datetime object to a string with str()
@@ -859,6 +863,7 @@ class AverageSpeedCleaner(BaseCleaner):
             print(f"Average speed data for TRP: {trp_id} saved successfully\n\n")
             return None
         except Exception as e:
+            logging.error(traceback.format_exc())
             print(
                 f"\033[91mCouldn't export TRP: {trp_id} volumes data. Error: {e}\033[0m"
             )
@@ -883,9 +888,9 @@ class AverageSpeedCleaner(BaseCleaner):
                 self.export_clean_avg_speed_data(
                     average_speed_data, trp_id, t_max, t_min
                 )
-                return None
             else:
-                return None
+                pass
+            return None
         except IndexError as e:
             print(
                 f"\033[91mNo data available for file: {file_name}. Error: {e}\033[0m\n"
