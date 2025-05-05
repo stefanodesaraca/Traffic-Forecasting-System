@@ -45,9 +45,7 @@ def savePlots(plotFunction):
                 print(f"{plotName} exported correctly")
             except Exception as e:
                 logging.error(traceback.format_exc())
-                print(
-                    f"\033[91mExporting the plots wasn't possible, the returned type is not included in the decorator function. Error: {e}\033[0m"
-                )
+                print(f"\033[91mExporting the plots wasn't possible, the returned type is not included in the decorator function. Error: {e}\033[0m")
 
         return None
 

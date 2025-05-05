@@ -260,9 +260,7 @@ class BaseLearner:
 
         except Exception as e:
             logging.error(traceback.format_exc())
-            print(
-                f"\033[91mCouldn't export trained model. Safely exited the program. Error: {e}\033[0m"
-            )
+            print(f"\033[91mCouldn't export trained model. Safely exited the program. Error: {e}\033[0m")
             sys.exit(1)
 
 

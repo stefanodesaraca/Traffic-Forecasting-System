@@ -14,6 +14,7 @@ import dask.dataframe as dd
 from cleantext import clean
 import geopandas as gpd
 import geojson
+from dateutil.relativedelta import relativedelta
 from geopandas import GeoDataFrame
 from pydantic.types import PositiveInt
 
@@ -297,10 +298,16 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
 
     option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")
     print("Maximum number of days to forecast: ", max_forecasting_window_size)
-    dt = input("Insert Target Datetime (YYYY-MM-DDTHH): ") # The month number must be zero-padded, for example: 01, 02, etc.
 
     last_available_data_dt = read_metainfo_key(keys_map=[target_data_mapping[option], "end_date_iso"])
-    print("Latest data available: ",datetime.strptime(last_available_data_dt, dt_iso_format),)
+    if last_available_data_dt is None:
+        logging.error(traceback.format_exc())
+        raise Exception("End date not found in metainfo file. Run download first or set it first")
+
+    print("Latest data available: ", datetime.strptime(last_available_data_dt, dt_iso_format))
+    print("Maximum settable date: ", relativedelta(datetime.strptime(last_available_data_dt, dt_iso_format), days=14))
+
+    dt = input("Insert Target Datetime (YYYY-MM-DDTHH): ") # The month number must be zero-padded, for example: 01, 02, etc.
 
     forecasting_window_size = (datetime.strptime(dt, dt_format)- datetime.strptime(last_available_data_dt, dt_iso_format)).days  # The number of days to forecast
 
