@@ -42,9 +42,7 @@ warnings.filterwarnings("ignore")
 pd.set_option("display.max_columns", None)
 
 
-def sin_transformer(
-    data: dd.Series | dd.DataFrame, timeframe: int
-) -> dd.Series | dd.DataFrame:
+def sin_transformer(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
     """
     The timeframe indicates a number of days.
     Details:
@@ -55,9 +53,7 @@ def sin_transformer(
     return np.sin(data * (2.0 * np.pi / timeframe))
 
 
-def cos_transformer(
-    data: dd.Series | dd.DataFrame, timeframe: int
-) -> dd.Series | dd.DataFrame:
+def cos_transformer(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
     """
     The timeframe indicates a number of days
     Details:
@@ -225,6 +221,7 @@ class BaseLearner:
 
         return None
 
+
     @staticmethod
     def train_model(X_train: dd.DataFrame, y_train: dd.DataFrame, target: str, model_name: str, road_category: str) -> None:
         # -------------- Filenames, etc. --------------
@@ -270,14 +267,9 @@ class BaseLearner:
             )
             sys.exit(1)
 
+
     @staticmethod
-    def test_model(
-        X_test: dd.DataFrame,
-        y_test: dd.DataFrame,
-        target: str,
-        model_name: str,
-        road_category: str,
-    ) -> None:
+    def test_model(X_test: dd.DataFrame, y_test: dd.DataFrame, target: str, model_name: str, road_category: str) -> None:
         ops_name = get_active_ops()
         ml_folder_path = get_ml_models_folder_path(target, road_category)
         model_filename = ops_name + "_" + road_category + "_" + model_name
@@ -292,16 +284,12 @@ class BaseLearner:
 
         print(f"================= {model_name} testing metrics =================")
         print("R^2: ", r2_score(y_true=y_test, y_pred=y_pred))
-        print(
-            "Mean Absolute Error: ", mean_absolute_error(y_true=y_test, y_pred=y_pred)
-        )
+        print("Mean Absolute Error: ", mean_absolute_error(y_true=y_test, y_pred=y_pred))
         print("Mean Squared Error: ", mean_squared_error(y_true=y_test, y_pred=y_pred))
-        print(
-            "Root Mean Squared Error: ",
-            root_mean_squared_error(y_true=y_test, y_pred=y_pred),
-        )
+        print("Root Mean Squared Error: ", root_mean_squared_error(y_true=y_test, y_pred=y_pred))
 
         return None
+
 
 
 class TrafficVolumesLearner(BaseLearner):
@@ -379,6 +367,7 @@ class TrafficVolumesLearner(BaseLearner):
         # print(volumes.compute().head(10))
 
         return volumes
+
 
 
 class AverageSpeedLearner(BaseLearner):
@@ -463,6 +452,7 @@ class AverageSpeedLearner(BaseLearner):
         return speeds
 
 
+
 class OnePointForecaster:
     """
     self.trp_road_category: to find the right model to predict the data
@@ -471,6 +461,7 @@ class OnePointForecaster:
     def __init__(self, trp_id: str, road_category: str):
         self._trp_id: str = trp_id
         self._road_category: str = road_category
+
 
 
 class OnePointVolumesForecaster(OnePointForecaster):
