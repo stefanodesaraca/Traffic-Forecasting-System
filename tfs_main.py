@@ -19,9 +19,7 @@ from dask.distributed import Client, LocalCluster
 dt_iso_format = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 
-
 def manage_ops(functionality: str) -> None:
-
     if functionality == "1.1":
         ops_name = input("Insert new operation name: ")
         create_ops_folder(ops_name)
@@ -37,25 +35,32 @@ def manage_ops(functionality: str) -> None:
         print("\033[91mFunctionality not found, try again with a correct one\033[0m")
         print("\033[91mReturning to the main menu...\033[0m\n\n")
         main()
-        
+
     return None
 
 
 async def download_data(functionality: str) -> None:
-
     if functionality == "2.1":
         try:
-            print("\nDownloading traffic registration points information for the active operation...")
+            print(
+                "\nDownloading traffic registration points information for the active operation..."
+            )
             ops_name = get_active_ops()
             await traffic_registration_points_to_json(ops_name)
             print("Traffic registration points information downloaded successfully\n\n")
         except Exception as e:
-            print(f"\033[91mCouldn't download traffic registration points information for the active operation. Error: {e}\033[0m")
+            print(
+                f"\033[91mCouldn't download traffic registration points information for the active operation. Error: {e}\033[0m"
+            )
             exit(code=1)
 
     elif functionality == "2.2":
-        time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
-        time_end = input("Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
+        time_start = input(
+            "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: "
+        )
+        time_end = input(
+            "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: "
+        )
 
         if check_datetime(time_start) is True and check_datetime(time_end) is True:
             pass
@@ -67,31 +72,83 @@ async def download_data(functionality: str) -> None:
         time_start += ":00:00.000Z"
         time_end += ":00:00.000Z"
 
-        await update_metainfo_async(time_start, ["traffic_volumes", "start_date_iso"], mode="equals")
-        await update_metainfo_async(time_end, ["traffic_volumes", "end_date_iso"], mode="equals")
+        await update_metainfo_async(
+            time_start, ["traffic_volumes", "start_date_iso"], mode="equals"
+        )
+        await update_metainfo_async(
+            time_end, ["traffic_volumes", "end_date_iso"], mode="equals"
+        )
 
-        await update_metainfo_async(datetime.strptime(time_start, dt_iso_format).strftime("%Y"), ["traffic_volumes", "start_year"], mode="equals")
-        await update_metainfo_async(datetime.strptime(time_start, dt_iso_format).strftime("%m"), ["traffic_volumes", "start_month"], mode="equals")
-        await update_metainfo_async(datetime.strptime(time_start, dt_iso_format).strftime("%d"), ["traffic_volumes", "start_day"], mode="equals")
-        await update_metainfo_async(datetime.strptime(time_start, dt_iso_format).strftime("%H"), ["traffic_volumes", "start_hour"], mode="equals")
+        await update_metainfo_async(
+            datetime.strptime(time_start, dt_iso_format).strftime("%Y"),
+            ["traffic_volumes", "start_year"],
+            mode="equals",
+        )
+        await update_metainfo_async(
+            datetime.strptime(time_start, dt_iso_format).strftime("%m"),
+            ["traffic_volumes", "start_month"],
+            mode="equals",
+        )
+        await update_metainfo_async(
+            datetime.strptime(time_start, dt_iso_format).strftime("%d"),
+            ["traffic_volumes", "start_day"],
+            mode="equals",
+        )
+        await update_metainfo_async(
+            datetime.strptime(time_start, dt_iso_format).strftime("%H"),
+            ["traffic_volumes", "start_hour"],
+            mode="equals",
+        )
 
-        await update_metainfo_async(datetime.strptime(time_end, dt_iso_format).strftime("%Y"), ["traffic_volumes", "end_year"], mode="equals")
-        await update_metainfo_async(datetime.strptime(time_end, dt_iso_format).strftime("%m"), ["traffic_volumes", "end_month"], mode="equals")
-        await update_metainfo_async(datetime.strptime(time_end, dt_iso_format).strftime("%d"), ["traffic_volumes", "end_day"], mode="equals")
-        await update_metainfo_async(datetime.strptime(time_end, dt_iso_format).strftime("%H"), ["traffic_volumes", "end_hour"], mode="equals")
+        await update_metainfo_async(
+            datetime.strptime(time_end, dt_iso_format).strftime("%Y"),
+            ["traffic_volumes", "end_year"],
+            mode="equals",
+        )
+        await update_metainfo_async(
+            datetime.strptime(time_end, dt_iso_format).strftime("%m"),
+            ["traffic_volumes", "end_month"],
+            mode="equals",
+        )
+        await update_metainfo_async(
+            datetime.strptime(time_end, dt_iso_format).strftime("%d"),
+            ["traffic_volumes", "end_day"],
+            mode="equals",
+        )
+        await update_metainfo_async(
+            datetime.strptime(time_end, dt_iso_format).strftime("%H"),
+            ["traffic_volumes", "end_hour"],
+            mode="equals",
+        )
 
-        relative_delta = relativedelta(datetime.strptime(time_end, dt_iso_format).date(), datetime.strptime(time_start, dt_iso_format).date())
-        days_delta = (datetime.strptime(time_end, dt_iso_format).date() - datetime.strptime(time_start, dt_iso_format).date()).days
+        relative_delta = relativedelta(
+            datetime.strptime(time_end, dt_iso_format).date(),
+            datetime.strptime(time_start, dt_iso_format).date(),
+        )
+        days_delta = (
+            datetime.strptime(time_end, dt_iso_format).date()
+            - datetime.strptime(time_start, dt_iso_format).date()
+        ).days
         years_delta = relative_delta.years if relative_delta.years is not None else 0
         months_delta = relative_delta.months + (years_delta * 12)
         weeks_delta = days_delta // 7
 
-        await update_metainfo_async(days_delta, ["traffic_volumes", "n_days"], mode="equals")
-        await update_metainfo_async(months_delta, ["traffic_volumes", "n_months"], mode="equals")
-        await update_metainfo_async(years_delta, ["traffic_volumes", "n_years"], mode="equals")
-        await update_metainfo_async(weeks_delta, ["traffic_volumes", "n_weeks"], mode="equals")
+        await update_metainfo_async(
+            days_delta, ["traffic_volumes", "n_days"], mode="equals"
+        )
+        await update_metainfo_async(
+            months_delta, ["traffic_volumes", "n_months"], mode="equals"
+        )
+        await update_metainfo_async(
+            years_delta, ["traffic_volumes", "n_years"], mode="equals"
+        )
+        await update_metainfo_async(
+            weeks_delta, ["traffic_volumes", "n_weeks"], mode="equals"
+        )
 
-        print("Downloading traffic volumes data for every registration point for the active operation...")
+        print(
+            "Downloading traffic volumes data for every registration point for the active operation..."
+        )
         await traffic_volumes_data_to_json(time_start=time_start, time_end=time_end)
 
     elif functionality == "2.3":
@@ -101,46 +158,53 @@ async def download_data(functionality: str) -> None:
             return None
 
         print("\nWriting metadata files...")
-        for trp_id in tqdm(trp_id_list): write_trp_metadata(trp_id)
+        for trp_id in tqdm(trp_id_list):
+            write_trp_metadata(trp_id)
         print("Metadata files successfully written\n\n")
 
     return None
 
-#TODO ASYNCHRONIZE CLEANING AS WELL
+
+# TODO ASYNCHRONIZE CLEANING AS WELL
 def clean_data(functionality: str) -> None:
-
     if functionality == "5.6.1":
-
         traffic_volumes_folder = get_raw_traffic_volumes_folder_path()
         traffic_volumes_file_list = get_raw_traffic_volume_file_list()
 
         cleaner = TrafficVolumesCleaner()
 
         for file in traffic_volumes_file_list:
-            if file.endswith(".DS_Store") is not True: cleaner.execute_cleaning(traffic_volumes_folder + file)
+            if file.endswith(".DS_Store") is not True:
+                cleaner.execute_cleaning(traffic_volumes_folder + file)
 
     elif functionality == "5.6.2":
-
         average_speed_folder = get_raw_average_speed_folder_path()
         average_speed_file_list = get_raw_avg_speed_file_list()
 
         cleaner = AverageSpeedCleaner()
 
         for file in average_speed_file_list:
-            if file.endswith(".DS_Store") is not True: cleaner.execute_cleaning(
-                file_path=average_speed_folder + file, file_name=file)
+            if file.endswith(".DS_Store") is not True:
+                cleaner.execute_cleaning(
+                    file_path=average_speed_folder + file, file_name=file
+                )
 
     return None
 
 
 def set_forecasting_options(functionality: str) -> None:
-
     if functionality == "3.1.1":
         write_forecasting_target_datetime()
 
     elif functionality == "3.1.2":
-        option = input("Press V to read forecasting target datetime for traffic volumes or AS for average speeds: ")
-        print("Target datetime: ", read_forecasting_target_datetime(data_kind=option), "\n\n")
+        option = input(
+            "Press V to read forecasting target datetime for traffic volumes or AS for average speeds: "
+        )
+        print(
+            "Target datetime: ",
+            read_forecasting_target_datetime(data_kind=option),
+            "\n\n",
+        )
 
     elif functionality == "3.1.3":
         rm_forecasting_target_datetime()
@@ -149,7 +213,6 @@ def set_forecasting_options(functionality: str) -> None:
 
 
 def execute_eda() -> None:
-
     clean_traffic_volumes_folder_path = get_clean_traffic_volumes_folder_path()
     clean_average_speed_folder_path = get_clean_average_speed_folder_path()
 
@@ -168,156 +231,209 @@ def execute_eda() -> None:
         analyze_avg_speeds(speeds)
         avg_speeds_data_multicollinearity_test(speeds)
 
-    volumes_speeds = [vs for vs in clean_traffic_volume_files if get_trp_id_from_filename(vs) in [get_trp_id_from_filename(s) for s in clean_average_speed_files]] #Determinig the TRPs which have both traffic volumes and speed data
-    #Checking which TRPs have both traffic volumes and speed data available
+    volumes_speeds = [
+        vs
+        for vs in clean_traffic_volume_files
+        if get_trp_id_from_filename(vs)
+        in [get_trp_id_from_filename(s) for s in clean_average_speed_files]
+    ]  # Determinig the TRPs which have both traffic volumes and speed data
+    # Checking which TRPs have both traffic volumes and speed data available
     print("\n\nClean volumes and average speeds files: ", volumes_speeds)
     print("Number of clean volumes and average speeds files: ", len(volumes_speeds))
     print("\n\n")
 
     return None
 
-#TODO IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL. EXPLICITELY PRINT THAT FILES METADATA IS NEEDED BEFORE EXECUTING THE WARMUP
-def execute_forecast_warmup(functionality: str) -> None:
 
+# TODO IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL. EXPLICITELY PRINT THAT FILES METADATA IS NEEDED BEFORE EXECUTING THE WARMUP
+def execute_forecast_warmup(functionality: str) -> None:
     models = [m for m in model_names_and_functions.keys()]
     targets = ["volume", "mean_speed"]
 
     trps = get_trp_id_list()
 
-    #TRPs - Volumes files and road categories
-    trps_ids_volumes_by_road_category = {category: [retrieve_trp_clean_volumes_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_volumes_filepath_by_id(trp_id)) is False]
-                                         for category in get_all_available_road_categories()}
-    #The isdir() method is needed since there could be some cases where the volumes files are absent, but TRPs are included in the trps list, so if there isn't on we'll just obtain the path for the clean volumes files folder. Thus, if the string is a path to a folder then don't include it in the trps_ids_by_road_category
-    #pprint.pprint(trps_ids_by_road_category)
+    # TRPs - Volumes files and road categories
+    trps_ids_volumes_by_road_category = {
+        category: [
+            retrieve_trp_clean_volumes_filepath_by_id(trp_id)
+            for trp_id in trps
+            if get_trp_road_category(trp_id) == category
+            and os.path.isdir(retrieve_trp_clean_volumes_filepath_by_id(trp_id))
+            is False
+        ]
+        for category in get_all_available_road_categories()
+    }
+    # The isdir() method is needed since there could be some cases where the volumes files are absent, but TRPs are included in the trps list, so if there isn't on we'll just obtain the path for the clean volumes files folder. Thus, if the string is a path to a folder then don't include it in the trps_ids_by_road_category
+    # pprint.pprint(trps_ids_by_road_category)
 
+    # TRPs - Average files and road categories
+    trps_ids_avg_speeds_by_road_category = {
+        category: [
+            retrieve_trp_clean_average_speed_filepath_by_id(trp_id)
+            for trp_id in trps
+            if get_trp_road_category(trp_id) == category
+            and os.path.isdir(retrieve_trp_clean_average_speed_filepath_by_id(trp_id))
+            is False
+        ]
+        for category in get_all_available_road_categories()
+    }
 
-    #TRPs - Average files and road categories
-    trps_ids_avg_speeds_by_road_category = {category: [retrieve_trp_clean_average_speed_filepath_by_id(trp_id) for trp_id in trps if get_trp_road_category(trp_id) == category and os.path.isdir(retrieve_trp_clean_average_speed_filepath_by_id(trp_id)) is False]
-                                            for category in get_all_available_road_categories()}
-
-    #Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
-    #It's important to instantiate it here since, if it was done in the gridsearch function, it would mean the client would be started and closed everytime the function runs (which is not good)
-    cluster = LocalCluster(processes=False) #Check localhost:8787 to watch real-time.
-    #By default the number of workers is obtained by dask using the standard os.cpu_count()
+    # Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
+    # It's important to instantiate it here since, if it was done in the gridsearch function, it would mean the client would be started and closed everytime the function runs (which is not good)
+    cluster = LocalCluster(processes=False)  # Check localhost:8787 to watch real-time.
+    # By default the number of workers is obtained by dask using the standard os.cpu_count()
     client = Client(cluster)
-    #More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
-
+    # More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
 
     # ------------ Hyperparameter tuning for traffic volumes ML models ------------
     if functionality == "3.2.1":
-
         merged_volumes_by_category = {}
 
         # Merge all volumes files by category
         for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge(volumes_files, road_category=road_category)
+            merged_volumes_by_category[road_category] = merge(
+                volumes_files, road_category=road_category
+            )
 
         for road_category, v in merged_volumes_by_category.items():
-
-            print(f"\n********************* Executing hyperparameter tuning on traffic volumes data for road category: {road_category} *********************\n")
+            print(
+                f"\n********************* Executing hyperparameter tuning on traffic volumes data for road category: {road_category} *********************\n"
+            )
 
             volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
+            X_train, X_test, y_train, y_test = volumes_learner.split_data(
+                volumes_preprocessed, target=targets[0]
+            )
 
             # -------------- GridSearchCV phase --------------
             for model_name in models:
-                volumes_learner.gridsearch(X_train, y_train, target=targets[0], model_name=model_name, road_category=road_category)
+                volumes_learner.gridsearch(
+                    X_train,
+                    y_train,
+                    target=targets[0],
+                    model_name=model_name,
+                    road_category=road_category,
+                )
 
-                #Check if workers are still alive
-                print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
+                # Check if workers are still alive
+                print(
+                    "Alive Dask cluster workers: ",
+                    dask.distributed.worker.Worker._instances,
+                )
 
-                time.sleep(1) #To cool down the system
-
+                time.sleep(1)  # To cool down the system
 
     # ------------ Hyperparameter tuning for average speed ML models ------------
     elif functionality == "3.2.2":
-
         merged_speeds_by_category = {}
 
         for road_category, speeds_files in trps_ids_avg_speeds_by_road_category.items():
-            merged_speeds_by_category[road_category] = merge(speeds_files, road_category=road_category)
-
+            merged_speeds_by_category[road_category] = merge(
+                speeds_files, road_category=road_category
+            )
 
         for road_category, s in merged_speeds_by_category.items():
-
-            print(f"********************* Executing hyperparameter tuning on average speed data for road category: {road_category} *********************")
+            print(
+                f"********************* Executing hyperparameter tuning on average speed data for road category: {road_category} *********************"
+            )
 
             speeds_learner = AverageSpeedLearner(s, client)
             speeds_preprocessed = speeds_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = speeds_learner.split_data(speeds_preprocessed, target=targets[1])
+            X_train, X_test, y_train, y_test = speeds_learner.split_data(
+                speeds_preprocessed, target=targets[1]
+            )
 
             for model_name in models:
-                speeds_learner.gridsearch(X_train, y_train, target=targets[1], model_name=model_name, road_category=road_category)
+                speeds_learner.gridsearch(
+                    X_train,
+                    y_train,
+                    target=targets[1],
+                    model_name=model_name,
+                    road_category=road_category,
+                )
 
-                #Check if workers are still alive
-                print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
+                # Check if workers are still alive
+                print(
+                    "Alive Dask cluster workers: ",
+                    dask.distributed.worker.Worker._instances,
+                )
 
-                time.sleep(1) #To cool down the system
-
+                time.sleep(1)  # To cool down the system
 
     # ------------ Train ML models on traffic volumes data ------------
     elif functionality == "3.2.3":
-
         merged_volumes_by_category = {}
 
         # Merge all volumes files by category
         for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge(volumes_files, road_category=road_category)
+            merged_volumes_by_category[road_category] = merge(
+                volumes_files, road_category=road_category
+            )
 
         for road_category, v in merged_volumes_by_category.items():
-
-            print(f"\n********************* Training models on traffic volumes data for road category: {road_category} *********************\n")
+            print(
+                f"\n********************* Training models on traffic volumes data for road category: {road_category} *********************\n"
+            )
 
             volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
+            X_train, X_test, y_train, y_test = volumes_learner.split_data(
+                volumes_preprocessed, target=targets[0]
+            )
 
             # -------------- Training phase --------------
-            for model_name in models: volumes_learner.train_model(X_train, y_train, model_name=model_name, target=targets[0], road_category=road_category)
-
-
+            for model_name in models:
+                volumes_learner.train_model(
+                    X_train,
+                    y_train,
+                    model_name=model_name,
+                    target=targets[0],
+                    road_category=road_category,
+                )
 
     elif functionality == "3.2.4":
-
         print()
-
 
     # ------------ Test ML models on traffic volumes data ------------
     elif functionality == "3.2.5":
-
         merged_volumes_by_category = {}
 
         # Merge all volumes files by category
         for road_category, volumes_files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge(volumes_files, road_category=road_category)
+            merged_volumes_by_category[road_category] = merge(
+                volumes_files, road_category=road_category
+            )
 
         for road_category, v in merged_volumes_by_category.items():
-
-            print(f"\n********************* Testing models on traffic volumes data for road category: {road_category} *********************\n")
+            print(
+                f"\n********************* Testing models on traffic volumes data for road category: {road_category} *********************\n"
+            )
 
             volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
+            X_train, X_test, y_train, y_test = volumes_learner.split_data(
+                volumes_preprocessed, target=targets[0]
+            )
 
             # -------------- Testing phase --------------
-            for model_name in models: volumes_learner.test_model(X_test, y_test, model_name=model_name, target=targets[0], road_category=road_category)
-
+            for model_name in models:
+                volumes_learner.test_model(
+                    X_test,
+                    y_test,
+                    model_name=model_name,
+                    target=targets[0],
+                    road_category=road_category,
+                )
 
         print("\n\n")
 
-
-
     elif functionality == "3.2.6":
-
         print()
-
-
-
 
     client.close()
     cluster.close()
@@ -325,18 +441,11 @@ def execute_forecast_warmup(functionality: str) -> None:
     return None
 
 
-
-
-
-
-
-
 def execute_forecasts(functionality: str) -> None:
-
-    #We'll check if the target datetime exists before any forecasting operation could begin.
-    #Also, we'll check if the date is within the data we already have (since there's nothing to forecast if we already have the true values (the measurements executed by the TRP sensors) for a specific day)
-    #If we already have the data we'll just re-direct the user the main menu.
-    #This check will be handled internally by the write_forecasting_target_datetime() function
+    # We'll check if the target datetime exists before any forecasting operation could begin.
+    # Also, we'll check if the date is within the data we already have (since there's nothing to forecast if we already have the true values (the measurements executed by the TRP sensors) for a specific day)
+    # If we already have the data we'll just re-direct the user the main menu.
+    # This check will be handled internally by the write_forecasting_target_datetime() function
     check_metainfo_file()
 
     print("Which kind of data would you like to forecast?")
@@ -344,7 +453,7 @@ def execute_forecasts(functionality: str) -> None:
     option = input("Choice: ")
     target_datetime = read_forecasting_target_datetime(option)
 
-    #One-Point Forecast
+    # One-Point Forecast
     if functionality == "3.3.1":
         trp_id_list = get_trp_id_list()
         print("TRP IDs: ", trp_id_list)
@@ -355,10 +464,14 @@ def execute_forecasts(functionality: str) -> None:
             print("\nTRP road category:", trp_road_category)
 
             if option == "V":
-                one_point_volume_forecaster = OnePointVolumesForecaster(trp_id=trp_id, road_category=trp_road_category)
-                one_point_volume_forecaster.preprocess_data(target_datetime=target_datetime)
+                one_point_volume_forecaster = OnePointVolumesForecaster(
+                    trp_id=trp_id, road_category=trp_road_category
+                )
+                one_point_volume_forecaster.preprocess_data(
+                    target_datetime=target_datetime
+                )
             elif option == "AS":
-                pass #TODO DEVELOP HERE
+                pass  # TODO DEVELOP HERE
 
         else:
             print("\033[91mNon-valid TRP ID, returning to main menu\033[0m")
@@ -367,61 +480,15 @@ def execute_forecasts(functionality: str) -> None:
     return None
 
 
-
-
-
-
-
-
-
-
 def manage_road_network(functionality: str) -> None:
-
     if functionality == "4.1":
-        pass #TODO TO DEVELOP
+        pass  # TODO TO DEVELOP
 
-    elif functionality == "4.2": #TODO TESTING FOR NOW
+    elif functionality == "4.2":  # TODO TESTING FOR NOW
         retrieve_edges()
         retrieve_arches()
 
-
-
-
-
     return None
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def main():
@@ -503,28 +570,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
