@@ -639,7 +639,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
             len(forecasting_window) * 24
         )  # Number of records to collect from the TRP's individual data
 
-        rows_to_predict = [
+        rows_to_predict = dd.DataFrame((
             {
                 "volume": None,
                 "coverage": None,
@@ -652,9 +652,15 @@ class OnePointVolumesForecaster(OnePointForecaster):
                 "trp_id": self.trp_id,
             }
             for dt in forecasting_window
-        ]
+        ))
 
         print(rows_to_predict, "\n\n")
+
+
+
+
+
+
 
         return None
 

@@ -876,7 +876,7 @@ def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
     return filtered_df.persist()
 
 
-def get_24_hours() -> Generator[str]:
+def get_24_hours() -> Generator[str, None, None]:
     return (f"{i:02}" for i in range(24))
 
 
@@ -905,7 +905,7 @@ def retrieve_edges() -> gpd.GeoDataFrame:
     edges_folder = read_metainfo_key(
         ["folder_paths", "rn_graph", f"{active_ops}_edges", "path"]
     )
-    with open(f"{edges_folder}/traffic-nodes-2024_2025-02-28.geojson", "r") as e:
+    with open(f"{edges_folder}/traffic-nodes-2024_2025-02-28.geojson", "r", encoding="utf-8") as e:
         return geojson.load(e)["features"]
 
 
@@ -917,7 +917,7 @@ def retrieve_arches() -> gpd.GeoDataFrame:
     arches_folder = read_metainfo_key(
         ["folder_paths", "rn_graph", f"{active_ops}_arches", "path"]
     )
-    with open(f"{arches_folder}/traffic_links_2024_2025-02-27.geojson", "r") as a:
+    with open(f"{arches_folder}/traffic_links_2024_2025-02-27.geojson", "r", encoding="utf-8") as a:
         return geojson.load(a)["features"]
 
 
