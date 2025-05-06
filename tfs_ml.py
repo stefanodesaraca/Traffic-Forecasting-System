@@ -490,7 +490,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
         last_available_volumes_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso_format).strftime(dt_format)
 
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
-        assert (datetime.strptime(target_datetime, dt_format)- datetime.strptime(last_available_volumes_data_dt, dt_format)).days <= max_days
+        assert (datetime.strptime(target_datetime, dt_format) - datetime.strptime(last_available_volumes_data_dt, dt_format)).days <= max_days
 
         # Creating a datetime range with datetimes to predict. These will be inserted in the empty rows to be fed to the models for predictions
         rows_to_predict = []
