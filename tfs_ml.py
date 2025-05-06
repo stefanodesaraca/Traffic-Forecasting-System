@@ -496,7 +496,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
         # Creating a datetime range with datetimes to predict. These will be inserted in the empty rows to be fed to the models for predictions
         rows_to_predict = []
         for dt in pd.date_range(start=last_available_volumes_data_dt, end=target_datetime, freq="1h"):
-            dt_str = dt.strftime(dt_format)
+            dt_str = dt.strftime("%Y-%m-%d")
             rows_to_predict.append({
                 "volume": np.nan,
                 "coverage": np.nan,
@@ -522,9 +522,9 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
         rows_to_predict.persist()
 
-
         predictions_dataset = dd.concat([dd.read_csv(retrieve_trp_clean_volumes_filepath_by_id(self._trp_id)).tail(n_records), rows_to_predict], axis=0)
         predictions_dataset = predictions_dataset.repartition(partition_size="512MB")
+        predictions_dataset = predictions_dataset.reset_index()
 
         rows_to_predict["volume"] = rows_to_predict["volume"].astype("int")
 
