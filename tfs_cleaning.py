@@ -448,6 +448,7 @@ class TrafficVolumesCleaner(BaseCleaner):
             print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
             return None
 
+
     def cleaning_pipeline(self, volumes_file_path: str) -> None:
         print(volumes_file_path)
         with open(volumes_file_path, "r", encoding="utf-8") as f:
@@ -476,6 +477,7 @@ class TrafficVolumesCleaner(BaseCleaner):
     def execute_cleaning(self, volumes_file_path: str) -> None:
         self.cleaning_pipeline(volumes_file_path=volumes_file_path)
         return None
+
 
 
 class AverageSpeedCleaner(BaseCleaner):

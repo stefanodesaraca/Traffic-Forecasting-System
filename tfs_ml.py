@@ -523,7 +523,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
         rows_to_predict.persist()
 
 
-        predictions_dataset = dd.concat([dd.read_csv(retrieve_trp_clean_volumes_filepath_by_id(self._trp_id)).loc[:-n_records], rows_to_predict], axis=0)
+        predictions_dataset = dd.concat([dd.read_csv(retrieve_trp_clean_volumes_filepath_by_id(self._trp_id)).tail(n_records), rows_to_predict], axis=0)
         predictions_dataset = predictions_dataset.repartition(partition_size="512MB")
 
         rows_to_predict["volume"] = rows_to_predict["volume"].astype("int")
