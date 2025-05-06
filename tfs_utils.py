@@ -53,16 +53,16 @@ def import_TRPs_data():
 # TODO IMPROVE THIS FUNCTION, AND SET THAT THIS RETURNS A LIST OF str
 @lru_cache()
 def get_trp_id_list() -> list[str]:
+    raw_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"])
     # If there aren't volumes files yet, then just return all the TRP IDs available in the traffic_registration_points_file
-    if len(os.listdir(get_raw_volumes_folder_path())) == 0:
-        trp_id_list = [trp["id"] for trp in import_TRPs_data()["trafficRegistrationPoints"]]  # This list may contain IDs of TRPs which don't have a volumes file associated with them
+    if len(os.listdir(raw_volumes_folder)) == 0:
+        return [trp["id"] for trp in import_TRPs_data()["trafficRegistrationPoints"]]  # This list may contain IDs of TRPs which don't have a volumes file associated with them
     else:
-        trp_id_list = list({trp["id"]
-                            for trp in import_TRPs_data()["trafficRegistrationPoints"]
-                            if trp["id"]
-                            in [get_trp_id_from_filename(file) for file in os.listdir(get_raw_volumes_folder_path())]
-                        })  # Keep only the TRPs which actually have a volumes file associated with them. Using list() on a set comprehension to avoid duplicates
-    return trp_id_list
+        return list({trp["id"]
+                     for trp in import_TRPs_data()["trafficRegistrationPoints"]
+                     if trp["id"]
+                     in [get_trp_id_from_filename(file) for file in os.listdir(raw_volumes_folder)]
+                 })  # Keep only the TRPs which actually have a volumes file associated with them. Using list() on a set comprehension to avoid duplicates
 
 
 def get_trp_id_from_filename(filename: str) -> str:
@@ -99,36 +99,39 @@ def write_trp_metadata(trp_id: str) -> None:
     trps = import_TRPs_data()
     trp_data = [i for i in trps["trafficRegistrationPoints"] if i["id"] == trp_id][0]  # TODO IMPROVE THIS PART HERE
 
-    raw_volume_files_folder_path = get_raw_volumes_folder_path()
-    raw_volume_files = get_raw_volumes_files()
-    trp_volumes_file = [f for f in raw_volume_files if trp_id in f]  # Find the right TRP file by checking if the TRP ID is in the filename and if it is in the raw traffic volumes folder
+    raw_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"])
+    clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
+    raw_as_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"])
+    clean_as_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
+
+    trp_volumes_file = [f for f in os.listdir(raw_volumes_folder) if trp_id in f]  # Find the right TRP file by checking if the TRP ID is in the filename and if it is in the raw traffic volumes folder
 
     if len(trp_volumes_file) == 1:
         trp_volumes_file = trp_volumes_file[0]
     else:
         return None
 
-    with open(raw_volume_files_folder_path + trp_volumes_file, "r", encoding="utf-8") as f:
+    with open(raw_volumes_folder + trp_volumes_file, "r", encoding="utf-8") as f:
         volumes = json.load(f)
 
     trp_metadata_filepath = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/"
     trp_metadata_filename = f"{trp_id}_metadata"
 
-    assert os.path.isdir(get_raw_volumes_folder_path()) is True, "Raw traffic volumes folder missing"
-    assert os.path.isdir(get_clean_volumes_folder_path()) is True, "Clean traffic volumes folder missing"
+    assert os.path.isdir(raw_volumes_folder) is True, "Raw traffic volumes folder missing"
+    assert os.path.isdir(clean_volumes_folder) is True, "Clean traffic volumes folder missing"
 
-    assert os.path.isdir(get_raw_as_folder_path()) is True, "Raw average speed folder missing"
-    assert os.path.isdir(get_clean_as_folder_path()) is True, "Clean average speed folder missing"
+    assert os.path.isdir(raw_as_folder) is True, "Raw average speed folder missing"
+    assert os.path.isdir(clean_as_folder) is True, "Clean average speed folder missing"
 
     check_metainfo_file()
 
     metadata = {
         "trp_id": trp_data["id"],
         "name": trp_data["name"],
-        "raw_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{[file for file in os.listdir(get_raw_volumes_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_raw_volumes_folder_path()) if trp_id in file]) != 0 else ''}",  # TODO TO IMPROVE
-        "clean_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/{[file for file in os.listdir(get_clean_volumes_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_clean_volumes_folder_path()) if trp_id in file]) != 0 else ''}",  # TODO TO IMPROVE
-        "raw_average_speed_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/{[file for file in os.listdir(get_raw_as_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_raw_as_folder_path()) if trp_id in file]) != 0 else ''}",  # TODO NOT WORKING
-        "clean_average_speed_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/clean_average_speed/{[file for file in os.listdir(get_clean_as_folder_path()) if trp_id in file][0] if len([file for file in os.listdir(get_clean_as_folder_path()) if trp_id in file]) != 0 else ''}",  # TODO NOT WORKING
+        "raw_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{[file for file in os.listdir(raw_volumes_folder) if trp_id in file][0] if len([file for file in os.listdir(raw_volumes_folder) if trp_id in file]) != 0 else ''}",  # TODO TO IMPROVE
+        "clean_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/{[file for file in os.listdir(clean_volumes_folder) if trp_id in file][0] if len([file for file in os.listdir(clean_volumes_folder) if trp_id in file]) != 0 else ''}",  # TODO TO IMPROVE
+        "raw_average_speed_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/{[file for file in os.listdir(raw_as_folder) if trp_id in file][0] if len([file for file in os.listdir(raw_as_folder) if trp_id in file]) != 0 else ''}",  # TODO NOT WORKING
+        "clean_average_speed_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/clean_average_speed/{[file for file in os.listdir(clean_as_folder) if trp_id in file][0] if len([file for file in os.listdir(clean_as_folder) if trp_id in file]) != 0 else ''}",  # TODO NOT WORKING
         "road_category": trp_data["location"]["roadReference"]["roadCategory"]["id"],
         "lat": trp_data["location"]["coordinates"]["latLon"]["lat"],
         "lon": trp_data["location"]["coordinates"]["latLon"]["lon"],
@@ -173,83 +176,8 @@ def retrieve_trp_clean_average_speed_filepath_by_id(trp_id: str):
 # ==================== Volumes Utilities ====================
 
 
-def get_raw_volumes_folder_path() -> str:
-    """
-    This function returns the path to the raw_traffic_volumes folder where all the raw traffic volume files are located
-    """
-    ops_name = get_active_ops()
-    return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/"
+# ==================== Average Speeds Utilities ====================
 
-
-def get_clean_volumes_folder_path() -> str:
-    """
-    This function returns the path for the clean_traffic_volumes folder where all the cleaned traffic volumes data files are located
-    """
-    ops_name = get_active_ops()
-    return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/"
-
-
-def get_raw_volumes_files() -> list:
-    """
-    This function returns the name of every file contained in the raw_traffic_volumes folder, so every specific TRP's volumes
-    """
-    ops_name = get_active_ops()
-    # Returning all the raw traffic volume files
-    return os.listdir(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/")
-
-
-def merge(trp_filepaths: list[str], road_category: str) -> dd.DataFrame:
-    """
-    Data merger function for traffic volumes or average speed data
-    Parameters:
-        trp_filepaths: a list of files to read data from
-        road_category: self explaining
-    """
-    try:
-        merged_data = dd.concat([dd.read_csv(trp) for trp in trp_filepaths], axis=0)
-        merged_data = merged_data.repartition(partition_size="512MB")
-        merged_data = merged_data.sort_values(["date"], ascending=True)  # Sorting records by date
-        merged_data = merged_data.persist()
-        print(f"Shape of the merged data for road category {road_category}: ", (merged_data.shape[0].compute(), merged_data.shape[1]))
-        return merged_data
-    except ValueError as e:
-        print(f"\033[91mNo data to concatenate. Error: {e}")
-        sys.exit(1)
-
-
-# ==================== Average Speed Utilities ====================
-
-
-def get_raw_as_folder_path() -> str:
-    """
-    This function returns the path for the raw_average_speed folder where all the average speed files are located. Each file contains the average speeds for one TRP
-    """
-    ops_name = get_active_ops()
-    return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/"
-
-
-def get_clean_as_folder_path() -> str:
-    """
-    This function returns the path for the clean_average_speed folder where all the cleaned average speed data files are located
-    """
-    ops_name = get_active_ops()
-    return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/clean_average_speed/"
-
-
-def get_raw_as_files() -> list:
-    """
-    This function returns the name of every file contained in the raw_average_speed folder
-    """
-    ops_name = get_active_ops()
-    # Returning all the raw average speed files
-    return os.listdir(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/")
-
-
-def get_clean_as_files() -> list:
-    return [
-        get_clean_as_folder_path() + f
-        for f in os.listdir(get_clean_as_folder_path())
-    ]
 
 
 # ==================== ML Related Utilities ====================
@@ -290,8 +218,8 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
     Parameters:
         forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24
     """
-    assert os.path.isdir(get_clean_volumes_folder_path()), "Clean traffic volumes folder missing. Initialize an operation first and then set a forecasting target datetime"
-    assert os.path.isdir(get_clean_as_folder_path()), "Clean average speeds folder missing. Initialize an operation first and then set a forecasting target datetime"
+    assert os.path.isdir(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])), "Clean traffic volumes folder missing. Initialize an operation first and then set a forecasting target datetime"
+    assert os.path.isdir(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])), "Clean average speeds folder missing. Initialize an operation first and then set a forecasting target datetime"
 
     max_forecasting_window_size = max(default_max_forecasting_window_size, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
@@ -681,6 +609,25 @@ def read_metainfo_key(keys_map: list) -> Any:
 
 
 # ==================== Auxiliary Utilities ====================
+
+
+def merge(trp_filepaths: list[str], road_category: str) -> dd.DataFrame:
+    """
+    Data merger function for traffic volumes or average speed data
+    Parameters:
+        trp_filepaths: a list of files to read data from
+        road_category: self explaining
+    """
+    try:
+        merged_data = dd.concat([dd.read_csv(trp) for trp in trp_filepaths], axis=0)
+        merged_data = merged_data.repartition(partition_size="512MB")
+        merged_data = merged_data.sort_values(["date"], ascending=True)  # Sorting records by date
+        merged_data = merged_data.persist()
+        print(f"Shape of the merged data for road category {road_category}: ", (merged_data.shape[0].compute(), merged_data.shape[1]))
+        return merged_data
+    except ValueError as e:
+        print(f"\033[91mNo data to concatenate. Error: {e}")
+        sys.exit(1)
 
 
 def check_datetime(dt: str):

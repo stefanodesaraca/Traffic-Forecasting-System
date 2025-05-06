@@ -497,8 +497,8 @@ class OnePointVolumesForecaster(OnePointForecaster):
         for dt in pd.date_range(start=last_available_volumes_data_dt, end=target_datetime, freq="1h"):
             dt_str = dt.strftime(dt_format)
             rows_to_predict.append({
-                "volume": None,
-                "coverage": None,
+                "volume": np.nan,
+                "coverage": np.nan,
                 "day": dt.strftime("%d"),
                 "month": dt.strftime("%m"),
                 "year": dt.strftime("%Y"),
@@ -511,10 +511,19 @@ class OnePointVolumesForecaster(OnePointForecaster):
         n_records = len(rows_to_predict) * 24  # Number of records to collect from the TRP's individual data
 
         rows_to_predict = dd.from_pandas(pd.DataFrame(rows_to_predict))
+        #rows_to_predict["volume"] = rows_to_predict["volume"].astype("int")
+        #rows_to_predict["coverage"] = rows_to_predict["coverage"].astype("float")
+        rows_to_predict["day"] = rows_to_predict["day"].astype("int")
+        rows_to_predict["month"] = rows_to_predict["month"].astype("int")
+        rows_to_predict["year"] = rows_to_predict["year"].astype("int")
+        rows_to_predict["hour"] = rows_to_predict["hour"].astype("int")
+        rows_to_predict["week"] = rows_to_predict["week"].astype("int")
+
+
         print(rows_to_predict)
 
 
-        return None
+        return rows_to_predict.persist()
 
     def forecast_volumes(self):
         return None

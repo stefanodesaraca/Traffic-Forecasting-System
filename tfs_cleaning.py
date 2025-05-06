@@ -439,7 +439,7 @@ class TrafficVolumesCleaner(BaseCleaner):
     def export_traffic_volumes_data(self, by_hour: dd.DataFrame, volumes_file_path, trp_id: str) -> None:
 
         file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv")  # TODO IMPROVE THIS THROUGH A SIMPLER FILE NAME AND A PARSER OR GETTER FUNCTION IN tfs_utils.py
-        file_path = get_clean_volumes_folder_path() + file_name # C stands for "cleaned"
+        file_path = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + file_name # C stands for "cleaned"
 
         try:
             by_hour.to_csv(file_path, index=False)
@@ -637,13 +637,13 @@ class AverageSpeedCleaner(BaseCleaner):
 
 
     def export_clean_avg_speed_data(self, avg_speed_data: pd.DataFrame, trp_id: str, t_max: str, t_min: str) -> None:
-        filepath = get_clean_as_folder_path() + trp_id + f"_S{t_min}_E{t_max}C.csv"
+        filepath = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + trp_id + f"_S{t_min}_E{t_max}C.csv"
         filename = trp_id + f"_S{t_min}_E{t_max}C.csv"
 
         try:
             avg_speed_data.to_csv(filepath, index=False)  # S stands for Start (registration starting date), E stands for End and C for Clean
             update_metainfo(filename, ["average_speeds", "clean_filenames"], mode="append")
-            update_metainfo(filepath, ["average_speeds", "clean_filepaths"], mode="append")
+            update_metainfo(filepath, ["average_speeds", "clean_filepaths"], mode="append") #TODO TO REMOVE FILEPATHS FROM METAINFO
             print(f"Average speed data for TRP: {trp_id} saved successfully\n\n")
             return None
         except Exception as e:
