@@ -81,49 +81,6 @@ class BaseLearner:
         self.client: Client = client
 
 
-    @staticmethod
-    def split_data(volumes_preprocessed: dd.DataFrame, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
-        """
-        Splits the Dask DataFrame into training and testing sets based on the target column.
-
-        Parameters:
-        - volumes_preprocessed: dd.DataFrame
-        - target: str ("volume" or "mean_speed")
-
-        Returns:
-        - X_train, X_test, y_train, y_test
-        """
-
-        if target not in ["volume", "mean_speed"]:
-            raise ValueError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
-
-        X = volumes_preprocessed.drop(columns=[target])
-        y = volumes_preprocessed[[target]]
-
-        # print("X shape: ", f"({len(X)}, {len(X.columns)})", "\n")
-        # print("y shape: ", f"({len(y)}, {len(y.columns)})", "\n")
-
-        n_rows = volumes_preprocessed.shape[0].compute()
-        p_70 = int(n_rows * 0.70)
-
-        X_train = dd.from_pandas(X.head(p_70)).persist()
-        X_test = dd.from_pandas(X.tail(len(X) - p_70)).persist()
-
-        # print(X_train.head(10))
-        # print(X_test.head(10))
-
-        y_train = dd.from_pandas(y.head(p_70)).persist()
-        y_test = dd.from_pandas(y.tail(len(y) - p_70)).persist()
-
-        # print(y_train.head(10))
-        # print(y_test.head(10))
-
-        # print(X_train.tail(5), "\n", X_test.tail(5), "\n", y_train.tail(5), "\n", y_test.tail(5), "\n")
-        # print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
-
-        return X_train, X_test, y_train, y_test
-
-
     def gridsearch(self, X_train, y_train, target: str, model_name: str, road_category: str) -> None:
         ops_name = get_active_ops()
 
@@ -295,7 +252,7 @@ class TrafficVolumesLearner(BaseLearner):
         super().__init__(client)
         self.volumes_data: dd.DataFrame = volumes_data
 
-    def preprocess(self) -> dd.DataFrame:
+    def preprocess(self, z_score: bool = True) -> dd.DataFrame:
         volumes = self.volumes_data
 
         # ------------------ Cyclical variables encoding ------------------
@@ -316,7 +273,8 @@ class TrafficVolumesLearner(BaseLearner):
 
         # ------------------ Outliers filtering with Z-Score ------------------
 
-        volumes = ZScore(volumes, "volume")
+        if z_score is True:
+            volumes = ZScore(volumes, "volume")
 
         volumes = volumes.sort_values(by=["date"], ascending=True)
 
@@ -373,7 +331,7 @@ class AverageSpeedLearner(BaseLearner):
         super().__init__(client)
         self.speeds_data: dd.DataFrame = speeds_data
 
-    def preprocess(self) -> dd.DataFrame:
+    def preprocess(self, z_score: bool = True) -> dd.DataFrame:
         speeds = self.speeds_data
 
         # ------------------ Cyclical variables encoding ------------------
@@ -394,7 +352,8 @@ class AverageSpeedLearner(BaseLearner):
 
         # ------------------ Outliers filtering with Z-Score ------------------
 
-        speeds = ZScore(speeds, "mean_speed")
+        if z_score is True:
+            speeds = ZScore(speeds, "mean_speed")
 
         speeds = speeds.sort_values(by=["date"], ascending=True)
 
@@ -461,21 +420,20 @@ class OnePointForecaster:
         self._road_category: str = road_category
 
 
-
 class OnePointVolumesForecaster(OnePointForecaster):
-    def __init__(self, trp_id: str, road_category: str):
+    def __init__(self, trp_id: str, road_category: str, client: Client):
         super().__init__(trp_id, road_category)  # Calling the father class
         self._trp_id: str = trp_id
         self._road_category: str = road_category
+        self._n_records: int | None = None
+        self.client: Client = client
 
 
-    def preprocess_data(self, target_datetime: datetime, max_days: int = default_max_forecasting_window_size, X_test=None, y_test=None) -> dd.DataFrame:  # TODO REMOVE =None AFTER TESTING
+    def preprocess(self, target_datetime: datetime, max_days: int = default_max_forecasting_window_size) -> dd.DataFrame:  # TODO REMOVE =None AFTER TESTING
         """
         Parameters:
             target_datetime: the target datetime which the user wants to predict data for
             max_days: maximum number of days we want to predict
-            X_test: the training dataset
-            y_test: the testing dataset
         """
         # Function workflow:
         # 1. The user has to impute a target datetime for which it wants to predict data
@@ -506,10 +464,10 @@ class OnePointVolumesForecaster(OnePointForecaster):
                 "hour": dt.strftime("%H"),
                 "week": dt.strftime("%V"),
                 "date": dt_str,
-                "trp_id": self._trp_id,
+                "trp_id": self._trp_id
             })
 
-        n_records = len(rows_to_predict) * 24  # Number of records to collect from the TRP's individual data
+        self._n_records = len(rows_to_predict) * 24  # Number of records to collect from the TRP's individual data
 
         rows_to_predict = dd.from_pandas(pd.DataFrame(rows_to_predict))
         #rows_to_predict["volume"] = rows_to_predict["volume"].astype("int")
@@ -522,13 +480,15 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
         rows_to_predict.persist()
 
-        predictions_dataset = dd.concat([dd.read_csv(retrieve_trp_clean_volumes_filepath_by_id(self._trp_id)).tail(n_records), rows_to_predict], axis=0)
+        predictions_dataset = dd.concat([dd.read_csv(retrieve_trp_clean_volumes_filepath_by_id(self._trp_id)).tail(self._n_records), rows_to_predict], axis=0)
         predictions_dataset = predictions_dataset.repartition(partition_size="512MB")
         predictions_dataset = predictions_dataset.reset_index()
+        predictions_dataset = predictions_dataset.drop(columns=["index"])
 
-        rows_to_predict["volume"] = rows_to_predict["volume"].astype("int")
+        t_learner = TrafficVolumesLearner(predictions_dataset, self.client)
+        predictions_dataset = t_learner.preprocess(z_score=False)
 
-        print(predictions_dataset.compute())
+        #print(predictions_dataset.compute().tail(200))
 
         return predictions_dataset.persist()
 
@@ -536,13 +496,22 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
 
 
+#TODO VERIFY AND CONTINUE
+    def forecast_volumes(self, volumes: dd.DataFrame, model_name: str, target: str, road_category: str):
 
+        #TODO SIMPLIFY THIS PART HERE AND IN TEST_MODELS
+        ops_name = get_active_ops()
+        ml_folder_path = get_ml_models_folder_path(target, road_category)
+        model_filename = ops_name + "_" + road_category + "_" + model_name
 
+        # -------------- Model loading --------------
+        model = joblib.load(ml_folder_path + model_filename + ".joblib")
 
+        with joblib.parallel_backend("dask"):
+            pred = model.predict(volumes)
 
+        print(pred)
 
-
-    def forecast_volumes(self):
         return None
 
 

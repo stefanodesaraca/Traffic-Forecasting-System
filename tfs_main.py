@@ -229,7 +229,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
+            X_train, X_test, y_train, y_test = split_data(volumes_preprocessed, target=targets[0])
 
             # -------------- GridSearchCV phase --------------
             for model_name in models:
@@ -259,7 +259,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             speeds_learner = AverageSpeedLearner(s, client)
             speeds_preprocessed = speeds_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = speeds_learner.split_data(speeds_preprocessed, target=targets[1])
+            X_train, X_test, y_train, y_test = split_data(speeds_preprocessed, target=targets[1])
 
             for model_name in models:
                 speeds_learner.gridsearch(
@@ -289,7 +289,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
+            X_train, X_test, y_train, y_test = split_data(volumes_preprocessed, target=targets[0])
 
             # -------------- Training phase --------------
             for model_name in models:
@@ -320,7 +320,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             volumes_learner = TrafficVolumesLearner(v, client)
             volumes_preprocessed = volumes_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = volumes_learner.split_data(volumes_preprocessed, target=targets[0])
+            X_train, X_test, y_train, y_test = split_data(volumes_preprocessed, target=targets[0])
 
             # -------------- Testing phase --------------
             for model_name in models:
@@ -355,6 +355,9 @@ def execute_forecasts(functionality: str) -> None:
     option = input("Choice: ")
     target_datetime = read_forecasting_target_datetime(option)
 
+    cluster = LocalCluster(processes=False)
+    client = Client(cluster)
+
     # One-Point Forecast
     if functionality == "3.3.1":
         trp_id_list = get_trp_id_list()
@@ -366,14 +369,17 @@ def execute_forecasts(functionality: str) -> None:
             print("\nTRP road category:", trp_road_category)
 
             if option == "V":
-                one_point_volume_forecaster = OnePointVolumesForecaster(trp_id=trp_id, road_category=trp_road_category)
-                one_point_volume_forecaster.preprocess_data(target_datetime=target_datetime)
+                one_point_volume_forecaster = OnePointVolumesForecaster(trp_id=trp_id, road_category=trp_road_category, client=client)
+                one_point_volume_forecaster.preprocess(target_datetime=target_datetime)
             elif option == "AS":
                 pass  #TODO DEVELOP HERE
 
         else:
             print("\033[91mNon-valid TRP ID, returning to main menu\033[0m")
             main()
+
+    client.close()
+    cluster.close()
 
     return None
 

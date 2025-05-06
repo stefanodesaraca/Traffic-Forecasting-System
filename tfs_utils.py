@@ -157,11 +157,11 @@ def retrieve_trp_road_category(trp_id: str) -> str:
     return get_trp_metadata(trp_id)["road_category"]
 
 
-def retrieve_trp_clean_volumes_filepath_by_id(trp_id: str):
+def retrieve_trp_clean_volumes_filepath_by_id(trp_id: str) -> str:
     return get_trp_metadata(trp_id)["clean_volumes_filepath"]
 
 
-def retrieve_trp_clean_average_speed_filepath_by_id(trp_id: str):
+def retrieve_trp_clean_average_speed_filepath_by_id(trp_id: str) -> str:
     return get_trp_metadata(trp_id)["clean_average_speed_filepath"]
 
 
@@ -602,6 +602,48 @@ def read_metainfo_key(keys_map: list) -> Any:
 
 
 # ==================== Auxiliary Utilities ====================
+
+
+def split_data(data: dd.DataFrame, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
+    """
+    Splits the Dask DataFrame into training and testing sets based on the target column.
+
+    Parameters:
+        data: dd.DataFrame
+        target: str ("volume" or "mean_speed")
+
+    Returns:
+        X_train, X_test, y_train, y_test
+    """
+
+    if target not in ["volume", "mean_speed"]:
+        raise ValueError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
+
+    X = data.drop(columns=[target])
+    y = data[[target]]
+
+    # print("X shape: ", f"({len(X)}, {len(X.columns)})", "\n")
+    # print("y shape: ", f"({len(y)}, {len(y.columns)})", "\n")
+
+    n_rows = data.shape[0].compute()
+    p_70 = int(n_rows * 0.70)
+
+    X_train = dd.from_pandas(X.head(p_70)).persist()
+    X_test = dd.from_pandas(X.tail(len(X) - p_70)).persist()
+
+    # print(X_train.head(10))
+    # print(X_test.head(10))
+
+    y_train = dd.from_pandas(y.head(p_70)).persist()
+    y_test = dd.from_pandas(y.tail(len(y) - p_70)).persist()
+
+    # print(y_train.head(10))
+    # print(y_test.head(10))
+
+    # print(X_train.tail(5), "\n", X_test.tail(5), "\n", y_train.tail(5), "\n", y_test.tail(5), "\n")
+    # print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
+
+    return X_train, X_test, y_train, y_test
 
 
 def merge(trp_filepaths: list[str], road_category: str) -> dd.DataFrame:
