@@ -221,7 +221,7 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
         print("\n")
 
     # Checking if the data distribution is normal
-    swt_path = get_shapiro_wilk_plots_path()
+    swt_path = read_metainfo_key(keys_map=["folder_paths", "eda", "traffic_shapiro_wilk_test", "path"])
     ShapiroWilkTest("volume", volumes["volume"], swt_path)
     plt.clf()
 
@@ -474,7 +474,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
         print("\n")
 
     # Checking if the data distribution is normal
-    swt_path = get_shapiro_wilk_plots_path()
+    swt_path = read_metainfo_key(keys_map=["folder_paths", "eda", "traffic_shapiro_wilk_test", "path"])
     ShapiroWilkTest("mean_speed", speeds["mean_speed"], swt_path)
     plt.clf()
 

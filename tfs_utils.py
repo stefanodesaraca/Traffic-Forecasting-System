@@ -45,8 +45,9 @@ def import_TRPs_data():
     """
     This function returns json data about all TRPs (downloaded previously)
     """
-    assert os.path.isfile(get_traffic_registration_points_file_path()), "Traffic registration points file missing"
-    with open(get_traffic_registration_points_file_path(), "r", encoding="utf-8") as TRPs:
+    f = read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])
+    assert os.path.isfile(f), "Traffic registration points file missing"
+    with open(f, "r", encoding="utf-8") as TRPs:
         return json.load(TRPs)
 
 
@@ -77,18 +78,9 @@ def get_trp_road_category(trp_id: str) -> str:
     return get_trp_metadata(trp_id)["road_category"]
 
 
-def get_traffic_registration_points_file_path() -> str:
-    """
-    This function returns the path to the traffic_measurement_points.json file which contains all TRPs' data (downloaded previously)
-    """
-    ops_name = get_active_ops()
-    traffic_registration_points_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_registration_points.json"
-    return traffic_registration_points_path
-
-
 def get_trp_metadata(trp_id: str) -> dict:
     ops_name = get_active_ops()
-    trp_metadata_file = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata.json"
+    trp_metadata_file = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata.json" #TODO TO REPLACE WITH read_metainfo_key()
     # assert os.path.isfile(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata.json") is True, f"Metadata file for TRP: {trp_id} missing"
     with open(trp_metadata_file, "r", encoding="utf-8") as json_trp_metadata:
         return json.load(json_trp_metadata)
@@ -182,7 +174,7 @@ def retrieve_trp_clean_average_speed_filepath_by_id(trp_id: str):
 
 # ==================== ML Related Utilities ====================
 
-
+#TODO TO REPLACE WITH read_metainfo_key() WHEN THE WHOLE ML SECTION WILL BE EVEN MORE STABLE
 def get_ml_models_folder_path(target: str, road_category: str) -> str:
     ops_name = get_active_ops()
 
@@ -428,6 +420,7 @@ def write_metainfo(ops_name: str) -> None:
                 "clean_average_speeds_size": None,
                 "non_empty_volumes_trps": [],
                 "non_empty_avg_speed_trps": [],
+                "traffic_registration_points_file": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_registration_points.json"
             },
             "traffic_volumes": {
                 "start_date_iso": None,  # The start date which was inserted in the download section of the menu in ISO format
@@ -452,7 +445,7 @@ def write_metainfo(ops_name: str) -> None:
                 "raw_volumes_start_date": None,  # The first date available for raw volumes files
                 "raw_volumes_end_date": None,  # The last date available for raw volumes files
                 "clean_volumes_start_date": None,  # The first date available for clean volumes files
-                "clean_volumes_end_date": None,  # The last date available for clean volumes files
+                "clean_volumes_end_date": None  # The last date available for clean volumes files
             },
             "average_speeds": {
                 "start_date_iso": None,  # The start date which was inserted in the download section of the menu in ISO format
@@ -477,7 +470,7 @@ def write_metainfo(ops_name: str) -> None:
                 "raw_avg_speed_start_date": None,  # The first date available for raw average speed files
                 "raw_avg_speed_end_date": None,  # The last date available for raw average speed files
                 "clean_avg_speed_start_date": None,  # The first date available for clean average speed files
-                "clean_avg_speed_end_date": None,  # The last date available for clean average speed files
+                "clean_avg_speed_end_date": None  # The last date available for clean average speed files
             },
             "metadata_filenames": [],
             "metadata_filepaths": [],
@@ -485,7 +478,7 @@ def write_metainfo(ops_name: str) -> None:
             "forecasting": {"target_datetimes": {"V": None, "AS": None}},
             "by_trp_id": {
                 "trp_ids": {}  # TODO ADD IF A RAW FILE HAS A CORRESPONDING CLEAN ONE (FOR BOTH TV AND AVG SPEEDS)
-            },
+            }
         }
 
         with open(target_folder + metainfo_filename + ".json", "w", encoding="utf-8") as tf:
@@ -636,11 +629,6 @@ def check_datetime(dt: str):
         return True
     except ValueError:
         return False
-
-
-def get_shapiro_wilk_plots_path() -> str:
-    ops_name = get_active_ops()
-    return f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{ops_name}_shapiro_wilk_test/"
 
 
 @lru_cache()
