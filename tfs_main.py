@@ -1,7 +1,7 @@
+from datetime import datetime
 import os
 import time
 from dateutil.relativedelta import relativedelta
-from datetime import datetime
 from tqdm import tqdm
 import pprint
 import asyncio

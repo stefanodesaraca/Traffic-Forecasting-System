@@ -283,8 +283,7 @@ def get_ml_models_parameters_folder_path(target: str, road_category: str) -> str
 
 # ==================== Forecasting Settings Utilities ====================
 
-# TODO FIND A WAY TO CHECK WHICH IS THE LAST DATETIME AVAILABLE FOR BOTH AVERAGE SPEED (CLEAN) AND TRAFFIC VOLUMES (CLEAN)
-
+# TODO FIND A WAY TO CHECK WHICH IS THE LAST DATETIME AVAILABLE FOR AVERAGE SPEED (CLEAN)
 
 def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = default_max_forecasting_window_size) -> None:
     """

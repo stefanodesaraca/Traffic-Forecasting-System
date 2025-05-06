@@ -498,27 +498,23 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
         n_records = len(forecasting_window) * 24  # Number of records to collect from the TRP's individual data
 
-        rows_to_predict = dd.DataFrame((
-            {
+        rows_to_predict = []
+        for dt in forecasting_window:
+            dt_str = dt.strftime("%Y-%m-%dT%H")
+            rows_to_predict.append({
                 "volume": None,
                 "coverage": None,
-                "day": datetime.strptime(dt, "%Y-%m-%d").strftime("%d"),
-                "month": datetime.strptime(dt, "%Y-%m-%d").strftime("%m"),
-                "year": datetime.strptime(dt, "%Y-%m-%d").strftime("%Y"),
-                "hour": datetime.strptime(dt, "%Y-%m-%dT%H").strftime("%H"),
-                "week": datetime.strptime(dt, "%Y-%m-%d").strftime("%V"),
-                "date": dt,
+                "day": dt.strftime("%d"),
+                "month": dt.strftime("%m"),
+                "year": dt.strftime("%Y"),
+                "hour": dt.strftime("%H"),
+                "week": dt.strftime("%V"),
+                "date": dt_str,
                 "trp_id": self._trp_id,
-            }
-            for dt in forecasting_window
-        ))
+            })
 
-        print(rows_to_predict, "\n\n")
-
-
-
-
-
+        rows_to_predict = dd.from_pandas(pd.DataFrame(rows_to_predict))
+        print(rows_to_predict)
 
 
         return None
