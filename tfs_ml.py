@@ -39,6 +39,8 @@ simplefilter(action="ignore", category=FutureWarning)
 warnings.filterwarnings("ignore")
 pd.set_option("display.max_columns", None)
 
+dt_iso_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+dt_format = "%Y-%m-%dT%H"
 
 def sin_transformer(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
     """
@@ -484,23 +486,16 @@ class OnePointVolumesForecaster(OnePointForecaster):
         # 5. We'll create n rows (where each row will be one specific hour of the future to predict)
         # 6. Finally, we'll return the new dataset ready to be fed to the model
 
-        target_datetime = target_datetime.strftime("%Y-%m-%dT%H")
-        last_available_volumes_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"])
-
-        # Checking if the target datetime isn't prior to the datetime of the latest data available
-        assert target_datetime >= last_available_volumes_data_dt, "Target datetime is set to a past date-time for which registered data is already available"
+        target_datetime = target_datetime.strftime(dt_format)
+        last_available_volumes_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso_format).strftime(dt_format)
 
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
-        assert (datetime.strptime(target_datetime, "%Y-%m-%dT%H")- datetime.strptime(last_available_volumes_data_dt, "%Y-%m-%dT%H")).days <= max_days
+        assert (datetime.strptime(target_datetime, dt_format)- datetime.strptime(last_available_volumes_data_dt, dt_format)).days <= max_days
 
         # Creating a datetime range with datetimes to predict. These will be inserted in the empty rows to be fed to the models for predictions
-        forecasting_window = pd.date_range(start=last_available_volumes_data_dt, end=target_datetime, freq="1h")
-
-        n_records = len(forecasting_window) * 24  # Number of records to collect from the TRP's individual data
-
         rows_to_predict = []
-        for dt in forecasting_window:
-            dt_str = dt.strftime("%Y-%m-%dT%H")
+        for dt in pd.date_range(start=last_available_volumes_data_dt, end=target_datetime, freq="1h"):
+            dt_str = dt.strftime(dt_format)
             rows_to_predict.append({
                 "volume": None,
                 "coverage": None,
@@ -512,6 +507,8 @@ class OnePointVolumesForecaster(OnePointForecaster):
                 "date": dt_str,
                 "trp_id": self._trp_id,
             })
+
+        n_records = len(rows_to_predict) * 24  # Number of records to collect from the TRP's individual data
 
         rows_to_predict = dd.from_pandas(pd.DataFrame(rows_to_predict))
         print(rows_to_predict)
