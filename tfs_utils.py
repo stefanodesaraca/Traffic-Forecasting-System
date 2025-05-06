@@ -284,7 +284,7 @@ def write_active_ops_file(ops_name: str) -> None:
 
 # Reading operations file, it indicates which road network we're taking into consideration
 @lru_cache()
-def get_active_ops():
+def get_active_ops() -> str:
     try:
         with open(f"{active_ops_filename}.txt", "r", encoding="utf-8") as ops_file:
             return ops_file.read()
@@ -623,7 +623,7 @@ def merge(trp_filepaths: list[str], road_category: str) -> dd.DataFrame:
         sys.exit(1)
 
 
-def check_datetime(dt: str):
+def check_datetime(dt: str) -> bool:
     try:
         datetime.strptime(dt, dt_format)
         return True

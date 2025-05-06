@@ -468,7 +468,8 @@ class OnePointVolumesForecaster(OnePointForecaster):
         self._trp_id: str = trp_id
         self._road_category: str = road_category
 
-    def preprocess_data(self, target_datetime: datetime, max_days: int = default_max_forecasting_window_size, X_test=None, y_test=None):  # TODO REMOVE =None AFTER TESTING
+
+    def preprocess_data(self, target_datetime: datetime, max_days: int = default_max_forecasting_window_size, X_test=None, y_test=None) -> dd.DataFrame:  # TODO REMOVE =None AFTER TESTING
         """
         Parameters:
             target_datetime: the target datetime which the user wants to predict data for
@@ -519,11 +520,27 @@ class OnePointVolumesForecaster(OnePointForecaster):
         rows_to_predict["hour"] = rows_to_predict["hour"].astype("int")
         rows_to_predict["week"] = rows_to_predict["week"].astype("int")
 
+        rows_to_predict.persist()
 
-        print(rows_to_predict)
+
+        predictions_dataset = dd.concat([dd.read_csv(retrieve_trp_clean_volumes_filepath_by_id(self._trp_id)).loc[:-n_records], rows_to_predict], axis=0)
+        predictions_dataset = predictions_dataset.repartition(partition_size="512MB")
+
+        rows_to_predict["volume"] = rows_to_predict["volume"].astype("int")
+
+        print(predictions_dataset.compute())
+
+        return predictions_dataset.persist()
 
 
-        return rows_to_predict.persist()
+
+
+
+
+
+
+
+
 
     def forecast_volumes(self):
         return None

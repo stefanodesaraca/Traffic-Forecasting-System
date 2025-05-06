@@ -40,9 +40,7 @@ class BaseCleaner:
 
 
     # Executing multiple imputation to get rid of NaNs using the MICE method (Multiple Imputation by Chained Equations)
-    def impute_missing_values(
-        self, data: pd.DataFrame, r: str = "lasso"
-    ) -> pd.DataFrame:  # TODO TO CHANGE INTO dd.DataFrame
+    def impute_missing_values(self, data: pd.DataFrame | dd.DataFrame, r: str = "gamma") -> pd.DataFrame:
         """
         This function should only be supplied with numerical columns-only dataframes
 
@@ -54,33 +52,31 @@ class BaseCleaner:
             raise ValueError(f"Regressor type '{r}' is not supported. Must be one of: {self._regressor_types}")
 
         reg = None
-        if r in self._regressor_types:
-            if r == "lasso":
-                reg = ZeroInflatedRegressor(
-                    regressor=Lasso(random_state=100, fit_intercept=True),
-                    classifier=DecisionTreeClassifier(random_state=100),
-                )  # Using Lasso regression (L1 Penalization) to get better results in case of non-informative columns present in the data (coverage data, because their values all the same)
-            elif r == "gamma":
-                reg = ZeroInflatedRegressor(
-                    regressor=GammaRegressor(fit_intercept=True, verbose=0),
-                    classifier=DecisionTreeClassifier(random_state=100),
-                )  # Using Gamma regression to address for the zeros present in the data (which will need to be predicted as well)
-            elif r == "quantile":
-                reg = ZeroInflatedRegressor(
-                    regressor=QuantileRegressor(fit_intercept=True),
-                    classifier=DecisionTreeClassifier(random_state=100),
-                )
+        if r == "lasso":
+            reg = ZeroInflatedRegressor(
+                regressor=Lasso(random_state=100, fit_intercept=True),
+                classifier=DecisionTreeClassifier(random_state=100)
+            )  # Using Lasso regression (L1 Penalization) to get better results in case of non-informative columns present in the data (coverage data, because their values all the same)
+        elif r == "gamma":
+            reg = ZeroInflatedRegressor(
+                regressor=GammaRegressor(fit_intercept=True, verbose=0),
+                classifier=DecisionTreeClassifier(random_state=100)
+            )  # Using Gamma regression to address for the zeros present in the data (which will need to be predicted as well)
+        elif r == "quantile":
+            reg = ZeroInflatedRegressor(
+                regressor=QuantileRegressor(fit_intercept=True),
+                classifier=DecisionTreeClassifier(random_state=100)
+            )
 
         mice_imputer = IterativeImputer(
             estimator=reg,
             random_state=100,
             verbose=0,
             imputation_order="roman",
-            initial_strategy="mean",
+            initial_strategy="mean"
         )  # Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
-        data = pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns)  # Fitting the imputer and processing all the data columns except the date one
 
-        return data
+        return pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns) # Fitting the imputer and processing all the data columns except the date one #TODO BOTTLENECK
 
 
 
@@ -356,7 +352,8 @@ class TrafficVolumesCleaner(BaseCleaner):
             # pprint.pp(by_hour_structured)
             # print(by_hour_structured)
 
-            by_hour_df = dd.DataFrame(by_hour_structured).sort_values(by=["date", "hour"], ascending=True)
+            by_hour_df = pd.DataFrame(by_hour_structured) #TODO ADDRESS THIS PROBLEM: DASK DATAFRAMES AREN'T SORTABLE WITH SORT_VALUES (DON'T ASK ME WHY), SO THEY MUST BE FIRST SORTED AS PANDAS DFs AND THEN ...
+            by_hour_df = by_hour_df.sort_values(by=["date", "hour"], ascending=True)
             # by_hour_df = by_hour_df.reindex(sorted(by_hour_df.columns), axis=1)
             # print(by_hour_df.head(15))
 
@@ -378,11 +375,11 @@ class TrafficVolumesCleaner(BaseCleaner):
 
             # print("\n\n")
 
-            return by_hour_df.persist()  # TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, BUT FOR NOW IT'S BETTER TO SAVE PERFORMANCES AND MEMORY BY JUST RETURNING TWO STRINGS AND NOT EVEN CREATING THE DFs
+            return by_hour_df  # TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, BUT FOR NOW IT'S BETTER TO SAVE PERFORMANCES AND MEMORY BY JUST RETURNING TWO STRINGS AND NOT EVEN CREATING THE DFs
 
 
     # This function is design only to clean by_hour data since that's the data we're going to use for the main purposes of this project
-    def clean_traffic_volumes_data(self, by_hour_df: dd.DataFrame) -> dd.DataFrame | None:
+    def clean_traffic_volumes_data(self, by_hour_df: pd.DataFrame | dd.DataFrame) -> pd.DataFrame | None:
         # Short dataframe overview
         # print("Short overview on the dataframe: \n", by_hour_df.describe())
 
@@ -402,7 +399,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         try:
             cleaner = BaseCleaner()
-            by_hour_df = cleaner.impute_missing_values(by_hour_df.compute().drop(non_mice_columns.columns, axis=1), r="gamma")  # Don't use gamma regression since, apparently it can't handle zeros
+            by_hour_df = cleaner.impute_missing_values(by_hour_df.drop(non_mice_columns.columns, axis=1), r="gamma")  # Don't use gamma regression since, apparently it can't handle zeros
 
             for nm_col in non_mice_columns.columns:
                 by_hour_df[nm_col] = non_mice_columns[nm_col]
@@ -433,16 +430,16 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         print("\n\n")
 
-        return by_hour_df.persist()
+        return by_hour_df
 
 
-    def export_traffic_volumes_data(self, by_hour: dd.DataFrame, volumes_file_path, trp_id: str) -> None:
+    def export_traffic_volumes_data(self, by_hour: pd.DataFrame | dd.DataFrame, volumes_file_path, trp_id: str) -> None:
 
         file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv")  # TODO IMPROVE THIS THROUGH A SIMPLER FILE NAME AND A PARSER OR GETTER FUNCTION IN tfs_utils.py
         file_path = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + file_name # C stands for "cleaned"
 
         try:
-            by_hour.to_csv(file_path, index=False)
+            by_hour.to_csv(file_path, index=False, encoding="utf-8")
             update_metainfo(file_name, ["traffic_volumes", "clean_filenames"], mode="append")
             update_metainfo(file_path, ["traffic_volumes", "clean_filepaths"], mode="append")
             print(f"TRP: {trp_id} data exported correctly\n\n")
