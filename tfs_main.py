@@ -16,7 +16,7 @@ from tfs_cleaning import *
 from tfs_ml import *
 from tfs_road_network import *
 
-dt_iso_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 
 def manage_ops(functionality: str) -> None:
@@ -67,18 +67,18 @@ async def download_data(functionality: str) -> None:
         await update_metainfo_async(time_start, ["traffic_volumes", "start_date_iso"], mode="equals")
         await update_metainfo_async(time_end, ["traffic_volumes", "end_date_iso"], mode="equals")
 
-        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso_format).strftime("%Y"),["traffic_volumes", "start_year"], mode="equals",)
-        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso_format).strftime("%m"),["traffic_volumes", "start_month"], mode="equals",)
-        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso_format).strftime("%d"),["traffic_volumes", "start_day"], mode="equals",)
-        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso_format).strftime("%H"),["traffic_volumes", "start_hour"], mode="equals",)
+        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso).strftime("%Y"), ["traffic_volumes", "start_year"], mode="equals", )
+        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso).strftime("%m"), ["traffic_volumes", "start_month"], mode="equals", )
+        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso).strftime("%d"), ["traffic_volumes", "start_day"], mode="equals", )
+        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso).strftime("%H"), ["traffic_volumes", "start_hour"], mode="equals", )
 
-        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso_format).strftime("%Y"),["traffic_volumes", "end_year"], mode="equals",)
-        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso_format).strftime("%m"),["traffic_volumes", "end_month"], mode="equals",)
-        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso_format).strftime("%d"),["traffic_volumes", "end_day"], mode="equals",)
-        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso_format).strftime("%H"),["traffic_volumes", "end_hour"], mode="equals",)
+        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso).strftime("%Y"), ["traffic_volumes", "end_year"], mode="equals", )
+        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso).strftime("%m"), ["traffic_volumes", "end_month"], mode="equals", )
+        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso).strftime("%d"), ["traffic_volumes", "end_day"], mode="equals", )
+        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso).strftime("%H"), ["traffic_volumes", "end_hour"], mode="equals", )
 
-        relative_delta = relativedelta(datetime.datetime.strptime(time_end, dt_iso_format).date(), datetime.datetime.strptime(time_start, dt_iso_format).date(),)
-        days_delta = (datetime.datetime.strptime(time_end, dt_iso_format).date() - datetime.datetime.strptime(time_start, dt_iso_format).date()).days
+        relative_delta = relativedelta(datetime.datetime.strptime(time_end, dt_iso).date(), datetime.datetime.strptime(time_start, dt_iso).date(), )
+        days_delta = (datetime.datetime.strptime(time_end, dt_iso).date() - datetime.datetime.strptime(time_start, dt_iso).date()).days
         years_delta = relative_delta.years if relative_delta.years is not None else 0
         months_delta = relative_delta.months + (years_delta * 12)
         weeks_delta = days_delta // 7
@@ -344,33 +344,41 @@ def execute_forecast_warmup(functionality: str) -> None:
 
 
 def execute_forecasts(functionality: str) -> None:
-    # We'll check if the target datetime exists before any forecasting operation could begin.
-    # Also, we'll check if the date is within the data we already have (since there's nothing to forecast if we already have the true values (the measurements executed by the TRP sensors) for a specific day)
-    # If we already have the data we'll just re-direct the user the main menu.
-    # This check will be handled internally by the write_forecasting_target_datetime() function
+
     check_metainfo_file()
+
+    models = [m for m in model_names_and_functions.keys()]
+    targets = ["volume", "mean_speed"]
 
     print("Which kind of data would you like to forecast?")
     print("V: Volumes | AS: Average Speeds")
     option = input("Choice: ")
-    target_datetime = read_forecasting_target_datetime(option)
+    dt = read_forecasting_target_datetime(option)
 
     cluster = LocalCluster(processes=False)
     client = Client(cluster)
 
     # One-Point Forecast
     if functionality == "3.3.1":
-        trp_id_list = get_trp_id_list()
-        print("TRP IDs: ", trp_id_list)
+        trp_ids = get_trp_id_list()
+        print("TRP IDs: ", trp_ids)
         trp_id = input("Insert TRP ID for forecasting: ")
 
-        if trp_id in trp_id_list:
+        if trp_id in trp_ids:
             trp_road_category = get_trp_road_category(trp_id)
             print("\nTRP road category:", trp_road_category)
 
             if option == "V":
                 one_point_volume_forecaster = OnePointVolumesForecaster(trp_id=trp_id, road_category=trp_road_category)
-                one_point_volume_forecaster.preprocess(target_datetime=target_datetime)
+                volumes_preprocessed = one_point_volume_forecaster.preprocess(target_datetime=dt)
+
+
+
+                results = one_point_volume_forecaster.forecast_volumes(volumes_preprocessed, )
+
+
+
+
             elif option == "AS":
                 pass  #TODO DEVELOP HERE
 

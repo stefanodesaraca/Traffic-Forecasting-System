@@ -24,12 +24,11 @@ pd.set_option("display.max_columns", None)
 
 cwd = os.getcwd()
 ops_folder = "ops"
-dt_iso_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
 dt_format = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
 # In this case we'll only ask for the hour value since, for now, it's the maximum granularity for the predictions we're going to make
 metainfo_filename = "metainfo"
-target_data = ["V", "AS"]
-target_data_mapping = {"V": "traffic_volumes", "AS": "average_speeds"}
+target_data = {"V": "traffic_volumes", "AS": "average_speeds"}
 default_max_forecasting_window_size = 14
 active_ops_filename = "active_ops"
 metainfo_lock = asyncio.Lock()
@@ -218,22 +217,22 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
     option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")
     print("Maximum number of days to forecast: ", max_forecasting_window_size)
 
-    last_available_data_dt = read_metainfo_key(keys_map=[target_data_mapping[option], "end_date_iso"])
+    last_available_data_dt = read_metainfo_key(keys_map=[target_data[option], "end_date_iso"])
     if last_available_data_dt is None:
         logging.error(traceback.format_exc())
         raise Exception("End date not found in metainfo file. Run download first or set it first")
 
-    print("Latest data available: ", datetime.strptime(last_available_data_dt, dt_iso_format))
-    print("Maximum settable date: ", relativedelta(datetime.strptime(last_available_data_dt, dt_iso_format), days=14))
+    print("Latest data available: ", datetime.strptime(last_available_data_dt, dt_iso))
+    print("Maximum settable date: ", relativedelta(datetime.strptime(last_available_data_dt, dt_iso), days=14))
 
     dt = input("Insert Target Datetime (YYYY-MM-DDTHH): ") # The month number must be zero-padded, for example: 01, 02, etc.
 
-    forecasting_window_size = (datetime.strptime(dt, dt_format)- datetime.strptime(last_available_data_dt, dt_iso_format)).days  # The number of days to forecast
+    forecasting_window_size = (datetime.strptime(dt, dt_format) - datetime.strptime(last_available_data_dt, dt_iso)).days  # The number of days to forecast
 
-    assert datetime.strptime(dt, dt_format) > datetime.strptime(last_available_data_dt, dt_iso_format), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
+    assert datetime.strptime(dt, dt_format) > datetime.strptime(last_available_data_dt, dt_iso), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
     assert forecasting_window_size <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
 
-    if check_datetime(dt) is True and option in target_data:
+    if check_datetime(dt) is True and option in list(target_data.keys()):
         update_metainfo(value=dt, keys_map=["forecasting", "target_datetimes", option], mode="equals",)
         print("Target datetime set to: ", dt, "\n\n")
         return None
@@ -241,7 +240,7 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
         if check_datetime(dt) is False:
             print("\033[91mWrong datetime format, try again\033[0m")
             sys.exit(1)
-        elif option not in target_data:
+        elif option not in list(target_data.keys()):
             print("\033[91mWrong data option, try again\033[0m")
             sys.exit(1)
 

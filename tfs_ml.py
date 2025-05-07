@@ -39,7 +39,7 @@ simplefilter(action="ignore", category=FutureWarning)
 warnings.filterwarnings("ignore")
 pd.set_option("display.max_columns", None)
 
-dt_iso_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
 dt_format = "%Y-%m-%dT%H"
 
 def sin_transformer(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
@@ -85,17 +85,17 @@ class BaseLearner:
         ops_name = get_active_ops()
 
         if target == "volume":
-            parameters_grid = volumes_models_gridsearch_parameters[model_name]
-            best_parameters_by_model = volumes_best_parameters_by_model
+            grid = volumes_models_gridsearch_parameters[model_name]
+            best_params_by_model = volumes_best_parameters_by_model
         elif target == "mean_speed":
-            parameters_grid = speeds_models_gridsearch_parameters[model_name]
-            best_parameters_by_model = speeds_best_parameters_by_model
+            grid = speeds_models_gridsearch_parameters[model_name]
+            best_params_by_model = speeds_best_parameters_by_model
         else:
             raise Exception("Wrong target variable in GridSearchCV executor function")
 
         model = model_names_and_functions[model_name]()  # Finding the function which returns the model and executing it
 
-        ml_parameters_folder_path = get_ml_models_parameters_folder_path(target=target, road_category=road_category)
+        params_folder_path = get_ml_models_parameters_folder_path(target=target, road_category=road_category)
         model_filename = (ops_name + "_" + road_category + "_" + model_name + "_" + "parameters")
 
         t_start = datetime.now()
@@ -104,7 +104,7 @@ class BaseLearner:
         time_cv = TimeSeriesSplit(n_splits=5)  # A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
         gridsearch = GridSearchCV(
             model,
-            param_grid=parameters_grid,
+            param_grid=grid,
             scoring=self.scorer,
             refit="mean_absolute_error",
             return_train_score=True,
@@ -153,26 +153,26 @@ class BaseLearner:
         # print(gridsearch.scorer_, "\n")
 
         # The best_parameters_by_model variable is obtained from the tfs_models file
-        true_best_parameters = {
-            model_name: gridsearch_results["params"].loc[best_parameters_by_model[model_name]]
-            if gridsearch_results["params"].loc[best_parameters_by_model[model_name]]
+        true_best_params = {
+            model_name: gridsearch_results["params"].loc[best_params_by_model[model_name]]
+            if gridsearch_results["params"].loc[best_params_by_model[model_name]]
             is not None
             else {}
         }
         # TODO THIS SHOULD PROBABLY BECOME: true_best_parameters = {model_name: gridsearch_results["params"].loc[best_parameters_by_model[road_category][model_name]] if gridsearch_results["params"].loc[best_parameters_by_model[raod_category][model_name]] is not None else {}}
-        auxiliary_parameters = model_auxiliary_parameters[model_name]
+        auxiliary_params = model_auxiliary_parameters[model_name]
 
         # This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
-        for par, val in auxiliary_parameters.items():
-            true_best_parameters[model_name][par] = val
+        for par, val in auxiliary_params.items():
+            true_best_params[model_name][par] = val
 
-        true_best_parameters["best_GridSearchCV_model_index"] = (best_parameters_by_model[model_name])
-        true_best_parameters["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_parameters_by_model[model_name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
+        true_best_params["best_GridSearchCV_model_index"] = best_params_by_model[model_name]
+        true_best_params["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_params_by_model[model_name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
-        print(f"True best parameters for {model_name}: ", true_best_parameters, "\n")
+        print(f"True best parameters for {model_name}: ", true_best_params, "\n")
 
-        with open(ml_parameters_folder_path + model_filename + ".json", "w", encoding="utf-8") as parameters_file:
-            json.dump(true_best_parameters, parameters_file, indent=4)
+        with open(params_folder_path + model_filename + ".json", "w", encoding="utf-8") as params_file:
+            json.dump(true_best_params, params_file, indent=4)
 
         gc.collect()
 
@@ -181,6 +181,7 @@ class BaseLearner:
 
     @staticmethod
     def train_model(X_train: dd.DataFrame, y_train: dd.DataFrame, target: str, model_name: str, road_category: str) -> None:
+
         # -------------- Filenames, etc. --------------
 
         ops_name = get_active_ops()
@@ -428,7 +429,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
         self._n_records: int | None = None
 
 
-    def preprocess(self, target_datetime: datetime, max_days: int = default_max_forecasting_window_size) -> dd.DataFrame:  # TODO REMOVE =None AFTER TESTING
+    def preprocess(self, target_datetime: datetime, max_days: int = default_max_forecasting_window_size) -> dd.DataFrame:
         """
         Parameters:
             target_datetime: the target datetime which the user wants to predict data for
@@ -445,7 +446,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
         # 6. Finally, we'll return the new dataset ready to be fed to the model
 
         target_datetime = target_datetime.strftime(dt_format)
-        last_available_volumes_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso_format).strftime(dt_format)
+        last_available_volumes_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso).strftime(dt_format)
 
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
         assert (datetime.strptime(target_datetime, dt_format) - datetime.strptime(last_available_volumes_data_dt, dt_format)).days <= max_days
@@ -493,12 +494,9 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
 
 
-
-
-#TODO VERIFY AND CONTINUE
     def forecast_volumes(self, volumes: dd.DataFrame, model_name: str, target: str, road_category: str):
 
-        #TODO SIMPLIFY THIS PART HERE AND IN TEST_MODELS
+        #TODO (IN THE FUTURE) SIMPLIFY THIS PART HERE AND IN TEST_MODELS
         ops_name = get_active_ops()
         ml_folder_path = get_ml_models_folder_path(target, road_category)
         model_filename = ops_name + "_" + road_category + "_" + model_name
@@ -511,7 +509,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
         print(pred)
 
-        return None
+        return pred
 
 
 # TODO CREATE THE AvgSpeedForecaster CLASS AND THEN CREATE THE OnePointForecaster AND A2BForecaster CLASSES, THEY WILL JUST RETRIEVE AND USE THE PRE-MADE, TESTED AND EXPORTED MODELS
