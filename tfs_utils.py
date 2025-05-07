@@ -29,6 +29,7 @@ dt_format = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded a
 # In this case we'll only ask for the hour value since, for now, it's the maximum granularity for the predictions we're going to make
 metainfo_filename = "metainfo"
 target_data = {"V": "traffic_volumes", "AS": "average_speeds"} #TODO (IN THE FUTURE) CONVERT AS TO "MS" AND "mean_speed"
+target_data_temp = {"V": "traffic_volumes", "AS": "mean_speed"} #NOTE TEMPORARY SOLUTION FOR THE ABOVE TODO
 default_max_forecasting_window_size = 14
 active_ops_filename = "active_ops"
 metainfo_lock = asyncio.Lock()
@@ -167,7 +168,7 @@ def retrieve_trp_clean_average_speed_filepath_by_id(trp_id: str) -> str:
 def get_ml_models_folder_path(target: str, road_category: str) -> str:
     folder_paths = {
         "volume": read_metainfo_key(keys_map=["folder_paths", "ml", "models", "subfolders", "traffic_volumes", "subfolders", road_category, "path"]),
-        "mean_speed": read_metainfo_key(keys_map=["folder_paths", "ml", "models", "subfolders", "average_speed", "subfolders", road_category, "path"])
+        "average_speed": read_metainfo_key(keys_map=["folder_paths", "ml", "models", "subfolders", "average_speed", "subfolders", road_category, "path"])
     }
     if folder_paths[target]:
         return folder_paths[target]
@@ -178,7 +179,7 @@ def get_ml_models_folder_path(target: str, road_category: str) -> str:
 def get_ml_models_parameters_folder_path(target: str, road_category: str) -> str:
     folder_paths = {
         "volume": read_metainfo_key(keys_map=["ml", "models_parameters", "subfolders", "traffic_volumes", "subfolders", road_category, "path"]),
-        "mean_speed": read_metainfo_key(keys_map=["ml", "models_parameters", "subfolders", "average_speed", "subfolders", road_category, "path"])
+        "average_speed": read_metainfo_key(keys_map=["ml", "models_parameters", "subfolders", "average_speed", "subfolders", road_category, "path"])
     }
     if folder_paths[target]:
         return folder_paths[target]

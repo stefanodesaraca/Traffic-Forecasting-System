@@ -226,7 +226,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             volumes_learner = TrafficVolumesLearner(v, road_category=road_category, target=target_data["V"], client=client)
             volumes_preprocessed = volumes_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = split_data(volumes_preprocessed, target=target_data["V"])
+            X_train, X_test, y_train, y_test = split_data(volumes_preprocessed, target=target_data_temp["V"])
 
             # -------------- GridSearchCV phase --------------
             for model_name in models:
@@ -254,7 +254,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             speeds_learner = AverageSpeedLearner(s, road_category=road_category, target=target_data["AS"], client=client)
             speeds_preprocessed = speeds_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = split_data(speeds_preprocessed, target=target_data["AS"])
+            X_train, X_test, y_train, y_test = split_data(speeds_preprocessed, target=target_data_temp["AS"])
 
             for model_name in models:
                 speeds_learner.gridsearch(
@@ -282,7 +282,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             volumes_learner = TrafficVolumesLearner(v, road_category=road_category, target=target_data["V"], client=client)
             volumes_preprocessed = volumes_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = split_data(volumes_preprocessed, target=target_data["V"])
+            X_train, X_test, y_train, y_test = split_data(volumes_preprocessed, target=target_data_temp["V"])
 
             # -------------- Training phase --------------
             for model_name in models:
@@ -311,7 +311,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             volumes_learner = TrafficVolumesLearner(v, road_category=road_category, target=target_data["V"], client=client)
             volumes_preprocessed = volumes_learner.preprocess()
 
-            X_train, X_test, y_train, y_test = split_data(volumes_preprocessed, target=target_data["V"])
+            X_train, X_test, y_train, y_test = split_data(volumes_preprocessed, target=target_data_temp["V"])
 
             # -------------- Testing phase --------------
             for model_name in models:
