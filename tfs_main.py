@@ -192,6 +192,13 @@ def execute_forecast_warmup(functionality: str) -> None:
     # The isdir() method is needed since there could be some cases where the volumes files are absent, but TRPs are included in the trps list, so if there isn't on we'll just obtain the path for the clean volumes files folder. Thus, if the string is a path to a folder then don't include it in the trps_ids_by_road_category
     # pprint.pprint(trps_ids_by_road_category)
 
+    # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
+    # In this case we're removing the keys directly from the dictionary while iterating on it, so we need to create a shallow copy of the references to its keys and values through the list() methods to then safely delete from the dict itself while iterating on it
+    for k, v in list(trps_ids_volumes_by_road_category.items()):
+        if len(v) < 2:
+            del trps_ids_volumes_by_road_category[k]
+
+
     # TRPs - Average files and road categories
     trps_ids_avg_speeds_by_road_category = {
         category: [
@@ -203,6 +210,13 @@ def execute_forecast_warmup(functionality: str) -> None:
         ]
         for category in get_all_available_road_categories()
     }
+
+    # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
+    # In this case we're removing the keys directly from the dictionary while iterating on it, so we need to create a shallow copy of the references to its keys and values through the list() methods to then safely delete from the dict itself while iterating on it
+    for k, v in list(trps_ids_avg_speeds_by_road_category.items()):
+        if len(v) < 2:
+            del trps_ids_avg_speeds_by_road_category[k]
+
 
     # Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
     # It's important to instantiate it here since, if it was done in the gridsearch function, it would mean the client would be started and closed everytime the function runs (which is not good)

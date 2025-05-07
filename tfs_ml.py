@@ -197,7 +197,7 @@ class BaseLearner:
         model = model_names_and_class_objects[model_name](**parameters)  # Unpacking the dictionary to set all parameters to instantiate the model's class object
 
         with joblib.parallel_backend("dask"):
-            model.fit(X_train, y_train)
+            model.fit(X_train.compute(), y_train.compute())
 
         print(f"Successfully trained {model_name} with parameters: {parameters}")
 
@@ -222,7 +222,7 @@ class BaseLearner:
         model = joblib.load(get_ml_models_folder_path(self.target, self.road_category) + get_active_ops() + "_" + self.road_category + "_" + model_name + ".joblib")
 
         with joblib.parallel_backend("dask"):
-            y_pred = model.predict(X_test)
+            y_pred = model.predict(X_test.compute())
 
         print(f"================= {model_name} testing metrics =================")
         print("R^2: ", r2_score(y_true=y_test, y_pred=y_pred))
