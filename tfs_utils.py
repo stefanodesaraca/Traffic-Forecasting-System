@@ -163,7 +163,7 @@ def retrieve_trp_clean_average_speed_filepath_by_id(trp_id: str) -> str:
 
 # ==================== ML Related Utilities ====================
 
-#TODO SIMPLIFY THESE TWO FUNCTIONS BELOW
+#TODO SIMPLIFY THESE TWO FUNCTIONS BELOW (MEANING CREATE ONLY ONE WHICH CAN SERVE BOTH FUNCTIONALITIES
 def get_ml_models_folder_path(target: str, road_category: str) -> str:
     folder_paths = {
         "volume": read_metainfo_key(keys_map=["folder_paths", "ml", "models", "subfolders", "traffic_volumes", "subfolders", road_category, "path"]),
@@ -632,19 +632,17 @@ def split_data(data: dd.DataFrame, target: str) -> tuple[dd.DataFrame, dd.DataFr
     return X_train, X_test, y_train, y_test
 
 
-def merge(trp_filepaths: list[str], road_category: str) -> dd.DataFrame:
+def merge(trp_filepaths: list[str]) -> dd.DataFrame:
     """
     Data merger function for traffic volumes or average speed data
     Parameters:
         trp_filepaths: a list of files to read data from
-        road_category: self explaining
     """
     try:
         merged_data = dd.concat([dd.read_csv(trp) for trp in trp_filepaths], axis=0)
         merged_data = merged_data.repartition(partition_size="512MB")
         merged_data = merged_data.sort_values(["date"], ascending=True)  # Sorting records by date
         merged_data = merged_data.persist()
-        print(f"Shape of the merged data for road category {road_category}: ", (merged_data.shape[0].compute(), merged_data.shape[1]))
         return merged_data
     except ValueError as e:
         print(f"\033[91mNo data to concatenate. Error: {e}")

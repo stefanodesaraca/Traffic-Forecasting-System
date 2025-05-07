@@ -71,32 +71,31 @@ class BaseLearner:
         client: a Dask distributed local cluster client to use to distribute processes
     """
 
-    def __init__(self, client: Client | None):
-        self.scorer: dict = {
+    def __init__(self, client: Client | None, road_category: str):
+        self._scorer: dict = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
             "root_mean_squared_error": make_scorer(root_mean_squared_error),
             "mean_absolute_error": make_scorer(mean_absolute_error),
         }
-        self.client: Client = client
+        self._client: Client = client
+        self.road_category: str = road_category
 
 
-    def gridsearch(self, X_train, y_train, target: str, model_name: str, road_category: str) -> None:
-        ops_name = get_active_ops()
+    def gridsearch(self, X_train, y_train, target: str, model_name: str) -> None:
 
-        if target == "volume":
-            grid = volumes_models_gridsearch_parameters[model_name]
-            best_params_by_model = volumes_best_parameters_by_model
-        elif target == "mean_speed":
-            grid = speeds_models_gridsearch_parameters[model_name]
-            best_params_by_model = speeds_best_parameters_by_model
-        else:
+        if target not in target_data.keys():
             raise Exception("Wrong target variable in GridSearchCV executor function")
+
+        grids = {"volume": volumes_models_gridsearch_parameters[model_name],
+                 "average_speed": speeds_models_gridsearch_parameters[model_name]}
+        best_params = {"volume": volumes_best_parameters_by_model,
+                       "average_speed": speeds_best_parameters_by_model}
 
         model = model_names_and_functions[model_name]()  # Finding the function which returns the model and executing it
 
-        params_folder_path = get_ml_models_parameters_folder_path(target=target, road_category=road_category)
-        model_filename = (ops_name + "_" + road_category + "_" + model_name + "_" + "parameters")
+        params_folder_path = get_ml_models_parameters_folder_path(target=target, road_category=self.road_category)
+        model_filename = (get_active_ops() + "_" + self.road_category + "_" + model_name + "_" + "parameters")
 
         t_start = datetime.now()
         print(f"{model_name} GridSearchCV started at {t_start}\n")
@@ -104,12 +103,12 @@ class BaseLearner:
         time_cv = TimeSeriesSplit(n_splits=5)  # A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
         gridsearch = GridSearchCV(
             model,
-            param_grid=grid,
-            scoring=self.scorer,
+            param_grid=grids[target],
+            scoring=self._scorer,
             refit="mean_absolute_error",
             return_train_score=True,
             n_jobs=retrieve_n_ml_cpus(),
-            scheduler=self.client,
+            scheduler=self._client,
             cv=time_cv,
         )  # The models_gridsearch_parameters is obtained from the tfs_models file
 
@@ -142,7 +141,7 @@ class BaseLearner:
         print(f"{model_name} GridSearchCV finished at {t_end}\n")
         print(f"Time passed: {t_end - t_start}")
 
-        gridsearch_results.to_json(f"./ops/{road_category}_{model_name}_grid_params_and_results.json", indent=4)  # TODO FOR TESTING PURPOSES
+        gridsearch_results.to_json(f"./ops/{self.road_category}_{model_name}_grid_params_and_results.json", indent=4)  # TODO FOR TESTING PURPOSES
 
         print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
         print("GridSearchCV best parameters: ", gridsearch.best_params_)
@@ -154,8 +153,8 @@ class BaseLearner:
 
         # The best_parameters_by_model variable is obtained from the tfs_models file
         true_best_params = {
-            model_name: gridsearch_results["params"].loc[best_params_by_model[model_name]]
-            if gridsearch_results["params"].loc[best_params_by_model[model_name]]
+            model_name: gridsearch_results["params"].loc[best_params[target][model_name]]
+            if gridsearch_results["params"].loc[best_params[target][model_name]]
             is not None
             else {}
         }
@@ -166,8 +165,8 @@ class BaseLearner:
         for par, val in auxiliary_params.items():
             true_best_params[model_name][par] = val
 
-        true_best_params["best_GridSearchCV_model_index"] = best_params_by_model[model_name]
-        true_best_params["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_params_by_model[model_name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
+        true_best_params["best_GridSearchCV_model_index"] = best_params[target][model_name]
+        true_best_params["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_params[target][model_name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
         print(f"True best parameters for {model_name}: ", true_best_params, "\n")
 
@@ -179,16 +178,13 @@ class BaseLearner:
         return None
 
 
-    @staticmethod
-    def train_model(X_train: dd.DataFrame, y_train: dd.DataFrame, target: str, model_name: str, road_category: str) -> None:
+    def train_model(self, X_train: dd.DataFrame, y_train: dd.DataFrame, target: str, model_name: str) -> None:
 
         # -------------- Filenames, etc. --------------
 
-        ops_name = get_active_ops()
-
-        model_filename = ops_name + "_" + road_category + "_" + model_name
-        models_folder_path = get_ml_models_folder_path(target, road_category)
-        model_params_filepath = models_folder_path + ops_name + "_" + road_category + "_" + model_name + "_" + "parameters" + ".json"
+        model_filename = get_active_ops() + "_" + self.road_category + "_" + model_name
+        models_folder_path = get_ml_models_folder_path(target, self.road_category)
+        model_params_filepath = models_folder_path + get_active_ops() + "_" + self.road_category + "_" + model_name + "_" + "parameters" + ".json"
 
         # -------------- Parameters extraction --------------
 
@@ -218,13 +214,11 @@ class BaseLearner:
             sys.exit(1)
 
 
-    @staticmethod
-    def test_model(X_test: dd.DataFrame, y_test: dd.DataFrame, target: str, model_name: str, road_category: str) -> None:
-        ops_name = get_active_ops()
+    def test_model(self, X_test: dd.DataFrame, y_test: dd.DataFrame, target: str, model_name: str) -> None:
 
         # -------------- Model loading --------------
 
-        model = joblib.load(get_ml_models_folder_path(target, road_category) + ops_name + "_" + road_category + "_" + model_name + ".joblib")
+        model = joblib.load(get_ml_models_folder_path(target, self.road_category) + get_active_ops() + "_" + self.road_category + "_" + model_name + ".joblib")
 
         with joblib.parallel_backend("dask"):
             y_pred = model.predict(X_test)
@@ -240,8 +234,8 @@ class BaseLearner:
 
 
 class TrafficVolumesLearner(BaseLearner):
-    def __init__(self, volumes_data: dd.DataFrame, client: Client | None = None):
-        super().__init__(client)
+    def __init__(self, volumes_data: dd.DataFrame, road_category: str, client: Client | None = None):
+        super().__init__(client, road_category)
         self.volumes_data: dd.DataFrame = volumes_data
 
     def preprocess(self, z_score: bool = True) -> dd.DataFrame:
@@ -319,8 +313,8 @@ class TrafficVolumesLearner(BaseLearner):
 
 
 class AverageSpeedLearner(BaseLearner):
-    def __init__(self, speeds_data: dd.DataFrame, client: Client | None = None):
-        super().__init__(client)
+    def __init__(self, speeds_data: dd.DataFrame, road_category: str, client: Client | None = None):
+        super().__init__(client, road_category)
         self.speeds_data: dd.DataFrame = speeds_data
 
     def preprocess(self, z_score: bool = True) -> dd.DataFrame:
@@ -488,11 +482,8 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
     def forecast_volumes(self, volumes: dd.DataFrame, model_name: str):
 
-        #TODO (IN THE FUTURE) SIMPLIFY THIS PART HERE AND IN TEST_MODELS
-        ops_name = get_active_ops()
-
         # -------------- Model loading --------------
-        model = joblib.load(get_ml_models_folder_path(self._target, self._road_category) + ops_name + "_" + self._road_category + "_" + model_name + ".joblib")
+        model = joblib.load(get_ml_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
 
         with joblib.parallel_backend("dask"):
             return model.predict(volumes)
