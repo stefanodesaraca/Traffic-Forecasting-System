@@ -71,7 +71,7 @@ class BaseLearner:
         client: a Dask distributed local cluster client to use to distribute processes
     """
 
-    def __init__(self, client: Client):
+    def __init__(self, client: Client | None):
         self.scorer: dict = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
@@ -248,7 +248,7 @@ class BaseLearner:
 
 
 class TrafficVolumesLearner(BaseLearner):
-    def __init__(self, volumes_data: dd.DataFrame, client: Client):
+    def __init__(self, volumes_data: dd.DataFrame, client: Client | None = None):
         super().__init__(client)
         self.volumes_data: dd.DataFrame = volumes_data
 
@@ -327,7 +327,7 @@ class TrafficVolumesLearner(BaseLearner):
 
 
 class AverageSpeedLearner(BaseLearner):
-    def __init__(self, speeds_data: dd.DataFrame, client: Client):
+    def __init__(self, speeds_data: dd.DataFrame, client: Client | None = None):
         super().__init__(client)
         self.speeds_data: dd.DataFrame = speeds_data
 
@@ -421,12 +421,11 @@ class OnePointForecaster:
 
 
 class OnePointVolumesForecaster(OnePointForecaster):
-    def __init__(self, trp_id: str, road_category: str, client: Client):
+    def __init__(self, trp_id: str, road_category: str):
         super().__init__(trp_id, road_category)  # Calling the father class
         self._trp_id: str = trp_id
         self._road_category: str = road_category
         self._n_records: int | None = None
-        self.client: Client = client
 
 
     def preprocess(self, target_datetime: datetime, max_days: int = default_max_forecasting_window_size) -> dd.DataFrame:  # TODO REMOVE =None AFTER TESTING
@@ -485,7 +484,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
         predictions_dataset = predictions_dataset.reset_index()
         predictions_dataset = predictions_dataset.drop(columns=["index"])
 
-        t_learner = TrafficVolumesLearner(predictions_dataset, self.client)
+        t_learner = TrafficVolumesLearner(predictions_dataset)
         predictions_dataset = t_learner.preprocess(z_score=False)
 
         #print(predictions_dataset.compute().tail(200))
