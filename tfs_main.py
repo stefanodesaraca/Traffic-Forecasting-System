@@ -376,7 +376,7 @@ def execute_forecasts(functionality: str) -> None:
 
                 results = one_point_volume_forecaster.forecast_volumes(volumes_preprocessed, )
 
-
+                print(results)
 
 
             elif option == "AS":

@@ -186,19 +186,14 @@ class BaseLearner:
 
         ops_name = get_active_ops()
 
-        models_parameters_folder_path = get_ml_models_parameters_folder_path(target, road_category)
-        models_folder_path = get_ml_models_folder_path(target, road_category)
-
         model_filename = ops_name + "_" + road_category + "_" + model_name
-
-        model_parameters_filename = (ops_name+ "_" + road_category + "_"+ model_name + "_" + "parameters" + ".json")
-        model_parameters_filepath = (models_parameters_folder_path + model_parameters_filename)
+        models_folder_path = get_ml_models_folder_path(target, road_category)
+        model_params_filepath = models_folder_path + ops_name + "_" + road_category + "_" + model_name + "_" + "parameters" + ".json"
 
         # -------------- Parameters extraction --------------
 
-        with open(model_parameters_filepath, "r") as parameters_file:
-            parameters = json.load(parameters_file)
-        parameters = parameters[model_name]  # Extracting the model parameters
+        with open(model_params_filepath, "r") as parameters_file:
+            parameters = json.load(parameters_file)[model_name]  # Extracting the model parameters
 
         # -------------- Training --------------
 
@@ -213,8 +208,7 @@ class BaseLearner:
 
         try:
             joblib.dump(model, models_folder_path + model_filename + ".joblib", protocol=pickle.HIGHEST_PROTOCOL)
-            with open(
-                models_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
+            with open(models_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
                 pickle.dump(model, ml_pkl_file, protocol=pickle.HIGHEST_PROTOCOL)
             return None
 
@@ -227,13 +221,10 @@ class BaseLearner:
     @staticmethod
     def test_model(X_test: dd.DataFrame, y_test: dd.DataFrame, target: str, model_name: str, road_category: str) -> None:
         ops_name = get_active_ops()
-        ml_folder_path = get_ml_models_folder_path(target, road_category)
-        model_filename = ops_name + "_" + road_category + "_" + model_name
 
         # -------------- Model loading --------------
 
-        model = joblib.load(ml_folder_path + model_filename + ".joblib")
-        # print(model.get_params())
+        model = joblib.load(get_ml_models_folder_path(target, road_category) + ops_name + "_" + road_category + "_" + model_name + ".joblib")
 
         with joblib.parallel_backend("dask"):
             y_pred = model.predict(X_test)
@@ -498,18 +489,12 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
         #TODO (IN THE FUTURE) SIMPLIFY THIS PART HERE AND IN TEST_MODELS
         ops_name = get_active_ops()
-        ml_folder_path = get_ml_models_folder_path(target, road_category)
-        model_filename = ops_name + "_" + road_category + "_" + model_name
 
         # -------------- Model loading --------------
-        model = joblib.load(ml_folder_path + model_filename + ".joblib")
+        model = joblib.load(get_ml_models_folder_path(target, road_category) + ops_name + "_" + road_category + "_" + model_name + ".joblib")
 
         with joblib.parallel_backend("dask"):
-            pred = model.predict(volumes)
-
-        print(pred)
-
-        return pred
+            return model.predict(volumes)
 
 
 # TODO CREATE THE AvgSpeedForecaster CLASS AND THEN CREATE THE OnePointForecaster AND A2BForecaster CLASSES, THEY WILL JUST RETRIEVE AND USE THE PRE-MADE, TESTED AND EXPORTED MODELS
