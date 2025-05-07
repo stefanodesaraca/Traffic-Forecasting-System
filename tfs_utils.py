@@ -28,7 +28,7 @@ dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
 dt_format = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
 # In this case we'll only ask for the hour value since, for now, it's the maximum granularity for the predictions we're going to make
 metainfo_filename = "metainfo"
-target_data = {"V": "traffic_volumes", "AS": "average_speeds"}
+target_data = {"V": "traffic_volumes", "AS": "average_speeds"} #TODO (IN THE FUTURE) CONVERT AS TO "MS" AND "mean_speed"
 default_max_forecasting_window_size = 14
 active_ops_filename = "active_ops"
 metainfo_lock = asyncio.Lock()

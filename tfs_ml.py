@@ -71,7 +71,7 @@ class BaseLearner:
         client: a Dask distributed local cluster client to use to distribute processes
     """
 
-    def __init__(self, client: Client | None, road_category: str):
+    def __init__(self, road_category: str, target: str, client: Client | None):
         self._scorer: dict = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
@@ -80,11 +80,12 @@ class BaseLearner:
         }
         self._client: Client = client
         self.road_category: str = road_category
+        self.target = target
 
 
-    def gridsearch(self, X_train, y_train, target: str, model_name: str) -> None:
+    def gridsearch(self, X_train, y_train, model_name: str) -> None:
 
-        if target not in target_data.keys():
+        if self.target not in target_data.keys():
             raise Exception("Wrong target variable in GridSearchCV executor function")
 
         grids = {"volume": volumes_models_gridsearch_parameters[model_name],
@@ -94,7 +95,7 @@ class BaseLearner:
 
         model = model_names_and_functions[model_name]()  # Finding the function which returns the model and executing it
 
-        params_folder_path = get_ml_models_parameters_folder_path(target=target, road_category=self.road_category)
+        params_folder_path = get_ml_models_parameters_folder_path(target=self.target, road_category=self.road_category)
         model_filename = (get_active_ops() + "_" + self.road_category + "_" + model_name + "_" + "parameters")
 
         t_start = datetime.now()
@@ -103,7 +104,7 @@ class BaseLearner:
         time_cv = TimeSeriesSplit(n_splits=5)  # A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
         gridsearch = GridSearchCV(
             model,
-            param_grid=grids[target],
+            param_grid=grids[self.target],
             scoring=self._scorer,
             refit="mean_absolute_error",
             return_train_score=True,
@@ -153,8 +154,8 @@ class BaseLearner:
 
         # The best_parameters_by_model variable is obtained from the tfs_models file
         true_best_params = {
-            model_name: gridsearch_results["params"].loc[best_params[target][model_name]]
-            if gridsearch_results["params"].loc[best_params[target][model_name]]
+            model_name: gridsearch_results["params"].loc[best_params[self.target][model_name]]
+            if gridsearch_results["params"].loc[best_params[self.target][model_name]]
             is not None
             else {}
         }
@@ -165,8 +166,8 @@ class BaseLearner:
         for par, val in auxiliary_params.items():
             true_best_params[model_name][par] = val
 
-        true_best_params["best_GridSearchCV_model_index"] = best_params[target][model_name]
-        true_best_params["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_params[target][model_name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
+        true_best_params["best_GridSearchCV_model_index"] = best_params[self.target][model_name]
+        true_best_params["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_params[self.target][model_name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
         print(f"True best parameters for {model_name}: ", true_best_params, "\n")
 
@@ -178,12 +179,12 @@ class BaseLearner:
         return None
 
 
-    def train_model(self, X_train: dd.DataFrame, y_train: dd.DataFrame, target: str, model_name: str) -> None:
+    def train_model(self, X_train: dd.DataFrame, y_train: dd.DataFrame, model_name: str) -> None:
 
         # -------------- Filenames, etc. --------------
 
         model_filename = get_active_ops() + "_" + self.road_category + "_" + model_name
-        models_folder_path = get_ml_models_folder_path(target, self.road_category)
+        models_folder_path = get_ml_models_folder_path(self.target, self.road_category)
         model_params_filepath = models_folder_path + get_active_ops() + "_" + self.road_category + "_" + model_name + "_" + "parameters" + ".json"
 
         # -------------- Parameters extraction --------------
@@ -214,11 +215,11 @@ class BaseLearner:
             sys.exit(1)
 
 
-    def test_model(self, X_test: dd.DataFrame, y_test: dd.DataFrame, target: str, model_name: str) -> None:
+    def test_model(self, X_test: dd.DataFrame, y_test: dd.DataFrame, model_name: str) -> None:
 
         # -------------- Model loading --------------
 
-        model = joblib.load(get_ml_models_folder_path(target, self.road_category) + get_active_ops() + "_" + self.road_category + "_" + model_name + ".joblib")
+        model = joblib.load(get_ml_models_folder_path(self.target, self.road_category) + get_active_ops() + "_" + self.road_category + "_" + model_name + ".joblib")
 
         with joblib.parallel_backend("dask"):
             y_pred = model.predict(X_test)
@@ -234,8 +235,8 @@ class BaseLearner:
 
 
 class TrafficVolumesLearner(BaseLearner):
-    def __init__(self, volumes_data: dd.DataFrame, road_category: str, client: Client | None = None):
-        super().__init__(client, road_category)
+    def __init__(self, volumes_data: dd.DataFrame, road_category: str, target: str, client: Client | None = None):
+        super().__init__(road_category=road_category, target=target, client=client)
         self.volumes_data: dd.DataFrame = volumes_data
 
     def preprocess(self, z_score: bool = True) -> dd.DataFrame:
@@ -313,8 +314,8 @@ class TrafficVolumesLearner(BaseLearner):
 
 
 class AverageSpeedLearner(BaseLearner):
-    def __init__(self, speeds_data: dd.DataFrame, road_category: str, client: Client | None = None):
-        super().__init__(client, road_category)
+    def __init__(self, speeds_data: dd.DataFrame, road_category: str, target: str, client: Client | None = None):
+        super().__init__(road_category=road_category, target=target, client=client)
         self.speeds_data: dd.DataFrame = speeds_data
 
     def preprocess(self, z_score: bool = True) -> dd.DataFrame:

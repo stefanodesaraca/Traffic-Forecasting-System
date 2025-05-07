@@ -223,7 +223,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         for road_category, v in merged_volumes_by_category.items():
             print(f"\n********************* Executing hyperparameter tuning on traffic volumes data for road category: {road_category} *********************\n")
 
-            volumes_learner = TrafficVolumesLearner(v, road_category=road_category, client=client)
+            volumes_learner = TrafficVolumesLearner(v, road_category=road_category, target=target_data["V"], client=client)
             volumes_preprocessed = volumes_learner.preprocess()
 
             X_train, X_test, y_train, y_test = split_data(volumes_preprocessed, target=target_data["V"])
@@ -252,7 +252,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         for road_category, s in merged_speeds_by_category.items():
             print(f"********************* Executing hyperparameter tuning on average speed data for road category: {road_category} *********************")
 
-            speeds_learner = AverageSpeedLearner(s, road_category=road_category, client=client)
+            speeds_learner = AverageSpeedLearner(s, road_category=road_category, target=target_data["AS"], client=client)
             speeds_preprocessed = speeds_learner.preprocess()
 
             X_train, X_test, y_train, y_test = split_data(speeds_preprocessed, target=target_data["AS"])
@@ -261,7 +261,6 @@ def execute_forecast_warmup(functionality: str) -> None:
                 speeds_learner.gridsearch(
                     X_train,
                     y_train,
-                    target=target_data["AS"],
                     model_name=model_name,
                 )
 
@@ -281,7 +280,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         for road_category, v in merged_volumes_by_category.items():
             print(f"\n********************* Training models on traffic volumes data for road category: {road_category} *********************\n")
 
-            volumes_learner = TrafficVolumesLearner(v, road_category=road_category, client=client)
+            volumes_learner = TrafficVolumesLearner(v, road_category=road_category, target=target_data["V"], client=client)
             volumes_preprocessed = volumes_learner.preprocess()
 
             X_train, X_test, y_train, y_test = split_data(volumes_preprocessed, target=target_data["V"])
@@ -292,7 +291,6 @@ def execute_forecast_warmup(functionality: str) -> None:
                     X_train,
                     y_train,
                     model_name=model_name,
-                    target=target_data["V"]
                 )
 
     elif functionality == "3.2.4":
@@ -311,7 +309,7 @@ def execute_forecast_warmup(functionality: str) -> None:
                 f"\n********************* Testing models on traffic volumes data for road category: {road_category} *********************\n"
             )
 
-            volumes_learner = TrafficVolumesLearner(v, road_category=road_category, client=client)
+            volumes_learner = TrafficVolumesLearner(v, road_category=road_category, target=target_data["V"], client=client)
             volumes_preprocessed = volumes_learner.preprocess()
 
             X_train, X_test, y_train, y_test = split_data(volumes_preprocessed, target=target_data["V"])
@@ -322,8 +320,6 @@ def execute_forecast_warmup(functionality: str) -> None:
                     X_test,
                     y_test,
                     model_name=model_name,
-                    target=target_data["V"],
-                    road_category=road_category,
                 )
 
         print("\n\n")
