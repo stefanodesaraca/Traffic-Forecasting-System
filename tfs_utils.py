@@ -76,9 +76,8 @@ def get_trp_road_category(trp_id: str) -> str:
 
 def get_trp_metadata(trp_id: str) -> dict:
     ops_name = get_active_ops()
-    trp_metadata_file = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata.json" #TODO TO REPLACE WITH read_metainfo_key()
-    # assert os.path.isfile(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata.json") is True, f"Metadata file for TRP: {trp_id} missing"
-    with open(trp_metadata_file, "r", encoding="utf-8") as json_trp_metadata:
+    #TODO REPLACE THE STRING BELOW WITH read_metainfo_key()
+    with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata.json", "r", encoding="utf-8") as json_trp_metadata:
         return json.load(json_trp_metadata)
 
 
@@ -98,9 +97,6 @@ def write_trp_metadata(trp_id: str) -> None:
 
     with open(raw_volumes_folder + trp_volumes_file, "r", encoding="utf-8") as f:
         volumes = json.load(f)
-
-    trp_metadata_filepath = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/"
-    trp_metadata_filename = f"{trp_id}_metadata"
 
     assert os.path.isdir(raw_volumes_folder), "Raw traffic volumes folder missing"
     assert os.path.isdir(clean_volumes_folder), "Clean traffic volumes folder missing"
@@ -134,13 +130,13 @@ def write_trp_metadata(trp_id: str) -> None:
         "latest_volume_average_daily_by_season": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"],
         "latest_volume_average_daily_by_month": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"],
         "number_of_data_nodes": len(volumes["trafficData"]["volume"]["byHour"]["edges"])
-    }  # (Volumes data nodes)
+    }
 
-    metadata_filepath = trp_metadata_filepath + trp_metadata_filename + ".json"
-    with open(metadata_filepath, "w", encoding="utf-8") as json_metadata:
+    metadata_filepath = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/" + f"{trp_id}_metadata" + ".json"
+    with open(f"{trp_id}_metadata", "w", encoding="utf-8") as json_metadata:
         json.dump(metadata, json_metadata, indent=4)
 
-    update_metainfo(trp_metadata_filename, ["metadata_filenames"], "append")
+    update_metainfo(f"{trp_id}_metadata", ["metadata_filenames"], "append")
     update_metainfo(metadata_filepath, ["metadata_filepaths"], "append")
 
     return None
@@ -167,31 +163,27 @@ def retrieve_trp_clean_average_speed_filepath_by_id(trp_id: str) -> str:
 
 # ==================== ML Related Utilities ====================
 
-#TODO TO REPLACE WITH read_metainfo_key() WHEN THE WHOLE ML SECTION WILL BE EVEN MORE STABLE
+#TODO SIMPLIFY THESE TWO FUNCTIONS BELOW
 def get_ml_models_folder_path(target: str, road_category: str) -> str:
-    ops_name = get_active_ops()
-
-    if target == "volume":
-        ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/{ops_name}_traffic_volumes_models/{ops_name}_{road_category}_traffic_volumes_models/"
-    elif target == "mean_speed":
-        ml_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models/{ops_name}_average_speed_models/{ops_name}_{road_category}_average_speed_models/"
+    folder_paths = {
+        "volume": read_metainfo_key(keys_map=["ml", "models", "subfolders", "traffic_volumes", "subfolders", road_category, "path"]),
+        "mean_speed": read_metainfo_key(keys_map=["ml", "models", "subfolders", "average_speed", "subfolders", road_category, "path"])
+    }
+    if folder_paths[target]:
+        return folder_paths[target]
     else:
         raise Exception("Wrong target variable in the get_ml_models_folder_path() function")
 
-    return ml_folder_path
-
 
 def get_ml_models_parameters_folder_path(target: str, road_category: str) -> str:
-    ops_name = get_active_ops()
-
-    if target == "volume":
-        ml_parameters_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models_parameters/{ops_name}_traffic_volumes_models_parameters/{ops_name}_{road_category}_traffic_volumes_models_parameters/"
-    elif target == "mean_speed":
-        ml_parameters_folder_path = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_models_parameters/{ops_name}_average_speed_models_parameters/{ops_name}_{road_category}_average_speed_models_parameters/"
+    folder_paths = {
+        "volume": read_metainfo_key(keys_map=["ml", "models_parameters", "subfolders", "traffic_volumes", "subfolders", road_category, "path"]),
+        "mean_speed": read_metainfo_key(keys_map=["ml", "models_parameters", "subfolders", "average_speed", "subfolders", road_category, "path"])
+    }
+    if folder_paths[target]:
+        return folder_paths[target]
     else:
         raise Exception("Wrong target variable in the get_ml_model_parameters_folder_path() function")
-
-    return ml_parameters_folder_path
 
 
 # ==================== Forecasting Settings Utilities ====================
