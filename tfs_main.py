@@ -8,7 +8,6 @@ import asyncio
 import dask.distributed
 from dask.distributed import Client, LocalCluster
 
-from tfs_models import model_names_and_functions
 from tfs_downloader import *
 from tfs_eda import *
 from tfs_utils import *
@@ -189,6 +188,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         ]
         for category in get_all_available_road_categories()
     }
+    print(trps_ids_volumes_by_road_category)
     # The isdir() method is needed since there could be some cases where the volumes files are absent, but TRPs are included in the trps list, so if there isn't on we'll just obtain the path for the clean volumes files folder. Thus, if the string is a path to a folder then don't include it in the trps_ids_by_road_category
     # pprint.pprint(trps_ids_by_road_category)
 
@@ -207,7 +207,7 @@ def execute_forecast_warmup(functionality: str) -> None:
     # Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
     # It's important to instantiate it here since, if it was done in the gridsearch function, it would mean the client would be started and closed everytime the function runs (which is not good)
     cluster = LocalCluster(processes=False)  # Check localhost:8787 to watch real-time.
-    # By default the number of workers is obtained by dask using the standard os.cpu_count()
+    # By default, the number of workers is obtained by dask using the standard os.cpu_count()
     client = Client(cluster)
     # More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
 

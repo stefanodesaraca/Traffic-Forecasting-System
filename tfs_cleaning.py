@@ -483,8 +483,8 @@ class TrafficVolumesCleaner(BaseCleaner):
 class AverageSpeedCleaner(BaseCleaner):
     def __init__(self):
         super().__init__()
-        self.min_date: datetime.datetime = datetime.strptime(read_metainfo_key(keys_map=["average_speeds", "start_date_iso"]), dt_format) | None
-        self.max_date: datetime.datetime = datetime.strptime(read_metainfo_key(keys_map=["average_speeds", "end_date_iso"]), dt_format) | None
+        self.min_date: datetime.datetime | None = datetime.strptime(read_metainfo_key(keys_map=["average_speeds", "start_date_iso"]), dt_format) or None
+        self.max_date: datetime.datetime | None = datetime.strptime(read_metainfo_key(keys_map=["average_speeds", "end_date_iso"]), dt_format) or None
 
 
     def clean_avg_speed_data(self, avg_speed_data: pd.DataFrame) -> tuple[pd.DataFrame, str, str, str] | None:  # TODO TO CHANGE IN dd.DataFrame

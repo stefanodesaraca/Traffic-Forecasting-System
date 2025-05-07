@@ -76,9 +76,8 @@ def get_trp_road_category(trp_id: str) -> str:
 
 
 def get_trp_metadata(trp_id: str) -> dict:
-    ops_name = get_active_ops()
     #TODO REPLACE THE STRING BELOW WITH read_metainfo_key()
-    with open(f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/{trp_id}_metadata.json", "r", encoding="utf-8") as json_trp_metadata:
+    with open(f"{cwd}/{ops_folder}/{get_active_ops()}/{get_active_ops()}_data/trp_metadata/{trp_id}_metadata.json", "r", encoding="utf-8") as json_trp_metadata:
         return json.load(json_trp_metadata)
 
 
@@ -134,7 +133,7 @@ def write_trp_metadata(trp_id: str) -> None:
     }
 
     metadata_filepath = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/" + f"{trp_id}_metadata" + ".json"
-    with open(f"{trp_id}_metadata", "w", encoding="utf-8") as json_metadata:
+    with open(metadata_filepath, "w", encoding="utf-8") as json_metadata:
         json.dump(metadata, json_metadata, indent=4)
 
     update_metainfo(f"{trp_id}_metadata", ["metadata_filenames"], "append")
@@ -567,7 +566,7 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
 
     return None
 
-
+#TODO TRY CACHING THIS FUNCTION (DO TESTS BEFORE)
 def read_metainfo_key(keys_map: list) -> Any:
     """
     This function reads data from a specific key-value pair in the metainfo.json file of the active operation.
