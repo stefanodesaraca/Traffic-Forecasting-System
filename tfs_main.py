@@ -344,9 +344,6 @@ def execute_forecasts(functionality: str) -> None:
 
     check_metainfo_file()
 
-    models = [m for m in model_names_and_functions.keys()]
-    targets = ["volume", "mean_speed"]
-
     print("Which kind of data would you like to forecast?")
     print("V: Volumes | AS: Average Speeds")
     option = input("Choice: ")
@@ -357,7 +354,7 @@ def execute_forecasts(functionality: str) -> None:
 
     # One-Point Forecast
     if functionality == "3.3.1":
-        trp_ids = get_trp_ids()
+        trp_ids = list(get_trp_ids())
         print("TRP IDs: ", trp_ids)
         trp_id = input("Insert TRP ID for forecasting: ")
 
@@ -369,11 +366,9 @@ def execute_forecasts(functionality: str) -> None:
                 one_point_volume_forecaster = OnePointVolumesForecaster(trp_id=trp_id, road_category=trp_road_category)
                 volumes_preprocessed = one_point_volume_forecaster.preprocess(target_datetime=dt)
 
-
-
-                results = one_point_volume_forecaster.forecast_volumes(volumes_preprocessed)
-
-                print(results)
+                for model_name in model_names_and_functions.keys():
+                    results = one_point_volume_forecaster.forecast_volumes(volumes_preprocessed, model_name=model_name)
+                    print(results)
 
 
             elif option == "AS":

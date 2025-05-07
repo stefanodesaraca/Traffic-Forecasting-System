@@ -419,7 +419,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
         self._trp_id: str = trp_id
         self._road_category: str = road_category
         self._n_records: int | None = None
-        self._target: str = "V"
+        self._target: str = "volume"
 
 
     def preprocess(self, target_datetime: datetime, max_days: int = default_max_forecasting_window_size) -> dd.DataFrame:

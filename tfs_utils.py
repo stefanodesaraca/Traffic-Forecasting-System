@@ -84,19 +84,18 @@ def get_trp_metadata(trp_id: str) -> dict:
 
 def write_trp_metadata(trp_id: str) -> None:
     ops_name = get_active_ops()
-    trps = import_TRPs_data()
-    trp_data = [i for i in trps["trafficRegistrationPoints"] if i["id"] == trp_id][0]  # TODO IMPROVE THIS PART HERE
+    trp_data = [i for i in import_TRPs_data()["trafficRegistrationPoints"] if i["id"] == trp_id][0]  # TODO IMPROVE THIS PART HERE
 
     raw_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"])
     clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
     raw_as_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"])
     clean_as_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
 
-    trp_volumes_file = [f for f in os.listdir(raw_volumes_folder) if trp_id in f]  # Find the right TRP file by checking if the TRP ID is in the filename and if it is in the raw traffic volumes folder
+    #trp_volumes_file = [f for f in os.listdir(raw_volumes_folder) if f.]
+    trp_volumes_file = next(filter(lambda x: x.startswith(trp_id), os.listdir(raw_volumes_folder)))
+    #print(trp_volumes_file)# Find the right TRP file by checking if the TRP ID is in the filename and if it is in the raw traffic volumes folder
 
-    if len(trp_volumes_file) == 1:
-        trp_volumes_file = trp_volumes_file[0]
-    else:
+    if not trp_volumes_file:
         return None
 
     with open(raw_volumes_folder + trp_volumes_file, "r", encoding="utf-8") as f:
