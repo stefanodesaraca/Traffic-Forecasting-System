@@ -84,7 +84,7 @@ def get_trp_metadata(trp_id: str) -> dict:
 
 def write_trp_metadata(trp_id: str) -> None:
     ops_name = get_active_ops()
-    trp_data = next(i for i in import_TRPs_data()["trafficRegistrationPoints"] if i["id"] == trp_id) or None # TODO IF POSSIBLE IMPROVE THIS PART HERE
+    trp_data = next((i for i in import_TRPs_data()["trafficRegistrationPoints"] if i["id"] == trp_id), None) # TODO IF POSSIBLE IMPROVE THIS PART HERE
 
     raw_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"])
     clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
@@ -102,21 +102,21 @@ def write_trp_metadata(trp_id: str) -> None:
     trp_metadata_filepath = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/"
     trp_metadata_filename = f"{trp_id}_metadata"
 
-    assert os.path.isdir(raw_volumes_folder) is True, "Raw traffic volumes folder missing"
-    assert os.path.isdir(clean_volumes_folder) is True, "Clean traffic volumes folder missing"
+    assert os.path.isdir(raw_volumes_folder), "Raw traffic volumes folder missing"
+    assert os.path.isdir(clean_volumes_folder), "Clean traffic volumes folder missing"
 
-    assert os.path.isdir(raw_as_folder) is True, "Raw average speed folder missing"
-    assert os.path.isdir(clean_as_folder) is True, "Clean average speed folder missing"
+    assert os.path.isdir(raw_as_folder), "Raw average speed folder missing"
+    assert os.path.isdir(clean_as_folder), "Clean average speed folder missing"
 
     check_metainfo_file()
 
     metadata = {
         "trp_id": trp_data["id"],
         "name": trp_data["name"],
-        "raw_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/raw_traffic_volumes/{[file for file in os.listdir(raw_volumes_folder) if trp_id in file][0] if len([file for file in os.listdir(raw_volumes_folder) if trp_id in file]) != 0 else ''}",  # TODO TO IMPROVE
-        "clean_volumes_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_volumes/clean_traffic_volumes/{[file for file in os.listdir(clean_volumes_folder) if trp_id in file][0] if len([file for file in os.listdir(clean_volumes_folder) if trp_id in file]) != 0 else ''}",  # TODO TO IMPROVE
-        "raw_average_speed_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/raw_average_speed/{[file for file in os.listdir(raw_as_folder) if trp_id in file][0] if len([file for file in os.listdir(raw_as_folder) if trp_id in file]) != 0 else ''}",  # TODO NOT WORKING
-        "clean_average_speed_filepath": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/average_speed/clean_average_speed/{[file for file in os.listdir(clean_as_folder) if trp_id in file][0] if len([file for file in os.listdir(clean_as_folder) if trp_id in file]) != 0 else ''}",  # TODO NOT WORKING
+        "raw_volumes_filepath": raw_volumes_folder + next((f for f in os.listdir(raw_volumes_folder) if trp_id in f),''),
+        "clean_volumes_filepath": clean_volumes_folder + next((f for f in os.listdir(clean_volumes_folder) if trp_id in f),''),
+        "raw_average_speed_filepath": raw_as_folder + next((f for f in os.listdir(raw_as_folder) if trp_id in f),''),
+        "clean_average_speed_filepath": clean_as_folder + next((f for f in os.listdir(clean_as_folder) if trp_id in f),''),
         "road_category": trp_data["location"]["roadReference"]["roadCategory"]["id"],
         "lat": trp_data["location"]["coordinates"]["latLon"]["lat"],
         "lon": trp_data["location"]["coordinates"]["latLon"]["lon"],
