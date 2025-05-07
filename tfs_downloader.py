@@ -249,7 +249,7 @@ def fetch_road_categories(client: Client):
 
     return road_categories
 
-
+#TODO TO IMPLEMENT
 def fetch_areas(client: Client):
     a_query = gql("""
     {
@@ -283,29 +283,23 @@ def fetch_areas(client: Client):
 # --------------------------------- JSON Writing Section ---------------------------------
 
 
-async def traffic_registration_points_to_json(ops_name: str):
+async def traffic_registration_points_to_json():
     """
     The _ops_name parameter is needed to identify the operation where the data needs to be downloaded.
     This implies that the same data can be downloaded multiple times, but downloaded into different operation folders,
     so reducing the risk of data loss or corruption in case of malfunctions.
     """
-
     client = await start_client_async()
     TRPs = await fetch_traffic_registration_points(client)
 
-    async with aiofiles.open(
-        f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_registration_points.json",
-        "w",
-    ) as trps_w:
-        await trps_w.write(json.dumps(TRPs, indent=4))
-
+    async with aiofiles.open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]),"w") as trps_w:
+        await trps_w.write(json.dumps({data["id"]: data for data in TRPs["trafficRegistrationPoints"]}, indent=4))
     return None
 
 
 async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
     semaphore = asyncio.Semaphore(5)  # Limit to 5 concurrent tasks
-    trps = import_TRPs_data()
-    ids = [trp["id"] for trp in trps["trafficRegistrationPoints"]]
+    ids = list(import_TRPs_data().keys())
 
     async def download_trp_data(trp_id):
         client = await start_client_async()
@@ -351,28 +345,11 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
     async def process_trp(trp_id):
         volumes_data = await download_trp_data(trp_id)
 
-        folder_path = await asyncio.to_thread(
-            read_metainfo_key,
-            ["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"],
-        )
-        filename = f"{trp_id}_volumes_S{time_start[:18].replace(':', '_')}_E{time_end[:18].replace(':', '_')}.json"
-        full_path = folder_path + filename
-
-        async with aiofiles.open(full_path, "w") as f:
+        folder_path = await asyncio.to_thread(read_metainfo_key,["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"])
+        async with aiofiles.open(folder_path + f"{trp_id}_volumes.json", "w") as f:
             await f.write(json.dumps(volumes_data, indent=4))
 
-        await asyncio.to_thread(
-            update_metainfo_async,
-            filename,
-            ["traffic_volumes", "raw_filenames"],
-            mode="append",
-        )
-        await asyncio.to_thread(
-            update_metainfo_async,
-            full_path,
-            ["traffic_volumes", "raw_filepaths"],
-            mode="append",
-        )
+        await asyncio.to_thread(update_metainfo_async, f"{trp_id}_volumes.json", ["traffic_volumes", "raw_filenames"], mode="append")
 
     async def limited_task(trp_id):
         async with semaphore:

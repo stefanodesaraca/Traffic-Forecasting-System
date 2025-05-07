@@ -39,7 +39,6 @@ metainfo_lock = asyncio.Lock()
 
 # ==================== TRP Utilities ====================
 
-
 @lru_cache()
 def import_TRPs_data():
     """
@@ -49,6 +48,97 @@ def import_TRPs_data():
     assert os.path.isfile(f), "Traffic registration points file missing"
     with open(f, "r", encoding="utf-8") as TRPs:
         return json.load(TRPs)
+
+
+# ------------ Metadata ------------
+
+def get_trp_metadata(trp_id: str) -> dict:
+    with open(read_metainfo_key(keys_map=["folder_paths", "trp_metadata", "path"]) + f"{trp_id}_metadata.json", "r", encoding="utf-8") as json_trp_metadata:
+        return json.load(json_trp_metadata)
+
+
+def write_trp_metadata(trp_id: str, data: dict) -> None:
+    metadata = {
+        "id": trp_id,
+        "info": {
+            "road_category": data["location"]["roadReference"]["roadCategory"]["id"],
+            "lat": data["location"]["coordinates"]["latLon"]["lat"],
+            "lon": data["location"]["coordinates"]["latLon"]["lon"],
+            "county_name": data["location"]["county"]["name"],
+            "county_number": data["location"]["county"]["number"],
+            "geographic_number": data["location"]["county"]["geographicNumber"],
+            "country_part": data["location"]["county"]["countryPart"]["name"],
+            "municipality_name": data["location"]["municipality"]["name"],
+            "traffic_registration_type": data["trafficRegistrationType"],
+            "first_data": data["dataTimeSpan"]["firstData"],
+            "first_data_with_quality_metrics": data["dataTimeSpan"]["firstDataWithQualityMetrics"],
+            "latest_volume_by_day": data["dataTimeSpan"]["latestData"]["volumeByDay"],
+            "latest_volume_byh_hour": data["dataTimeSpan"]["latestData"]["volumeByHour"],
+            "latest_volume_average_daily_by_year": data["dataTimeSpan"]["latestData"]["volumeAverageDailyByYear"],
+            "latest_volume_average_daily_by_season": data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"],
+            "latest_volume_average_daily_by_month": data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"],
+        },
+        "number_of_data_nodes": None,
+        "files": {
+            "volumes": {
+                "raw": None,
+                "clean": None
+            },
+            "speeds": {
+                "raw": None,
+                "clean": None
+            }
+        },
+        "checks": {
+            "has_volumes": False,
+            "has_speeds": False
+        },
+        "data_info": {
+            "start_date": None,
+            "end_date": None
+        }
+    }
+
+    with open(read_metainfo_key(keys_map=["folder_paths", "trp_metadata", "path"]) + trp_id + "_metadata.json", "w") as metadata_writer:
+        json.dump(metadata, metadata_writer, indent=4)
+
+    return None
+
+
+def update_trp_metadata(trp_id: str, value: Any, metadata_keys_map: list[str], mode: str) -> None:
+    modes = ["equals", "append"]
+    metadata_filepath = read_metainfo_key(keys_map=["folder_paths", "trp_metadata", "path"]) + trp_id + "_metadata.json"
+    with open(metadata_filepath, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+
+    # metadata = payload has a specific reason to exist
+    # This is how we preserve the whole original dictionary (loaded from the JSON file), but at the same time iterate over its keys and updating them
+    # By doing to we'll assign the value (obtained from the value parameter of this method) to the right key, but preserving the rest of the dictionary
+    metadata = payload
+
+    if mode == "equals":
+        for key in metadata_keys_map[:-1]:
+            metadata = metadata[key]
+        metadata[metadata_keys_map[-1]] = value  # Updating the metainfo file key-value pair
+        with open(metadata_filepath, "w", encoding="utf-8") as m:
+            json.dump(payload, m, indent=4)
+    elif mode == "append":
+        for key in metadata_keys_map[:-1]:
+            metadata = metadata[key]
+        metadata[metadata_keys_map[-1]].append(value)  # Appending a new value to the list (which is the value of this key-value pair)
+        with open(metadata_filepath, "w", encoding="utf-8") as m:
+            json.dump(payload, m, indent=4)
+    elif mode not in modes:
+        print("\033[91mWrong mode\033[0m")
+        sys.exit(1)
+
+    return None
+
+
+
+
+
+
 
 
 # TODO IMPROVE THIS FUNCTION, AND SET THAT THIS RETURNS A generator OF str
@@ -68,76 +158,11 @@ def get_trp_id_from_filename(filename: str) -> str:
 
 
 def get_all_available_road_categories() -> list:
-    return list(set((trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data()["trafficRegistrationPoints"])))
+    return list(set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data()["trafficRegistrationPoints"]))
 
 
 def get_trp_road_category(trp_id: str) -> str:
     return get_trp_metadata(trp_id)["road_category"]
-
-
-def get_trp_metadata(trp_id: str) -> dict:
-    with open(read_metainfo_key(keys_map=["folder_paths", "trp_metadata", "path"]) + f"{trp_id}_metadata.json", "r", encoding="utf-8") as json_trp_metadata:
-        return json.load(json_trp_metadata)
-
-
-def write_trp_metadata(trp_id: str) -> None:
-    ops_name = get_active_ops()
-    trp_data = next((i for i in import_TRPs_data()["trafficRegistrationPoints"] if i["id"] == trp_id), None) # TODO IF POSSIBLE IMPROVE THIS PART HERE
-
-    raw_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"])
-    clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
-    raw_as_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"])
-    clean_as_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
-
-    trp_volumes_file = next(filter(lambda x: x.startswith(trp_id), os.listdir(raw_volumes_folder)))
-    #print(trp_volumes_file)# Find the right TRP file by checking if the TRP ID is in the filename and if it is in the raw traffic volumes folder
-
-    if not trp_volumes_file: return None
-
-    with open(raw_volumes_folder + trp_volumes_file, "r", encoding="utf-8") as f:
-        volumes = json.load(f)
-
-    assert os.path.isdir(raw_volumes_folder), "Raw traffic volumes folder missing"
-    assert os.path.isdir(clean_volumes_folder), "Clean traffic volumes folder missing"
-
-    assert os.path.isdir(raw_as_folder), "Raw average speed folder missing"
-    assert os.path.isdir(clean_as_folder), "Clean average speed folder missing"
-
-    check_metainfo_file()
-
-    metadata = {
-        "trp_id": trp_data["id"],
-        "name": trp_data["name"],
-        "raw_volumes_filepath": raw_volumes_folder + next((f for f in os.listdir(raw_volumes_folder) if trp_id in f),''),
-        "clean_volumes_filepath": clean_volumes_folder + next((f for f in os.listdir(clean_volumes_folder) if trp_id in f),''),
-        "raw_average_speed_filepath": raw_as_folder + next((f for f in os.listdir(raw_as_folder) if trp_id in f),''),
-        "clean_average_speed_filepath": clean_as_folder + next((f for f in os.listdir(clean_as_folder) if trp_id in f),''),
-        "road_category": trp_data["location"]["roadReference"]["roadCategory"]["id"],
-        "lat": trp_data["location"]["coordinates"]["latLon"]["lat"],
-        "lon": trp_data["location"]["coordinates"]["latLon"]["lon"],
-        "county_name": trp_data["location"]["county"]["name"],
-        "county_number": trp_data["location"]["county"]["number"],
-        "geographic_number": trp_data["location"]["county"]["geographicNumber"],
-        "country_part": trp_data["location"]["county"]["countryPart"]["name"],
-        "municipality_name": trp_data["location"]["municipality"]["name"],
-        "traffic_registration_type": trp_data["trafficRegistrationType"],
-        "first_data": trp_data["dataTimeSpan"]["firstData"],
-        "first_data_with_quality_metrics": trp_data["dataTimeSpan"]["firstDataWithQualityMetrics"],
-        "latest_volume_by_day": trp_data["dataTimeSpan"]["latestData"]["volumeByDay"],
-        "latest_volume_byh_hour": trp_data["dataTimeSpan"]["latestData"]["volumeByHour"],
-        "latest_volume_average_daily_by_year": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByYear"],
-        "latest_volume_average_daily_by_season": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"],
-        "latest_volume_average_daily_by_month": trp_data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"],
-        "number_of_data_nodes": len(volumes["trafficData"]["volume"]["byHour"]["edges"])
-    }
-
-    metadata_filepath = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/trp_metadata/" + f"{trp_id}_metadata" + ".json"
-    with open(metadata_filepath, "w", encoding="utf-8") as json_metadata:
-        json.dump(metadata, json_metadata, indent=4)
-
-    update_metainfo(f"{trp_id}_metadata", ["metadata_files"], "append")
-
-    return None
 
 
 def retrieve_trp_road_category(trp_id: str) -> str:
@@ -156,7 +181,6 @@ def retrieve_trp_clean_average_speed_filepath_by_id(trp_id: str) -> str:
 
 
 # ==================== Average Speeds Utilities ====================
-
 
 
 # ==================== ML Related Utilities ====================
@@ -385,91 +409,86 @@ def del_ops_folder(ops_name: str) -> None:
     return None
 
 
+# ------------ Metainfo File ------------
+
 def write_metainfo(ops_name: str) -> None:
     target_folder = f"{ops_folder}/{ops_name}/"
-    assert os.path.isdir(target_folder) is True, (
-        f"{target_folder} folder not found. Have you created the operation first?"
-    )
+    assert os.path.isdir(target_folder) is True, f"{target_folder} folder not found. Have you created the operation first?"
 
-    if os.path.isdir(target_folder) is True:
-        metainfo = {
-            "common": {
-                "n_raw_traffic_volumes": None,
-                "n_clean_traffic_volumes": None,
-                "n_raw_average_speeds": None,
-                "n_clean_average_speeds": None,
-                "raw_volumes_size": None,
-                "clean_volumes_size": None,
-                "raw_average_speeds_size": None,
-                "clean_average_speeds_size": None,
-                "non_empty_volumes_trps": [],
-                "non_empty_avg_speed_trps": [],
-                "traffic_registration_points_file": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_registration_points.json"
-            },
-            "traffic_volumes": {
-                "start_date_iso": None,  # The start date which was inserted in the download section of the menu in ISO format
-                "end_date_iso": None,  # The end date which was inserted in the download section of the menu in ISO format
-                "start_year": None,  # The year obtained from the start_date_iso datetime
-                "start_month": None,  # The month obtained from the start_date_iso datetime
-                "start_day": None,  # The day obtained from the start_date_iso datetime
-                "start_hour": None,  # The hour obtained from the start_date_iso datetime
-                "end_year": None,  # The year obtained from the end_date_iso datetime
-                "end_month": None,  # The month obtained from the end_date_iso datetime
-                "end_day": None,  # The day obtained from the end_date_iso datetime
-                "end_hour": None,  # The hour obtained from the end_date_iso datetime
-                "n_days": None,  # The total number of days which we have data about
-                "n_months": None,  # The total number of months which we have data about
-                "n_years:": None,  # The total number of years which we have data about
-                "n_weeks": None,  # The total number of weeks which we have data about
-                "raw_filenames": [],  # The list of raw traffic volumes file names
-                "clean_filenames": [],  # The list of clean traffic volumes file names
-                "n_rows": [],  # The total number of records downloaded (clean volumes)
-                "raw_volumes_start_date": None,  # The first date available for raw volumes files
-                "raw_volumes_end_date": None,  # The last date available for raw volumes files
-                "clean_volumes_start_date": None,  # The first date available for clean volumes files
-                "clean_volumes_end_date": None  # The last date available for clean volumes files
-            },
-            "average_speeds": {
-                "start_date_iso": None,  # The start date which was inserted in the download section of the menu in ISO format
-                "end_date_iso": None,  # The end date which was inserted in the download section of the menu in ISO format
-                "start_year": None,  # The year obtained from the start_date_iso datetime
-                "start_month": None,  # The month obtained from the start_date_iso datetime
-                "start_day": None,  # The day obtained from the start_date_iso datetime
-                "start_hour": None,  # The hour obtained from the start_date_iso datetime
-                "end_year": None,  # The year obtained from the end_date_iso datetime
-                "end_month": None,  # The month obtained from the end_date_iso datetime
-                "end_day": None,  # The day obtained from the end_date_iso datetime
-                "end_hour": None,  # The hour obtained from the end_date_iso datetime
-                "n_days": None,  # The total number of days which we have data about
-                "n_months": None,  # The total number of months which we have data about
-                "n_years": None,  # The total number of years which we have data about
-                "n_weeks": None,  # The total number of weeks which we have data about
-                "raw_filenames": [],  # The list of raw average speed file names
-                "clean_filenames": [],  # The list of clean average speed file names
-                "n_rows": [],  # The total number of records downloaded (clean average speeds)
-                "raw_avg_speed_start_date": None,  # The first date available for raw average speed files
-                "raw_avg_speed_end_date": None,  # The last date available for raw average speed files
-                "clean_avg_speed_start_date": None,  # The first date available for clean average speed files
-                "clean_avg_speed_end_date": None  # The last date available for clean average speed files
-            },
-            "metadata_files": [],
-            "folder_paths": {},
-            "forecasting": {"target_datetimes": {"V": None, "AS": None}},
-            "by_trp_id": {
-                "trp_ids": {}  # TODO ADD IF A RAW FILE HAS A CORRESPONDING CLEAN ONE (FOR BOTH TV AND AVG SPEEDS)
-            }
+    metainfo = {
+        "common": {
+            "n_raw_traffic_volumes": None,
+            "n_clean_traffic_volumes": None,
+            "n_raw_average_speeds": None,
+            "n_clean_average_speeds": None,
+            "raw_volumes_size": None,
+            "clean_volumes_size": None,
+            "raw_average_speeds_size": None,
+            "clean_average_speeds_size": None,
+            "traffic_registration_points_file": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_registration_points.json"
+        },
+        "traffic_volumes": {
+            "start_date_iso": None,  # The start date which was inserted in the download section of the menu in ISO format
+            "end_date_iso": None,  # The end date which was inserted in the download section of the menu in ISO format
+            "start_year": None,  # The year obtained from the start_date_iso datetime
+            "start_month": None,  # The month obtained from the start_date_iso datetime
+            "start_day": None,  # The day obtained from the start_date_iso datetime
+            "start_hour": None,  # The hour obtained from the start_date_iso datetime
+            "end_year": None,  # The year obtained from the end_date_iso datetime
+            "end_month": None,  # The month obtained from the end_date_iso datetime
+            "end_day": None,  # The day obtained from the end_date_iso datetime
+            "end_hour": None,  # The hour obtained from the end_date_iso datetime
+            "n_days": None,  # The total number of days which we have data about
+            "n_months": None,  # The total number of months which we have data about
+            "n_years:": None,  # The total number of years which we have data about
+            "n_weeks": None,  # The total number of weeks which we have data about
+            "raw_filenames": [],  # The list of raw traffic volumes file names
+            "clean_filenames": [],  # The list of clean traffic volumes file names
+            "n_rows": [],  # The total number of records downloaded (clean volumes)
+            "raw_volumes_start_date": None,  # The first date available for raw volumes files
+            "raw_volumes_end_date": None,  # The last date available for raw volumes files
+            "clean_volumes_start_date": None,  # The first date available for clean volumes files
+            "clean_volumes_end_date": None  # The last date available for clean volumes files
+        },
+        "average_speeds": {
+            "start_date_iso": None,  # The start date which was inserted in the download section of the menu in ISO format
+            "end_date_iso": None,  # The end date which was inserted in the download section of the menu in ISO format
+            "start_year": None,  # The year obtained from the start_date_iso datetime
+            "start_month": None,  # The month obtained from the start_date_iso datetime
+            "start_day": None,  # The day obtained from the start_date_iso datetime
+            "start_hour": None,  # The hour obtained from the start_date_iso datetime
+            "end_year": None,  # The year obtained from the end_date_iso datetime
+            "end_month": None,  # The month obtained from the end_date_iso datetime
+            "end_day": None,  # The day obtained from the end_date_iso datetime
+            "end_hour": None,  # The hour obtained from the end_date_iso datetime
+            "n_days": None,  # The total number of days which we have data about
+            "n_months": None,  # The total number of months which we have data about
+            "n_years": None,  # The total number of years which we have data about
+            "n_weeks": None,  # The total number of weeks which we have data about
+            "raw_filenames": [],  # The list of raw average speed file names
+            "clean_filenames": [],  # The list of clean average speed file names
+            "n_rows": [],  # The total number of records downloaded (clean average speeds)
+            "raw_avg_speed_start_date": None,  # The first date available for raw average speed files
+            "raw_avg_speed_end_date": None,  # The last date available for raw average speed files
+            "clean_avg_speed_start_date": None,  # The first date available for clean average speed files
+            "clean_avg_speed_end_date": None  # The last date available for clean average speed files
+        },
+        "metadata_files": [],
+        "folder_paths": {},
+        "forecasting": {"target_datetimes": {"V": None, "AS": None}},
+        "by_trp_id": {
+            "trp_ids": {}  # TODO ADD IF A RAW FILE HAS A CORRESPONDING CLEAN ONE (FOR BOTH TV AND AVG SPEEDS)
         }
+    }
 
-        with open(target_folder + metainfo_filename + ".json", "w", encoding="utf-8") as tf:
+    with open(target_folder + metainfo_filename + ".json", "w", encoding="utf-8") as tf:
             json.dump(metainfo, tf, indent=4)
 
     return None
 
 
 def check_metainfo_file() -> bool:
-    return os.path.isfile(
-        f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
-    )  # Either True (if file exists) or False (in case the file doesn't exist)
+    return os.path.isfile(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json")  # Either True (if file exists) or False (in case the file doesn't exist)
 
 
 def update_metainfo(value: Any, keys_map: list, mode: str) -> None:

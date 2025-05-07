@@ -43,7 +43,7 @@ async def download_data(functionality: str) -> None:
         try:
             print("\nDownloading traffic registration points information for the active operation...")
             ops_name = get_active_ops()
-            await traffic_registration_points_to_json(ops_name)
+            await traffic_registration_points_to_json()
             print("Traffic registration points information downloaded successfully\n\n")
         except Exception as e:
             print(f"\033[91mCouldn't download traffic registration points information for the active operation. Error: {e}\033[0m")
@@ -97,7 +97,7 @@ async def download_data(functionality: str) -> None:
 
         print("\nWriting metadata files...")
         for trp_id in tqdm(get_trp_ids()):
-            write_trp_metadata(trp_id)
+            update_trp_metadata(trp_id)
         print("Metadata files successfully written\n\n")
 
     return None
