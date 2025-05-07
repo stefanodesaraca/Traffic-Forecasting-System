@@ -233,7 +233,6 @@ def execute_forecast_warmup(functionality: str) -> None:
                 volumes_learner.gridsearch(
                     X_train,
                     y_train,
-                    target=target_data["V"],
                     model_name=model_name
                 )
 
