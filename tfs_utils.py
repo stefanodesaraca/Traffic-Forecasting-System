@@ -50,19 +50,16 @@ def import_TRPs_data():
         return json.load(TRPs)
 
 
-# TODO IMPROVE THIS FUNCTION, AND SET THAT THIS RETURNS A LIST OF str
-@lru_cache()
-def get_trp_id_list() -> list[str]:
+# TODO IMPROVE THIS FUNCTION, AND SET THAT THIS RETURNS A generator OF str
+def get_trp_ids() -> Generator[str, None, None]:
     raw_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"])
     # If there aren't volumes files yet, then just return all the TRP IDs available in the traffic_registration_points_file
     if len(os.listdir(raw_volumes_folder)) == 0:
-        return [trp["id"] for trp in import_TRPs_data()["trafficRegistrationPoints"]]  # This list may contain IDs of TRPs which don't have a volumes file associated with them
+        return (trp["id"] for trp in import_TRPs_data()["trafficRegistrationPoints"]) # This list may contain IDs of TRPs which don't have a volumes file associated with them #TODO CHANGE THIS. IF THERE AREN'T ANY VOLUMES FILES THIS SHOULDN'T RETURN ALL TRP IDs
     else:
-        return list({trp["id"]
-                     for trp in import_TRPs_data()["trafficRegistrationPoints"]
-                     if trp["id"]
-                     in [get_trp_id_from_filename(file) for file in os.listdir(raw_volumes_folder)]
-                 })  # Keep only the TRPs which actually have a volumes file associated with them. Using list() on a set comprehension to avoid duplicates
+        return (trp["id"] for trp in import_TRPs_data()["trafficRegistrationPoints"]
+                if trp["id"] in [get_trp_id_from_filename(file) for file in os.listdir(raw_volumes_folder)]) # Keep only the TRPs which actually have a volumes file associated with them. Using list() on a set comprehension to avoid duplicates
+                #TODO ALSO, FIND A WAY TO KNOW DIRECTLY WHICH TRPS HAVE VOLUMES DATA AND WHICH DON'T SO IT WON'T BE NECESSARY TO CHECK EVERYTIME os.listdir(raw_volumes_folder) AND GET THE TRP NAME FROM THE FILENAMES
 
 
 def get_trp_id_from_filename(filename: str) -> str:

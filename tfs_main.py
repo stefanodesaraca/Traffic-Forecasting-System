@@ -92,13 +92,12 @@ async def download_data(functionality: str) -> None:
         await traffic_volumes_data_to_json(time_start=time_start, time_end=time_end)
 
     elif functionality == "2.3":
-        trp_id_list = get_trp_id_list()
         if len(os.listdir(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"]))) == 0:
             print("\033[91mDownload volumes data before writing metadata\033[0m")
             return None
 
         print("\nWriting metadata files...")
-        for trp_id in tqdm(trp_id_list):
+        for trp_id in tqdm(get_trp_ids()):
             write_trp_metadata(trp_id)
         print("Metadata files successfully written\n\n")
 
@@ -180,13 +179,11 @@ def execute_forecast_warmup(functionality: str) -> None:
     models = [m for m in model_names_and_functions.keys()]
     targets = ["volume", "mean_speed"]
 
-    trps = get_trp_id_list()
-
     # TRPs - Volumes files and road categories
     trps_ids_volumes_by_road_category = {
         category: [
             retrieve_trp_clean_volumes_filepath_by_id(trp_id)
-            for trp_id in trps
+            for trp_id in get_trp_ids()
             if get_trp_road_category(trp_id) == category
             and os.path.isdir(retrieve_trp_clean_volumes_filepath_by_id(trp_id))
             is False
@@ -200,7 +197,7 @@ def execute_forecast_warmup(functionality: str) -> None:
     trps_ids_avg_speeds_by_road_category = {
         category: [
             retrieve_trp_clean_average_speed_filepath_by_id(trp_id)
-            for trp_id in trps
+            for trp_id in get_trp_ids()
             if get_trp_road_category(trp_id) == category
             and os.path.isdir(retrieve_trp_clean_average_speed_filepath_by_id(trp_id))
             is False
@@ -360,7 +357,7 @@ def execute_forecasts(functionality: str) -> None:
 
     # One-Point Forecast
     if functionality == "3.3.1":
-        trp_ids = get_trp_id_list()
+        trp_ids = get_trp_ids()
         print("TRP IDs: ", trp_ids)
         trp_id = input("Insert TRP ID for forecasting: ")
 
@@ -374,7 +371,7 @@ def execute_forecasts(functionality: str) -> None:
 
 
 
-                results = one_point_volume_forecaster.forecast_volumes(volumes_preprocessed, )
+                results = one_point_volume_forecaster.forecast_volumes(volumes_preprocessed, road_category=trp_road_category)
 
                 print(results)
 
