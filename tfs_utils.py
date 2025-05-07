@@ -701,9 +701,7 @@ def retrieve_n_ml_cpus() -> int:
 
 
 def retrieve_edges() -> gpd.GeoDataFrame:
-    active_ops = get_active_ops()
-    edges_folder = read_metainfo_key(["folder_paths", "rn_graph", f"{active_ops}_edges", "path"])
-    with open(f"{edges_folder}/traffic-nodes-2024_2025-02-28.geojson", "r", encoding="utf-8") as e:
+    with open(f"{read_metainfo_key(['folder_paths', 'rn_graph', f'{get_active_ops()}_edges', 'path'])}/traffic-nodes-2024_2025-02-28.geojson", "r", encoding="utf-8") as e:
         return geojson.load(e)["features"]
 
 
@@ -711,9 +709,7 @@ def retrieve_edges() -> gpd.GeoDataFrame:
 
 
 def retrieve_arches() -> gpd.GeoDataFrame:
-    active_ops = get_active_ops()
-    arches_folder = read_metainfo_key(["folder_paths", "rn_graph", f"{active_ops}_arches", "path"])
-    with open(f"{arches_folder}/traffic_links_2024_2025-02-27.geojson", "r", encoding="utf-8") as a:
+    with open(f"{read_metainfo_key(['folder_paths', 'rn_graph', f'{get_active_ops()}_arches', 'path'])}/traffic_links_2024_2025-02-27.geojson", "r", encoding="utf-8") as a:
         return geojson.load(a)["features"]
 
 
