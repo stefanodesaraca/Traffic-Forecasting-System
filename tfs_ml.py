@@ -412,12 +412,14 @@ class OnePointForecaster:
         self._road_category: str = road_category
 
 
+
 class OnePointVolumesForecaster(OnePointForecaster):
     def __init__(self, trp_id: str, road_category: str):
         super().__init__(trp_id, road_category)  # Calling the father class
         self._trp_id: str = trp_id
         self._road_category: str = road_category
         self._n_records: int | None = None
+        self._target: str = "V"
 
 
     def preprocess(self, target_datetime: datetime, max_days: int = default_max_forecasting_window_size) -> dd.DataFrame:
@@ -484,14 +486,13 @@ class OnePointVolumesForecaster(OnePointForecaster):
         return predictions_dataset.persist()
 
 
-
-    def forecast_volumes(self, volumes: dd.DataFrame, model_name: str, target: str, road_category: str):
+    def forecast_volumes(self, volumes: dd.DataFrame, model_name: str):
 
         #TODO (IN THE FUTURE) SIMPLIFY THIS PART HERE AND IN TEST_MODELS
         ops_name = get_active_ops()
 
         # -------------- Model loading --------------
-        model = joblib.load(get_ml_models_folder_path(target, road_category) + ops_name + "_" + road_category + "_" + model_name + ".joblib")
+        model = joblib.load(get_ml_models_folder_path(self._target, self._road_category) + ops_name + "_" + self._road_category + "_" + model_name + ".joblib")
 
         with joblib.parallel_backend("dask"):
             return model.predict(volumes)
