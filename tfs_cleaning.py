@@ -441,7 +441,6 @@ class TrafficVolumesCleaner(BaseCleaner):
         try:
             by_hour.to_csv(file_path, index=False, encoding="utf-8")
             update_metainfo(file_name, ["traffic_volumes", "clean_filenames"], mode="append")
-            update_metainfo(file_path, ["traffic_volumes", "clean_filepaths"], mode="append")
             print(f"TRP: {trp_id} data exported correctly\n\n")
             return None
         except AttributeError:
@@ -642,7 +641,6 @@ class AverageSpeedCleaner(BaseCleaner):
         try:
             avg_speed_data.to_csv(filepath, index=False)  # S stands for Start (registration starting date), E stands for End and C for Clean
             update_metainfo(filename, ["average_speeds", "clean_filenames"], mode="append")
-            update_metainfo(filepath, ["average_speeds", "clean_filepaths"], mode="append") #TODO TO REMOVE FILEPATHS FROM METAINFO
             print(f"Average speed data for TRP: {trp_id} saved successfully\n\n")
             return None
         except Exception as e:

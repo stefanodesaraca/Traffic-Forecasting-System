@@ -76,8 +76,7 @@ def get_trp_road_category(trp_id: str) -> str:
 
 
 def get_trp_metadata(trp_id: str) -> dict:
-    #TODO REPLACE THE STRING BELOW WITH read_metainfo_key()
-    with open(f"{cwd}/{ops_folder}/{get_active_ops()}/{get_active_ops()}_data/trp_metadata/{trp_id}_metadata.json", "r", encoding="utf-8") as json_trp_metadata:
+    with open(read_metainfo_key(keys_map=["folder_paths", "trp_metadata", "path"]) + f"{trp_id}_metadata.json", "r", encoding="utf-8") as json_trp_metadata:
         return json.load(json_trp_metadata)
 
 
@@ -136,8 +135,7 @@ def write_trp_metadata(trp_id: str) -> None:
     with open(metadata_filepath, "w", encoding="utf-8") as json_metadata:
         json.dump(metadata, json_metadata, indent=4)
 
-    update_metainfo(f"{trp_id}_metadata", ["metadata_filenames"], "append")
-    update_metainfo(metadata_filepath, ["metadata_filepaths"], "append")
+    update_metainfo(f"{trp_id}_metadata", ["metadata_files"], "append")
 
     return None
 
@@ -424,9 +422,7 @@ def write_metainfo(ops_name: str) -> None:
                 "n_years:": None,  # The total number of years which we have data about
                 "n_weeks": None,  # The total number of weeks which we have data about
                 "raw_filenames": [],  # The list of raw traffic volumes file names
-                "raw_filepaths": [],  # The list of file raw traffic volumes file path
                 "clean_filenames": [],  # The list of clean traffic volumes file names
-                "clean_filepaths": [],  # The list of file clean traffic volumes file path
                 "n_rows": [],  # The total number of records downloaded (clean volumes)
                 "raw_volumes_start_date": None,  # The first date available for raw volumes files
                 "raw_volumes_end_date": None,  # The last date available for raw volumes files
@@ -449,17 +445,14 @@ def write_metainfo(ops_name: str) -> None:
                 "n_years": None,  # The total number of years which we have data about
                 "n_weeks": None,  # The total number of weeks which we have data about
                 "raw_filenames": [],  # The list of raw average speed file names
-                "raw_filepaths": [],  # The list of file raw average speed file path
                 "clean_filenames": [],  # The list of clean average speed file names
-                "clean_filepaths": [],  # The list of file clean average speed file path
                 "n_rows": [],  # The total number of records downloaded (clean average speeds)
                 "raw_avg_speed_start_date": None,  # The first date available for raw average speed files
                 "raw_avg_speed_end_date": None,  # The last date available for raw average speed files
                 "clean_avg_speed_start_date": None,  # The first date available for clean average speed files
                 "clean_avg_speed_end_date": None  # The last date available for clean average speed files
             },
-            "metadata_filenames": [],
-            "metadata_filepaths": [],
+            "metadata_files": [],
             "folder_paths": {},
             "forecasting": {"target_datetimes": {"V": None, "AS": None}},
             "by_trp_id": {
