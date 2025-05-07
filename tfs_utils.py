@@ -166,8 +166,8 @@ def retrieve_trp_clean_average_speed_filepath_by_id(trp_id: str) -> str:
 #TODO SIMPLIFY THESE TWO FUNCTIONS BELOW
 def get_ml_models_folder_path(target: str, road_category: str) -> str:
     folder_paths = {
-        "volume": read_metainfo_key(keys_map=["ml", "models", "subfolders", "traffic_volumes", "subfolders", road_category, "path"]),
-        "mean_speed": read_metainfo_key(keys_map=["ml", "models", "subfolders", "average_speed", "subfolders", road_category, "path"])
+        "volume": read_metainfo_key(keys_map=["folder_paths", "ml", "models", "subfolders", "traffic_volumes", "subfolders", road_category, "path"]),
+        "mean_speed": read_metainfo_key(keys_map=["folder_paths", "ml", "models", "subfolders", "average_speed", "subfolders", road_category, "path"])
     }
     if folder_paths[target]:
         return folder_paths[target]
@@ -287,6 +287,7 @@ def del_active_ops_file() -> None:
     return None
 
 
+#TODO TO OPTMIZE
 # If the user wants to create a new operation, this function will be called
 def create_ops_folder(ops_name: str) -> None:
     ops_name = clean_text(ops_name)
@@ -660,29 +661,21 @@ def check_datetime(dt: str) -> bool:
 
 @lru_cache()
 def get_eda_plots_folder_path(sub: str = None) -> str:
-    ops_name = get_active_ops()
-    if sub == "volumes":
-        return read_metainfo_key(keys_map=["folder_paths", "eda", f"{ops_name}_plots", "traffic_volumes_eda_plots"])
-    elif sub == "avg_speeds":
-        return read_metainfo_key(keys_map=["folder_paths", "eda", f"{ops_name}_plots", "avg_speeds_eda_plots"])
+    folder_paths = {
+        "volumes":read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "traffic_volumes_eda_plots"]),
+        "avg_speeds":read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "avg_speeds_eda_plots"])
+    }
+    if sub is not None and folder_paths[sub]:
+        return folder_paths[sub]
     elif sub is None:
-        return read_metainfo_key(keys_map=["folder_paths", "eda", f"{ops_name}_plots"])
+        return read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots"])
     else:
         raise Exception("Wrong plots path")
 
 
 def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
     df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
-
-    # print("Number of outliers: ", len(df[(df["z_score"] < -3) & (df["z_score"] > 3)]))
-    # print("Length before: ", len(df))
-
-    filtered_df = df[(df["z_score"] > -3) & (df["z_score"] < 3)]
-    filtered_df = filtered_df.drop(columns="z_score")
-
-    # print("Length after: ", len(filtered_df))
-
-    return filtered_df.persist()
+    return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
 
 
 def get_24_hours() -> Generator[str, None, None]:

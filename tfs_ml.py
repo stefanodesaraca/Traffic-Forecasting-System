@@ -268,6 +268,8 @@ class TrafficVolumesLearner(BaseLearner):
         if z_score is True:
             volumes = ZScore(volumes, "volume")
 
+            print(len(volumes))
+
         volumes = volumes.sort_values(by=["date"], ascending=True)
 
         # ------------------ TRP ID Target-Encoding ------------------
