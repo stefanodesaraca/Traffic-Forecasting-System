@@ -268,8 +268,6 @@ class TrafficVolumesLearner(BaseLearner):
         if z_score is True:
             volumes = ZScore(volumes, "volume")
 
-            print(len(volumes))
-
         volumes = volumes.sort_values(by=["date"], ascending=True)
 
         # ------------------ TRP ID Target-Encoding ------------------
@@ -289,13 +287,13 @@ class TrafficVolumesLearner(BaseLearner):
 
         # ------------------ Creating lag features ------------------
 
-        lag6h_column_names = [f"volumes_lag6h_{i}" for i in range(1, 7)]
-        lag12h_column_names = [f"volumes_lag12h_{i}" for i in range(1, 7)]
-        lag24h_column_names = [f"volumes_lag24h_{i}" for i in range(1, 7)]
+        lag6h_column_names = (f"volumes_lag6h_{i}" for i in range(1, 7))
+        lag12h_column_names = (f"volumes_lag12h_{i}" for i in range(1, 7))
+        lag24h_column_names = (f"volumes_lag24h_{i}" for i in range(1, 7))
 
-        for idx, n in enumerate(lag6h_column_names):volumes[n] = volumes["volume"].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate(lag12h_column_names):volumes[n] = volumes["volume"].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate(lag24h_column_names):volumes[n] = volumes["volume"].shift(idx + 24)  # 24 hours shift
+        for idx, n in enumerate(lag6h_column_names): volumes[n] = volumes["volume"].shift(idx + 6)  # 6 hours shift
+        for idx, n in enumerate(lag12h_column_names): volumes[n] = volumes["volume"].shift(idx + 12)  # 12 hours shift
+        for idx, n in enumerate(lag24h_column_names): volumes[n] = volumes["volume"].shift(idx + 24)  # 24 hours shift
 
         # print(volumes.head(10))
         # print(volumes.dtypes)
@@ -368,27 +366,27 @@ class AverageSpeedLearner(BaseLearner):
 
         # ------------------ Creating lag features ------------------
 
-        lag6h_column_names = [f"mean_speed_lag6h_{i}" for i in range(1, 7)]
-        lag12h_column_names = [f"mean_speed_lag12_{i}" for i in range(1, 7)]
-        lag24h_column_names = [f"mean_speed_lag24_{i}" for i in range(1, 7)]
-        percentile_85_lag6_column_names = [f"percentile_85_lag{i}" for i in range(1, 7)]
-        percentile_85_lag12_column_names = [f"percentile_85_lag{i}" for i in range(1, 7)]
-        percentile_85_lag24_column_names = [f"percentile_85_lag{i}" for i in range(1, 7)]
+        lag6h_column_names = (f"mean_speed_lag6h_{i}" for i in range(1, 7))
+        lag12h_column_names = (f"mean_speed_lag12_{i}" for i in range(1, 7))
+        lag24h_column_names = (f"mean_speed_lag24_{i}" for i in range(1, 7))
+        percentile_85_lag6_column_names = (f"percentile_85_lag{i}" for i in range(1, 7))
+        percentile_85_lag12_column_names = (f"percentile_85_lag{i}" for i in range(1, 7))
+        percentile_85_lag24_column_names = (f"percentile_85_lag{i}" for i in range(1, 7))
 
-        for idx, n in enumerate(lag6h_column_names):speeds[n] = speeds["mean_speed"].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate(lag12h_column_names):speeds[n] = speeds["mean_speed"].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate(lag24h_column_names):speeds[n] = speeds["mean_speed"].shift(idx + 24)  # 24 hours shift
+        for idx, n in enumerate(lag6h_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 6)  # 6 hours shift
+        for idx, n in enumerate(lag12h_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 12)  # 12 hours shift
+        for idx, n in enumerate(lag24h_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 24)  # 24 hours shift
 
-        for idx, n in enumerate(percentile_85_lag6_column_names):speeds[n] = speeds["percentile_85"].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate(percentile_85_lag12_column_names):speeds[n] = speeds["percentile_85"].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate(percentile_85_lag24_column_names):speeds[n] = speeds["percentile_85"].shift(idx + 24)  # 24 hours shift
+        for idx, n in enumerate(percentile_85_lag6_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 6)  # 6 hours shift
+        for idx, n in enumerate(percentile_85_lag12_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 12)  # 12 hours shift
+        for idx, n in enumerate(percentile_85_lag24_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 24)  # 24 hours shift
 
         # print(speeds.head(10))
         # print(speeds.dtypes)
 
         # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
 
-        speeds["is_covid_year"] = (speeds["year"].isin(get_covid_years())).astype("int")  # Creating a dummy variable which indicates if the average speed for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
+        speeds["is_covid_year"] = speeds["year"].isin(get_covid_years()).astype("int")  # Creating a dummy variable which indicates if the average speed for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
