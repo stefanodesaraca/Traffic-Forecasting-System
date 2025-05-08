@@ -469,7 +469,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
         rows_to_predict.persist()
 
-        predictions_dataset = dd.concat([dd.read_csv(retrieve_trp_clean_volumes_filepath_by_id(self._trp_id)).tail(self._n_records), rows_to_predict], axis=0)
+        predictions_dataset = dd.concat([dd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + self._trp_id + "_volumes.csv").tail(self._n_records), rows_to_predict], axis=0)
         predictions_dataset = predictions_dataset.repartition(partition_size="512MB")
         predictions_dataset = predictions_dataset.reset_index()
         predictions_dataset = predictions_dataset.drop(columns=["index"])

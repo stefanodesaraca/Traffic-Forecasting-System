@@ -159,17 +159,19 @@ def execute_eda() -> None:
 # TODO IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL. EXPLICITELY PRINT THAT FILES METADATA IS NEEDED BEFORE EXECUTING THE WARMUP
 def execute_forecast_warmup(functionality: str) -> None:
     models = [m for m in model_names_and_functions.keys()]
+    clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
+    clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
+
 
     # TRPs - Volumes files and road categories
     trps_ids_volumes_by_road_category = {
         category: [
-            retrieve_trp_clean_volumes_filepath_by_id(trp_id)
+            clean_volumes_folder + trp_id + "_volumes.csv"
             for trp_id in get_trp_ids()
-            if get_trp_road_category(trp_id) == category
-            and os.path.isdir(retrieve_trp_clean_volumes_filepath_by_id(trp_id))
-            is False
+            if get_trp_metadata(trp_id)["road_category"] == category
+            and get_trp_metadata(trp_id)["checks"]["has_volumes"]
         ]
-        for category in get_all_available_road_categories()
+        for category in get_available_road_categories()
     }
     print(trps_ids_volumes_by_road_category)
     # The isdir() method is needed since there could be some cases where the volumes files are absent, but TRPs are included in the trps list, so if there isn't on we'll just obtain the path for the clean volumes files folder. Thus, if the string is a path to a folder then don't include it in the trps_ids_by_road_category
@@ -185,13 +187,12 @@ def execute_forecast_warmup(functionality: str) -> None:
     # TRPs - Average files and road categories
     trps_ids_avg_speeds_by_road_category = {
         category: [
-            retrieve_trp_clean_average_speed_filepath_by_id(trp_id)
+            clean_speeds_folder + trp_id + "_speeds.csv"
             for trp_id in get_trp_ids()
-            if get_trp_road_category(trp_id) == category
-            and os.path.isdir(retrieve_trp_clean_average_speed_filepath_by_id(trp_id))
-            is False
+            if get_trp_metadata(trp_id)["road_category"] == category
+            and get_trp_metadata(trp_id)["checks"]["has_speeds"]
         ]
-        for category in get_all_available_road_categories()
+        for category in get_available_road_categories()
     }
 
     # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
@@ -348,7 +349,7 @@ def execute_forecasts(functionality: str) -> None:
         trp_id = input("Insert TRP ID for forecasting: ")
 
         if trp_id in trp_ids:
-            trp_road_category = get_trp_road_category(trp_id)
+            trp_road_category = get_trp_metadata(trp_id)["road_category"]
             print("\nTRP road category:", trp_road_category)
 
             if option == "V":

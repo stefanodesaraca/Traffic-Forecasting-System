@@ -52,7 +52,7 @@ def import_TRPs_data():
 
 # ------------ Metadata ------------
 
-def get_trp_metadata(trp_id: str) -> dict:
+def get_trp_metadata(trp_id: str) -> dict[Any, Any]:
     with open(read_metainfo_key(keys_map=["folder_paths", "trp_metadata", "path"]) + f"{trp_id}_metadata.json", "r", encoding="utf-8") as json_trp_metadata:
         return json.load(json_trp_metadata)
 
@@ -60,6 +60,7 @@ def get_trp_metadata(trp_id: str) -> dict:
 def write_trp_metadata(trp_id: str) -> None:
     metadata = {
         "id": trp_id,
+        "trp_data": None,
         "number_of_data_nodes": None,
         "files": {
             "volumes": {
@@ -125,41 +126,180 @@ def read_trp_metadata_key(trp_id: str, metadata_keys_map: list[str]) -> Any:
     return payload[metadata_keys_map[-1]]
 
 
+# ------------ Metainfo File ------------
+
+def write_metainfo(ops_name: str) -> None:
+    target_folder = f"{ops_folder}/{ops_name}/"
+    assert os.path.isdir(target_folder) is True, f"{target_folder} folder not found. Have you created the operation first?"
+
+    metainfo = {
+        "common": {
+            "n_raw_traffic_volumes": None,
+            "n_clean_traffic_volumes": None,
+            "n_raw_average_speeds": None,
+            "n_clean_average_speeds": None,
+            "raw_volumes_size": None,
+            "clean_volumes_size": None,
+            "raw_average_speeds_size": None,
+            "clean_average_speeds_size": None,
+            "traffic_registration_points_file": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_registration_points.json"
+        },
+        "traffic_volumes": {
+            "n_days": None,  # The total number of days which we have data about
+            "n_months": None,  # The total number of months which we have data about
+            "n_years:": None,  # The total number of years which we have data about
+            "n_weeks": None,  # The total number of weeks which we have data about
+            "raw_filenames": [],  # The list of raw traffic volumes file names
+            "clean_filenames": [],  # The list of clean traffic volumes file names
+            "n_rows": [],  # The total number of records downloaded (clean volumes)
+        },
+        "average_speeds": {
+            "n_days": None,  # The total number of days which we have data about
+            "n_months": None,  # The total number of months which we have data about
+            "n_years": None,  # The total number of years which we have data about
+            "n_weeks": None,  # The total number of weeks which we have data about
+            "raw_filenames": [],  # The list of raw average speed file names
+            "clean_filenames": [],  # The list of clean average speed file names
+            "n_rows": [],  # The total number of records downloaded (clean average speeds)
+
+        },
+        "folder_paths": {},
+        "forecasting": {"target_datetimes": {"V": None, "AS": None}},
+        "trps": {} #For each TRP we'll have {"id": metadata_filename}
+    }
+
+    with open(target_folder + metainfo_filename + ".json", "w", encoding="utf-8") as tf:
+            json.dump(metainfo, tf, indent=4)
+
+    return None
 
 
+def check_metainfo_file() -> bool:
+    return os.path.isfile(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json")  # Either True (if file exists) or False (in case the file doesn't exist)
 
 
+def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
+    """
+    This function inserts data into a specific right key-value pair in the metainfo.json file of the active operation.
 
+    Parameters:
+        value: the value which we want to insert or append for a specific key-value pair
+        keys_map: the list which includes all the keys which bring to the key-value pair to update or to append another value to (the last key value pair has to be included).
+                  The elements in the list must be ordered in which the keys are located in the metainfo dictionary
+        mode: the mode which we intend to use for a specific operation on the metainfo file. For example: we may want to set a value for a specific key, or we may want to append another value to a list (which is the value of a specific key-value pair)
+    """
+    metainfo_filepath = f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
+    modes = ["equals", "append"]
+
+    if check_metainfo_file() is True:
+        with open(metainfo_filepath, "r", encoding="utf-8") as m:
+            payload = json.load(m)
+    else:
+        raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
+
+    # metainfo = payload has a specific reason to exist
+    # This is how we preserve the whole original dictionary (loaded from the JSON file), but at the same time iterate over its keys and updating them
+    # By doing to we'll assign the value (obtained from the value parameter of this method) to the right key, but preserving the rest of the dictionary
+    metainfo = payload
+
+    if mode == "equals":
+        for key in keys_map[:-1]:
+            metainfo = metainfo[key]
+        metainfo[keys_map[-1]] = value  # Updating the metainfo file key-value pair
+        with open(metainfo_filepath, "w", encoding="utf-8") as m:
+            json.dump(payload, m, indent=4)
+    elif mode == "append":
+        for key in keys_map[:-1]:
+            metainfo = metainfo[key]
+        metainfo[keys_map[-1]].append(value)  # Appending a new value to the list (which is the value of this key-value pair)
+        with open(metainfo_filepath, "w", encoding="utf-8") as m:
+            json.dump(payload, m, indent=4)
+    elif mode not in modes:
+        print("\033[91mWrong mode\033[0m")
+        sys.exit(1)
+
+    return None
+
+
+async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
+    """
+    This function is the asynchronous version of the update_metainfo() one. It inserts data into a specific right key-value pair in the metainfo.json file of the active operation.
+
+    Parameters:
+        value: the value which we want to insert or append for a specific key-value pair
+        keys_map: the list which includes all the keys which bring to the key-value pair to update or to append another value to (the last key value pair has to be included).
+                  The elements in the list must be ordered in which the keys are located in the metainfo dictionary
+        mode: the mode which we intend to use for a specific operation on the metainfo file. For example: we may want to set a value for a specific key, or we may want to append another value to a list (which is the value of a specific key-value pair)
+    """
+    metainfo_filepath = f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
+    modes = ["equals", "append"]
+
+    async with metainfo_lock:
+        if check_metainfo_file() is True:
+            async with aiofiles.open(metainfo_filepath, "r") as m:
+                content = await m.read()
+                payload = json.loads(content)
+        else:
+            raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
+
+        # metainfo = payload has a specific reason to exist
+        # This is how we preserve the whole original dictionary (loaded from the JSON file), but at the same time iterate over its keys and updating them
+        # By doing to we'll assign the value (obtained from the value parameter of this method) to the right key, but preserving the rest of the dictionary
+        metainfo = payload
+
+        if mode == "equals":
+            for key in keys_map[:-1]:
+                metainfo = metainfo[key]
+            metainfo[keys_map[-1]] = value  # Updating the metainfo file key-value pair
+            async with aiofiles.open(metainfo_filepath, "w") as f:
+                await f.write(json.dumps(payload, indent=4))
+        elif mode == "append":
+            for key in keys_map[:-1]:
+                metainfo = metainfo[key]
+            metainfo[keys_map[-1]].append(value)  # Appending a new value to the list (which is the value of this key-value pair)
+            async with aiofiles.open(metainfo_filepath, "w") as f:
+                await f.write(json.dumps(payload, indent=4))
+        elif mode not in modes:
+            print("\033[91mWrong mode\033[0m")
+            sys.exit(1)
+
+    return None
+
+
+#This function needs to be cached since it will be called exactly as many times as read_metainfo_key()
+@lru_cache()
+def load_metainfo_payload():
+    if check_metainfo_file() is True:
+        with open(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
+            return json.load(m)
+    else:
+        raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
+
+
+def read_metainfo_key(keys_map: list) -> Any:
+    """
+    This function reads data from a specific key-value pair in the metainfo.json file of the active operation.
+
+    Parameters:
+        keys_map: the list which includes all the keys which bring to the key-value pair to read (the one to read included)
+    """
+    payload = load_metainfo_payload()
+
+    for key in keys_map[:-1]:
+        payload = payload[key]
+
+    return payload[keys_map[-1]]  # Returning the metainfo key-value pair
+
+
+# ==================== TRP Related Utilities ====================
 
 def get_trp_ids() -> list[str]:
     assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points"
     return list(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]).keys())
 
 
-def get_trp_id_from_filename(filename: str) -> str:
-    return filename.split("_")[0]
-
-
-def get_all_available_road_categories() -> list:
-    return list(set(trp for trp in import_TRPs_data()))
-
-
-def get_trp_road_category(trp_id: str) -> str:
-    return get_trp_metadata(trp_id)["road_category"]
-
-
-def retrieve_trp_clean_volumes_filepath_by_id(trp_id: str) -> str:
-    return get_trp_metadata(trp_id)["clean_volumes_filepath"]
-
-
-def retrieve_trp_clean_average_speed_filepath_by_id(trp_id: str) -> str:
-    return get_trp_metadata(trp_id)["clean_average_speed_filepath"]
-
-
-# ==================== Volumes Utilities ====================
-
-
-# ==================== Average Speeds Utilities ====================
+def get_available_road_categories() -> list[str]:
+    return list(set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data()))
 
 
 # ==================== ML Related Utilities ====================
@@ -386,169 +526,6 @@ def del_ops_folder(ops_name: str) -> None:
     return None
 
 
-# ------------ Metainfo File ------------
-
-def write_metainfo(ops_name: str) -> None:
-    target_folder = f"{ops_folder}/{ops_name}/"
-    assert os.path.isdir(target_folder) is True, f"{target_folder} folder not found. Have you created the operation first?"
-
-    metainfo = {
-        "common": {
-            "n_raw_traffic_volumes": None,
-            "n_clean_traffic_volumes": None,
-            "n_raw_average_speeds": None,
-            "n_clean_average_speeds": None,
-            "raw_volumes_size": None,
-            "clean_volumes_size": None,
-            "raw_average_speeds_size": None,
-            "clean_average_speeds_size": None,
-            "traffic_registration_points_file": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_registration_points.json"
-        },
-        "traffic_volumes": {
-            "n_days": None,  # The total number of days which we have data about
-            "n_months": None,  # The total number of months which we have data about
-            "n_years:": None,  # The total number of years which we have data about
-            "n_weeks": None,  # The total number of weeks which we have data about
-            "raw_filenames": [],  # The list of raw traffic volumes file names
-            "clean_filenames": [],  # The list of clean traffic volumes file names
-            "n_rows": [],  # The total number of records downloaded (clean volumes)
-        },
-        "average_speeds": {
-            "n_days": None,  # The total number of days which we have data about
-            "n_months": None,  # The total number of months which we have data about
-            "n_years": None,  # The total number of years which we have data about
-            "n_weeks": None,  # The total number of weeks which we have data about
-            "raw_filenames": [],  # The list of raw average speed file names
-            "clean_filenames": [],  # The list of clean average speed file names
-            "n_rows": [],  # The total number of records downloaded (clean average speeds)
-
-        },
-        "folder_paths": {},
-        "forecasting": {"target_datetimes": {"V": None, "AS": None}},
-        "trps": {} #For each TRP we'll have {"id": metadata_filename}
-    }
-
-    with open(target_folder + metainfo_filename + ".json", "w", encoding="utf-8") as tf:
-            json.dump(metainfo, tf, indent=4)
-
-    return None
-
-
-def check_metainfo_file() -> bool:
-    return os.path.isfile(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json")  # Either True (if file exists) or False (in case the file doesn't exist)
-
-
-def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
-    """
-    This function inserts data into a specific right key-value pair in the metainfo.json file of the active operation.
-
-    Parameters:
-        value: the value which we want to insert or append for a specific key-value pair
-        keys_map: the list which includes all the keys which bring to the key-value pair to update or to append another value to (the last key value pair has to be included).
-                  The elements in the list must be ordered in which the keys are located in the metainfo dictionary
-        mode: the mode which we intend to use for a specific operation on the metainfo file. For example: we may want to set a value for a specific key, or we may want to append another value to a list (which is the value of a specific key-value pair)
-    """
-    metainfo_filepath = f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
-    modes = ["equals", "append"]
-
-    if check_metainfo_file() is True:
-        with open(metainfo_filepath, "r", encoding="utf-8") as m:
-            payload = json.load(m)
-    else:
-        raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
-
-    # metainfo = payload has a specific reason to exist
-    # This is how we preserve the whole original dictionary (loaded from the JSON file), but at the same time iterate over its keys and updating them
-    # By doing to we'll assign the value (obtained from the value parameter of this method) to the right key, but preserving the rest of the dictionary
-    metainfo = payload
-
-    if mode == "equals":
-        for key in keys_map[:-1]:
-            metainfo = metainfo[key]
-        metainfo[keys_map[-1]] = value  # Updating the metainfo file key-value pair
-        with open(metainfo_filepath, "w", encoding="utf-8") as m:
-            json.dump(payload, m, indent=4)
-    elif mode == "append":
-        for key in keys_map[:-1]:
-            metainfo = metainfo[key]
-        metainfo[keys_map[-1]].append(value)  # Appending a new value to the list (which is the value of this key-value pair)
-        with open(metainfo_filepath, "w", encoding="utf-8") as m:
-            json.dump(payload, m, indent=4)
-    elif mode not in modes:
-        print("\033[91mWrong mode\033[0m")
-        sys.exit(1)
-
-    return None
-
-
-async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
-    """
-    This function is the asynchronous version of the update_metainfo() one. It inserts data into a specific right key-value pair in the metainfo.json file of the active operation.
-
-    Parameters:
-        value: the value which we want to insert or append for a specific key-value pair
-        keys_map: the list which includes all the keys which bring to the key-value pair to update or to append another value to (the last key value pair has to be included).
-                  The elements in the list must be ordered in which the keys are located in the metainfo dictionary
-        mode: the mode which we intend to use for a specific operation on the metainfo file. For example: we may want to set a value for a specific key, or we may want to append another value to a list (which is the value of a specific key-value pair)
-    """
-    metainfo_filepath = f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
-    modes = ["equals", "append"]
-
-    async with metainfo_lock:
-        if check_metainfo_file() is True:
-            async with aiofiles.open(metainfo_filepath, "r") as m:
-                content = await m.read()
-                payload = json.loads(content)
-        else:
-            raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
-
-        # metainfo = payload has a specific reason to exist
-        # This is how we preserve the whole original dictionary (loaded from the JSON file), but at the same time iterate over its keys and updating them
-        # By doing to we'll assign the value (obtained from the value parameter of this method) to the right key, but preserving the rest of the dictionary
-        metainfo = payload
-
-        if mode == "equals":
-            for key in keys_map[:-1]:
-                metainfo = metainfo[key]
-            metainfo[keys_map[-1]] = value  # Updating the metainfo file key-value pair
-            async with aiofiles.open(metainfo_filepath, "w") as f:
-                await f.write(json.dumps(payload, indent=4))
-        elif mode == "append":
-            for key in keys_map[:-1]:
-                metainfo = metainfo[key]
-            metainfo[keys_map[-1]].append(value)  # Appending a new value to the list (which is the value of this key-value pair)
-            async with aiofiles.open(metainfo_filepath, "w") as f:
-                await f.write(json.dumps(payload, indent=4))
-        elif mode not in modes:
-            print("\033[91mWrong mode\033[0m")
-            sys.exit(1)
-
-    return None
-
-
-#This function needs to be cached since it will be called exactly as many times as read_metainfo_key()
-@lru_cache()
-def load_metainfo_payload():
-    if check_metainfo_file() is True:
-        with open(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
-            return json.load(m)
-    else:
-        raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
-
-
-def read_metainfo_key(keys_map: list) -> Any:
-    """
-    This function reads data from a specific key-value pair in the metainfo.json file of the active operation.
-
-    Parameters:
-        keys_map: the list which includes all the keys which bring to the key-value pair to read (the one to read included)
-    """
-    payload = load_metainfo_payload()
-
-    for key in keys_map[:-1]:
-        payload = payload[key]
-
-    return payload[keys_map[-1]]  # Returning the metainfo key-value pair
 
 
 # ==================== Auxiliary Utilities ====================
