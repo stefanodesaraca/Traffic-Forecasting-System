@@ -123,7 +123,6 @@ def update_trp_metadata(trp_id: str, value: Any, metadata_keys_map: list[str], m
 
 
 
-# TODO IMPROVE THIS FUNCTION, AND SET THAT THIS RETURNS A generator OF str
 def get_trp_ids() -> list[str]:
     assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points"
     return list(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]).keys())
@@ -134,7 +133,7 @@ def get_trp_id_from_filename(filename: str) -> str:
 
 
 def get_all_available_road_categories() -> list:
-    return list(set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data()["trafficRegistrationPoints"]))
+    return list(set(trp for trp in import_TRPs_data()))
 
 
 def get_trp_road_category(trp_id: str) -> str:
@@ -161,8 +160,8 @@ def retrieve_trp_clean_average_speed_filepath_by_id(trp_id: str) -> str:
 
 # ==================== ML Related Utilities ====================
 
-#TODO SIMPLIFY THESE TWO FUNCTIONS BELOW (MEANING CREATE ONLY ONE WHICH CAN SERVE BOTH FUNCTIONALITIES
-def get_ml_models_folder_path(target: str, road_category: str) -> str:
+
+def get_models_folder_path(target: str, road_category: str) -> str:
     folder_paths = {
         "volume": read_metainfo_key(keys_map=["folder_paths", "ml", "models", "subfolders", "traffic_volumes", "subfolders", road_category, "path"]),
         "average_speed": read_metainfo_key(keys_map=["folder_paths", "ml", "models", "subfolders", "average_speed", "subfolders", road_category, "path"])
@@ -173,7 +172,7 @@ def get_ml_models_folder_path(target: str, road_category: str) -> str:
         raise Exception("Wrong target variable in the get_ml_models_folder_path() function")
 
 
-def get_ml_models_parameters_folder_path(target: str, road_category: str) -> str:
+def get_models_parameters_folder_path(target: str, road_category: str) -> str:
     folder_paths = {
         "volume": read_metainfo_key(keys_map=["ml", "models_parameters", "subfolders", "traffic_volumes", "subfolders", road_category, "path"]),
         "average_speed": read_metainfo_key(keys_map=["ml", "models_parameters", "subfolders", "average_speed", "subfolders", road_category, "path"])
@@ -298,7 +297,7 @@ def create_ops_folder(ops_name: str) -> None:
         "traffic_volumes",
         "average_speed",
         "travel_times",
-        "trp_metadata",
+        "trp_metadata"
     ]
     data_sub_subfolders = ["raw", "clean"]  # To isolate raw data from the clean one
     eda_subfolders = [f"{ops_name}_shapiro_wilk_test", f"{ops_name}_plots"]
@@ -307,7 +306,7 @@ def create_ops_folder(ops_name: str) -> None:
         f"{ops_name}_edges",
         f"{ops_name}_arches",
         f"{ops_name}_graph_analysis",
-        f"{ops_name}_shortest_paths",
+        f"{ops_name}_shortest_paths"
     ]
     ml_subfolders = ["models_parameters", "models", "models_performance", "ml_reports"]
     ml_sub_subfolders = ["traffic_volumes", "average_speed"]
@@ -404,16 +403,6 @@ def write_metainfo(ops_name: str) -> None:
             "traffic_registration_points_file": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_registration_points.json"
         },
         "traffic_volumes": {
-            "start_date_iso": None,  # The start date which was inserted in the download section of the menu in ISO format
-            "end_date_iso": None,  # The end date which was inserted in the download section of the menu in ISO format
-            "start_year": None,  # The year obtained from the start_date_iso datetime
-            "start_month": None,  # The month obtained from the start_date_iso datetime
-            "start_day": None,  # The day obtained from the start_date_iso datetime
-            "start_hour": None,  # The hour obtained from the start_date_iso datetime
-            "end_year": None,  # The year obtained from the end_date_iso datetime
-            "end_month": None,  # The month obtained from the end_date_iso datetime
-            "end_day": None,  # The day obtained from the end_date_iso datetime
-            "end_hour": None,  # The hour obtained from the end_date_iso datetime
             "n_days": None,  # The total number of days which we have data about
             "n_months": None,  # The total number of months which we have data about
             "n_years:": None,  # The total number of years which we have data about
@@ -421,22 +410,8 @@ def write_metainfo(ops_name: str) -> None:
             "raw_filenames": [],  # The list of raw traffic volumes file names
             "clean_filenames": [],  # The list of clean traffic volumes file names
             "n_rows": [],  # The total number of records downloaded (clean volumes)
-            "raw_volumes_start_date": None,  # The first date available for raw volumes files
-            "raw_volumes_end_date": None,  # The last date available for raw volumes files
-            "clean_volumes_start_date": None,  # The first date available for clean volumes files
-            "clean_volumes_end_date": None  # The last date available for clean volumes files
         },
         "average_speeds": {
-            "start_date_iso": None,  # The start date which was inserted in the download section of the menu in ISO format
-            "end_date_iso": None,  # The end date which was inserted in the download section of the menu in ISO format
-            "start_year": None,  # The year obtained from the start_date_iso datetime
-            "start_month": None,  # The month obtained from the start_date_iso datetime
-            "start_day": None,  # The day obtained from the start_date_iso datetime
-            "start_hour": None,  # The hour obtained from the start_date_iso datetime
-            "end_year": None,  # The year obtained from the end_date_iso datetime
-            "end_month": None,  # The month obtained from the end_date_iso datetime
-            "end_day": None,  # The day obtained from the end_date_iso datetime
-            "end_hour": None,  # The hour obtained from the end_date_iso datetime
             "n_days": None,  # The total number of days which we have data about
             "n_months": None,  # The total number of months which we have data about
             "n_years": None,  # The total number of years which we have data about
@@ -444,17 +419,11 @@ def write_metainfo(ops_name: str) -> None:
             "raw_filenames": [],  # The list of raw average speed file names
             "clean_filenames": [],  # The list of clean average speed file names
             "n_rows": [],  # The total number of records downloaded (clean average speeds)
-            "raw_avg_speed_start_date": None,  # The first date available for raw average speed files
-            "raw_avg_speed_end_date": None,  # The last date available for raw average speed files
-            "clean_avg_speed_start_date": None,  # The first date available for clean average speed files
-            "clean_avg_speed_end_date": None  # The last date available for clean average speed files
+
         },
-        "metadata_files": [],
         "folder_paths": {},
         "forecasting": {"target_datetimes": {"V": None, "AS": None}},
-        "by_trp_id": {
-            "trp_ids": {}  # TODO ADD IF A RAW FILE HAS A CORRESPONDING CLEAN ONE (FOR BOTH TV AND AVG SPEEDS)
-        }
+        "trps": {} #For each TRP we'll have {"id": metadata_filename}
     }
 
     with open(target_folder + metainfo_filename + ".json", "w", encoding="utf-8") as tf:

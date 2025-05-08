@@ -7,6 +7,7 @@ from warnings import simplefilter
 from gql import gql, Client
 from gql.transport.exceptions import TransportServerError
 from gql.transport.aiohttp import AIOHTTPTransport
+from graphql import ExecutionResult
 
 from tfs_utils import *
 
@@ -20,26 +21,20 @@ cwd = os.getcwd()
 
 
 # This client is only designed to run synchronously for fast-to-download stuff without needing to complicate simple functions like fetch_traffic_registration_points(), fetch_road_categories(), etc.
-def start_client():
-    transport = AIOHTTPTransport(url="https://trafikkdata-api.atlas.vegvesen.no/")
-    client = Client(transport=transport, fetch_schema_from_transport=True)
-
-    return client
+def start_client() -> Client:
+    return Client(transport=AIOHTTPTransport(url="https://trafikkdata-api.atlas.vegvesen.no/"), fetch_schema_from_transport=True)
 
 
 # This client is specifically thought for asynchronous data downloading
-async def start_client_async():
-    transport = AIOHTTPTransport(url="https://trafikkdata-api.atlas.vegvesen.no/")
-    client = Client(transport=transport, fetch_schema_from_transport=True)
-
-    return client
+async def start_client_async() -> Client:
+    return Client(transport=AIOHTTPTransport(url="https://trafikkdata-api.atlas.vegvesen.no/"), fetch_schema_from_transport=True)
 
 
 # --------------------------------- GraphQL Queries Section (Data Fetching) ---------------------------------
 
 
 # The number 3 indicates the Oslo og Viken county, which only includes the Oslo municipality
-async def fetch_traffic_registration_points(client: Client):
+async def fetch_traffic_registration_points(client: Client) -> dict | ExecutionResult:
     tmp_query = gql(
         """
         {
@@ -99,20 +94,10 @@ async def fetch_traffic_registration_points(client: Client):
         }
         """
     )
-
-    traffic_registration_points = await client.execute_async(tmp_query)
-
-    return traffic_registration_points
+    return await client.execute_async(tmp_query)
 
 
-def fetch_traffic_volumes_for_trp_id(
-    client: Client,
-    traffic_registration_point: str,
-    time_start: str,
-    time_end: str,
-    last_end_cursor: str,
-    next_page_query: bool,
-):
+def fetch_traffic_volumes_for_trp_id(client: Client, traffic_registration_point: str, time_start: str, time_end: str, last_end_cursor: str, next_page_query: bool) -> dict | ExecutionResult:
     tv_query = {}
 
     if next_page_query is False:
@@ -229,13 +214,10 @@ def fetch_traffic_volumes_for_trp_id(
                     }}
                 }}""")
 
-    traffic_volumes = client.execute(tv_query)
-    # print(traffic_volumes)
-
-    return traffic_volumes
+    return client.execute(tv_query)
 
 
-def fetch_road_categories(client: Client):
+def fetch_road_categories(client: Client) -> dict | ExecutionResult:
     rc_query = gql("""
     {
         roadCategories{
@@ -244,13 +226,10 @@ def fetch_road_categories(client: Client):
         }
     }
     """)
-
-    road_categories = client.execute(rc_query)
-
-    return road_categories
+    return client.execute(rc_query)
 
 #TODO TO IMPLEMENT
-def fetch_areas(client: Client):
+def fetch_areas(client: Client) -> dict | ExecutionResult:
     a_query = gql("""
     {
       areas {
@@ -274,16 +253,13 @@ def fetch_areas(client: Client):
       }
     }
     """)
-
-    areas = client.execute(a_query)
-
-    return areas
+    return client.execute(a_query)
 
 
 # --------------------------------- JSON Writing Section ---------------------------------
 
 
-async def traffic_registration_points_to_json():
+async def traffic_registration_points_to_json() -> None:
     """
     The _ops_name parameter is needed to identify the operation where the data needs to be downloaded.
     This implies that the same data can be downloaded multiple times, but downloaded into different operation folders,
@@ -328,9 +304,7 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
                 if pages_counter == 1:
                     volumes = query_result
                 else:
-                    volumes["trafficData"]["volume"]["byHour"]["edges"].extend(
-                        query_result["trafficData"]["volume"]["byHour"]["edges"]
-                    )
+                    volumes["trafficData"]["volume"]["byHour"]["edges"].extend(query_result["trafficData"]["volume"]["byHour"]["edges"])
 
                 if end_cursor is None:
                     break
@@ -345,13 +319,12 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
     async def process_trp(trp_id):
         volumes_data = await download_trp_data(trp_id)
 
-        write_trp_metadata(trp_id) # Writing TRP's empty metadata file
-
         folder_path = await asyncio.to_thread(read_metainfo_key,["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"])
         async with aiofiles.open(folder_path + f"{trp_id}_volumes.json", "w") as f:
             await f.write(json.dumps(volumes_data, indent=4))
 
-        await asyncio.to_thread(update_metainfo_async, f"{trp_id}_volumes.json", ["traffic_volumes", "raw_filenames"], mode="append")
+        update_trp_metadata(trp_id=trp_id, value=True, metadata_keys_map=["checks", "has_volumes"], mode="equals") # Writing TRP's empty metadata file
+
 
     async def limited_task(trp_id):
         async with semaphore:

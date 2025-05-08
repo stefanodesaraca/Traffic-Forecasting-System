@@ -95,7 +95,7 @@ class BaseLearner:
 
         model = model_names_and_functions[model_name]()  # Finding the function which returns the model and executing it
 
-        params_folder_path = get_ml_models_parameters_folder_path(target=self.target, road_category=self.road_category)
+        params_folder_path = get_models_parameters_folder_path(target=self.target, road_category=self.road_category)
         model_filename = (get_active_ops() + "_" + self.road_category + "_" + model_name + "_" + "parameters")
 
         t_start = datetime.now()
@@ -184,7 +184,7 @@ class BaseLearner:
         # -------------- Filenames, etc. --------------
 
         model_filename = get_active_ops() + "_" + self.road_category + "_" + model_name
-        models_folder_path = get_ml_models_folder_path(self.target, self.road_category)
+        models_folder_path = get_models_folder_path(self.target, self.road_category)
         model_params_filepath = models_folder_path + get_active_ops() + "_" + self.road_category + "_" + model_name + "_" + "parameters" + ".json"
 
         # -------------- Parameters extraction --------------
@@ -219,7 +219,8 @@ class BaseLearner:
 
         # -------------- Model loading --------------
 
-        model = joblib.load(get_ml_models_folder_path(self.target, self.road_category) + get_active_ops() + "_" + self.road_category + "_" + model_name + ".joblib")
+        model = joblib.load(get_models_folder_path(self.target,
+                                                   self.road_category) + get_active_ops() + "_" + self.road_category + "_" + model_name + ".joblib")
 
         with joblib.parallel_backend("dask"):
             y_pred = model.predict(X_test.compute())
@@ -484,7 +485,8 @@ class OnePointVolumesForecaster(OnePointForecaster):
     def forecast_volumes(self, volumes: dd.DataFrame, model_name: str):
 
         # -------------- Model loading --------------
-        model = joblib.load(get_ml_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
+        model = joblib.load(get_models_folder_path(self._target,
+                                                   self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
 
         with joblib.parallel_backend("dask"):
             return model.predict(volumes)
