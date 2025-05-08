@@ -139,12 +139,12 @@ def execute_eda() -> None:
     clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path", ""])
 
     for v in (trp_id for trp_id in trp_data.keys() if trp_data[trp_id]["checks"]["has_volumes"]):
-        volumes = retrieve_volumes_data(clean_volumes_folder + v)
+        volumes = pd.read_csv(clean_volumes_folder + v)
         analyze_volumes(volumes)
         volumes_data_multicollinearity_test(volumes)
 
     for s in (trp_id for trp_id in trp_data.keys() if trp_data[trp_id]["checks"]["has_speeds"]):
-        speeds = retrieve_avg_speed_data(clean_speeds_folder + s)
+        speeds = pd.read_csv(clean_speeds_folder + s)
         analyze_avg_speeds(speeds)
         avg_speeds_data_multicollinearity_test(speeds)
 
