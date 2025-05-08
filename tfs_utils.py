@@ -294,12 +294,8 @@ def read_metainfo_key(keys_map: list) -> Any:
 # ==================== TRP Related Utilities ====================
 
 def get_trp_ids() -> list[str]:
-    assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points"
+    assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points first"
     return list(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]).keys())
-
-
-def get_available_road_categories() -> list[str]:
-    return list(set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data()))
 
 
 # ==================== ML Related Utilities ====================

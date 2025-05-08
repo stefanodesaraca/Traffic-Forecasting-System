@@ -161,7 +161,7 @@ def execute_forecast_warmup(functionality: str) -> None:
     models = [m for m in model_names_and_functions.keys()]
     clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
     clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
-
+    road_categories = list(set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data()))
 
     # TRPs - Volumes files and road categories
     trps_ids_volumes_by_road_category = {
@@ -171,7 +171,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             if get_trp_metadata(trp_id)["road_category"] == category
             and get_trp_metadata(trp_id)["checks"]["has_volumes"]
         ]
-        for category in get_available_road_categories()
+        for category in road_categories
     }
     print(trps_ids_volumes_by_road_category)
     # The isdir() method is needed since there could be some cases where the volumes files are absent, but TRPs are included in the trps list, so if there isn't on we'll just obtain the path for the clean volumes files folder. Thus, if the string is a path to a folder then don't include it in the trps_ids_by_road_category
@@ -192,7 +192,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             if get_trp_metadata(trp_id)["road_category"] == category
             and get_trp_metadata(trp_id)["checks"]["has_speeds"]
         ]
-        for category in get_available_road_categories()
+        for category in road_categories
     }
 
     # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
