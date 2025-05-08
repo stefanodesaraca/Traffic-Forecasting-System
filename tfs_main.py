@@ -93,10 +93,10 @@ async def download_data(functionality: str) -> None:
     elif functionality == "2.3":
 
         assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points"
-        assert len(os.listdir(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"]))) > 0, "Download volumes data before writing metadata" #Ensure there's at least one raw volumes file
         with open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]), "r") as trps_data:
             for trp_id in tqdm(list(json.load(trps_data).keys())):
                 write_trp_metadata(trp_id)
+
     return None
 
 
@@ -105,20 +105,16 @@ def clean_data(functionality: str) -> None:
     if functionality == "5.6.1":
         traffic_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"])
 
-        cleaner = TrafficVolumesCleaner()
-
         for file in os.listdir(traffic_volumes_folder):
             if file.endswith(".DS_Store") is not True:
-                cleaner.execute_cleaning(traffic_volumes_folder + file)
+                TrafficVolumesCleaner().execute_cleaning(traffic_volumes_folder + file)
 
     elif functionality == "5.6.2":
         average_speed_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"])
 
-        cleaner = AverageSpeedCleaner()
-
         for file in os.listdir(average_speed_folder):
             if file.endswith(".DS_Store") is not True:
-                cleaner.execute_cleaning(file_path=average_speed_folder + file, file_name=file)
+                AverageSpeedCleaner().execute_cleaning(file_path=average_speed_folder + file, file_name=file)
 
     return None
 
@@ -138,33 +134,23 @@ def set_forecasting_options(functionality: str) -> None:
 
 
 def execute_eda() -> None:
+    trp_data = import_TRPs_data()
     clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
-    clean_as_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
+    clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path", ""])
 
-    clean_traffic_volume_files = os.listdir(clean_volumes_folder)
-    print("Clean traffic volume files: ", clean_traffic_volume_files, "\n")
-    clean_average_speed_files = os.listdir(clean_as_folder)
-    print("Clean average speed files: ", clean_average_speed_files, "\n")
-
-    for v in clean_traffic_volume_files:
+    for v in (trp_id for trp_id in trp_data.keys() if trp_data[trp_id]["checks"]["has_volumes"]):
         volumes = retrieve_volumes_data(clean_volumes_folder + v)
         analyze_volumes(volumes)
         volumes_data_multicollinearity_test(volumes)
 
-    for s in clean_average_speed_files:
-        speeds = retrieve_avg_speed_data(clean_as_folder + s)
+    for s in (trp_id for trp_id in trp_data.keys() if trp_data[trp_id]["checks"]["has_speeds"]):
+        speeds = retrieve_avg_speed_data(clean_speeds_folder + s)
         analyze_avg_speeds(speeds)
         avg_speeds_data_multicollinearity_test(speeds)
 
-    volumes_speeds = [
-        vs
-        for vs in clean_traffic_volume_files
-        if get_trp_id_from_filename(vs)
-        in [get_trp_id_from_filename(s) for s in clean_average_speed_files]
-    ]  # Determinig the TRPs which have both traffic volumes and speed data
-    # Checking which TRPs have both traffic volumes and speed data available
-    print("\n\nClean volumes and average speeds files: ", volumes_speeds)
-    print("Number of clean volumes and average speeds files: ", len(volumes_speeds))
+    volumes_speeds = (vs for vs in (trp_id for trp_id in trp_data.keys() if trp_data[trp_id]["checks"]["has_volumes"] and trp_data[trp_id]["checks"]["has_speeds"]))
+    # Determining the TRPs which have both traffic volumes and speed data
+
     print("\n\n")
 
     return None

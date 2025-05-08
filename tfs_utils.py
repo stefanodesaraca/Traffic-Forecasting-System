@@ -117,6 +117,14 @@ def update_trp_metadata(trp_id: str, value: Any, metadata_keys_map: list[str], m
     return None
 
 
+def read_trp_metadata_key(trp_id: str, metadata_keys_map: list[str]) -> Any:
+    with open(read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]) + trp_id + "_metadata.json", "w") as metadata_reader:
+        payload = json.load(metadata_reader)
+    for key in metadata_keys_map[:-1]:
+        payload = payload[key]
+    return payload[metadata_keys_map[-1]]
+
+
 
 
 
@@ -137,10 +145,6 @@ def get_all_available_road_categories() -> list:
 
 
 def get_trp_road_category(trp_id: str) -> str:
-    return get_trp_metadata(trp_id)["road_category"]
-
-
-def retrieve_trp_road_category(trp_id: str) -> str:
     return get_trp_metadata(trp_id)["road_category"]
 
 
@@ -185,8 +189,6 @@ def get_models_parameters_folder_path(target: str, road_category: str) -> str:
 
 # ==================== Forecasting Settings Utilities ====================
 
-# TODO FIND A WAY TO CHECK WHICH IS THE LAST DATETIME AVAILABLE FOR AVERAGE SPEED (CLEAN)
-
 def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = default_max_forecasting_window_size) -> None:
     """
     Parameters:
@@ -200,7 +202,7 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
     option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")
     print("Maximum number of days to forecast: ", max_forecasting_window_size)
 
-    last_available_data_dt = read_metainfo_key(keys_map=[target_data[option], "end_date_iso"])
+    last_available_data_dt = read_metainfo_key(keys_map=[target_data[option], "end_date_iso"]) #TODO UPDATE THIS WITH COMPUTE_METAINFO()
     if last_available_data_dt is None:
         logging.error(traceback.format_exc())
         raise Exception("End date not found in metainfo file. Run download first or set it first")
