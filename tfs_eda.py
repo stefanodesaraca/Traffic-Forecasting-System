@@ -127,8 +127,8 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
     print("Traffic volume 99th percentile: ", percentile_99)
     print("\n")
 
-    print("Inter-Quartile Range (IQR) for the whole distribution (all years): " ,percentile_75 - percentile_25)
-    print("Quartile Deviation for the whole distribution (all years): " ,percentile_75 - percentile_25)
+    print("Inter-Quartile Range (IQR) for the whole distribution (all years): " , percentile_75 - percentile_25)
+    print("Quartile Deviation for the whole distribution (all years): " , percentile_75 - percentile_25)
 
     print("\nPercentiles by year")
     print(percentile_25_by_year.rename(columns={"volume": "percentile_25"}), "\n")
