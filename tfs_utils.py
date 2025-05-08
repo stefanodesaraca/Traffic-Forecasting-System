@@ -57,27 +57,9 @@ def get_trp_metadata(trp_id: str) -> dict:
         return json.load(json_trp_metadata)
 
 
-def write_trp_metadata(trp_id: str, data: dict) -> None:
+def write_trp_metadata(trp_id: str) -> None:
     metadata = {
         "id": trp_id,
-        "info": {
-            "road_category": data["location"]["roadReference"]["roadCategory"]["id"],
-            "lat": data["location"]["coordinates"]["latLon"]["lat"],
-            "lon": data["location"]["coordinates"]["latLon"]["lon"],
-            "county_name": data["location"]["county"]["name"],
-            "county_number": data["location"]["county"]["number"],
-            "geographic_number": data["location"]["county"]["geographicNumber"],
-            "country_part": data["location"]["county"]["countryPart"]["name"],
-            "municipality_name": data["location"]["municipality"]["name"],
-            "traffic_registration_type": data["trafficRegistrationType"],
-            "first_data": data["dataTimeSpan"]["firstData"],
-            "first_data_with_quality_metrics": data["dataTimeSpan"]["firstDataWithQualityMetrics"],
-            "latest_volume_by_day": data["dataTimeSpan"]["latestData"]["volumeByDay"],
-            "latest_volume_byh_hour": data["dataTimeSpan"]["latestData"]["volumeByHour"],
-            "latest_volume_average_daily_by_year": data["dataTimeSpan"]["latestData"]["volumeAverageDailyByYear"],
-            "latest_volume_average_daily_by_season": data["dataTimeSpan"]["latestData"]["volumeAverageDailyBySeason"],
-            "latest_volume_average_daily_by_month": data["dataTimeSpan"]["latestData"]["volumeAverageDailyByMonth"],
-        },
         "number_of_data_nodes": None,
         "files": {
             "volumes": {
@@ -667,20 +649,6 @@ def check_datetime(dt: str) -> bool:
         return True
     except ValueError:
         return False
-
-
-@lru_cache()
-def get_eda_plots_folder_path(sub: str = None) -> str:
-    folder_paths = {
-        "volumes":read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "traffic_volumes_eda_plots"]),
-        "avg_speeds":read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "avg_speeds_eda_plots"])
-    }
-    if sub is not None and folder_paths[sub]:
-        return folder_paths[sub]
-    elif sub is None:
-        return read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots"])
-    else:
-        raise Exception("Wrong plots path")
 
 
 def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:

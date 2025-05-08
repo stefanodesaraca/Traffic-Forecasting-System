@@ -345,6 +345,8 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
     async def process_trp(trp_id):
         volumes_data = await download_trp_data(trp_id)
 
+        write_trp_metadata(trp_id) # Writing TRP's empty metadata file
+
         folder_path = await asyncio.to_thread(read_metainfo_key,["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"])
         async with aiofiles.open(folder_path + f"{trp_id}_volumes.json", "w") as f:
             await f.write(json.dumps(volumes_data, indent=4))

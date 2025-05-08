@@ -91,15 +91,12 @@ async def download_data(functionality: str) -> None:
         await traffic_volumes_data_to_json(time_start=time_start, time_end=time_end)
 
     elif functionality == "2.3":
-        if len(os.listdir(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"]))) == 0:
-            print("\033[91mDownload volumes data before writing metadata\033[0m")
-            return None
-
-        print("\nWriting metadata files...")
-        for trp_id in tqdm(get_trp_ids()):
-            update_trp_metadata(trp_id)
-        print("Metadata files successfully written\n\n")
-
+        assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points"
+        assert len(os.listdir(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"]))) > 0, "Download volumes data before writing metadata" #Ensure there's at least one raw volumes file
+        with open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]), "r") as trps_data:
+            trp_ids = list(json.load(trps_data).keys())
+            for trp_id in tqdm(trp_ids):
+                write_trp_metadata(trp_id)
     return None
 
 
