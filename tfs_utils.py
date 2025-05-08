@@ -656,10 +656,6 @@ def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
     return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
 
 
-def get_24_hours() -> Generator[str, None, None]:
-    return (f"{i:02}" for i in range(24))
-
-
 def get_covid_years() -> list[int]:
     return [2020, 2021, 2022]
 

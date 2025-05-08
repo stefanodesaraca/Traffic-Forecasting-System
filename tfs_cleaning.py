@@ -239,13 +239,13 @@ class TrafficVolumesCleaner(BaseCleaner):
             print("Number of missing days: ", len(missing_days))
 
             missing_hours_by_day = {
-                d: [h for h in get_24_hours() if h not in available_day_hours[d]]
+                d: [h for h in (f"{i:02}" for i in range(24)) if h not in available_day_hours[d]]
                 for d in available_day_hours.keys()
             }  # This dictionary comprehension goes like this: we'll create a day key with a list of hours for each day in the available days.
             # Each day's list will only include registration hours (h) which SHOULD exist, but are missing in the available dates in the data
 
             for md in missing_days:
-                missing_hours_by_day[md] = list(get_24_hours())  # If a whole day is missing we'll just create it and say that all hours of that day are missing
+                missing_hours_by_day[md] = list((f"{i:02}" for i in range(24)))  # If a whole day is missing we'll just create it and say that all hours of that day are missing
             missing_hours_by_day = {d: l for d, l in missing_hours_by_day.items() if len(l) != 0}  # Removing elements with empty lists (the days which don't have missing hours)
             print("Missing hours by day: ", missing_hours_by_day)
 
