@@ -81,7 +81,7 @@ def write_trp_metadata(trp_id: str) -> None:
         }
     }
 
-    with open(read_metainfo_key(keys_map=["folder_paths", "trp_metadata", "path"]) + trp_id + "_metadata.json", "w") as metadata_writer:
+    with open(read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]) + trp_id + "_metadata.json", "w") as metadata_writer:
         json.dump(metadata, metadata_writer, indent=4)
 
     return None
@@ -124,15 +124,9 @@ def update_trp_metadata(trp_id: str, value: Any, metadata_keys_map: list[str], m
 
 
 # TODO IMPROVE THIS FUNCTION, AND SET THAT THIS RETURNS A generator OF str
-def get_trp_ids() -> Generator[str, None, None]:
-    raw_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"])
-    # If there aren't volumes files yet, then just return all the TRP IDs available in the traffic_registration_points_file
-    if len(os.listdir(raw_volumes_folder)) == 0:
-        return (trp["id"] for trp in import_TRPs_data()["trafficRegistrationPoints"]) # This list may contain IDs of TRPs which don't have a volumes file associated with them #TODO CHANGE THIS. IF THERE AREN'T ANY VOLUMES FILES THIS SHOULDN'T RETURN ALL TRP IDs
-    else:
-        return (trp["id"] for trp in import_TRPs_data()["trafficRegistrationPoints"]
-                if trp["id"] in [get_trp_id_from_filename(file) for file in os.listdir(raw_volumes_folder)]) # Keep only the TRPs which actually have a volumes file associated with them. Using list() on a set comprehension to avoid duplicates
-                #TODO ALSO, FIND A WAY TO KNOW DIRECTLY WHICH TRPS HAVE VOLUMES DATA AND WHICH DON'T SO IT WON'T BE NECESSARY TO CHECK EVERYTIME os.listdir(raw_volumes_folder) AND GET THE TRP NAME FROM THE FILENAMES
+def get_trp_ids() -> list[str]:
+    assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points"
+    return list(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]).keys())
 
 
 def get_trp_id_from_filename(filename: str) -> str:
@@ -560,7 +554,17 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
 
     return None
 
-#TODO TRY CACHING THIS FUNCTION (DO TESTS BEFORE)
+
+#This function needs to be cached since it will be called exactly as many times as read_metainfo_key()
+@lru_cache()
+def load_metainfo_payload():
+    if check_metainfo_file() is True:
+        with open(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
+            return json.load(m)
+    else:
+        raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
+
+
 def read_metainfo_key(keys_map: list) -> Any:
     """
     This function reads data from a specific key-value pair in the metainfo.json file of the active operation.
@@ -568,12 +572,7 @@ def read_metainfo_key(keys_map: list) -> Any:
     Parameters:
         keys_map: the list which includes all the keys which bring to the key-value pair to read (the one to read included)
     """
-
-    if check_metainfo_file() is True:
-        with open(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
-            payload = json.load(m)
-    else:
-        raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
+    payload = load_metainfo_payload()
 
     for key in keys_map[:-1]:
         payload = payload[key]
