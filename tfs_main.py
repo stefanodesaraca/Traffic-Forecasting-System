@@ -167,17 +167,14 @@ def execute_forecast_warmup(functionality: str) -> None:
     # TRPs - Volumes files and road categories
     trps_ids_volumes_by_road_category = {
         category: [clean_volumes_folder + trp_id + "_volumes.csv" for trp_id in
-                   filter(lambda trp_id: get_trp_metadata(trp_id)[["road_category"] == category] and get_trp_metadata(trp_id)["checks"]["has_speeds"], get_trp_ids())]
+                   filter(lambda trp_id: get_trp_metadata(trp_id)[["road_category"] == category] and get_trp_metadata(trp_id)["checks"]["has_volumes"], get_trp_ids())]
         for category in road_categories
     }
+    trps_ids_volumes_by_road_category = {k: v for k, v in trps_ids_volumes_by_road_category.items() if len(v) >= 2}
+    # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
+
     print(trps_ids_volumes_by_road_category)
     # pprint.pprint(trps_ids_by_road_category)
-
-    # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
-    # In this case we're removing the keys directly from the dictionary while iterating on it, so we need to create a shallow copy of the references to its keys and values through the list() methods to then safely delete from the dict itself while iterating on it
-    for k, v in list(trps_ids_volumes_by_road_category.items()):
-        if len(v) < 2:
-            del trps_ids_volumes_by_road_category[k]
 
 
     # TRPs - Average speed files and road categories
@@ -186,12 +183,8 @@ def execute_forecast_warmup(functionality: str) -> None:
                    filter(lambda trp_id: get_trp_metadata(trp_id)[["road_category"] == category] and get_trp_metadata(trp_id)["checks"]["has_speeds"], get_trp_ids())]
         for category in road_categories
     }
-
+    trps_ids_avg_speeds_by_road_category = {k: v for k, v in trps_ids_avg_speeds_by_road_category.items() if len(v) >= 2}
     # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
-    # In this case we're removing the keys directly from the dictionary while iterating on it, so we need to create a shallow copy of the references to its keys and values through the list() methods to then safely delete from the dict itself while iterating on it
-    for k, v in list(trps_ids_avg_speeds_by_road_category.items()):
-        if len(v) < 2:
-            del trps_ids_avg_speeds_by_road_category[k]
 
 
     # Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
