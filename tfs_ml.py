@@ -42,6 +42,8 @@ pd.set_option("display.max_columns", None)
 dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
 dt_format = "%Y-%m-%dT%H"
 
+
+
 def sin_transformer(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
     """
     The timeframe indicates a number of days.
@@ -485,8 +487,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
     def forecast_volumes(self, volumes: dd.DataFrame, model_name: str):
 
         # -------------- Model loading --------------
-        model = joblib.load(get_models_folder_path(self._target,
-                                                   self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
+        model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
 
         with joblib.parallel_backend("dask"):
             return model.predict(volumes)
