@@ -35,8 +35,6 @@ active_ops_filename = "active_ops"
 metainfo_lock = asyncio.Lock()
 
 
-# TODO CREATE AN import_single_trp_data FUNCTION WHICH GETS THE SINGLE TRP's DATA FROM THE by_trp dict IN METAINFO
-
 # ==================== TRP Utilities ====================
 
 @lru_cache()

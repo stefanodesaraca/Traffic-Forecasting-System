@@ -8,13 +8,8 @@ import networkx as nx
 import datetime
 from typing import Any
 from tqdm import tqdm
-from scipy.spatial.distance import (
-    euclidean,
-    cityblock,
-)  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
-from geopy.distance import (
-    geodesic,
-)  # To calculate distance (in meters) between two sets of coordinates (lat-lon). Geopy distance docs: https://geopy.readthedocs.io/en/stable/#module-geopy.distance
+from scipy.spatial.distance import euclidean, cityblock  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
+from geopy.distance import geodesic # To calculate distance (in meters) between two sets of coordinates (lat-lon). Geopy distance docs: https://geopy.readthedocs.io/en/stable/#module-geopy.distance
 
 
 # To allow arbitrary types in the creation of a Pydantic dataclass.

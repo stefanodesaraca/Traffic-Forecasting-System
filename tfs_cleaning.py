@@ -40,7 +40,7 @@ class BaseCleaner:
 
 
     # Executing multiple imputation to get rid of NaNs using the MICE method (Multiple Imputation by Chained Equations)
-    def impute_missing_values(self, data: pd.DataFrame | dd.DataFrame, r: str = "gamma") -> pd.DataFrame:
+    def _impute_missing_values(self, data: pd.DataFrame | dd.DataFrame, r: str = "gamma") -> pd.DataFrame:
         """
         This function should only be supplied with numerical columns-only dataframes
 
@@ -77,6 +77,11 @@ class BaseCleaner:
         )  # Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
 
         return pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns) # Fitting the imputer and processing all the data columns except the date one #TODO BOTTLENECK
+
+
+    def _is_empty(self, data: dict[Any, Any]) -> bool:
+        return True if len(data) == 0 else False
+
 
 
 
@@ -133,8 +138,26 @@ class TrafficVolumesCleaner(BaseCleaner):
             return None
 
 
-    @staticmethod
-    def restructure_traffic_volumes_data(volumes_payload: dict):
+    def _get_lanes_number(self, data: dict[Any, Any]) -> int:
+        return max((ln["lane"]["laneNumberAccordingToRoadLink"] for ln in data[0]["node"]["byLane"]))  # Determining the total number of lanes for the TRP taken into consideration. Using a generator comprehension to improve performances
+
+
+    def _parse_by_hour(self, payload: dict[Any, Any]) -> dict[Any, Any] | None:
+
+        trp_id = payload["trafficData"]["trafficRegistrationPoint"]["id"]
+        payload = payload["trafficData"]["volume"]["byHour"]["edges"]
+
+        if self._is_empty(payload):
+            print(f"\033[91mNo data found for TRP: {trp_id}\033[0m\n\n")
+            return None
+
+        update_metainfo(trp_id, ["common", "non_empty_volumes_trps"], mode="append")
+
+        n_lanes = self._get_lanes_number(payload)
+        print("Number of lanes: ", n_lanes)
+
+
+
         by_hour_structured = {
             "trp_id": [],
             "volume": [],
@@ -146,6 +169,19 @@ class TrafficVolumesCleaner(BaseCleaner):
             "hour": [],
             "date": [],
         }
+
+
+
+
+
+
+
+
+
+        return
+
+
+    def _parse_by_lane(self, payload: dict[Any, Any]) -> dict[Any, Any] | None:
 
         by_lane_structured = {
             "trp_id": [],
@@ -160,6 +196,20 @@ class TrafficVolumesCleaner(BaseCleaner):
             "lane": [],
         }
 
+
+
+
+
+
+
+
+        return
+
+
+
+
+    def _parse_by_direction(self, payload: dict[Any, Any]) -> dict[Any, Any] | None:
+
         by_direction_structured = {
             "trp_id": [],
             "volume": [],
@@ -173,209 +223,207 @@ class TrafficVolumesCleaner(BaseCleaner):
             "direction": [],
         }
 
-        # ------------------ Data payload extraction ------------------
 
-        nodes = volumes_payload["trafficData"]["volume"]["byHour"]["edges"]
-        number_of_nodes = len(nodes)
-        trp_id = volumes_payload["trafficData"]["trafficRegistrationPoint"]["id"]
 
-        if number_of_nodes == 0:
-            print(f"\033[91mNo data found for TRP: {volumes_payload['trafficData']['trafficRegistrationPoint']['id']}\033[0m\n\n")
-            return None
 
-        else:
-            update_metainfo(trp_id, ["common", "non_empty_volumes_trps"], mode="append")
 
-            # ------------------ Finding the number of lanes available for the TRP taken into consideration ------------------
+        return
 
-            lane_sample_node = nodes[0]["node"]["byLane"]
-            n_lanes = max((ln["lane"]["laneNumberAccordingToRoadLink"] for ln in lane_sample_node)) # Determining the total number of lanes for the TRP taken into consideration. Using a generator comprehension to improve performances
-            print("Number of lanes: ", n_lanes)
 
-            # The number of lanes is calculated because, as opposed to by_hour_structured, where the list index will be the row index in the dataframe,
-            # in the by_lane and by_direction dataframes dates and lane numbers could be repeated, thus there isn't a unique dict key which could be used to
-            # identify the right dictionary where to write volumes and coverage data
-            # So, we'll create afterward a unique identifier which will be made like: date + "l" + lane number. This will make possible to identify each single dictionary in the list of dicts (by_lane_structured)
-            # and consequently put the right data in it.
-            # This is also made to address the fact that a node could contain data from slightly more than one day
 
-            # ------------------ Finding all the available directions for the TRP ------------------
 
-            direction_sample_node = nodes[0]["node"]["byDirection"]
-            directions = [d["heading"] for d in direction_sample_node]
-            print("Directions available: ", directions)
 
-            # ------------------ Finding all unique days in which registrations took place ------------------
 
-            reg_datetimes = set(datetime.fromisoformat(n["node"]["from"]).replace(tzinfo=None).isoformat() for n in nodes)  # Only keeping the datetime without the +00:00 at the end #TODO TO TEST THIS, BEFORE IT WAS: n["node"]["from"][:-6]
-            # Removing duplicates and keeping the time as well. This will be needed to extract the hour too
-            # print(reg_datetimes)
+    def _restructure_traffic_volumes_data(self, volumes_payload: dict, by: str = "hour") -> None:
 
-            reg_dates = set(str(datetime.fromisoformat(dt).date().isoformat()) for dt in reg_datetimes)
-            # datetime.fromisoformat() converts a string to a datetime object. Then it only keeps the date and converts it into iso format again.
-            # The final step is converting the datetime object to a string with str()
-            # Removing duplicates with set(). With the line above we'll get the unique days where data registration took place. #TODO TO TEST THIS. BEFORE IT WAS dt[:10]
-            print("Number of days where registrations took place: ", len(reg_dates))
 
-            first_registration_date = min(reg_dates)
-            last_registration_date = max(reg_dates)
 
-            print("First registration day available: ", first_registration_date)
-            print("Last registration day available: ", last_registration_date)
+        # ------------------ Finding the number of lanes available for the TRP taken into consideration ------------------
 
-            # The available_day_hours dict will have as key-value pairs: the day and a list with all hours which do have registrations (so that have data)
-            available_day_hours = {d: [] for d in reg_dates}  # These dict will have a dictionary for each day with an empty list
-            for rd in reg_datetimes:
-                available_day_hours[rd[:10]].append(datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H"))
 
-            # ------------------ Addressing missing days and hours ------------------
 
-            missing_days = [
-                str(d.date().isoformat())
-                for d in pd.date_range(start=first_registration_date, end=last_registration_date, freq="d")
-                if str(d.date().isoformat()) not in reg_dates
-            ]
-            print("Missing days: ", missing_days)
-            print("Number of missing days: ", len(missing_days))
+        # The number of lanes is calculated because, as opposed to by_hour_structured, where the list index will be the row index in the dataframe,
+        # in the by_lane and by_direction dataframes dates and lane numbers could be repeated, thus there isn't a unique dict key which could be used to
+        # identify the right dictionary where to write volumes and coverage data
+        # So, we'll create afterward a unique identifier which will be made like: date + "l" + lane number. This will make possible to identify each single dictionary in the list of dicts (by_lane_structured)
+        # and consequently put the right data in it.
+        # This is also made to address the fact that a node could contain data from slightly more than one day
 
-            missing_hours_by_day = {
-                d: [h for h in (f"{i:02}" for i in range(24)) if h not in available_day_hours[d]]
-                for d in available_day_hours.keys()
-            }  # This dictionary comprehension goes like this: we'll create a day key with a list of hours for each day in the available days.
-            # Each day's list will only include registration hours (h) which SHOULD exist, but are missing in the available dates in the data
+        # ------------------ Finding all the available directions for the TRP ------------------
 
-            for md in missing_days:
-                missing_hours_by_day[md] = list((f"{i:02}" for i in range(24)))  # If a whole day is missing we'll just create it and say that all hours of that day are missing
-            missing_hours_by_day = {d: l for d, l in missing_hours_by_day.items() if len(l) != 0}  # Removing elements with empty lists (the days which don't have missing hours)
-            print("Missing hours by day: ", missing_hours_by_day)
+        direction_sample_node = nodes[0]["node"]["byDirection"]
+        directions = [d["heading"] for d in direction_sample_node]
+        print("Directions available: ", directions)
 
-            for d, mh in missing_hours_by_day.items():
-                for h in mh:
-                    by_hour_structured["trp_id"].append(trp_id)
-                    by_hour_structured["volume"].append(None)
-                    by_hour_structured["coverage"].append(None)
-                    by_hour_structured["year"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%Y"))
-                    by_hour_structured["month"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%m"))
-                    by_hour_structured["week"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%V"))
-                    by_hour_structured["day"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%d"))
-                    by_hour_structured["hour"].append(h)
-                    by_hour_structured["date"].append(d)
+        # ------------------ Finding all unique days in which registrations took place ------------------
 
-            # pprint.pprint(by_hour_structured)
+        reg_datetimes = set(datetime.fromisoformat(n["node"]["from"]).replace(tzinfo=None).isoformat() for n in nodes)  # Only keeping the datetime without the +00:00 at the end #TODO TO TEST THIS, BEFORE IT WAS: n["node"]["from"][:-6]
+        # Removing duplicates and keeping the time as well. This will be needed to extract the hour too
+        # print(reg_datetimes)
 
-            # TODO ADDRESS FOR MISSING DAYS PROBLEM, CREATE ALL ATTRIBUTES WITH NONE VALUES FOR EACH MISSING DAY AND ADD IT TO BY_HOUR_STRUCTURED, BY_LANE_STRUCTURED AND BY_DIRECTION_STRUCTURED
+        reg_dates = set(str(datetime.fromisoformat(dt).date().isoformat()) for dt in reg_datetimes)
+        # datetime.fromisoformat() converts a string to a datetime object. Then it only keeps the date and converts it into iso format again.
+        # The final step is converting the datetime object to a string with str()
+        # Removing duplicates with set(). With the line above we'll get the unique days where data registration took place. #TODO TO TEST THIS. BEFORE IT WAS dt[:10]
+        print("Number of days where registrations took place: ", len(reg_dates))
 
-            # ------------------ Extracting the data from JSON file and converting it into tabular format ------------------
+        first_registration_date = min(reg_dates)
+        last_registration_date = max(reg_dates)
 
-            for node in nodes:
-                # ---------------------- Fetching registration datetime ----------------------
+        print("First registration day available: ", first_registration_date)
+        print("Last registration day available: ", last_registration_date)
 
-                # This is the datetime which will be representative of a volume, specifically, there will be multiple datetimes with the same day
-                # to address this fact we'll just re-format the data to keep track of the day, but also maintain the volume values for each hour
-                reg_datetime = datetime.strptime(datetime.fromisoformat(node["node"]["from"]).replace(tzinfo=None).isoformat(),"%Y-%m-%dT%H:%M:%S").strftime("%Y-%m-%dT%H")  # Only keeping the datetime without the +00:00 at the end
-                year = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%Y")
-                month = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%m")
-                week = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%V")
-                day = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%d")
-                hour = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%H")
-                date = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").date().isoformat()
+        # The available_day_hours dict will have as key-value pairs: the day and a list with all hours which do have registrations (so that have data)
+        available_day_hours = {d: [] for d in reg_dates}  # These dict will have a dictionary for each day with an empty list
+        for rd in reg_datetimes:
+            available_day_hours[rd[:10]].append(datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H"))
 
-                # ----------------------- Total volumes section -----------------------
+        # ------------------ Addressing missing days and hours ------------------
 
-                volume = (node["node"]["total"]["volumeNumbers"]["volume"] if node["node"]["total"]["volumeNumbers"] is not None else None)  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
-                coverage = (node["node"]["total"]["coverage"]["percentage"] if node["node"]["total"]["coverage"] is not None else None)  # For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
+        missing_days = [
+            str(d.date().isoformat())
+            for d in pd.date_range(start=first_registration_date, end=last_registration_date, freq="d")
+            if str(d.date().isoformat()) not in reg_dates
+        ]
+        print("Missing days: ", missing_days)
+        print("Number of missing days: ", len(missing_days))
 
+        missing_hours_by_day = {
+            d: [h for h in (f"{i:02}" for i in range(24)) if h not in available_day_hours[d]]
+            for d in available_day_hours.keys()
+        }  # This dictionary comprehension goes like this: we'll create a day key with a list of hours for each day in the available days.
+        # Each day's list will only include registration hours (h) which SHOULD exist, but are missing in the available dates in the data
+
+        for md in missing_days:
+            missing_hours_by_day[md] = [f"{i:02}" for i in range(24)]  # If a whole day is missing we'll just create it and say that all hours of that day are missing
+        missing_hours_by_day = {d: l for d, l in missing_hours_by_day.items() if len(l) != 0}  # Removing elements with empty lists (the days which don't have missing hours)
+        print("Missing hours by day: ", missing_hours_by_day)
+
+        for d, mh in missing_hours_by_day.items():
+            for h in mh:
                 by_hour_structured["trp_id"].append(trp_id)
-                by_hour_structured["year"].append(year)
-                by_hour_structured["month"].append(month)
-                by_hour_structured["week"].append(week)
-                by_hour_structured["day"].append(day)
-                by_hour_structured["hour"].append(hour)
-                by_hour_structured["volume"].append(volume)
-                by_hour_structured["coverage"].append(coverage)
-                by_hour_structured["date"].append(date)
+                by_hour_structured["volume"].append(None)
+                by_hour_structured["coverage"].append(None)
+                by_hour_structured["year"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%Y"))
+                by_hour_structured["month"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%m"))
+                by_hour_structured["week"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%V"))
+                by_hour_structured["day"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%d"))
+                by_hour_structured["hour"].append(h)
+                by_hour_structured["date"].append(d)
 
-                #   ----------------------- By lane section -----------------------
+        # pprint.pprint(by_hour_structured)
 
-                lanes_data = node["node"]["byLane"]  # Extracting byLane data
+        # ------------------ Extracting the data from JSON file and converting it into tabular format ------------------
 
-                # Every lane's data is kept isolated from the other lanes' data, so a for cycle is needed to extract all the data from each lane's section
-                for lane in lanes_data:
-                    road_link_lane_number = lane["lane"]["laneNumberAccordingToRoadLink"]
-                    lane_volume = (lane["total"]["volumeNumbers"]["volume"] if lane["total"]["volumeNumbers"] is not None else None)  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
-                    lane_coverage = (lane["total"]["coverage"]["percentage"] if lane["total"]["coverage"] is not None else None)
+        for node in nodes:
+            # ---------------------- Fetching registration datetime ----------------------
 
-                    # ------- Extracting data from the dictionary and appending it into by_lane_structured -------
+            # This is the datetime which will be representative of a volume, specifically, there will be multiple datetimes with the same day
+            # to address this fact we'll just re-format the data to keep track of the day, but also maintain the volume values for each hour
+            reg_datetime = datetime.strptime(datetime.fromisoformat(node["node"]["from"]).replace(tzinfo=None).isoformat(),"%Y-%m-%dT%H:%M:%S").strftime("%Y-%m-%dT%H")  # Only keeping the datetime without the +00:00 at the end
+            year = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%Y")
+            month = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%m")
+            week = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%V")
+            day = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%d")
+            hour = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%H")
+            date = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").date().isoformat()
 
-                    by_lane_structured["trp_id"].append(trp_id)
-                    by_lane_structured["year"].append(year)
-                    by_lane_structured["month"].append(month)
-                    by_lane_structured["week"].append(week)
-                    by_lane_structured["day"].append(day)
-                    by_lane_structured["hour"].append(hour)
-                    by_lane_structured["volume"].append(lane_volume)
-                    by_lane_structured["coverage"].append(lane_coverage)
-                    by_lane_structured["lane"].append(road_link_lane_number)
-                    by_lane_structured["date"].append(date)
+            # ----------------------- Total volumes section -----------------------
 
-                #   ----------------------- By direction section -----------------------
+            volume = (node["node"]["total"]["volumeNumbers"]["volume"] if node["node"]["total"]["volumeNumbers"] is not None else None)  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
+            coverage = (node["node"]["total"]["coverage"]["percentage"] if node["node"]["total"]["coverage"] is not None else None)  # For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
 
-                by_direction_data = node["node"]["byDirection"]
+            by_hour_structured["trp_id"].append(trp_id)
+            by_hour_structured["year"].append(year)
+            by_hour_structured["month"].append(month)
+            by_hour_structured["week"].append(week)
+            by_hour_structured["day"].append(day)
+            by_hour_structured["hour"].append(hour)
+            by_hour_structured["volume"].append(volume)
+            by_hour_structured["coverage"].append(coverage)
+            by_hour_structured["date"].append(date)
 
-                # Every direction's data is kept isolated from the other directions' data, so a for cycle is needed
-                for direction_section in by_direction_data:
-                    heading = direction_section["heading"]
-                    direction_volume = direction_section["total"]["volumeNumbers"]["volume"] if direction_section["total"]["volumeNumbers"] is not None else None  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
-                    direction_coverage = direction_section["total"]["coverage"]["percentage"] if direction_section["total"]["coverage"] is not None else None
+            #   ----------------------- By lane section -----------------------
 
-                    by_direction_structured["trp_id"].append(trp_id)
-                    by_direction_structured["year"].append(year)
-                    by_direction_structured["month"].append(month)
-                    by_direction_structured["week"].append(week)
-                    by_direction_structured["day"].append(day)
-                    by_direction_structured["hour"].append(hour)
-                    by_direction_structured["volume"].append(direction_volume)
-                    by_direction_structured["coverage"].append(direction_coverage)
-                    by_direction_structured["direction"].append(heading)
-                    by_direction_structured["date"].append(date)
+            lanes_data = node["node"]["byLane"]  # Extracting byLane data
 
-                    # TODO THE SAME PRINCIPLE AS BEFORE APPLIES HERE, SAVE ALL THE AVAILABLE DIRECTIONS IN THE TRP'S METADATA FILE
+            # Every lane's data is kept isolated from the other lanes' data, so a for cycle is needed to extract all the data from each lane's section
+            for lane in lanes_data:
+                road_link_lane_number = lane["lane"]["laneNumberAccordingToRoadLink"]
+                lane_volume = (lane["total"]["volumeNumbers"]["volume"] if lane["total"]["volumeNumbers"] is not None else None)  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
+                lane_coverage = (lane["total"]["coverage"]["percentage"] if lane["total"]["coverage"] is not None else None)
 
-            # ------------------ Ensuring that XXXXXXXXXXXXXXX ------------------
+                # ------- Extracting data from the dictionary and appending it into by_lane_structured -------
 
-            # for k in by_hour_structured.keys():
-            # print(f"List length for key: {k} = ", len(by_hour_structured[k]))
+                by_lane_structured["trp_id"].append(trp_id)
+                by_lane_structured["year"].append(year)
+                by_lane_structured["month"].append(month)
+                by_lane_structured["week"].append(week)
+                by_lane_structured["day"].append(day)
+                by_lane_structured["hour"].append(hour)
+                by_lane_structured["volume"].append(lane_volume)
+                by_lane_structured["coverage"].append(lane_coverage)
+                by_lane_structured["lane"].append(road_link_lane_number)
+                by_lane_structured["date"].append(date)
 
-            # ------------------ Dataframes creation and printing ------------------
+            #   ----------------------- By direction section -----------------------
 
-            # print("\n\n----------------- By Hour Structured -----------------")
-            # pprint.pp(by_hour_structured)
-            # print(by_hour_structured)
+            by_direction_data = node["node"]["byDirection"]
 
-            by_hour_df = pd.DataFrame(by_hour_structured) #TODO ADDRESS THIS PROBLEM: DASK DATAFRAMES AREN'T SORTABLE WITH SORT_VALUES (DON'T ASK ME WHY), SO THEY MUST BE FIRST SORTED AS PANDAS DFs AND THEN ...
-            by_hour_df = by_hour_df.sort_values(by=["date", "hour"], ascending=True)
-            # by_hour_df = by_hour_df.reindex(sorted(by_hour_df.columns), axis=1)
-            # print(by_hour_df.head(15))
+            # Every direction's data is kept isolated from the other directions' data, so a for cycle is needed
+            for direction_section in by_direction_data:
+                heading = direction_section["heading"]
+                direction_volume = direction_section["total"]["volumeNumbers"]["volume"] if direction_section["total"]["volumeNumbers"] is not None else None  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
+                direction_coverage = direction_section["total"]["coverage"]["percentage"] if direction_section["total"]["coverage"] is not None else None
 
-            # print("\n\n----------------- By Lane Structured -----------------")
-            # pprint.pp(by_lane_structured)
-            # print(by_lane_structured)
+                by_direction_structured["trp_id"].append(trp_id)
+                by_direction_structured["year"].append(year)
+                by_direction_structured["month"].append(month)
+                by_direction_structured["week"].append(week)
+                by_direction_structured["day"].append(day)
+                by_direction_structured["hour"].append(hour)
+                by_direction_structured["volume"].append(direction_volume)
+                by_direction_structured["coverage"].append(direction_coverage)
+                by_direction_structured["direction"].append(heading)
+                by_direction_structured["date"].append(date)
 
-            # by_lane_df = pd.DataFrame(by_lane_structured)
-            # by_lane_df = by_lane_df.reindex(sorted(by_lane_df.columns), axis=1)
-            # print(by_lane_df.head(15))
+                # TODO THE SAME PRINCIPLE AS BEFORE APPLIES HERE, SAVE ALL THE AVAILABLE DIRECTIONS IN THE TRP'S METADATA FILE
 
-            # print("\n\n----------------- By Direction Structured -----------------")
-            # pprint.pp(by_direction_structured)
-            # print(by_direction_structured)
+        # ------------------ Ensuring that XXXXXXXXXXXXXXX ------------------
 
-            # by_direction_df = pd.DataFrame(by_direction_structured)
-            # by_direction_df = by_direction_df.reindex(sorted(by_direction_df.columns), axis=1)
-            # print(by_direction_df.head(15))
+        # for k in by_hour_structured.keys():
+        # print(f"List length for key: {k} = ", len(by_hour_structured[k]))
 
-            # print("\n\n")
+        # ------------------ Dataframes creation and printing ------------------
 
-            return by_hour_df  # TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, BUT FOR NOW IT'S BETTER TO SAVE PERFORMANCES AND MEMORY BY JUST RETURNING TWO STRINGS AND NOT EVEN CREATING THE DFs
+        # print("\n\n----------------- By Hour Structured -----------------")
+        # pprint.pp(by_hour_structured)
+        # print(by_hour_structured)
+
+        by_hour_df = pd.DataFrame(by_hour_structured) #TODO ADDRESS THIS PROBLEM: DASK DATAFRAMES AREN'T SORTABLE WITH SORT_VALUES (DON'T ASK ME WHY), SO THEY MUST BE FIRST SORTED AS PANDAS DFs AND THEN ...
+        by_hour_df = by_hour_df.sort_values(by=["date", "hour"], ascending=True)
+        # by_hour_df = by_hour_df.reindex(sorted(by_hour_df.columns), axis=1)
+        # print(by_hour_df.head(15))
+
+        # print("\n\n----------------- By Lane Structured -----------------")
+        # pprint.pp(by_lane_structured)
+        # print(by_lane_structured)
+
+        # by_lane_df = pd.DataFrame(by_lane_structured)
+        # by_lane_df = by_lane_df.reindex(sorted(by_lane_df.columns), axis=1)
+        # print(by_lane_df.head(15))
+
+        # print("\n\n----------------- By Direction Structured -----------------")
+        # pprint.pp(by_direction_structured)
+        # print(by_direction_structured)
+
+        # by_direction_df = pd.DataFrame(by_direction_structured)
+        # by_direction_df = by_direction_df.reindex(sorted(by_direction_df.columns), axis=1)
+        # print(by_direction_df.head(15))
+
+        # print("\n\n")
+
+        return by_hour_df  # TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, BUT FOR NOW IT'S BETTER TO SAVE PERFORMANCES AND MEMORY BY JUST RETURNING TWO STRINGS AND NOT EVEN CREATING THE DFs
 
 
     # This function is design only to clean by_hour data since that's the data we're going to use for the main purposes of this project
@@ -399,7 +447,8 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         try:
             cleaner = BaseCleaner()
-            by_hour_df = cleaner.impute_missing_values(by_hour_df.drop(non_mice_columns.columns, axis=1), r="gamma")  # Don't use gamma regression since, apparently it can't handle zeros
+            by_hour_df = cleaner._impute_missing_values(by_hour_df.drop(non_mice_columns.columns, axis=1),
+                                                        r="gamma")  # Don't use gamma regression since, apparently it can't handle zeros
 
             for nm_col in non_mice_columns.columns:
                 by_hour_df[nm_col] = non_mice_columns[nm_col]
@@ -433,9 +482,9 @@ class TrafficVolumesCleaner(BaseCleaner):
         return by_hour_df
 
 
-    def export_traffic_volumes_data(self, by_hour: pd.DataFrame | dd.DataFrame, volumes_file_path, trp_id: str) -> None:
+    def export_traffic_volumes_data(self, by_hour: pd.DataFrame | dd.DataFrame, volumes_file_path: str, trp_id: str) -> None:
 
-        file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv")  # TODO IMPROVE THIS THROUGH A SIMPLER FILE NAME AND A PARSER OR GETTER FUNCTION IN tfs_utils.py
+        file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv")
         file_path = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + file_name # C stands for "cleaned"
 
         try:
@@ -462,18 +511,15 @@ class TrafficVolumesCleaner(BaseCleaner):
         if by_hour_df is not None:
             by_hour_df = self.clean_traffic_volumes_data(by_hour_df)
 
-            if by_hour_df is not None:
+            if by_hour_df is not None: #TODO CHECK BEFORE IF BY_HOUR_DF IS NONE SO WE WON'T NEED TWO IF STATEMENTS
                 self.export_traffic_volumes_data(by_hour_df, volumes_file_path, trp_id=trp_id)
-
-        elif by_hour_df is None:
-            pass # A warning for empty nodes is given during the restructuring section
 
         print("--------------------------------------------------------\n\n")
 
         return None
 
 
-    def execute_cleaning(self, volumes_file_path: str) -> None:
+    def clean(self, volumes_file_path: str) -> None:
         self.cleaning_pipeline(volumes_file_path=volumes_file_path)
         return None
 
@@ -556,7 +602,7 @@ class AverageSpeedCleaner(BaseCleaner):
 
         try:
             cleaner = BaseCleaner()
-            avg_speed_data = cleaner.impute_missing_values(avg_speed_data, r="gamma")
+            avg_speed_data = cleaner._impute_missing_values(avg_speed_data, r="gamma")
             # print("Multiple imputation on average speed data executed successfully\n\n")
 
             # print(avg_speed_data.isna().sum())
