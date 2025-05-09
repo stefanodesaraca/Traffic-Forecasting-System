@@ -179,7 +179,7 @@ class TrafficVolumesCleaner(BaseCleaner):
         return {d: l for d, l in missing_hours_by_day.items() if len(l) != 0}  # Removing elements with empty lists (the days which don't have missing hours)
 
 
-    def _parse_by_hour(self, payload: dict[Any, Any]) -> dict[Any, Any] | None:
+    def _parse_by_hour(self, payload: dict[Any, Any]) -> pd.DataFrame | dd.DataFrame | None:
 
         trp_id = payload["trafficData"]["trafficRegistrationPoint"]["id"]
         payload = payload["trafficData"]["volume"]["byHour"]["edges"]
@@ -231,9 +231,32 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         print("Number of missing days: ", missing_days_cnt)
 
+        # ------------------ Extracting the data from JSON file and converting it into tabular format ------------------
+
+        for edge in payload:
+            # ---------------------- Fetching registration datetime ----------------------
+
+            # This is the datetime which will be representative of a volume, specifically, there will be multiple datetimes with the same day
+            # to address this fact we'll just re-format the data to keep track of the day, but also maintain the volume values for each hour
+            reg_datetime = datetime.strptime(datetime.fromisoformat(edge["node"]["from"]).replace(tzinfo=None).isoformat(), "%Y-%m-%dT%H:%M:%S").strftime("%Y-%m-%dT%H")  # Only keeping the datetime without the +00:00 at the end
+
+            # ----------------------- Total volumes section -----------------------
+
+            volume = edge["node"]["total"]["volumeNumbers"]["volume"] if edge["node"]["total"]["volumeNumbers"] is not None else None  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
+            coverage = edge["node"]["total"]["coverage"]["percentage"] if edge["node"]["total"]["coverage"] is not None else None  # For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
+
+            by_hour_structured["trp_id"].append(trp_id)
+            by_hour_structured["year"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%Y"))
+            by_hour_structured["month"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%m"))
+            by_hour_structured["week"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%V"))
+            by_hour_structured["day"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%d"))
+            by_hour_structured["hour"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%H"))
+            by_hour_structured["volume"].append(volume)
+            by_hour_structured["coverage"].append(coverage)
+            by_hour_structured["date"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").date().isoformat())
 
 
-        return
+        return pd.DataFrame(by_hour_structured).sort_values(by=["date", "hour"], ascending=True)
 
 
     def _parse_by_lane(self, payload: dict[Any, Any]) -> dict[Any, Any] | None:
@@ -314,35 +337,6 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         # pprint.pprint(by_hour_structured)
 
-        # ------------------ Extracting the data from JSON file and converting it into tabular format ------------------
-
-        for node in nodes:
-            # ---------------------- Fetching registration datetime ----------------------
-
-            # This is the datetime which will be representative of a volume, specifically, there will be multiple datetimes with the same day
-            # to address this fact we'll just re-format the data to keep track of the day, but also maintain the volume values for each hour
-            reg_datetime = datetime.strptime(datetime.fromisoformat(node["node"]["from"]).replace(tzinfo=None).isoformat(),"%Y-%m-%dT%H:%M:%S").strftime("%Y-%m-%dT%H")  # Only keeping the datetime without the +00:00 at the end
-            year = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%Y")
-            month = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%m")
-            week = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%V")
-            day = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%d")
-            hour = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%H")
-            date = datetime.strptime(reg_datetime, "%Y-%m-%dT%H").date().isoformat()
-
-            # ----------------------- Total volumes section -----------------------
-
-            volume = (node["node"]["total"]["volumeNumbers"]["volume"] if node["node"]["total"]["volumeNumbers"] is not None else None)  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
-            coverage = (node["node"]["total"]["coverage"]["percentage"] if node["node"]["total"]["coverage"] is not None else None)  # For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
-
-            by_hour_structured["trp_id"].append(trp_id)
-            by_hour_structured["year"].append(year)
-            by_hour_structured["month"].append(month)
-            by_hour_structured["week"].append(week)
-            by_hour_structured["day"].append(day)
-            by_hour_structured["hour"].append(hour)
-            by_hour_structured["volume"].append(volume)
-            by_hour_structured["coverage"].append(coverage)
-            by_hour_structured["date"].append(date)
 
             #   ----------------------- By lane section -----------------------
 
@@ -401,8 +395,8 @@ class TrafficVolumesCleaner(BaseCleaner):
         # pprint.pp(by_hour_structured)
         # print(by_hour_structured)
 
-        by_hour_df = pd.DataFrame(by_hour_structured) #TODO ADDRESS THIS PROBLEM: DASK DATAFRAMES AREN'T SORTABLE WITH SORT_VALUES (DON'T ASK ME WHY), SO THEY MUST BE FIRST SORTED AS PANDAS DFs AND THEN ...
-        by_hour_df = by_hour_df.sort_values(by=["date", "hour"], ascending=True)
+         #TODO ADDRESS THIS PROBLEM: DASK DATAFRAMES AREN'T SORTABLE WITH SORT_VALUES (DON'T ASK ME WHY), SO THEY MUST BE FIRST SORTED AS PANDAS DFs AND THEN ...
+        by_hour_df = by_hour_df
         # by_hour_df = by_hour_df.reindex(sorted(by_hour_df.columns), axis=1)
         # print(by_hour_df.head(15))
 
