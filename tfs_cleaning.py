@@ -195,26 +195,11 @@ class TrafficVolumesCleaner(BaseCleaner):
         directions = list(self._get_directions(payload))
         print("Directions available: ", directions)
 
-
-
-
-
-
-
-        print("Number of days where registrations took place: ", len(reg_dates))
-        print("First registration day available: ", first_registration_date)
-        print("Last registration day available: ", last_registration_date)
-
-
-        print("Missing days: ", list(missing_days))
-        print("Number of missing days: ", len(list(missing_days)))
-
-
-
-
-
-
-
+        #Just for demonstration purposes
+        registration_dates = self._get_registration_datetimes(payload)
+        print("Number of days where registrations took place: ", len(registration_dates))
+        print("First registration day available: ", min(registration_dates))
+        print("Last registration day available: ", max(registration_dates))
 
 
         by_hour_structured = {
@@ -229,11 +214,22 @@ class TrafficVolumesCleaner(BaseCleaner):
             "date": [],
         }
 
+        missing_days_cnt = 0
+        for d, mh in self._get_missing_data(payload).items():
+            for h in mh:
+                by_hour_structured["trp_id"].append(trp_id)
+                by_hour_structured["volume"].append(None)
+                by_hour_structured["coverage"].append(None)
+                by_hour_structured["year"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%Y"))
+                by_hour_structured["month"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%m"))
+                by_hour_structured["week"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%V"))
+                by_hour_structured["day"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%d"))
+                by_hour_structured["hour"].append(h)
+                by_hour_structured["date"].append(d)
 
+            missing_days_cnt += 1
 
-
-
-
+        print("Number of missing days: ", missing_days_cnt)
 
 
 
@@ -314,17 +310,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
 
 
-        for d, mh in missing_hours_by_day.items():
-            for h in mh:
-                by_hour_structured["trp_id"].append(trp_id)
-                by_hour_structured["volume"].append(None)
-                by_hour_structured["coverage"].append(None)
-                by_hour_structured["year"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%Y"))
-                by_hour_structured["month"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%m"))
-                by_hour_structured["week"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%V"))
-                by_hour_structured["day"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%d"))
-                by_hour_structured["hour"].append(h)
-                by_hour_structured["date"].append(d)
+
 
         # pprint.pprint(by_hour_structured)
 
