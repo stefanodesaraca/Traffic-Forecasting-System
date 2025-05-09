@@ -142,6 +142,50 @@ class TrafficVolumesCleaner(BaseCleaner):
         return max((ln["lane"]["laneNumberAccordingToRoadLink"] for ln in data[0]["node"]["byLane"]))  # Determining the total number of lanes for the TRP taken into consideration. Using a generator comprehension to improve performances
 
 
+    def _get_directions(self, data: dict[Any, Any]) -> Generator[int]:
+        return (d["heading"] for d in data[0]["node"]["byDirection"])
+
+
+    def _get_registration_datetimes(self, edges: dict[Any, Any]) -> set[str]:
+        return set(datetime.fromisoformat(node["node"]["from"]).replace(tzinfo=None).isoformat() for node in edges) # Only keeping the datetime without the +00:00 at the end
+               # Removing duplicates with set() at the end
+
+
+    def _get_missing_data(self, edges: dict[Any, Any]) -> dict[Any, Any]:
+
+        reg_datetimes = self._get_registration_datetimes(edges)
+
+        # The available_day_hours dict will have as key-value pairs: the day and a list with all hours which do have registrations (so that have data)
+        available_day_hours = {dt: [datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H") for rd in reg_datetimes]
+                               for dt in (str(datetime.fromisoformat(dt).date().isoformat()) for dt in reg_datetimes)}  # These dict will have a dictionary for each day with an empty list
+
+        # ------------------ Addressing missing days and hours problem ------------------
+
+        missing_days = [
+            str(d.date().isoformat())
+            for d in pd.date_range(start=min(reg_datetimes), end=max(reg_datetimes), freq="d")
+            if str(d.date().isoformat()) not in reg_dates
+        ]
+        print("Missing days: ", missing_days)
+        print("Number of missing days: ", len(missing_days))
+
+        missing_hours_by_day = {
+            d: [h for h in (f"{i:02}" for i in range(24)) if h not in available_day_hours[d]]
+            for d in available_day_hours.keys()
+        }  # This dictionary comprehension goes like this: we'll create a day key with a list of hours for each day in the available days.
+        # Each day's list will only include registration hours (h) which SHOULD exist, but are missing in the available dates in the data
+
+        for md in missing_days:
+            missing_hours_by_day[md] = [f"{i:02}" for i in range(24)]  # If a whole day is missing we'll just create it and say that all hours of that day are missing
+        missing_hours_by_day = {d: l for d, l in missing_hours_by_day.items() if len(l) != 0}  # Removing elements with empty lists (the days which don't have missing hours)
+        print("Missing hours by day: ", missing_hours_by_day)
+
+
+        return
+
+
+
+
     def _parse_by_hour(self, payload: dict[Any, Any]) -> dict[Any, Any] | None:
 
         trp_id = payload["trafficData"]["trafficRegistrationPoint"]["id"]
@@ -155,6 +199,27 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         n_lanes = self._get_lanes_number(payload)
         print("Number of lanes: ", n_lanes)
+        directions = list(self._get_directions(payload))
+        print("Directions available: ", directions)
+
+
+
+
+
+
+
+        print("Number of days where registrations took place: ", len(reg_dates))
+        print("First registration day available: ", first_registration_date)
+        print("Last registration day available: ", last_registration_date)
+
+
+
+
+
+
+
+
+
 
 
 
@@ -251,53 +316,9 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         # ------------------ Finding all the available directions for the TRP ------------------
 
-        direction_sample_node = nodes[0]["node"]["byDirection"]
-        directions = [d["heading"] for d in direction_sample_node]
-        print("Directions available: ", directions)
 
-        # ------------------ Finding all unique days in which registrations took place ------------------
 
-        reg_datetimes = set(datetime.fromisoformat(n["node"]["from"]).replace(tzinfo=None).isoformat() for n in nodes)  # Only keeping the datetime without the +00:00 at the end #TODO TO TEST THIS, BEFORE IT WAS: n["node"]["from"][:-6]
-        # Removing duplicates and keeping the time as well. This will be needed to extract the hour too
-        # print(reg_datetimes)
 
-        reg_dates = set(str(datetime.fromisoformat(dt).date().isoformat()) for dt in reg_datetimes)
-        # datetime.fromisoformat() converts a string to a datetime object. Then it only keeps the date and converts it into iso format again.
-        # The final step is converting the datetime object to a string with str()
-        # Removing duplicates with set(). With the line above we'll get the unique days where data registration took place. #TODO TO TEST THIS. BEFORE IT WAS dt[:10]
-        print("Number of days where registrations took place: ", len(reg_dates))
-
-        first_registration_date = min(reg_dates)
-        last_registration_date = max(reg_dates)
-
-        print("First registration day available: ", first_registration_date)
-        print("Last registration day available: ", last_registration_date)
-
-        # The available_day_hours dict will have as key-value pairs: the day and a list with all hours which do have registrations (so that have data)
-        available_day_hours = {d: [] for d in reg_dates}  # These dict will have a dictionary for each day with an empty list
-        for rd in reg_datetimes:
-            available_day_hours[rd[:10]].append(datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H"))
-
-        # ------------------ Addressing missing days and hours ------------------
-
-        missing_days = [
-            str(d.date().isoformat())
-            for d in pd.date_range(start=first_registration_date, end=last_registration_date, freq="d")
-            if str(d.date().isoformat()) not in reg_dates
-        ]
-        print("Missing days: ", missing_days)
-        print("Number of missing days: ", len(missing_days))
-
-        missing_hours_by_day = {
-            d: [h for h in (f"{i:02}" for i in range(24)) if h not in available_day_hours[d]]
-            for d in available_day_hours.keys()
-        }  # This dictionary comprehension goes like this: we'll create a day key with a list of hours for each day in the available days.
-        # Each day's list will only include registration hours (h) which SHOULD exist, but are missing in the available dates in the data
-
-        for md in missing_days:
-            missing_hours_by_day[md] = [f"{i:02}" for i in range(24)]  # If a whole day is missing we'll just create it and say that all hours of that day are missing
-        missing_hours_by_day = {d: l for d, l in missing_hours_by_day.items() if len(l) != 0}  # Removing elements with empty lists (the days which don't have missing hours)
-        print("Missing hours by day: ", missing_hours_by_day)
 
         for d, mh in missing_hours_by_day.items():
             for h in mh:
