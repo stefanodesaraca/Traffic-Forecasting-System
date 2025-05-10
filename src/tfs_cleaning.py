@@ -362,25 +362,15 @@ class TrafficVolumesCleaner(BaseCleaner):
 
     # TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, IN THAT CASE WE'LL REPLACE THE _, _ WITH by_lane_df, by_direction_df
 
-    @staticmethod
-    def _export_traffic_volumes_data(by_hour: pd.DataFrame | dd.DataFrame, volumes_file_path: str, trp_id: str) -> None:
-        try:
-            by_hour.to_csv(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + volumes_file_path.replace(".json", "C.csv"), index=False, encoding="utf-8") # C stands for "cleaned"
-            update_trp_metadata(trp_id=trp_id, value=volumes_file_path.replace(".json", "C.csv"), metadata_keys_map=["files", "clean"], mode="equals")
-            print(f"TRP: {trp_id} data exported correctly\n\n")
-            return None
-        except AttributeError:
-            print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
-            return None
 
-
-    def clean(self, volumes_file_path: str) -> None:
+    def clean(self, volumes_file_path: str, export: bool = True) -> None:
         with open(volumes_file_path, "r", encoding="utf-8") as f:
             by_hour_df = self._parse_by_hour(json.load(f))
 
         trp_id = by_hour_df["trp_id"].unique()
 
-        if by_hour_df is not None:
+        #Checking if the dataframe obtained as result of parsing isn't empty
+        if by_hour_df.shape[0] > 0:
 
             # ------------------ Execute multiple imputation with MICE (Multiple Imputation by Chain of Equations) ------------------
 
@@ -403,8 +393,17 @@ class TrafficVolumesCleaner(BaseCleaner):
             for col in ("year", "month", "week", "day", "hour", "volume"):
                 by_hour_df[col] = by_hour_df[col].astype("int")
 
-            if by_hour_df is not None:
-                self._export_traffic_volumes_data(by_hour_df, volumes_file_path, trp_id=trp_id)
+            # ------------------ Export section ------------------
+
+        if export is True:
+            try:
+                by_hour_df.to_csv(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + volumes_file_path.replace(".json", "C.csv"), index=False, encoding="utf-8")  # C stands for "cleaned"
+                update_trp_metadata(trp_id=trp_id, value=volumes_file_path.replace(".json", "C.csv"), metadata_keys_map=["files", "volumes", "clean"], mode="equals")
+                print(f"TRP: {trp_id} data exported correctly\n\n")
+                return None
+            except AttributeError:
+                print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
+                return None
 
         print("--------------------------------------------------------\n\n")
 
