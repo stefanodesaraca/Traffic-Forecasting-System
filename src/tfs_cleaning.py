@@ -548,7 +548,6 @@ class AverageSpeedCleaner(BaseCleaner):
                 agg_data["date"].append(ud)
                 agg_data["trp_id"].append(trp_id)
 
-        # print(agg_data)
 
         # The old avg_data dataframe will be overwritten by this new one which will have all the previous data, but with a new structure
         speeds = pd.DataFrame(agg_data)
