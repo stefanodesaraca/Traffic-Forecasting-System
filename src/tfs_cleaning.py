@@ -398,8 +398,14 @@ class TrafficVolumesCleaner(BaseCleaner):
         if export is True:
             try:
                 by_hour_df.to_csv(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + volumes_file_path.replace(".json", "C.csv"), index=False, encoding="utf-8")  # C stands for "cleaned"
+                print(f"TRP: {trp_id} data exported correctly\n")
+
                 update_trp_metadata(trp_id=trp_id, value=volumes_file_path.replace(".json", "C.csv"), metadata_keys_map=["files", "volumes", "clean"], mode="equals")
-                print(f"TRP: {trp_id} data exported correctly\n\n")
+                update_trp_metadata(trp_id=trp_id, value=by_hour_df["date"].min(), metadata_keys_map=["data_info", "volumes", "start_date"], mode="equals")
+                update_trp_metadata(trp_id=trp_id, value=by_hour_df["date"].max(), metadata_keys_map=["data_info", "volumes", "end_date"], mode="equals")
+
+                print(f"TRP: {trp_id} metadata updated correctly\n\n")
+
                 return None
             except AttributeError:
                 print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")

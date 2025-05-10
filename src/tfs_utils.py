@@ -59,7 +59,6 @@ def write_trp_metadata(trp_id: str, **kwargs: Any) -> None:
     metadata = {
         "id": trp_id,
         "trp_data": None,
-        "number_of_data_nodes": None,
         "files": {
             "volumes": {
                 "raw": None,
@@ -71,12 +70,18 @@ def write_trp_metadata(trp_id: str, **kwargs: Any) -> None:
             }
         },
         "checks": {
-            "has_volumes": kwargs["has_volumes"] or False,
-            "has_speeds": kwargs["has_speeds"] or False
+            "has_volumes": kwargs["has_volumes"] or False, #Meaning if raw volumes data for the TRP is available
+            "has_speeds": kwargs["has_speeds"] or False #Meaning if raw speeds data for the TRP is available
         },
         "data_info": {
-            "start_date": None,
-            "end_date": None
+            "volumes": {
+                "start_date": None,
+                "end_date": None
+            },
+            "speeds": {
+                "start_date": None,
+                "end_date": None
+            }
         }
     }
 
