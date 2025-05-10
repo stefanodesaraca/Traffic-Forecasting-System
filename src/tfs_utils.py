@@ -289,11 +289,17 @@ def read_metainfo_key(keys_map: list) -> Any:
     return payload[keys_map[-1]]  # Returning the metainfo key-value pair
 
 
+
+
+
 # ==================== TRP Related Utilities ====================
 
 def get_trp_ids() -> list[str]:
     assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points first"
     return list(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]).keys())
+
+
+
 
 
 # ==================== ML Related Utilities ====================
@@ -319,6 +325,9 @@ def get_models_parameters_folder_path(target: str, road_category: str) -> str:
         return folder_paths[target]
     else:
         raise Exception("Wrong target variable in the get_ml_model_parameters_folder_path() function")
+
+
+
 
 
 # ==================== Forecasting Settings Utilities ====================
@@ -386,6 +395,9 @@ def rm_forecasting_target_datetime() -> None:
     except KeyError:
         print("\033[91mTarget datetime not found\033[0m")
         sys.exit(1)
+
+
+
 
 
 # ==================== Operations' Settings Utilities ====================
@@ -608,6 +620,9 @@ def clean_text(text: str) -> str:
 def retrieve_n_ml_cpus() -> int:
     return int(os.cpu_count() * 0.75) # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
     # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
+
+
+
 
 
 # ==================== *** Road Network Utilities *** ====================

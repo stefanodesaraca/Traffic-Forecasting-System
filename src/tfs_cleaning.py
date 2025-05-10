@@ -417,54 +417,13 @@ class TrafficVolumesCleaner(BaseCleaner):
         return pd.DataFrame(by_direction_structured).sort_values(by=["date", "hour"], ascending=True)
 
 
-    # This function is design only to clean by_hour data since that's the data we're going to use for the main purposes of this project
-    def _clean_traffic_volumes_data(self, by_hour_df: pd.DataFrame | dd.DataFrame) -> pd.DataFrame | dd.DataFrame | None:
-
-        # If all values aren't 0 then execute multiple imputation to fill NaNs:
-
-        # ------------------ Execute multiple imputation with MICE (Multiple Imputation by Chain of Equations) ------------------
-
-        non_mice_columns = by_hour_df[["trp_id", "date", "year", "month", "day", "week"]]
-        # Setting apart the dates column to execute MICE (multiple imputation) only on numerical columns and then merging that back to the df
-        # Still, we're leaving the hour variable to address for the variability of the traffic volumes during the day
-
-        print("Shape before MICE: ", len(by_hour_df), len(by_hour_df.columns))
-        print("Number of zeros before MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
-
-        try:
-            cleaner = BaseCleaner()
-            by_hour_df = cleaner._impute_missing_values(by_hour_df.drop(non_mice_columns.columns, axis=1), r="gamma")  # Don't use gamma regression since, apparently it can't handle zeros
-
-            for nm_col in non_mice_columns.columns:
-                by_hour_df[nm_col] = non_mice_columns[nm_col]
-
-            print("Shape after MICE: ", len(by_hour_df), len(by_hour_df.columns))
-            print("Number of zeros after MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
-            print("Number of negative values (after MICE): ", len(by_hour_df[by_hour_df["volume"] < 0]))
-
-        except ValueError as e:
-            print(f"\033[91mValue error raised. Error: {e} Continuing with the cleaning.\033[0m")
-            return None
-
-        # ------------------ Data types transformation ------------------
-
-        for col in ("year", "month", "week", "day", "hour", "volume"):
-            by_hour_df[col] = by_hour_df[col].astype("int")
-
-
-        print("\n\n")
-
-        return by_hour_df
-
-
     def export_traffic_volumes_data(self, by_hour: pd.DataFrame | dd.DataFrame, volumes_file_path: str, trp_id: str) -> None:
 
-        file_name = volumes_file_path.split("/")[-1].replace(".json", "C.csv")
-        file_path = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + file_name # C stands for "cleaned"
+        file_path = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + volumes_file_path.replace(".json", "C.csv") # C stands for "cleaned"
 
         try:
             by_hour.to_csv(file_path, index=False, encoding="utf-8")
-            update_metainfo(file_name, ["traffic_volumes", "clean_filenames"], mode="append")
+            update_trp_metadata(trp_id=trp_id, value=volumes_file_path.replace(".json", "C.csv"), metadata_keys_map=["files", "clean"], mode="equals")
             print(f"TRP: {trp_id} data exported correctly\n\n")
             return None
         except AttributeError:
@@ -472,7 +431,7 @@ class TrafficVolumesCleaner(BaseCleaner):
             return None
 
 
-    def cleaning_pipeline(self, volumes_file_path: str) -> None:
+    def _build_pipeline(self, volumes_file_path: str) -> None:
         print(volumes_file_path)
         with open(volumes_file_path, "r", encoding="utf-8") as f:
             volumes = json.load(f)
@@ -484,7 +443,31 @@ class TrafficVolumesCleaner(BaseCleaner):
         # TODO TO-NOTE TRPs WITH NO DATA WON'T BE INCLUDED IN THE ROAD NETWORK CREATION SINCE THEY WON'T RETURN A DATAFRAME (BECAUSE THEY DON'T HAVE DATA TO STORE IN A DF)
 
         if by_hour_df is not None:
-            by_hour_df = self._clean_traffic_volumes_data(by_hour_df)
+
+            # ------------------ Execute multiple imputation with MICE (Multiple Imputation by Chain of Equations) ------------------
+
+            try:
+                print("Shape before MICE: ", len(by_hour_df), len(by_hour_df.columns))
+                print("Number of zeros before MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
+
+                by_hour_df = pd.concat([by_hour_df[["trp_id", "date", "year", "month", "day", "week"]], BaseCleaner()._impute_missing_values(by_hour_df.drop(columns=["trp_id", "date", "year", "month", "day", "week"], axis=1), r="gamma")], axis=1)  # Don't use gamma regression since, apparently it can't handle zeros
+
+                print("Shape after MICE: ", len(by_hour_df), len(by_hour_df.columns))
+                print("Number of zeros after MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
+                print("Number of negative values (after MICE): ", len(by_hour_df[by_hour_df["volume"] < 0]))
+
+            except ValueError as e:
+                print(f"\033[91mValue error raised. Error: {e} Continuing with the cleaning.\033[0m")
+                return None
+
+
+
+
+
+            # ------------------ Data types transformation ------------------
+
+            for col in ("year", "month", "week", "day", "hour", "volume"):
+                by_hour_df[col] = by_hour_df[col].astype("int")
 
             if by_hour_df is not None: #TODO CHECK BEFORE IF BY_HOUR_DF IS NONE SO WE WON'T NEED TWO IF STATEMENTS
                 self.export_traffic_volumes_data(by_hour_df, volumes_file_path, trp_id=trp_id)
@@ -495,7 +478,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
 
     def clean(self, volumes_file_path: str) -> None:
-        self.cleaning_pipeline(volumes_file_path=volumes_file_path)
+        self._build_pipeline(volumes_file_path=volumes_file_path)
         return None
 
 
