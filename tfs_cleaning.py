@@ -263,7 +263,6 @@ class TrafficVolumesCleaner(BaseCleaner):
         return pd.DataFrame(by_hour_structured).sort_values(by=["date", "hour"], ascending=True)
 
 
-
     def _parse_by_lane(self, payload: dict[Any, Any]) -> pd.DataFrame | dd.DataFrame | None:
 
         trp_id = payload["trafficData"]["trafficRegistrationPoint"]["id"]
@@ -309,6 +308,7 @@ class TrafficVolumesCleaner(BaseCleaner):
                 by_lane_structured["month"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%m"))
                 by_lane_structured["week"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%V"))
                 by_lane_structured["day"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%d"))
+                # TODO ADD None FOR THE LANE MISSING DATA (FOR EACH LANE)
                 by_lane_structured["hour"].append(h)
                 by_lane_structured["date"].append(d)
 
@@ -320,7 +320,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
             # This is the datetime which will be representative of a volume, specifically, there will be multiple datetimes with the same day
             # to address this fact we'll just re-format the data to keep track of the day, but also maintain the volume values for each hour
-            reg_datetime = datetime.strptime(datetime.fromisoformat(edge["node"]["from"]).replace(tzinfo=None).isoformat(),"%Y-%m-%dT%H:%M:%S").strftime("%Y-%m-%dT%H")  # Only keeping the datetime without the +00:00 at the end
+            reg_datetime = datetime.strptime(datetime.fromisoformat(edge["node"]["from"]).replace(tzinfo=None).isoformat(), "%Y-%m-%dT%H:%M:%S").strftime("%Y-%m-%dT%H")  # Only keeping the datetime without the +00:00 at the end
 
             # Every lane's data is kept isolated from the other lanes' data, so a for cycle is needed to extract all the data from each lane's section
             for lane in edge["node"]["byLane"]:
@@ -341,9 +341,27 @@ class TrafficVolumesCleaner(BaseCleaner):
         return pd.DataFrame(by_lane_structured).sort_values(by=["date", "hour"], ascending=True)
 
 
+    def _parse_by_direction(self, payload: dict[Any, Any]) -> pd.DataFrame | dd.DataFrame | None:
 
+        trp_id = payload["trafficData"]["trafficRegistrationPoint"]["id"]
+        payload = payload["trafficData"]["volume"]["byHour"]["edges"]
 
-    def _parse_by_direction(self, payload: dict[Any, Any]) -> dict[Any, Any] | None:
+        if self._is_empty(payload):
+            print(f"\033[91mNo data found for TRP: {trp_id}\033[0m\n\n")
+            return None
+
+        update_metainfo(trp_id, ["common", "non_empty_volumes_trps"], mode="append")
+
+        n_lanes = self._get_lanes_number(payload)
+        print("Number of lanes: ", n_lanes)
+        directions = list(self._get_directions(payload))
+        print("Directions available: ", directions)
+
+        # Just for demonstration purposes
+        registration_dates = self._get_registration_datetimes(payload)
+        print("Number of days where registrations took place: ", len(registration_dates))
+        print("First registration day available: ", min(registration_dates))
+        print("Last registration day available: ", max(registration_dates))
 
         by_direction_structured = {
             "trp_id": [],
@@ -358,11 +376,45 @@ class TrafficVolumesCleaner(BaseCleaner):
             "direction": [],
         }
 
+        missing_days_cnt = 0
+        for d, mh in self._get_missing_data(payload).items():
+            for h in mh:
+                by_direction_structured["trp_id"].append(trp_id)
+                by_direction_structured["volume"].append(None)
+                by_direction_structured["coverage"].append(None)
+                by_direction_structured["year"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%Y"))
+                by_direction_structured["month"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%m"))
+                by_direction_structured["week"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%V"))
+                by_direction_structured["day"].append(datetime.strptime(d, "%Y-%m-%d").strftime("%d"))
+                # TODO ADD None FOR THE DIRECTION'S MISSING DATA (FOR EACH LANE)
+                by_direction_structured["hour"].append(h)
+                by_direction_structured["date"].append(d)
 
+            missing_days_cnt += 1
 
+        print("Number of missing days: ", missing_days_cnt)
 
+        for edge in payload:
 
-        return
+            # This is the datetime which will be representative of a volume, specifically, there will be multiple datetimes with the same day
+            # to address this fact we'll just re-format the data to keep track of the day, but also maintain the volume values for each hour
+            reg_datetime = datetime.strptime(datetime.fromisoformat(edge["node"]["from"]).replace(tzinfo=None).isoformat(), "%Y-%m-%dT%H:%M:%S").strftime("%Y-%m-%dT%H")  # Only keeping the datetime without the +00:00 at the end
+
+            # Every direction's data is kept isolated from the other directions' data, so a for cycle is needed
+            for direction_section in edge["node"]["byDirection"]:
+
+                by_direction_structured["trp_id"].append(trp_id)
+                by_direction_structured["year"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%Y"))
+                by_direction_structured["month"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%m"))
+                by_direction_structured["week"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%V"))
+                by_direction_structured["day"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%d"))
+                by_direction_structured["hour"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%H"))
+                by_direction_structured["volume"].append(direction_section["total"]["volumeNumbers"]["volume"] if direction_section["total"]["volumeNumbers"] is not None else None) # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
+                by_direction_structured["coverage"].append(direction_section["total"]["coverage"]["percentage"] if direction_section["total"]["coverage"] is not None else None)
+                by_direction_structured["direction"].append(direction_section["heading"])
+                by_direction_structured["date"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").date().isoformat())
+
+        return pd.DataFrame(by_direction_structured).sort_values(by=["date", "hour"], ascending=True)
 
 
 
@@ -394,24 +446,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
             #   ----------------------- By direction section -----------------------
 
-            by_direction_data = node["node"]["byDirection"]
 
-            # Every direction's data is kept isolated from the other directions' data, so a for cycle is needed
-            for direction_section in by_direction_data:
-                heading = direction_section["heading"]
-                direction_volume = direction_section["total"]["volumeNumbers"]["volume"] if direction_section["total"]["volumeNumbers"] is not None else None  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
-                direction_coverage = direction_section["total"]["coverage"]["percentage"] if direction_section["total"]["coverage"] is not None else None
-
-                by_direction_structured["trp_id"].append(trp_id)
-                by_direction_structured["year"].append(year)
-                by_direction_structured["month"].append(month)
-                by_direction_structured["week"].append(week)
-                by_direction_structured["day"].append(day)
-                by_direction_structured["hour"].append(hour)
-                by_direction_structured["volume"].append(direction_volume)
-                by_direction_structured["coverage"].append(direction_coverage)
-                by_direction_structured["direction"].append(heading)
-                by_direction_structured["date"].append(date)
 
                 # TODO THE SAME PRINCIPLE AS BEFORE APPLIES HERE, SAVE ALL THE AVAILABLE DIRECTIONS IN THE TRP'S METADATA FILE
 
