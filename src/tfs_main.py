@@ -38,7 +38,7 @@ def manage_ops(functionality: str) -> None:
     return None
 
 
-async def download_data(functionality: str) -> None:
+async def download_volumes(functionality: str) -> None:
     if functionality == "2.1":
         try:
             print("\nDownloading traffic registration points information for the active operation...")
@@ -95,7 +95,7 @@ async def download_data(functionality: str) -> None:
         assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points"
         with open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]), "r") as trps_data:
             for trp_id in tqdm(list(json.load(trps_data).keys())):
-                write_trp_metadata(trp_id)
+                write_trp_metadata(trp_id, has_volumes=True)
 
     return None
 
@@ -419,7 +419,7 @@ def main():
             manage_ops(option)
 
         elif option in ["2.1", "2.2", "2.3"]:
-            asyncio.run(download_data(option))
+            asyncio.run(download_volumes(option))
 
         elif option in ["3.1.1", "3.1.2", "3.1.3"]:
             set_forecasting_options(option)

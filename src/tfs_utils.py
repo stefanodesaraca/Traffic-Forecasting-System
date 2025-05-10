@@ -55,7 +55,7 @@ def get_trp_metadata(trp_id: str) -> dict[Any, Any]:
         return json.load(json_trp_metadata)
 
 
-def write_trp_metadata(trp_id: str) -> None:
+def write_trp_metadata(trp_id: str, **kwargs: Any) -> None:
     metadata = {
         "id": trp_id,
         "trp_data": None,
@@ -71,8 +71,8 @@ def write_trp_metadata(trp_id: str) -> None:
             }
         },
         "checks": {
-            "has_volumes": False,
-            "has_speeds": False
+            "has_volumes": kwargs["has_volumes"] or False,
+            "has_speeds": kwargs["has_speeds"] or False
         },
         "data_info": {
             "start_date": None,
@@ -80,7 +80,7 @@ def write_trp_metadata(trp_id: str) -> None:
         }
     }
 
-    with open(read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]) + trp_id + "_metadata.json", "w") as metadata_writer:
+    with open(read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]) + trp_id + "_metadata.json", "w", encoding="utf-8") as metadata_writer:
         json.dump(metadata, metadata_writer, indent=4)
 
     return None

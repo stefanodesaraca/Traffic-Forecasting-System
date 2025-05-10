@@ -32,13 +32,6 @@ class BaseCleaner:
         self._regressor_types = ["lasso", "gamma", "quantile"]
 
 
-    # General definition of the data_overview() function. This will take two different forms: the traffic volumes one and the average speed one.
-    # Thus, the generic "data" parameter will become the volumes_data or the avg_speed_data one
-    @staticmethod
-    def data_overview(trp_data, data: dict, verbose: bool):
-        return data
-
-
     # Executing multiple imputation to get rid of NaNs using the MICE method (Multiple Imputation by Chained Equations)
     def _impute_missing_values(self, data: pd.DataFrame | dd.DataFrame, r: str = "gamma") -> pd.DataFrame:
         """
@@ -85,58 +78,9 @@ class BaseCleaner:
 
 
 
-
 class TrafficVolumesCleaner(BaseCleaner):
     def __init__(self):
         super().__init__()
-
-
-    # This function is only to give the user an overview of the data which we're currently cleaning, and some specific information about the TRP (Traffic Registration Point) which has collected it
-    def data_overview(self, volumes_data: dict, verbose: bool = True) -> None:
-        trp_id = volumes_data["trafficData"]["trafficRegistrationPoint"]["id"]
-        try:
-            trp_metadata = get_trp_metadata(trp_id)
-
-            if verbose is True:
-                print("******** Traffic Registration Point Information ********")
-
-                print("ID: ", trp_metadata["trp_id"])
-                print("Name: ", trp_metadata["name"])
-                print("Road category: ", trp_metadata["road_category"])
-                print("Coordinates: ")
-                print(" - Lat: ", trp_metadata["lat"])
-                print(" - Lon: ", trp_metadata["lon"])
-                print("County name: ", trp_metadata["county_name"])
-                print("County number: ", trp_metadata["county_number"])
-                print("Geographic number: ", trp_metadata["geographic_number"])
-                print("Country part: ", trp_metadata["country_part"])
-                print("Municipality name: ", trp_metadata["municipality_name"])
-
-                print("Traffic registration type: ",trp_metadata["traffic_registration_type"])
-                print("Data time span: ")
-                print(" - First data: ", trp_metadata["first_data"])
-                print(" - First data with quality metrics: ",trp_metadata["first_data_with_quality_metrics"])
-                print(" - Latest data: ")
-                print("   > Volume by day: ", trp_metadata["latest_volume_by_day"])
-                print("   > Volume by hour: ", trp_metadata["latest_volume_byh_hour"])
-                print("   > Volume average daily by year: ", trp_metadata["latest_volume_average_daily_by_year"])
-                print("   > Volume average daily by season: ", trp_metadata["latest_volume_average_daily_by_season"])
-                print("   > Volume average daily by month: ", trp_metadata["latest_volume_average_daily_by_month"])
-                print("Number of data nodes: ", trp_metadata["number_of_data_nodes"])
-
-                print("\n")
-
-                # print(volumes_data)
-
-            elif verbose is False:
-                print("******** Traffic Registration Point Information ********")
-                print("ID: ", trp_metadata["trp_id"])
-                print("Name: ", trp_metadata["name"])
-                return None
-
-        except FileNotFoundError as e:
-            print(f"\033[91mMetadata file not found. Error: {e}\033[0m")
-            return None
 
 
     @staticmethod
@@ -416,13 +360,12 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         return pd.DataFrame(by_direction_structured).sort_values(by=["date", "hour"], ascending=True)
 
+    # TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, IN THAT CASE WE'LL REPLACE THE _, _ WITH by_lane_df, by_direction_df
 
-    def export_traffic_volumes_data(self, by_hour: pd.DataFrame | dd.DataFrame, volumes_file_path: str, trp_id: str) -> None:
-
-        file_path = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + volumes_file_path.replace(".json", "C.csv") # C stands for "cleaned"
-
+    @staticmethod
+    def _export_traffic_volumes_data(by_hour: pd.DataFrame | dd.DataFrame, volumes_file_path: str, trp_id: str) -> None:
         try:
-            by_hour.to_csv(file_path, index=False, encoding="utf-8")
+            by_hour.to_csv(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + volumes_file_path.replace(".json", "C.csv"), index=False, encoding="utf-8") # C stands for "cleaned"
             update_trp_metadata(trp_id=trp_id, value=volumes_file_path.replace(".json", "C.csv"), metadata_keys_map=["files", "clean"], mode="equals")
             print(f"TRP: {trp_id} data exported correctly\n\n")
             return None
@@ -431,16 +374,11 @@ class TrafficVolumesCleaner(BaseCleaner):
             return None
 
 
-    def _build_pipeline(self, volumes_file_path: str) -> None:
-        print(volumes_file_path)
+    def clean(self, volumes_file_path: str) -> None:
         with open(volumes_file_path, "r", encoding="utf-8") as f:
-            volumes = json.load(f)
-        trp_id = volumes["trafficData"]["trafficRegistrationPoint"]["id"]
+            by_hour_df = self._parse_by_hour(json.load(f))
 
-        self.data_overview(volumes_data=volumes, verbose=True)
-        by_hour_df = self.restructure_traffic_volumes_data(volumes)  # TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, IN THAT CASE WE'LL REPLACE THE _, _ WITH by_lane_df, by_direction_df
-
-        # TODO TO-NOTE TRPs WITH NO DATA WON'T BE INCLUDED IN THE ROAD NETWORK CREATION SINCE THEY WON'T RETURN A DATAFRAME (BECAUSE THEY DON'T HAVE DATA TO STORE IN A DF)
+        trp_id = by_hour_df["trp_id"].unique()
 
         if by_hour_df is not None:
 
@@ -460,25 +398,16 @@ class TrafficVolumesCleaner(BaseCleaner):
                 print(f"\033[91mValue error raised. Error: {e} Continuing with the cleaning.\033[0m")
                 return None
 
-
-
-
-
             # ------------------ Data types transformation ------------------
 
             for col in ("year", "month", "week", "day", "hour", "volume"):
                 by_hour_df[col] = by_hour_df[col].astype("int")
 
-            if by_hour_df is not None: #TODO CHECK BEFORE IF BY_HOUR_DF IS NONE SO WE WON'T NEED TWO IF STATEMENTS
-                self.export_traffic_volumes_data(by_hour_df, volumes_file_path, trp_id=trp_id)
+            if by_hour_df is not None:
+                self._export_traffic_volumes_data(by_hour_df, volumes_file_path, trp_id=trp_id)
 
         print("--------------------------------------------------------\n\n")
 
-        return None
-
-
-    def clean(self, volumes_file_path: str) -> None:
-        self._build_pipeline(volumes_file_path=volumes_file_path)
         return None
 
 
