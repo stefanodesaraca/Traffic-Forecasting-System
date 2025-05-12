@@ -295,9 +295,8 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
                 )
 
                 page_info = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]
-                end_cursor = (
-                    page_info["endCursor"] if page_info["hasNextPage"] else None
-                )
+                end_cursor = page_info["endCursor"] if page_info["hasNextPage"] else None
+
                 pages_counter += 1
 
                 if pages_counter == 1:

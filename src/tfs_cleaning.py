@@ -360,11 +360,9 @@ class TrafficVolumesCleaner(BaseCleaner):
     # TODO IN THE FUTURE SOME ANALYSES COULD BE EXECUTED WITH THE by_lane_df OR by_direction_df, IN THAT CASE WE'LL REPLACE THE _, _ WITH by_lane_df, by_direction_df
 
 
-    def clean(self, volumes_file_path: str, export: bool = True) -> None:
-        with open(volumes_file_path, "r", encoding="utf-8") as f:
+    def clean(self, trp_id: str, export: bool = True) -> None:
+        with open(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"]) + trp_id + ".json", "r", encoding="utf-8") as f:
             by_hour_df = self._parse_by_hour(json.load(f))
-
-        trp_id = by_hour_df["trp_id"].unique()
 
         #Checking if the dataframe obtained as result of parsing isn't empty
         if by_hour_df.shape[0] > 0:
@@ -394,10 +392,10 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         if export:
             try:
-                by_hour_df.to_csv(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + volumes_file_path.replace(".json", "_C.csv"), index=False, encoding="utf-8")  # C stands for "cleaned"
+                by_hour_df.to_csv(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + trp_id + "_volumes_" + "C.csv", index=False, encoding="utf-8")  # C stands for "cleaned"
                 print(f"TRP: {trp_id} data exported correctly\n")
 
-                update_trp_metadata(trp_id=trp_id, value=volumes_file_path.replace(".json", "C.csv"), metadata_keys_map=["files", "volumes", "clean"], mode="equals")
+                update_trp_metadata(trp_id=trp_id, value=trp_id + "_volumes_" + "C.csv", metadata_keys_map=["files", "volumes", "clean"], mode="equals")
                 update_trp_metadata(trp_id=trp_id, value=by_hour_df["date"].min(), metadata_keys_map=["data_info", "volumes", "start_date"], mode="equals")
                 update_trp_metadata(trp_id=trp_id, value=by_hour_df["date"].max(), metadata_keys_map=["data_info", "volumes", "end_date"], mode="equals")
 
@@ -516,27 +514,135 @@ class AverageSpeedCleaner(BaseCleaner):
             "mean_speed": grouped["day"].to_list(),
             "percentile_85": grouped["date"].to_list(),
             "coverage": grouped["trp_id"].to_list()
-        }).reindex(sorted(speeds.columns), axis=1), trp_id, str(t_max.date()), str(t_min.date())
+        }).reindex(sorted(speeds.columns), axis=1)
 
 
     def clean(self, trp_id: str, export: bool = True) -> pd.DataFrame | dd.DataFrame | None:
         """
         This function executes a cleaning pipeline and lets the user choose to export the cleaned data or not.
         Parameters:
-            trp_id: the ID of the traffic registration point which we want to clean average speed data for
+            trp_id: the ID of the traffic registration point (TRP) which we want to clean average speed data for
             export: lets the user export the clean data. By default, this is set to True. If set to False the function will just return the clean data
+
+        Returns:
+            pd.DataFrame | None
         """
         try:
             if export:
-                self._parse_speeds(pd.read_csv(trp_id, sep=";", engine="c")).to_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + trp_id + "_speeds_C.csv")
-                update_trp_metadata(trp_id=trp_id, value=read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + trp_id + "_speeds_C.csv", metadata_keys_map=["files", "speeds", "clean"], mode="equals")
+                self._parse_speeds(pd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", engine="c")).to_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + filepath.replace(".json", "_speeds_C.csv"))
+                update_trp_metadata(trp_id=trp_id, value=trp_id + "_speeds" + ".csv", metadata_keys_map=["files", "speeds", "clean"], mode="equals")
             elif export is False:
-                return self._parse_speeds(pd.read_csv(trp_id, sep=";", engine="c"))
+                return self._parse_speeds(pd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", engine="c"))
         except IndexError as e:
             logging.error(traceback.format_exc())
-            print(f"\033[91mNo data available for file: {trp_id}. Error: {e}\033[0m\n")
+            print(f"\033[91mNo data available for file: {file}. Error: {e}\033[0m\n")
             return None
         except Exception as e:
             logging.error(traceback.format_exc())
-            print(f"\033[91mCouldn't export speeds data for file: {trp_id}. Error: {e}\033[0m")
+            print(f"\033[91mCouldn't export speeds data for file: {file}. Error: {e}\033[0m")
+            return None
+
+
+    async def _parse_speeds_async(self, speeds: pd.DataFrame) -> pd.DataFrame | dd.DataFrame | None:
+        if speeds.empty:
+            return None
+
+        trp_id = str(speeds["trp_id"].unique()[0])
+        await update_metainfo_async(trp_id, ["common", "non_empty_avg_speed_trps"], mode="append")
+
+        # Data cleaning
+        speeds["coverage"] = speeds["coverage"].replace(",", ".", regex=True).astype("float") * 100
+        speeds["mean_speed"] = speeds["mean_speed"].replace(",", ".", regex=True).astype("float")
+        speeds["percentile_85"] = speeds["percentile_85"].replace(",", ".", regex=True).astype("float")
+        speeds["hour_start"] = speeds["hour_start"].str[:2]
+
+        speeds["trp_id"] = speeds["trp_id"].astype("str")
+        speeds["date"] = pd.to_datetime(speeds["date"])
+
+        t_min = speeds["date"].min()
+        t_max = speeds["date"].max()
+
+        await update_trp_metadata_async(trp_id=trp_id, value=t_min, metadata_keys_map=["data_info", "volumes", "start_date"], mode="equals")
+        await update_trp_metadata_async(trp_id=trp_id, value=t_max, metadata_keys_map=["data_info", "volumes", "end_date"], mode="equals")
+
+        print("Registrations time-range:")
+        print("First day:", t_min)
+        print("Last day:", t_max, "\n\n")
+
+        speeds["year"] = speeds["date"].dt.year.astype("int")
+        speeds["month"] = speeds["date"].dt.month.astype("int")
+        speeds["week"] = speeds["date"].dt.isocalendar().week.astype("int")
+        speeds["day"] = speeds["date"].dt.day.astype("int")
+        speeds["hour_start"] = speeds["hour_start"].astype("int")
+
+        print("Shape before MICE:", speeds.shape)
+        print("Number of zeros before MICE:", len(speeds[speeds["volume"] == 0]))
+
+        try:
+            speeds = await asyncio.to_thread(lambda: pd.concat([speeds[["trp_id", "date", "year", "month", "day", "week"]], BaseCleaner()._impute_missing_values(speeds.drop(columns=["trp_id", "date", "year", "month", "day", "week"]), r="gamma")], axis=1))
+
+            print("Shape after MICE:", speeds.shape, "\n")
+            print("Number of zeros after MICE:", len(speeds[speeds["volume"] == 0]))
+            print("Negative values (volume):", len(speeds[speeds["volume"] < 0]))
+        except ValueError as e:
+            print(f"\033[91mValueError: {e}. Skipping...\033[0m")
+            return None
+
+        for col in ("year", "month", "week", "day", "hour_start"):
+            speeds[col] = speeds[col].astype("int")
+
+        print("Dataframe head:\n", speeds.head(15), "\n")
+        print("Statistics:\n", speeds.drop(columns=["year", "month", "week", "day", "hour_start"]).describe(), "\n")
+
+        grouped = speeds.groupby(["date", "hour_start"], as_index=False).agg({
+            "mean_speed": lambda x: np.round(np.mean(x), 2),
+            "percentile_85": lambda x: np.round(np.mean(x), 2),
+            "coverage": lambda x: np.round(np.mean(x), 2)
+        })
+
+        grouped["year"] = grouped["date"].dt.year
+        grouped["month"] = grouped["date"].dt.month
+        grouped["week"] = grouped["date"].dt.isocalendar().week
+        grouped["day"] = grouped["date"].dt.day
+        grouped["trp_id"] = trp_id
+
+        return pd.DataFrame({
+            "trp_id": grouped["mean_speed"].to_list(),
+            "date": grouped["percentile_85"].to_list(),
+            "year": grouped["coverage"].to_list(),
+            "month": grouped["hour_start"].to_list(),
+            "week": grouped["year"].to_list(),
+            "day": grouped["month"].to_list(),
+            "hour_start": grouped["week"].to_list(),
+            "mean_speed": grouped["day"].to_list(),
+            "percentile_85": grouped["date"].to_list(),
+            "coverage": grouped["trp_id"].to_list()
+        }).reindex(sorted(speeds.columns), axis=1)
+
+
+    async def clean_async(self, filepath: str, export: bool = True) -> pd.DataFrame | dd.DataFrame | None:
+        try:
+            if export:
+                await asyncio.to_thread(
+                    await self._parse_speeds_async(
+                        await asyncio.to_thread(pd.read_csv, filepath, sep=";", **{"engine":"c"})).to_csv, filepath.replace(".json", "_speeds_C.csv"))
+
+                # Using to_thread since this is a CPU-bound operation which would otherwise block the event loop until it's finished executing
+
+                await update_trp_metadata_async(
+                    trp_id=filepath,
+                    value=filepath.replace(".json", "_speeds_C.csv"),
+                    metadata_keys_map=["files", "speeds", "clean"],
+                    mode="equals"
+                )
+            else:
+                return await self._parse_speeds_async(await asyncio.to_thread(pd.read_csv, filepath, sep=";", **{"engine":"c"}))
+
+        except IndexError as e:
+            logging.error(traceback.format_exc())
+            print(f"\033[91mNo data for file: {filepath}. Error: {e}\033[0m\n")
+            return None
+        except Exception as e:
+            logging.error(traceback.format_exc())
+            print(f"\033[91mFailed to export speeds for: {filepath}. Error: {e}\033[0m")
             return None

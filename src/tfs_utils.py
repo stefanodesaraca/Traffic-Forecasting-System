@@ -33,6 +33,7 @@ target_data_temp = {"V": "traffic_volumes", "AS": "mean_speed"} #NOTE TEMPORARY 
 default_max_forecasting_window_size = 14
 active_ops_filename = "active_ops"
 metainfo_lock = asyncio.Lock()
+metadata_lock = asyncio.Lock()
 
 
 # ==================== TRP Utilities ====================
@@ -117,6 +118,35 @@ def update_trp_metadata(trp_id: str, value: Any, metadata_keys_map: list[str], m
     elif mode not in modes:
         print("\033[91mWrong mode\033[0m")
         sys.exit(1)
+
+    return None
+
+
+async def update_trp_metadata_async(trp_id: str, value: Any, metadata_keys_map: list[str], mode: str):
+    modes = ["equals", "append"]
+    metadata_filepath = read_metainfo_key(keys_map=["folder_paths", "trp_metadata", "path"]) + trp_id + "_metadata.json"
+
+    async with metadata_lock:
+        async with aiofiles.open(metadata_filepath, "r") as m:
+            payload = json.loads(await m.read())
+
+        metadata = payload
+
+        if mode == "equals":
+            for key in metadata_keys_map[:-1]:
+                metadata = metadata[key]
+            metadata[metadata_keys_map[-1]] = value  # Updating the metainfo file key-value pair
+            async with aiofiles.open(metadata_filepath, "w") as f:
+                await f.write(json.dumps(payload, indent=4))
+        elif mode == "append":
+            for key in metadata_keys_map[:-1]:
+                metadata = metadata[key]
+            metadata[metadata_keys_map[-1]].append(value)  # Appending a new value to the list (which is the value of this key-value pair)
+            async with aiofiles.open(metadata_filepath, "w") as f:
+                await f.write(json.dumps(payload, indent=4))
+        elif mode not in modes:
+            print("\033[91mWrong mode\033[0m")
+            sys.exit(1)
 
     return None
 
@@ -240,8 +270,7 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
     async with metainfo_lock:
         if check_metainfo_file() is True:
             async with aiofiles.open(metainfo_filepath, "r") as m:
-                content = await m.read()
-                payload = json.loads(content)
+                payload = json.loads(await m.read())
         else:
             raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
 

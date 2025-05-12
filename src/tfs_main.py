@@ -101,17 +101,18 @@ async def download_volumes(functionality: str) -> None:
 
 # TODO ASYNCHRONIZE CLEANING AS WELL
 async def clean_data(functionality: str) -> None:
+
     if functionality == "5.6.1":
 
-        for file in os.listdir(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"])):
+        for trp_id in get_trp_ids():
             if not file.endswith(".DS_Store"):
-                TrafficVolumesCleaner().clean(traffic_volumes_folder + file)
+                TrafficVolumesCleaner().clean(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"]) + file)
 
     elif functionality == "5.6.2":
 
-        for file in os.listdir(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"])):
+        for trp_id in get_trp_ids():
             if not file.endswith(".DS_Store"):
-                AverageSpeedCleaner().clean()
+                AverageSpeedCleaner().clean(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + file)
 
     return None
 
