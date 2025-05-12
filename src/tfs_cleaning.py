@@ -421,7 +421,7 @@ class AverageSpeedCleaner(BaseCleaner):
 
     def clean(self, speeds: pd.DataFrame) -> tuple[pd.DataFrame | dd.DataFrame, str, str, str] | None:
 
-        if len(speeds) == 0:
+        if speeds.empty:
             return None  # In case a file is completely empty we'll just return None and not insert its TRP into the "non_empty_avg_speed_trps" key of the metainfo file
 
         trp_id = str(speeds["trp_id"].unique()[0])  # There'll be only one value since each file only represents the data for one TRP only
@@ -445,6 +445,8 @@ class AverageSpeedCleaner(BaseCleaner):
 
         speeds["trp_id"] = speeds["trp_id"].astype("str")
         speeds["date"] = pd.to_datetime(speeds["date"])
+
+        #TODO CHECK IF ALL DATES AND HOURS ARE AVAILABLE
 
         # Determining the days range of the data
         t_min = speeds["date"].min()
@@ -478,16 +480,9 @@ class AverageSpeedCleaner(BaseCleaner):
             print(f"\033[91mValue error raised. Error: {e} Continuing with the cleaning\033[0m")
             return None
 
-        # Merging non MICE columns back into the MICEed dataframe
-        for nm_col in non_mice_df.columns:
-            speeds[nm_col] = non_mice_df[nm_col]
-
         # These transformations here are necessary since after the multiple imputation every column's type becomes float
-        speeds["year"] = speeds["year"].astype("int")
-        speeds["month"] = speeds["month"].astype("int")
-        speeds["week"] = speeds["week"].astype("int")
-        speeds["day"] = speeds["day"].astype("int")
-        speeds["hour_start"] = speeds["hour_start"].astype("int")
+        for col in ("year", "month", "week", "day", "hour_start"):
+            speeds[col] = speeds[col].astype("int")
 
         print("Dataframe overview: \n", speeds.head(15), "\n")
         print("Basic descriptive statistics on the dataframe: \n", speeds.drop(columns=["year", "month", "week", "day", "hour_start"], axis=1).describe(), "\n")
@@ -499,41 +494,31 @@ class AverageSpeedCleaner(BaseCleaner):
         # Also, generalizing the lanes data wouldn't make much sense because the lanes in each street may have completely different data, not because of the traffic behaviour, but because of the location of the TRP itself
         # If we were to create a model for each TRP, then it could make some sense, but that's not the goal of this project
 
-        # agg_data will be a dict of lists which we'll use to create a dataframe afterward
-        agg_data = {
-            "trp_id": [],
-            "date": [],
-            "year": [],
-            "month": [],
-            "week": [],
-            "day": [],
-            "hour_start": [],
-            "mean_speed": [],
-            "percentile_85": [],
-            "coverage": [],
-        }
+        grouped = speeds.groupby(["date", "hour_start"], as_index=False).agg({
+            "mean_speed": lambda x: np.round(np.mean(x), 2),
+            "percentile_85": lambda x: np.round(np.mean(x), 2),
+            "coverage": lambda x: np.round(np.mean(x), 2)
+        })
 
-        for ud in speeds["date"].unique():
-            day_data = speeds.query(f"date == '{ud}'")
-            # print(day_data)
+        # Extract year, month, week, and day from 'date'
+        grouped["year"] = pd.to_datetime(grouped["date"]).dt.year
+        grouped["month"] = pd.to_datetime(grouped["date"]).dt.month
+        grouped["week"] = pd.to_datetime(grouped["date"]).dt.isocalendar().week
+        grouped["day"] = pd.to_datetime(grouped["date"]).dt.day
+        grouped["trp_id"] = trp_id
 
-            for h in day_data["hour_start"].unique():
-                # print(day_data[["mean_speed", "hour_start"]].query(f"hour_start == {h}")["mean_speed"])
-                # Using the median to have a more robust indicator which won't be influenced by outliers as much as the mean
-                agg_data["mean_speed"].append(np.round(np.median(day_data[["mean_speed", "hour_start"]].query(f"hour_start == {h}")["mean_speed"]), decimals=2))
-                agg_data["percentile_85"].append(np.round(np.median(day_data[["percentile_85", "hour_start"]].query(f"hour_start == {h}")["percentile_85"]), decimals=2))
-                agg_data["coverage"].append(np.round(np.median(day_data[["coverage", "hour_start"]].query(f"hour_start == {h}")["coverage"]), decimals=2))
-                agg_data["hour_start"].append(h)
-                agg_data["year"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%Y")))
-                agg_data["month"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%m")))
-                agg_data["week"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%V")))
-                agg_data["day"].append(int(datetime.strptime(str(ud)[:10], "%Y-%m-%d").strftime("%d")))
-                agg_data["date"].append(ud)
-                agg_data["trp_id"].append(trp_id)
-
-
-        # The old avg_data dataframe will be overwritten by this new one which will have all the previous data, but with a new structure
-        return pd.DataFrame(agg_data).reindex(sorted(speeds.columns), axis=1), trp_id, str(t_max)[:10], str(t_min)[:10]
+        return pd.DataFrame({
+            "trp_id": grouped["mean_speed"].to_list(),
+            "date": grouped["percentile_85"].to_list(),
+            "year": grouped["coverage"].to_list(),
+            "month": grouped["hour_start"].to_list(),
+            "week": grouped["year"].to_list(),
+            "day": grouped["month"].to_list(),
+            "hour_start": grouped["week"].to_list(),
+            "mean_speed": grouped["day"].to_list(),
+            "percentile_85": grouped["date"].to_list(),
+            "coverage": grouped["trp_id"].to_list()
+        }).reindex(sorted(speeds.columns), axis=1), trp_id, str(t_max.date()), str(t_min.date())
 
 
     def export_clean_avg_speed_data(self, avg_speed_data: pd.DataFrame, trp_id: str, t_max: str, t_min: str) -> None:
