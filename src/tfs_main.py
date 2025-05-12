@@ -106,15 +106,15 @@ def clean_data(functionality: str) -> None:
         traffic_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"])
 
         for file in os.listdir(traffic_volumes_folder):
-            if file.endswith(".DS_Store") is False:
+            if not file.endswith(".DS_Store"):
                 TrafficVolumesCleaner().clean(traffic_volumes_folder + file)
 
     elif functionality == "5.6.2":
         average_speed_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"])
 
         for file in os.listdir(average_speed_folder):
-            if file.endswith(".DS_Store") is False:
-                AverageSpeedCleaner().execute_cleaning(file_path=average_speed_folder + file, file_name=file)
+            if not file.endswith(".DS_Store"):
+                AverageSpeedCleaner().clean(file_path=average_speed_folder + file, file_name=file)
 
     return None
 

@@ -392,9 +392,9 @@ class TrafficVolumesCleaner(BaseCleaner):
 
             # ------------------ Export section ------------------
 
-        if export is True:
+        if export:
             try:
-                by_hour_df.to_csv(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + volumes_file_path.replace(".json", "C.csv"), index=False, encoding="utf-8")  # C stands for "cleaned"
+                by_hour_df.to_csv(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + volumes_file_path.replace(".json", "_C.csv"), index=False, encoding="utf-8")  # C stands for "cleaned"
                 print(f"TRP: {trp_id} data exported correctly\n")
 
                 update_trp_metadata(trp_id=trp_id, value=volumes_file_path.replace(".json", "C.csv"), metadata_keys_map=["files", "volumes", "clean"], mode="equals")
@@ -419,7 +419,7 @@ class AverageSpeedCleaner(BaseCleaner):
         super().__init__()
 
 
-    def clean(self, speeds: pd.DataFrame) -> tuple[pd.DataFrame | dd.DataFrame, str, str, str] | None:
+    def _parse_speeds(self, speeds: pd.DataFrame) -> pd.DataFrame | dd.DataFrame | None:
 
         if speeds.empty:
             return None  # In case a file is completely empty we'll just return None and not insert its TRP into the "non_empty_avg_speed_trps" key of the metainfo file
@@ -428,16 +428,11 @@ class AverageSpeedCleaner(BaseCleaner):
         update_metainfo(trp_id, ["common", "non_empty_avg_speed_trps"], mode="append")
 
 
-        # ------------------ Mean speed, percentile_85 and coverage cleaning ------------------
+        # ------------------ Mean speed, percentile_85, coverage and hour_start cleaning ------------------
 
         speeds["coverage"] = speeds["coverage"].replace(",", ".", regex=True).astype("float") * 100 # Replacing commas with dots and then converting the coverage column to float data type. Finally, transforming the coverage values from 0.0 to 1.0 to 0 to 100 (percent)
-
         speeds["mean_speed"] = speeds["mean_speed"].replace(",", ".", regex=True).astype("float")  # The regex=True parameter is necessary, otherwise the function, for some reason, won't be able to perform the replacement. Then converting the mean_speed column to float data type
         speeds["percentile_85"] = speeds["percentile_85"].replace(",", ".", regex=True).astype("float")  # The regex=True parameter is necessary, otherwise the function, for some reason, won't be able to perform the replacement. Then converting the percentile_85 column to float data type
-
-
-        # ------------------ Mean speed and coverage cleaning ------------------
-
         speeds["hour_start"] = speeds["hour_start"].str[:2] # Keeping only the first two characters (which represent only the hour data)
 
 
@@ -451,6 +446,9 @@ class AverageSpeedCleaner(BaseCleaner):
         # Determining the days range of the data
         t_min = speeds["date"].min()
         t_max = speeds["date"].max()
+
+        update_trp_metadata(trp_id=trp_id, value=t_min, metadata_keys_map=["data_info", "volumes", "start_date"], mode="equals")
+        update_trp_metadata(trp_id=trp_id, value=t_max, metadata_keys_map=["data_info", "volumes", "end_date"], mode="equals")
 
         print("Registrations time-range: ")
         print("First day of data registration: ", t_min)
@@ -521,37 +519,29 @@ class AverageSpeedCleaner(BaseCleaner):
         }).reindex(sorted(speeds.columns), axis=1), trp_id, str(t_max.date()), str(t_min.date())
 
 
-    def export_clean_avg_speed_data(self, avg_speed_data: pd.DataFrame, trp_id: str, t_max: str, t_min: str) -> None:
-        filepath = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + trp_id + f"_S{t_min}_E{t_max}C.csv"
-        filename = trp_id + f"_S{t_min}_E{t_max}C.csv"
 
+        update_trp_metadata(trp_id=trp_id, value=by_hour_df["date"].min(), metadata_keys_map=["data_info", "speeds", "start_date"], mode="equals")
+        update_trp_metadata(trp_id=trp_id, value=by_hour_df["date"].max(), metadata_keys_map=["data_info", "speeds", "end_date"], mode="equals")
+
+
+    def clean(self, trp_id: str, export: bool = True) -> pd.DataFrame | dd.DataFrame | None:
+        """
+        This function executes a cleaning pipeline and lets the user choose to export the cleaned data or not.
+        Parameters:
+            trp_id: the ID of the traffic registration point which we want to clean average speed data for
+            export: lets the user export the clean data. By default, this is set to True. If set to False the function will just return the clean data
+        """
         try:
-            avg_speed_data.to_csv(filepath, index=False)  # S stands for Start (registration starting date), E stands for End and C for Clean
-            update_metainfo(filename, ["average_speeds", "clean_filenames"], mode="append")
-            print(f"Average speed data for TRP: {trp_id} saved successfully\n\n")
+            if export:
+                self._parse_speeds(pd.read_csv(trp_id, sep=";", engine="c")).to_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + trp_id + "_speeds_C.csv")
+                update_trp_metadata(trp_id=trp_id, value=read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + trp_id + "_speeds_C.csv", metadata_keys_map=["files", "speeds", "clean"], mode="equals")
+            elif export is False:
+                return self._parse_speeds(pd.read_csv(trp_id, sep=";", engine="c"))
+        except IndexError as e:
+            logging.error(traceback.format_exc())
+            print(f"\033[91mNo data available for file: {trp_id}. Error: {e}\033[0m\n")
             return None
         except Exception as e:
             logging.error(traceback.format_exc())
-            print(f"\033[91mCouldn't export TRP: {trp_id} volumes data. Error: {e}\033[0m")
-            return None
-
-
-    def execute_cleaning(self, file_path: str, file_name: str) -> None:
-        """
-        The avg_speed_file_path parameter is the path to the average speed file the user wants to analyze
-        The avg_speed_file_name parameter is just the name of the file, needed for secondary purposes or functionalities
-        """
-        try:
-            average_speed_data = pd.read_csv(file_path, sep=";", engine="c")
-            #TODO IN THE FUTURE ADD THE UNIFIED data_overview() FUNCTION WHICH WILL PRINT A COMMON DATA OVERVIEW FOR BOTH TRAFFIC VOLUMES DATA AND AVERAGE SPEED ONE
-
-            # Addressing for the empty files problem
-            if len(average_speed_data) > 0:
-                average_speed_data, trp_id, t_max, t_min = self.clean(average_speed_data)
-                self.export_clean_avg_speed_data(average_speed_data, trp_id, t_max, t_min)
-            else:
-                pass
-            return None
-        except IndexError as e:
-            print(f"\033[91mNo data available for file: {file_name}. Error: {e}\033[0m\n")
+            print(f"\033[91mCouldn't export speeds data for file: {trp_id}. Error: {e}\033[0m")
             return None
