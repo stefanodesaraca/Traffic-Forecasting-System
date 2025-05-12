@@ -42,7 +42,6 @@ async def download_volumes(functionality: str) -> None:
     if functionality == "2.1":
         try:
             print("\nDownloading traffic registration points information for the active operation...")
-            ops_name = get_active_ops()
             await traffic_registration_points_to_json()
             print("Traffic registration points information downloaded successfully\n\n")
         except Exception as e:
@@ -101,20 +100,18 @@ async def download_volumes(functionality: str) -> None:
 
 
 # TODO ASYNCHRONIZE CLEANING AS WELL
-def clean_data(functionality: str) -> None:
+async def clean_data(functionality: str) -> None:
     if functionality == "5.6.1":
-        traffic_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"])
 
-        for file in os.listdir(traffic_volumes_folder):
+        for file in os.listdir(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"])):
             if not file.endswith(".DS_Store"):
                 TrafficVolumesCleaner().clean(traffic_volumes_folder + file)
 
     elif functionality == "5.6.2":
-        average_speed_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"])
 
-        for file in os.listdir(average_speed_folder):
+        for file in os.listdir(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"])):
             if not file.endswith(".DS_Store"):
-                AverageSpeedCleaner().clean(file_path=average_speed_folder + file, file_name=file)
+                AverageSpeedCleaner().clean()
 
     return None
 

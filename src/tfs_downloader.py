@@ -275,7 +275,6 @@ async def traffic_registration_points_to_json() -> None:
 
 async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
     semaphore = asyncio.Semaphore(5)  # Limit to 5 concurrent tasks
-    ids = list(import_TRPs_data().keys())
 
     async def download_trp_data(trp_id):
         client = await start_client_async()
@@ -332,7 +331,7 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
             return await process_trp(trp_id)
 
     # Run all downloads in parallel with a maximum of 5 processes at the same time
-    await asyncio.gather(*(limited_task(trp_id) for trp_id in ids))
+    await asyncio.gather(*(limited_task(trp_id) for trp_id in import_TRPs_data().keys())) # import_TRPs_data().keys() collects all TRP IDs from the traffic_registration_points.json file
 
     print("\n\n")
 
