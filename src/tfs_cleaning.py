@@ -530,16 +530,16 @@ class AverageSpeedCleaner(BaseCleaner):
         try:
             if export:
                 self._parse_speeds(pd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", engine="c")).to_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + filepath.replace(".json", "_speeds_C.csv"))
-                update_trp_metadata(trp_id=trp_id, value=trp_id + "_speeds" + ".csv", metadata_keys_map=["files", "speeds", "clean"], mode="equals")
+                update_trp_metadata(trp_id=trp_id, value=trp_id + "_speeds_" + "C.csv", metadata_keys_map=["files", "speeds", "clean"], mode="equals")
             elif export is False:
                 return self._parse_speeds(pd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", engine="c"))
         except IndexError as e:
             logging.error(traceback.format_exc())
-            print(f"\033[91mNo data available for file: {file}. Error: {e}\033[0m\n")
+            print(f"\033[91mNo data available for TRP: {trp_id}. Error: {e}\033[0m\n")
             return None
         except Exception as e:
             logging.error(traceback.format_exc())
-            print(f"\033[91mCouldn't export speeds data for file: {file}. Error: {e}\033[0m")
+            print(f"\033[91mCouldn't export speeds data for TRP: {trp_id}. Error: {e}\033[0m")
             return None
 
 
