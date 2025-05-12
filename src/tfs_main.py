@@ -427,7 +427,7 @@ def main():
             execute_eda()
 
         elif option in ["5.6.1", "5.6.2"]:
-            clean_data(option)
+            asyncio.run(clean_data(option))
 
         elif option == "0":
             sys.exit(0)
