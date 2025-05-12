@@ -28,7 +28,7 @@ from sklearn.metrics import (
     mean_squared_error,
     mean_absolute_error,
     root_mean_squared_error,
-    PredictionErrorDisplay,
+    PredictionErrorDisplay
 )
 
 from tfs_utils import *
@@ -78,11 +78,11 @@ class BaseLearner:
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
             "root_mean_squared_error": make_scorer(root_mean_squared_error),
-            "mean_absolute_error": make_scorer(mean_absolute_error),
+            "mean_absolute_error": make_scorer(mean_absolute_error)
         }
         self._client: Client = client
         self.road_category: str = road_category
-        self.target = target
+        self.target: str = target
 
 
     def gridsearch(self, X_train, y_train, model_name: str) -> None:

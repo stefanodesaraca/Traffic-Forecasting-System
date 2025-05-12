@@ -185,7 +185,6 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
 
     @savePlots
     def volume_trend_grouped_by_years():
-        plot_path = read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "traffic_volumes_eda_plots"])
 
         plt.figure(figsize=(16, 9))
         for y in sorted(volumes["year"].unique()):
@@ -200,11 +199,10 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
         plt.title(f"Traffic volumes aggregated (sum) by day for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_volume_trend_grouped_by_years", plt, plot_path
+        return f"{trp_id}_volume_trend_grouped_by_years", plt, read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "traffic_volumes_eda_plots"])
 
     @savePlots
     def volume_trend_by_week():
-        plot_path = read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "traffic_volumes_eda_plots"])
 
         plt.figure(figsize=(16, 9))
         for y in sorted(volumes["year"].unique()):
@@ -219,11 +217,10 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
         plt.title(f"Traffic volumes aggregated (median) by week for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_volume_trend_by_hour_day", plt, plot_path
+        return f"{trp_id}_volume_trend_by_hour_day", plt, read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "traffic_volumes_eda_plots"])
 
     @savePlots
     def volumes_distribution_by_week_and_year():
-        plot_path = read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "traffic_volumes_eda_plots"])
 
         fig, axs = plt.subplots(len(volumes["year"].unique()), 1, figsize=(16, 9))
         plt.suptitle(f"{trp_id} Volumes distribution by week and year")
@@ -240,7 +237,7 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
 
         plt.subplots_adjust(hspace=0.5)
 
-        return f"{trp_id}_volumes_distribution_by_week_and_year", plt, plot_path
+        return f"{trp_id}_volumes_distribution_by_week_and_year", plt, read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "traffic_volumes_eda_plots"])
 
     @savePlots
     def correlation_heatmap():

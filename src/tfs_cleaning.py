@@ -190,17 +190,14 @@ class TrafficVolumesCleaner(BaseCleaner):
 
             # ----------------------- Total volumes section -----------------------
 
-            volume = edge["node"]["total"]["volumeNumbers"]["volume"] if edge["node"]["total"]["volumeNumbers"] is not None else None  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
-            coverage = edge["node"]["total"]["coverage"]["percentage"] if edge["node"]["total"]["coverage"] is not None else None  # For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
-
             by_hour_structured["trp_id"].append(trp_id)
             by_hour_structured["year"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%Y"))
             by_hour_structured["month"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%m"))
             by_hour_structured["week"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%V"))
             by_hour_structured["day"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%d"))
             by_hour_structured["hour"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%H"))
-            by_hour_structured["volume"].append(volume)
-            by_hour_structured["coverage"].append(coverage)
+            by_hour_structured["volume"].append(edge["node"]["total"]["volumeNumbers"]["volume"] or None) # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
+            by_hour_structured["coverage"].append(edge["node"]["total"]["coverage"]["percentage"] or None) # For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
             by_hour_structured["date"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").date().isoformat())
 
 
@@ -277,8 +274,8 @@ class TrafficVolumesCleaner(BaseCleaner):
                 by_lane_structured["week"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%V"))
                 by_lane_structured["day"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%d"))
                 by_lane_structured["hour"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%H"))
-                by_lane_structured["volume"].append(lane["total"]["volumeNumbers"]["volume"] if lane["total"]["volumeNumbers"] is not None else None) # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
-                by_lane_structured["coverage"].append(lane["total"]["coverage"]["percentage"] if lane["total"]["coverage"] is not None else None)
+                by_lane_structured["volume"].append(lane["total"]["volumeNumbers"]["volume"] or None) # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
+                by_lane_structured["coverage"].append(lane["total"]["coverage"]["percentage"] or None)
                 by_lane_structured["lane"].append(lane["lane"]["laneNumberAccordingToRoadLink"])
                 by_lane_structured["date"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").date().isoformat())
 
@@ -353,8 +350,8 @@ class TrafficVolumesCleaner(BaseCleaner):
                 by_direction_structured["week"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%V"))
                 by_direction_structured["day"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%d"))
                 by_direction_structured["hour"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%H"))
-                by_direction_structured["volume"].append(direction_section["total"]["volumeNumbers"]["volume"] if direction_section["total"]["volumeNumbers"] is not None else None) # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
-                by_direction_structured["coverage"].append(direction_section["total"]["coverage"]["percentage"] if direction_section["total"]["coverage"] is not None else None)
+                by_direction_structured["volume"].append(direction_section["total"]["volumeNumbers"]["volume"] or None) # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
+                by_direction_structured["coverage"].append(direction_section["total"]["coverage"]["percentage"] or None)
                 by_direction_structured["direction"].append(direction_section["heading"])
                 by_direction_structured["date"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").date().isoformat())
 
@@ -450,24 +447,18 @@ class AverageSpeedCleaner(BaseCleaner):
         speeds["date"] = pd.to_datetime(speeds["date"])
 
         # Determining the days range of the data
-        t_min = pd.to_datetime(speeds["date"]).min()
-        t_max = pd.to_datetime(speeds["date"]).max()
+        t_min = speeds["date"].min()
+        t_max = speeds["date"].max()
 
         print("Registrations time-range: ")
         print("First day of data registration: ", t_min)
         print("Last day of data registration: ", t_max, "\n\n")
 
 
-        speeds["year"] = speeds["date"].dt.year
-        speeds["month"] = speeds["date"].dt.month
-        speeds["week"] = speeds["date"].dt.isocalendar().week
-        speeds["day"] = speeds["date"].dt.day
-
-        speeds["year"] = speeds["year"].astype("int")
-        speeds["month"] = speeds["month"].astype("int")
-        speeds["week"] = speeds["week"].astype("int")
-        speeds["day"] = speeds["day"].astype("int")
-
+        speeds["year"] = speeds["date"].dt.year.astype("int")
+        speeds["month"] = speeds["date"].dt.month.astype("int")
+        speeds["week"] = speeds["date"].dt.isocalendar().week.astype("int")
+        speeds["day"] = speeds["date"].dt.day.astype("int")
         speeds["hour_start"] = speeds["hour_start"].astype("int")
 
         speeds = speeds.drop(columns=["traffic_volume", "lane"], axis=1)
@@ -481,8 +472,7 @@ class AverageSpeedCleaner(BaseCleaner):
         print("Number of zeros before MICE: ", len(speeds[speeds["volume"] == 0]))
 
         try:
-            cleaner = BaseCleaner()
-            speeds = cleaner._impute_missing_values(speeds, r="gamma")
+            speeds = BaseCleaner()._impute_missing_values(speeds, r="gamma")
             # print("Multiple imputation on average speed data executed successfully\n\n")
 
             # print(avg_speed_data.isna().sum())
@@ -550,13 +540,7 @@ class AverageSpeedCleaner(BaseCleaner):
 
 
         # The old avg_data dataframe will be overwritten by this new one which will have all the previous data, but with a new structure
-        speeds = pd.DataFrame(agg_data)
-        speeds = speeds.reindex(sorted(speeds.columns), axis=1)
-
-        # print(avg_speed_data.head(15))
-        # print(avg_speed_data.dtypes)
-
-        return speeds, trp_id, str(t_max)[:10], str(t_min)[:10]
+        return pd.DataFrame(agg_data).reindex(sorted(speeds.columns), axis=1), trp_id, str(t_max)[:10], str(t_min)[:10]
 
 
     def export_clean_avg_speed_data(self, avg_speed_data: pd.DataFrame, trp_id: str, t_max: str, t_min: str) -> None:
