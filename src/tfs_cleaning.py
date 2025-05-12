@@ -529,7 +529,7 @@ class AverageSpeedCleaner(BaseCleaner):
         """
         try:
             if export:
-                self._parse_speeds(pd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", engine="c")).to_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + filepath.replace(".json", "_speeds_C.csv"))
+                self._parse_speeds(pd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", engine="c")).to_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + trp_id + "_speeds_" + "C.csv")
                 update_trp_metadata(trp_id=trp_id, value=trp_id + "_speeds_" + "C.csv", metadata_keys_map=["files", "speeds", "clean"], mode="equals")
             elif export is False:
                 return self._parse_speeds(pd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", engine="c"))
@@ -620,29 +620,40 @@ class AverageSpeedCleaner(BaseCleaner):
         }).reindex(sorted(speeds.columns), axis=1)
 
 
-    async def clean_async(self, filepath: str, export: bool = True) -> pd.DataFrame | dd.DataFrame | None:
+    async def clean_async(self, trp_id: str, export: bool = True) -> pd.DataFrame | dd.DataFrame | None:
+        """
+        This function asynchronously executes a cleaning pipeline and lets the user choose to export the cleaned data or not.
+        Parameters:
+            trp_id: the ID of the traffic registration point (TRP) which we want to clean average speed data for
+            export: lets the user export the clean data. By default, this is set to True. If set to False the function will just return the clean data
+
+        Returns:
+            pd.DataFrame | None
+        """
         try:
             if export:
                 await asyncio.to_thread(
                     await self._parse_speeds_async(
-                        await asyncio.to_thread(pd.read_csv, filepath, sep=";", **{"engine":"c"})).to_csv, filepath.replace(".json", "_speeds_C.csv"))
+                        await asyncio.to_thread(pd.read_csv,
+                        read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", **{"engine":"c"})).to_csv,
+                    trp_id + "_speeds_" + "C.csv")
 
                 # Using to_thread since this is a CPU-bound operation which would otherwise block the event loop until it's finished executing
 
                 await update_trp_metadata_async(
-                    trp_id=filepath,
-                    value=filepath.replace(".json", "_speeds_C.csv"),
+                    trp_id=trp_id,
+                    value=trp_id + "_speeds_" + "C.csv",
                     metadata_keys_map=["files", "speeds", "clean"],
                     mode="equals"
                 )
             else:
-                return await self._parse_speeds_async(await asyncio.to_thread(pd.read_csv, filepath, sep=";", **{"engine":"c"}))
+                return await self._parse_speeds_async(await asyncio.to_thread(pd.read_csv, read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", **{"engine":"c"}))
 
         except IndexError as e:
             logging.error(traceback.format_exc())
-            print(f"\033[91mNo data for file: {filepath}. Error: {e}\033[0m\n")
+            print(f"\033[91mNo data for TRP: {trp_id}. Error: {e}\033[0m\n")
             return None
         except Exception as e:
             logging.error(traceback.format_exc())
-            print(f"\033[91mFailed to export speeds for: {filepath}. Error: {e}\033[0m")
+            print(f"\033[91mFailed to export speeds for TRP: {trp_id}. Error: {e}\033[0m")
             return None

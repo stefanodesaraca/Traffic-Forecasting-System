@@ -99,21 +99,13 @@ async def download_volumes(functionality: str) -> None:
     return None
 
 
-# TODO ASYNCHRONIZE CLEANING AS WELL
 async def clean_data(functionality: str) -> None:
-
     if functionality == "5.6.1":
-
         for trp_id in get_trp_ids():
-            if not file.endswith(".DS_Store"):
-                TrafficVolumesCleaner().clean(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"]) + file)
-
+            TrafficVolumesCleaner().clean(trp_id)
     elif functionality == "5.6.2":
-
         for trp_id in get_trp_ids():
-            if not file.endswith(".DS_Store"):
-                AverageSpeedCleaner().clean(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + file)
-
+            AverageSpeedCleaner().clean(trp_id)
     return None
 
 
