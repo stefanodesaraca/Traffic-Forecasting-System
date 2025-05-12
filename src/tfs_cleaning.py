@@ -461,20 +461,13 @@ class AverageSpeedCleaner(BaseCleaner):
         speeds["day"] = speeds["date"].dt.day.astype("int")
         speeds["hour_start"] = speeds["hour_start"].astype("int")
 
-        speeds = speeds.drop(columns=["traffic_volume", "lane"], axis=1)
-
         # ------------------ Multiple imputation to fill NaN values ------------------
-
-        non_mice_df = speeds[["trp_id", "date", "year", "month", "day", "week"]]
-        speeds = speeds.drop(columns=non_mice_df.columns, axis=1)  # Columns to not include for Multiple Imputation By Chained Equations (MICE)
 
         print("Shape before MICE: ", speeds.shape)
         print("Number of zeros before MICE: ", len(speeds[speeds["volume"] == 0]))
 
         try:
-            speeds = BaseCleaner()._impute_missing_values(speeds, r="gamma")
-            # print("Multiple imputation on average speed data executed successfully\n\n")
-
+            speeds = pd.concat([speeds[["trp_id", "date", "year", "month", "day", "week"]], BaseCleaner()._impute_missing_values(speeds.drop(columns=["trp_id", "date", "year", "month", "day", "week"], axis=1), r="gamma")], axis=1)
             # print(avg_speed_data.isna().sum())
 
             print("Shape after MICE: ", speeds.shape, "\n\n")
