@@ -519,11 +519,6 @@ class AverageSpeedCleaner(BaseCleaner):
         }).reindex(sorted(speeds.columns), axis=1), trp_id, str(t_max.date()), str(t_min.date())
 
 
-
-        update_trp_metadata(trp_id=trp_id, value=by_hour_df["date"].min(), metadata_keys_map=["data_info", "speeds", "start_date"], mode="equals")
-        update_trp_metadata(trp_id=trp_id, value=by_hour_df["date"].max(), metadata_keys_map=["data_info", "speeds", "end_date"], mode="equals")
-
-
     def clean(self, trp_id: str, export: bool = True) -> pd.DataFrame | dd.DataFrame | None:
         """
         This function executes a cleaning pipeline and lets the user choose to export the cleaned data or not.
