@@ -615,14 +615,14 @@ class AverageSpeedCleaner(BaseCleaner):
         speeds["hour_start"] = speeds["hour_start"].astype("int")
 
         print("Shape before MICE:", speeds.shape)
-        print("Number of zeros before MICE:", len(speeds[speeds["volume"] == 0]))
+        print("Number of zeros before MICE:", len(speeds[speeds["mean_speed"] == 0]))
 
         try:
             speeds = await asyncio.to_thread(lambda: pd.concat([speeds[["trp_id", "date", "year", "month", "day", "week"]], BaseCleaner()._impute_missing_values(speeds.drop(columns=["trp_id", "date", "year", "month", "day", "week"]), r="gamma")], axis=1))
 
             print("Shape after MICE:", speeds.shape, "\n")
-            print("Number of zeros after MICE:", len(speeds[speeds["volume"] == 0]))
-            print("Negative values (volume):", len(speeds[speeds["volume"] < 0]))
+            print("Number of zeros after MICE:", len(speeds[speeds["mean_speed"] == 0]))
+            print("Negative values (volume):", len(speeds[speeds["mean_speed"] < 0]))
         except ValueError as e:
             print(f"\033[91mValueError: {e}. Skipping...\033[0m")
             return None
