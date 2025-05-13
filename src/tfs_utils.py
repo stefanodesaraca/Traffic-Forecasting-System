@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Generator
+from typing import Any, Literal, Generator
 import os
 import json
 import pprint
@@ -430,10 +430,9 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
             sys.exit(1)
 
 
-def read_forecasting_target_datetime(data_kind: str) -> datetime:
+def read_forecasting_target_datetime(data_kind: Literal["V", "AS"]) -> datetime:
     try:
-        target_dt = read_metainfo_key(keys_map=["forecasting", "target_datetimes", data_kind])
-        return datetime.strptime(target_dt, dt_format)
+        return datetime.strptime(read_metainfo_key(keys_map=["forecasting", "target_datetimes", data_kind]), dt_format)
     except TypeError:
         print(f"\033[91mTarget datetime for {data_kind} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
         sys.exit(1)
@@ -442,12 +441,11 @@ def read_forecasting_target_datetime(data_kind: str) -> datetime:
         sys.exit(1)
 
 
-def rm_forecasting_target_datetime() -> None:
+def reset_forecasting_target_datetime() -> None:
     try:
         print("For which data kind do you want to remove the forecasting target datetime?")
-        option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds:")
-        update_metainfo(None, ["forecasting", "target_datetimes", option], mode="equals")
-        print("Target datetime file deleted successfully\n\n")
+        update_metainfo(None, ["forecasting", "target_datetimes", input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds:")], mode="equals")
+        print("Target datetime reset successfully\n\n")
         return None
     except KeyError:
         print("\033[91mTarget datetime not found\033[0m")

@@ -118,7 +118,7 @@ def set_forecasting_options(functionality: str) -> None:
         print("Target datetime: ", read_forecasting_target_datetime(data_kind=option), "\n\n",)
 
     elif functionality == "3.1.3":
-        rm_forecasting_target_datetime()
+        reset_forecasting_target_datetime()
 
     return None
 
