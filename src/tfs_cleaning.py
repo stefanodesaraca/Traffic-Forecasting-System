@@ -109,6 +109,7 @@ class TrafficVolumesCleaner(BaseCleaner):
         available_day_hours = {str(datetime.fromisoformat(dt).date().isoformat()): [datetime.strptime(rd, "%Y-%m-%dT%H:%M:%S").strftime("%H") for rd in reg_datetimes]
                                for dt in (str(datetime.fromisoformat(dt).date().isoformat()) for dt in reg_datetimes)}  # These dict will have a dictionary for each day with an empty list
 
+
         # ------------------ Addressing missing days and hours problem ------------------
 
         missing_hours_by_day = {
@@ -144,7 +145,7 @@ class TrafficVolumesCleaner(BaseCleaner):
         print("Directions available: ", directions)
 
         #Just for demonstration purposes
-        registration_dates = self._get_registration_datetimes(payload)
+        registration_dates = set(map(lambda x: x[:10], self._get_registration_datetimes(payload))) #Conveniently keeping only the date with [:10]
         print("Number of days where registrations took place: ", len(registration_dates))
         print("First registration day available: ", min(registration_dates))
         print("Last registration day available: ", max(registration_dates))
