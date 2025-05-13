@@ -136,7 +136,7 @@ class TrafficVolumesCleaner(BaseCleaner):
             print(f"\033[91mNo data found for TRP: {trp_id}\033[0m\n\n")
             return None
 
-        update_metainfo(trp_id, ["common", "non_empty_volumes_trps"], mode="append")
+        update_metainfo(trp_id, ["common", "non_empty_volumes_trps"], mode="append") #This is ok for async operations since one async process can only open the specific metadata file for TRP which is cleaning data for
 
         n_lanes = self._get_lanes_number(payload)
         print("Number of lanes: ", n_lanes)
@@ -411,6 +411,55 @@ class TrafficVolumesCleaner(BaseCleaner):
         return None
 
 
+    async def clean_async(self, trp_id: str, export: bool = True) -> None:
+        async with aiofiles.open(await read_metainfo_key_async(
+                keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"]) + trp_id + ".json", "r",
+                                 encoding="utf-8") as m:
+            by_hour_df = await asyncio.to_thread(self._parse_by_hour, json.loads(await m.read()))
+
+        if by_hour_df.shape[0] > 0:
+            try:
+                print("Shape before MICE: ", len(by_hour_df), len(by_hour_df.columns))
+                print("Number of zeros before MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
+
+                by_hour_df = pd.concat([by_hour_df[["trp_id", "date", "year", "month", "day", "week"]],
+                                        await asyncio.to_thread(BaseCleaner()._impute_missing_values,
+                                                                by_hour_df.drop(
+                                                                    columns=["trp_id", "date", "year", "month", "day",
+                                                                             "week"], axis=1), r="gamma")], axis=1)
+
+                print("Shape after MICE: ", len(by_hour_df), len(by_hour_df.columns))
+                print("Number of zeros after MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
+                print("Number of negative values (after MICE): ", len(by_hour_df[by_hour_df["volume"] < 0]))
+
+            except ValueError as e:
+                print(f"\033[91mValue error raised. Error: {e} Continuing with the cleaning.\033[0m")
+                return
+
+            for col in ("year", "month", "week", "day", "hour", "volume"):
+                by_hour_df[col] = by_hour_df[col].astype("int")
+
+        if export:
+            try:
+                await asyncio.to_thread(by_hour_df.to_csv, await read_metainfo_key_async(
+                    keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean",
+                              "path"]) + trp_id + "_volumes_" + "C.csv", index=False, encoding="utf-8")
+                print(f"TRP: {trp_id} data exported correctly\n")
+
+                await update_trp_metadata_async(trp_id=trp_id, value=trp_id + "_volumes_" + "C.csv",
+                                                metadata_keys_map=["files", "volumes", "clean"], mode="equals")
+                await update_trp_metadata_async(trp_id=trp_id, value=by_hour_df["date"].min(),
+                                                metadata_keys_map=["data_info", "volumes", "start_date"], mode="equals")
+                await update_trp_metadata_async(trp_id=trp_id, value=by_hour_df["date"].max(),
+                                                metadata_keys_map=["data_info", "volumes", "end_date"], mode="equals")
+
+                print(f"TRP: {trp_id} metadata updated correctly\n\n")
+            except AttributeError:
+                print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
+
+        print("--------------------------------------------------------\n\n")
+
+
 
 class AverageSpeedCleaner(BaseCleaner):
     def __init__(self):
@@ -531,6 +580,7 @@ class AverageSpeedCleaner(BaseCleaner):
             if export:
                 self._parse_speeds(pd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", engine="c")).to_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + trp_id + "_speeds_" + "C.csv")
                 update_trp_metadata(trp_id=trp_id, value=trp_id + "_speeds_" + "C.csv", metadata_keys_map=["files", "speeds", "clean"], mode="equals")
+                return None
             elif export is False:
                 return self._parse_speeds(pd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", engine="c"))
         except IndexError as e:
@@ -646,6 +696,7 @@ class AverageSpeedCleaner(BaseCleaner):
                     metadata_keys_map=["files", "speeds", "clean"],
                     mode="equals"
                 )
+                return None
             else:
                 return await self._parse_speeds_async(await asyncio.to_thread(pd.read_csv, read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", **{"engine":"c"}))
 

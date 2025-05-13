@@ -102,10 +102,10 @@ async def download_volumes(functionality: str) -> None:
 async def clean_data(functionality: str) -> None:
     if functionality == "5.6.1":
         for trp_id in get_trp_ids():
-            TrafficVolumesCleaner().clean_async(trp_id)
+            await TrafficVolumesCleaner().clean_async(trp_id)
     elif functionality == "5.6.2":
         for trp_id in get_trp_ids():
-            AverageSpeedCleaner().clean_async(trp_id)
+            await AverageSpeedCleaner().clean_async(trp_id)
     return None
 
 

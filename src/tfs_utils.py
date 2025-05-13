@@ -128,7 +128,7 @@ async def update_trp_metadata_async(trp_id: str, value: Any, metadata_keys_map: 
     metadata_filepath = read_metainfo_key(keys_map=["folder_paths", "trp_metadata", "path"]) + trp_id + "_metadata.json"
 
     async with metadata_lock:
-        async with aiofiles.open(metadata_filepath, "r") as m:
+        async with aiofiles.open(metadata_filepath, "r", encoding="utf-8") as m:
             payload = json.loads(await m.read())
 
         metadata = payload
