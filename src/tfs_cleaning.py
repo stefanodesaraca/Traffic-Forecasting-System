@@ -672,11 +672,10 @@ class AverageSpeedCleaner(BaseCleaner):
         try:
             if export:
                 # Using to_thread since this is a CPU-bound operation which would otherwise block the event loop until it's finished executing
-                data = await asyncio.to_thread(
-                            await self._parse_speeds_async(
-                                await asyncio.to_thread(pd.read_csv,
-                                await read_metainfo_key_async(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", **{"engine": "c"})))
-                await asyncio.to_thread(data.to_csv,trp_id + "_speeds_" + "C.csv")
+                data = await self._parse_speeds_async(
+                            await asyncio.to_thread(pd.read_csv,
+                            await read_metainfo_key_async(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", **{"engine": "c"}))
+                await asyncio.to_thread(data.to_csv,await read_metainfo_key_async(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + trp_id + "_speeds_" + "C.csv")
 
                 await update_trp_metadata_async(
                     trp_id=trp_id,
