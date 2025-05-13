@@ -353,7 +353,8 @@ async def read_metainfo_key_async(keys_map: list) -> Any:
 
 def get_trp_ids() -> list[str]:
     assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points first"
-    return list(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]).keys())
+    with open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]), "r") as f:
+        return list(json.load(f).keys())
 
 
 
