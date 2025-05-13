@@ -353,7 +353,13 @@ def read_metainfo_key(keys_map: list) -> Any:
 
 async def read_metainfo_key_async(keys_map: list) -> Any:
     """
-    Reads asynchronously a value from the metainfo.json file using a list of nested keys.
+    Reads a value from the metainfo file asynchronously
+
+    Parameters:
+        keys_map: A list of keys to navigate the JSON structure
+
+    Returns:
+        The value at the specified location in the JSON structure
     """
     payload = await load_metainfo_payload_async()
     for key in keys_map[:-1]:

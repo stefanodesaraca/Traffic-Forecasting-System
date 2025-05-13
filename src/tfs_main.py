@@ -102,10 +102,10 @@ async def download_volumes(functionality: str) -> None:
 
 async def clean_data(functionality: str) -> None:
     if functionality == "5.6.1":
-        async with Semaphore(70):
+        async with Semaphore(20):
             await asyncio.gather(*(TrafficVolumesCleaner().clean_async(trp_id) for trp_id in get_trp_ids()))
     elif functionality == "5.6.2":
-        async with Semaphore(70):
+        async with Semaphore(20):
             await asyncio.gather(*(AverageSpeedCleaner().clean_async(trp_id) for trp_id in get_trp_ids()))
     return None
 
