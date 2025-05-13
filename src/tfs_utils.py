@@ -58,12 +58,14 @@ def get_trp_metadata(trp_id: str) -> dict[Any, Any]:
 
 
 def write_trp_metadata(trp_id: str, **kwargs: Any) -> None:
+    default_settings = {"raw_volumes_file": None, "has_volumes": False, "has_speeds": False}
+    tracking = {**default_settings, **kwargs} # Overriding default settings with kwargs
     metadata = {
         "id": trp_id,
         "trp_data": None,
         "files": {
             "volumes": {
-                "raw": None,
+                "raw": tracking["raw_volumes_file"],
                 "clean": None
             },
             "speeds": {
@@ -72,8 +74,8 @@ def write_trp_metadata(trp_id: str, **kwargs: Any) -> None:
             }
         },
         "checks": {
-            "has_volumes": kwargs["has_volumes"] or False, #Meaning if raw volumes data for the TRP is available
-            "has_speeds": kwargs["has_speeds"] or False #Meaning if raw speeds data for the TRP is available
+            "has_volumes": tracking["has_volumes"],
+            "has_speeds": tracking["has_speeds"]
         },
         "data_info": {
             "volumes": {
@@ -95,7 +97,7 @@ def write_trp_metadata(trp_id: str, **kwargs: Any) -> None:
 
 def update_trp_metadata(trp_id: str, value: Any, metadata_keys_map: list[str], mode: str) -> None:
     modes = ["equals", "append"]
-    metadata_filepath = read_metainfo_key(keys_map=["folder_paths", "trp_metadata", "path"]) + trp_id + "_metadata.json"
+    metadata_filepath = read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]) + trp_id + "_metadata.json"
     with open(metadata_filepath, "r", encoding="utf-8") as f:
         payload = json.load(f)
 
@@ -125,7 +127,7 @@ def update_trp_metadata(trp_id: str, value: Any, metadata_keys_map: list[str], m
 
 async def update_trp_metadata_async(trp_id: str, value: Any, metadata_keys_map: list[str], mode: str):
     modes = ["equals", "append"]
-    metadata_filepath = read_metainfo_key(keys_map=["folder_paths", "trp_metadata", "path"]) + trp_id + "_metadata.json"
+    metadata_filepath = read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]) + trp_id + "_metadata.json"
 
     async with metadata_lock:
         async with aiofiles.open(metadata_filepath, "r", encoding="utf-8") as m:
@@ -461,7 +463,7 @@ def rm_forecasting_target_datetime() -> None:
 # The user sets the current operation
 def write_active_ops_file(ops_name: str) -> None:
     ops_name = clean_text(ops_name)
-    assert os.path.isfile(f"{ops_folder}/{ops_name}") is True, f"{ops_name} operation folder not found. Create an operation with that name first."
+    assert os.path.isdir(f"{ops_folder}/{ops_name}"), f"{ops_name} operation folder not found. Create an operation with that name first."
     with open(f"{active_ops_filename}.txt", "w", encoding="utf-8") as ops_file:
         ops_file.write(ops_name)
     return None

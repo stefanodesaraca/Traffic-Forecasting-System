@@ -91,7 +91,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
 
     @staticmethod
-    def _get_directions(data: dict[Any, Any]) -> Generator[int]:
+    def _get_directions(data: dict[Any, Any]) -> Generator[int, None, None]:
         return (d["heading"] for d in data[0]["node"]["byDirection"])
 
 
