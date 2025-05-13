@@ -17,6 +17,7 @@ import geojson
 from dateutil.relativedelta import relativedelta
 from geopandas import GeoDataFrame
 from pydantic.types import PositiveInt
+from async_lru import alru_cache
 
 
 pd.set_option("display.max_columns", None)
@@ -211,6 +212,11 @@ def check_metainfo_file() -> bool:
     return os.path.isfile(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json")  # Either True (if file exists) or False (in case the file doesn't exist)
 
 
+async def check_metainfo_file_async() -> bool:
+    # This should check for the existence of the file asynchronously
+    return os.path.isfile(f"{cwd}/{ops_folder}/{await get_active_ops_async()}/metainfo.json")
+
+
 def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
     """
     This function inserts data into a specific right key-value pair in the metainfo.json file of the active operation.
@@ -300,12 +306,21 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
 
 #This function needs to be cached since it will be called exactly as many times as read_metainfo_key()
 @lru_cache()
-def load_metainfo_payload():
-    if check_metainfo_file() is True:
+def load_metainfo_payload() -> dict:
+    if check_metainfo_file():
         with open(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
             return json.load(m)
     else:
         raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
+
+
+@alru_cache()
+async def load_metainfo_payload_async() -> dict:
+    if await check_metainfo_file_async():
+        async with aiofiles.open(f"{cwd}/{ops_folder}/{await get_active_ops_async()}/metainfo.json", mode='r', encoding='utf-8') as m:
+            return json.loads(await m.read())
+    else:
+        raise FileNotFoundError(f'Metainfo file for "{await get_active_ops_async()}" operation not found')
 
 
 def read_metainfo_key(keys_map: list) -> Any:
@@ -316,13 +331,19 @@ def read_metainfo_key(keys_map: list) -> Any:
         keys_map: the list which includes all the keys which bring to the key-value pair to read (the one to read included)
     """
     payload = load_metainfo_payload()
-
     for key in keys_map[:-1]:
         payload = payload[key]
-
     return payload[keys_map[-1]]  # Returning the metainfo key-value pair
 
 
+async def read_metainfo_key_async(keys_map: list) -> Any:
+    """
+    Reads asynchronously a value from the metainfo.json file using a list of nested keys.
+    """
+    payload = await load_metainfo_payload_async()
+    for key in keys_map[:-1]:
+        payload = payload[key]
+    return payload[keys_map[-1]]
 
 
 
@@ -451,7 +472,17 @@ def write_active_ops_file(ops_name: str) -> None:
 def get_active_ops() -> str:
     try:
         with open(f"{active_ops_filename}.txt", "r", encoding="utf-8") as ops_file:
-            return ops_file.read()
+            return ops_file.read().strip()
+    except FileNotFoundError:
+        print("\033[91mOperations file not found\033[0m")
+        sys.exit(1)
+
+
+@alru_cache()
+async def get_active_ops_async() -> str:
+    try:
+        async with aiofiles.open(f"{active_ops_filename}.txt", mode="r", encoding="utf-8") as ops_file:
+            return (await ops_file.read()).strip()
     except FileNotFoundError:
         print("\033[91mOperations file not found\033[0m")
         sys.exit(1)
