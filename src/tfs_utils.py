@@ -125,7 +125,19 @@ def update_trp_metadata(trp_id: str, value: Any, metadata_keys_map: list[str], m
     return None
 
 
-async def update_trp_metadata_async(trp_id: str, value: Any, metadata_keys_map: list[str], mode: str):
+async def update_trp_metadata_async(trp_id: str, value: Any, metadata_keys_map: list[str], mode: str) -> None:
+    """
+        Update TRP metadata asynchronously
+
+        Parameters:
+            trp_id: Traffic Registration Point ID
+            value: Value to update or append
+            metadata_keys_map: List of keys to navigate the JSON structure
+            mode: 'equals' to set value or 'append' to add to a list
+
+        Returns:
+            None
+        """
     modes = ["equals", "append"]
     metadata_filepath = read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]) + trp_id + "_metadata.json"
 
@@ -432,7 +444,7 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
             sys.exit(1)
 
 
-def read_forecasting_target_datetime(data_kind: Literal["V", "AS"]) -> datetime:
+def read_forecasting_target_datetime(data_kind: str) -> datetime:
     try:
         return datetime.strptime(read_metainfo_key(keys_map=["forecasting", "target_datetimes", data_kind]), dt_format)
     except TypeError:

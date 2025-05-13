@@ -5,6 +5,7 @@ from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 import pprint
 import asyncio
+from asyncio import Semaphore
 import dask.distributed
 from dask.distributed import Client, LocalCluster
 
@@ -100,12 +101,11 @@ async def download_volumes(functionality: str) -> None:
 
 
 async def clean_data(functionality: str) -> None:
-    semaphore = asyncio.Semaphore(20)
     if functionality == "5.6.1":
-        async with semaphore:
+        async with Semaphore(70):
             await asyncio.gather(*(TrafficVolumesCleaner().clean_async(trp_id) for trp_id in get_trp_ids()))
     elif functionality == "5.6.2":
-        async with semaphore:
+        async with Semaphore(70):
             await asyncio.gather(*(AverageSpeedCleaner().clean_async(trp_id) for trp_id in get_trp_ids()))
     return None
 

@@ -291,8 +291,6 @@ class TrafficVolumesCleaner(BaseCleaner):
             print(f"\033[91mNo data found for TRP: {trp_id}\033[0m\n\n")
             return None
 
-        update_metainfo(trp_id, ["common", "non_empty_volumes_trps"], mode="append")
-
         n_lanes = self._get_lanes_number(payload)
         print("Number of lanes: ", n_lanes)
         directions = list(self._get_directions(payload))
@@ -438,17 +436,12 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         if export:
             try:
-                await asyncio.to_thread(by_hour_df.to_csv, await read_metainfo_key_async(
-                    keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean",
-                              "path"]) + trp_id + "_volumes_" + "C.csv", index=False, encoding="utf-8")
+                by_hour_df.to_csv(await read_metainfo_key_async(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + trp_id + "_volumes_" + "C.csv", index=False, encoding="utf-8")
                 print(f"TRP: {trp_id} data exported correctly\n")
 
-                await update_trp_metadata_async(trp_id=trp_id, value=trp_id + "_volumes_" + "C.csv",
-                                                metadata_keys_map=["files", "volumes", "clean"], mode="equals")
-                await update_trp_metadata_async(trp_id=trp_id, value=by_hour_df["date"].min(),
-                                                metadata_keys_map=["data_info", "volumes", "start_date"], mode="equals")
-                await update_trp_metadata_async(trp_id=trp_id, value=by_hour_df["date"].max(),
-                                                metadata_keys_map=["data_info", "volumes", "end_date"], mode="equals")
+                await update_trp_metadata_async(trp_id=trp_id, value=trp_id + "_volumes_" + "C.csv", metadata_keys_map=["files", "volumes", "clean"], mode="equals")
+                await update_trp_metadata_async(trp_id=trp_id, value=str(by_hour_df["date"].min()), metadata_keys_map=["data_info", "volumes", "start_date"], mode="equals")
+                await update_trp_metadata_async(trp_id=trp_id, value=str(by_hour_df["date"].max()), metadata_keys_map=["data_info", "volumes", "end_date"], mode="equals")
 
                 print(f"TRP: {trp_id} metadata updated correctly\n\n")
             except AttributeError:
@@ -469,8 +462,6 @@ class AverageSpeedCleaner(BaseCleaner):
             return None  # In case a file is completely empty we'll just return None and not insert its TRP into the "non_empty_avg_speed_trps" key of the metainfo file
 
         trp_id = str(speeds["trp_id"].unique()[0])  # There'll be only one value since each file only represents the data for one TRP only
-        update_metainfo(trp_id, ["common", "non_empty_avg_speed_trps"], mode="append")
-
 
         # ------------------ Mean speed, percentile_85, coverage and hour_start cleaning ------------------
 
@@ -491,8 +482,8 @@ class AverageSpeedCleaner(BaseCleaner):
         t_min = speeds["date"].min()
         t_max = speeds["date"].max()
 
-        update_trp_metadata(trp_id=trp_id, value=t_min, metadata_keys_map=["data_info", "volumes", "start_date"], mode="equals")
-        update_trp_metadata(trp_id=trp_id, value=t_max, metadata_keys_map=["data_info", "volumes", "end_date"], mode="equals")
+        update_trp_metadata(trp_id=trp_id, value=str(t_min), metadata_keys_map=["data_info", "volumes", "start_date"], mode="equals")
+        update_trp_metadata(trp_id=trp_id, value=str(t_max), metadata_keys_map=["data_info", "volumes", "end_date"], mode="equals")
 
         print("Registrations time-range: ")
         print("First day of data registration: ", t_min)
@@ -595,7 +586,6 @@ class AverageSpeedCleaner(BaseCleaner):
             return None
 
         trp_id = str(speeds["trp_id"].unique()[0])
-        await update_metainfo_async(trp_id, ["common", "non_empty_avg_speed_trps"], mode="append")
 
         # Data cleaning
         speeds["coverage"] = speeds["coverage"].replace(",", ".", regex=True).astype("float") * 100
@@ -609,8 +599,8 @@ class AverageSpeedCleaner(BaseCleaner):
         t_min = speeds["date"].min()
         t_max = speeds["date"].max()
 
-        await update_trp_metadata_async(trp_id=trp_id, value=t_min, metadata_keys_map=["data_info", "volumes", "start_date"], mode="equals")
-        await update_trp_metadata_async(trp_id=trp_id, value=t_max, metadata_keys_map=["data_info", "volumes", "end_date"], mode="equals")
+        await update_trp_metadata_async(trp_id=trp_id, value=str(t_min), metadata_keys_map=["data_info", "volumes", "start_date"], mode="equals")
+        await update_trp_metadata_async(trp_id=trp_id, value=str(t_max), metadata_keys_map=["data_info", "volumes", "end_date"], mode="equals")
 
         print("Registrations time-range:")
         print("First day:", t_min)
@@ -679,13 +669,12 @@ class AverageSpeedCleaner(BaseCleaner):
         """
         try:
             if export:
-                await asyncio.to_thread(
-                    await self._parse_speeds_async(
-                        await asyncio.to_thread(pd.read_csv,
-                        read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", **{"engine":"c"})).to_csv,
-                    trp_id + "_speeds_" + "C.csv")
-
                 # Using to_thread since this is a CPU-bound operation which would otherwise block the event loop until it's finished executing
+                data = await asyncio.to_thread(
+                            await self._parse_speeds_async(
+                                await asyncio.to_thread(pd.read_csv,
+                                await read_metainfo_key_async(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", **{"engine": "c"})))
+                await asyncio.to_thread(data.to_csv,trp_id + "_speeds_" + "C.csv")
 
                 await update_trp_metadata_async(
                     trp_id=trp_id,
@@ -697,9 +686,9 @@ class AverageSpeedCleaner(BaseCleaner):
             else:
                 return await self._parse_speeds_async(await asyncio.to_thread(pd.read_csv, read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", **{"engine":"c"}))
 
-        except IndexError as e:
+        except FileNotFoundError or IndexError as e:
             logging.error(traceback.format_exc())
-            print(f"\033[91mNo data for TRP: {trp_id}. Error: {e}\033[0m\n")
+            print(f"\033[91mNo average speed data for TRP: {trp_id}. Error: {e}\033[0m\n")
             return None
         except Exception as e:
             logging.error(traceback.format_exc())

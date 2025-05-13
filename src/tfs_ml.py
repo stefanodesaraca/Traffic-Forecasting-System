@@ -66,6 +66,12 @@ def cos_transformer(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series
     return np.cos((data - 1) * (2.0 * np.pi / timeframe))
 
 
+def arctan2_decoder(sin_val: float, cos_val: float) -> int | float: #TODO VERIFY IF IT'S ACTUALLY AN INT (IF SO REMOVE | float)
+    angle_rad = np.arctan2(sin_val, cos_val)
+    return (angle_rad * 360) / (2 * np.pi)
+
+
+
 class BaseLearner:
     """
     The base class for other classes which implement machine learning or statistical methods to learn a predict traffic volumes, average speed or other data about traffic.
