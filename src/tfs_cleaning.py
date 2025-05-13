@@ -423,9 +423,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
                 by_hour_df = pd.concat([by_hour_df[["trp_id", "date", "year", "month", "day", "week"]],
                                         await asyncio.to_thread(BaseCleaner()._impute_missing_values,
-                                                                by_hour_df.drop(
-                                                                    columns=["trp_id", "date", "year", "month", "day",
-                                                                             "week"], axis=1), r="gamma")], axis=1)
+                                                          by_hour_df.drop(columns=["trp_id", "date", "year", "month", "day", "week"], axis=1), r="gamma")], axis=1)
 
                 print("Shape after MICE: ", len(by_hour_df), len(by_hour_df.columns))
                 print("Number of zeros after MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
