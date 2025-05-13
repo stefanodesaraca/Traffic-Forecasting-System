@@ -138,8 +138,6 @@ class TrafficVolumesCleaner(BaseCleaner):
             print(f"\033[91mNo data found for TRP: {trp_id}\033[0m\n\n")
             return None
 
-        update_metainfo(trp_id, ["common", "non_empty_volumes_trps"], mode="append") #This is ok for async operations since one async process can only open the specific metadata file for TRP which is cleaning data for
-
         n_lanes = self._get_lanes_number(payload)
         print("Number of lanes: ", n_lanes)
         directions = list(self._get_directions(payload))
@@ -198,7 +196,7 @@ class TrafficVolumesCleaner(BaseCleaner):
             by_hour_structured["week"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%V"))
             by_hour_structured["day"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%d"))
             by_hour_structured["hour"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%H"))
-            by_hour_structured["volume"].append(edge["node"]["total"]["volumeNumbers"]["volume"] or None) # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
+            by_hour_structured["volume"].append(edge["node"]["total"]["volumeNumbers"]["volume"] if edge["node"]["total"]["volumeNumbers"] is not None else None) # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
             by_hour_structured["coverage"].append(edge["node"]["total"]["coverage"]["percentage"] or None) # For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
             by_hour_structured["date"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").date().isoformat())
 
@@ -363,7 +361,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
 
     def clean(self, trp_id: str, export: bool = True) -> None:
-        with open(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"]) + trp_id + ".json", "r", encoding="utf-8") as f:
+        with open(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"]) + trp_id + "_volumes.json", "r", encoding="utf-8") as f:
             by_hour_df = self._parse_by_hour(json.load(f))
 
         #Checking if the dataframe obtained as result of parsing isn't empty
@@ -415,11 +413,10 @@ class TrafficVolumesCleaner(BaseCleaner):
 
     async def clean_async(self, trp_id: str, export: bool = True) -> None:
         async with aiofiles.open(await read_metainfo_key_async(
-                keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"]) + trp_id + ".json", "r",
-                                 encoding="utf-8") as m:
-            by_hour_df = await asyncio.to_thread(self._parse_by_hour, json.loads(await m.read()))
+                keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"]) + trp_id + "_volumes.json", "r", encoding="utf-8") as m:
+            by_hour_df = await asyncio.to_thread(self._parse_by_hour, json.loads(await m.read())) #In case there's no data by_hour_df will be None
 
-        if by_hour_df.shape[0] > 0:
+        if by_hour_df is not None and by_hour_df.shape[0] > 0:
             try:
                 print("Shape before MICE: ", len(by_hour_df), len(by_hour_df.columns))
                 print("Number of zeros before MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))

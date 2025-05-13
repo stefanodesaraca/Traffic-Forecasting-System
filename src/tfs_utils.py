@@ -178,6 +178,7 @@ def write_metainfo(ops_name: str) -> None:
             "clean_volumes_size": None,
             "raw_average_speeds_size": None,
             "clean_average_speeds_size": None,
+            "has_clean_data": {},
             "traffic_registration_points_file": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_registration_points.json"
         },
         "traffic_volumes": {
