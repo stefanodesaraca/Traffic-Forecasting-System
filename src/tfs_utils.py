@@ -433,10 +433,12 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
         last_available_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"])
     elif option == "AS":
         _, last_available_data_dt = get_speeds_dates(import_TRPs_data()) #TODO UPDATE THIS WITH compute_metainfo() AND READ IT FROM metainfo.json
-        if not last_available_data_dt: #If this is None then...
+        if last_available_data_dt is None:
             logging.error(traceback.format_exc())
             raise Exception("End date not found in metainfo file. Run download first or set it first")
+
         last_available_data_dt = datetime.strptime(last_available_data_dt, "%Y-%m-%d %H:%M:%S").strftime(dt_iso)
+
     else:
         print("\033[91mWrong data option, try again\033[0m")
         sys.exit(1)

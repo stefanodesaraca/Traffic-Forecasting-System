@@ -66,16 +66,6 @@ async def download_volumes(functionality: str) -> None:
         await update_metainfo_async(time_start, ["traffic_volumes", "start_date_iso"], mode="equals")
         await update_metainfo_async(time_end, ["traffic_volumes", "end_date_iso"], mode="equals")
 
-        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso).strftime("%Y"), ["traffic_volumes", "start_year"], mode="equals")
-        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso).strftime("%m"), ["traffic_volumes", "start_month"], mode="equals")
-        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso).strftime("%d"), ["traffic_volumes", "start_day"], mode="equals")
-        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso).strftime("%H"), ["traffic_volumes", "start_hour"], mode="equals")
-
-        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso).strftime("%Y"), ["traffic_volumes", "end_year"], mode="equals")
-        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso).strftime("%m"), ["traffic_volumes", "end_month"], mode="equals")
-        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso).strftime("%d"), ["traffic_volumes", "end_day"], mode="equals")
-        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso).strftime("%H"), ["traffic_volumes", "end_hour"], mode="equals")
-
         relative_delta = relativedelta(datetime.datetime.strptime(time_end, dt_iso).date(), datetime.datetime.strptime(time_start, dt_iso).date(), )
         days_delta = (datetime.datetime.strptime(time_end, dt_iso).date() - datetime.datetime.strptime(time_start, dt_iso).date()).days
         years_delta = relative_delta.years if relative_delta.years is not None else 0

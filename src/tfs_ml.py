@@ -87,13 +87,13 @@ class BaseLearner:
             "mean_absolute_error": make_scorer(mean_absolute_error)
         }
         self._client: Client = client
-        self.road_category: str = road_category
-        self.target: str = target
+        self._road_category: str = road_category
+        self._target: str = target
 
 
     def gridsearch(self, X_train, y_train, model_name: str) -> None:
 
-        if self.target not in target_data.keys():
+        if self._target not in target_data.keys():
             raise Exception("Wrong target variable in GridSearchCV executor function")
 
         grids = {"volume": volumes_models_gridsearch_parameters[model_name],
@@ -103,8 +103,8 @@ class BaseLearner:
 
         model = model_names_and_functions[model_name]()  # Finding the function which returns the model and executing it
 
-        params_folder_path = get_models_parameters_folder_path(target=self.target, road_category=self.road_category)
-        model_filename = (get_active_ops() + "_" + self.road_category + "_" + model_name + "_" + "parameters")
+        params_folder_path = get_models_parameters_folder_path(target=self._target, road_category=self._road_category)
+        model_filename = (get_active_ops() + "_" + self._road_category + "_" + model_name + "_" + "parameters")
 
         t_start = datetime.now()
         print(f"{model_name} GridSearchCV started at {t_start}\n")
@@ -112,7 +112,7 @@ class BaseLearner:
         time_cv = TimeSeriesSplit(n_splits=5)  # A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
         gridsearch = GridSearchCV(
             model,
-            param_grid=grids[self.target],
+            param_grid=grids[self._target],
             scoring=self._scorer,
             refit="mean_absolute_error",
             return_train_score=True,
@@ -150,7 +150,7 @@ class BaseLearner:
         print(f"{model_name} GridSearchCV finished at {t_end}\n")
         print(f"Time passed: {t_end - t_start}")
 
-        gridsearch_results.to_json(f"./ops/{self.road_category}_{model_name}_grid_params_and_results.json", indent=4)  # TODO FOR TESTING PURPOSES
+        gridsearch_results.to_json(f"./ops/{self._road_category}_{model_name}_grid_params_and_results.json", indent=4)  # TODO FOR TESTING PURPOSES
 
         print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
         print("GridSearchCV best parameters: ", gridsearch.best_params_)
@@ -162,8 +162,8 @@ class BaseLearner:
 
         # The best_parameters_by_model variable is obtained from the tfs_models file
         true_best_params = {
-            model_name: gridsearch_results["params"].loc[best_params[self.target][model_name]]
-            if gridsearch_results["params"].loc[best_params[self.target][model_name]]
+            model_name: gridsearch_results["params"].loc[best_params[self._target][model_name]]
+            if gridsearch_results["params"].loc[best_params[self._target][model_name]]
             is not None
             else {}
         }
@@ -174,8 +174,8 @@ class BaseLearner:
         for par, val in auxiliary_params.items():
             true_best_params[model_name][par] = val
 
-        true_best_params["best_GridSearchCV_model_index"] = best_params[self.target][model_name]
-        true_best_params["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_params[self.target][model_name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
+        true_best_params["best_GridSearchCV_model_index"] = best_params[self._target][model_name]
+        true_best_params["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_params[self._target][model_name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
         print(f"True best parameters for {model_name}: ", true_best_params, "\n")
 
@@ -191,9 +191,9 @@ class BaseLearner:
 
         # -------------- Filenames, etc. --------------
 
-        model_filename = get_active_ops() + "_" + self.road_category + "_" + model_name
-        models_folder_path = get_models_folder_path(self.target, self.road_category)
-        model_params_filepath = models_folder_path + get_active_ops() + "_" + self.road_category + "_" + model_name + "_" + "parameters" + ".json"
+        model_filename = get_active_ops() + "_" + self._road_category + "_" + model_name
+        models_folder_path = get_models_folder_path(self._target, self._road_category)
+        model_params_filepath = models_folder_path + get_active_ops() + "_" + self._road_category + "_" + model_name + "_" + "parameters" + ".json"
 
         # -------------- Parameters extraction --------------
 
@@ -227,8 +227,8 @@ class BaseLearner:
 
         # -------------- Model loading --------------
 
-        model = joblib.load(get_models_folder_path(self.target,
-                                                   self.road_category) + get_active_ops() + "_" + self.road_category + "_" + model_name + ".joblib")
+        model = joblib.load(get_models_folder_path(self._target,
+                                                   self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
 
         with joblib.parallel_backend("dask"):
             y_pred = model.predict(X_test.compute())
@@ -269,7 +269,7 @@ class TrafficVolumesLearner(BaseLearner):
 
         # ------------------ Outliers filtering with Z-Score ------------------
 
-        if z_score is True:
+        if z_score:
             volumes = ZScore(volumes, "volume")
 
         volumes = volumes.sort_values(by=["date"], ascending=True)
@@ -482,7 +482,7 @@ class OnePointVolumesForecaster(OnePointForecaster):
         predictions_dataset = predictions_dataset.reset_index()
         predictions_dataset = predictions_dataset.drop(columns=["index"])
 
-        t_learner = TrafficVolumesLearner(predictions_dataset)
+        t_learner = TrafficVolumesLearner(predictions_dataset, self._road_category, self._target)
         predictions_dataset = t_learner.preprocess(z_score=False)
 
         #print(predictions_dataset.compute().tail(200))
