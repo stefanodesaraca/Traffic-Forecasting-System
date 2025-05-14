@@ -50,6 +50,16 @@ def import_TRPs_data():
         return json.load(TRPs)
 
 
+@alru_cache()
+async def import_TRPs_data_async():
+    """
+    Asynchronously returns json data about all TRPs (downloaded previously)
+    """
+    f = read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])
+    assert os.path.isfile(f), "Traffic registration points file missing"
+    async with aiofiles.open(f, "r", encoding="utf-8") as TRPs:
+        return json.loads(await TRPs.read())
+
 def get_trp_ids() -> list[str]:
     assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points first"
     with open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]), "r") as f:

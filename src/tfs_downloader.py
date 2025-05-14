@@ -320,6 +320,7 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
             await f.write(json.dumps(await download_trp_data(trp_id), indent=4))
 
         write_trp_metadata(trp_id=trp_id, **{"raw_volumes_file":f"{trp_id}_volumes.json"}) # Writing TRP's empty metadata file
+        await update_trp_metadata_async(trp_id=trp_id, value=(await import_TRPs_data_async())[trp_id], metadata_keys_map=["trp_data"], mode="equals")
 
     async def limited_task(trp_id):
         async with semaphore:
