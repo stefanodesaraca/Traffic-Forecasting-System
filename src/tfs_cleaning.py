@@ -632,8 +632,8 @@ class AverageSpeedCleaner(BaseCleaner):
         for col in ("year", "month", "week", "day", "hour_start"):
             speeds[col] = speeds[col].astype("int")
 
-        print("Dataframe head:\n", speeds.head(15), "\n")
-        print("Statistics:\n", speeds.drop(columns=["year", "month", "week", "day", "hour_start"]).describe(), "\n")
+        #print("Dataframe head:\n", speeds.head(15), "\n")
+        #print("Statistics:\n", speeds.drop(columns=["year", "month", "week", "day", "hour_start"]).describe(), "\n")
 
         grouped = speeds.groupby(["date", "hour_start"], as_index=False).agg({
             "mean_speed": lambda x: np.round(np.mean(x), 2),
@@ -641,10 +641,10 @@ class AverageSpeedCleaner(BaseCleaner):
             "coverage": lambda x: np.round(np.mean(x), 2)
         })
 
-        grouped["year"] = grouped["date"].dt.year
-        grouped["month"] = grouped["date"].dt.month
-        grouped["week"] = grouped["date"].dt.isocalendar().week
-        grouped["day"] = grouped["date"].dt.day
+        grouped["year"] = grouped["date"].dt.year.astype("int")
+        grouped["month"] = grouped["date"].dt.month.astype("int")
+        grouped["week"] = grouped["date"].dt.isocalendar().week.astype("int")
+        grouped["day"] = grouped["date"].dt.day.astype("int")
         grouped["trp_id"] = trp_id
 
         return pd.DataFrame({
