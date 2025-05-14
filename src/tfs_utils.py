@@ -8,7 +8,7 @@ import traceback
 import logging
 import asyncio
 import aiofiles
-from functools import cache
+from functools import lru_cache
 import pandas as pd
 import dask.dataframe as dd
 from cleantext import clean
@@ -39,7 +39,7 @@ metadata_lock = asyncio.Lock()
 
 # ==================== TRP Utilities ====================
 
-@cache
+@lru_cache
 def import_TRPs_data():
     """
     This function returns json data about all TRPs (downloaded previously)
@@ -50,10 +50,16 @@ def import_TRPs_data():
         return json.load(TRPs)
 
 
-# ------------ Metadata ------------
+def get_trp_ids() -> list[str]:
+    assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points first"
+    with open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]), "r") as f:
+        return list(json.load(f).keys())
+
+
+# ------------ TRP Metadata ------------
 
 def get_trp_metadata(trp_id: str) -> dict[Any, Any]:
-    with open(read_metainfo_key(keys_map=["folder_paths", "trp_metadata", "path"]) + f"{trp_id}_metadata.json", "r", encoding="utf-8") as json_trp_metadata:
+    with open(read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]) + f"{trp_id}_metadata.json", "r", encoding="utf-8") as json_trp_metadata:
         return json.load(json_trp_metadata)
 
 
@@ -176,19 +182,11 @@ async def update_trp_metadata_async(trp_id: str, value: Any, metadata_keys_map: 
     return None
 
 
-def read_trp_metadata_key(trp_id: str, metadata_keys_map: list[str]) -> Any:
-    with open(read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]) + trp_id + "_metadata.json", "r") as metadata_reader:
-        payload = json.load(metadata_reader)
-    for key in metadata_keys_map[:-1]:
-        payload = payload[key]
-    return payload[metadata_keys_map[-1]]
-
-
 # ------------ Metainfo File ------------
 
 def write_metainfo(ops_name: str) -> None:
     target_folder = f"{ops_folder}/{ops_name}/"
-    assert os.path.isdir(target_folder) is True, f"{target_folder} folder not found. Have you created the operation first?"
+    assert os.path.isdir(target_folder), f"{target_folder} folder not found. Have you created the operation first?"
 
     metainfo = {
         "common": {
@@ -210,7 +208,7 @@ def write_metainfo(ops_name: str) -> None:
             "n_weeks": None,  # The total number of weeks which we have data about
             "raw_filenames": [],  # The list of raw traffic volumes file names
             "clean_filenames": [],  # The list of clean traffic volumes file names
-            "n_rows": [],  # The total number of records downloaded (clean volumes)
+            "n_rows": []  # The total number of records downloaded (clean volumes)
         },
         "average_speeds": {
             "n_days": None,  # The total number of days which we have data about
@@ -219,12 +217,11 @@ def write_metainfo(ops_name: str) -> None:
             "n_weeks": None,  # The total number of weeks which we have data about
             "raw_filenames": [],  # The list of raw average speed file names
             "clean_filenames": [],  # The list of clean average speed file names
-            "n_rows": [],  # The total number of records downloaded (clean average speeds)
-
+            "n_rows": []  # The total number of records downloaded (clean average speeds)
         },
         "folder_paths": {},
         "forecasting": {"target_datetimes": {"V": None, "AS": None}},
-        "trps": {} #For each TRP we'll have {"id": metadata_filename}
+        "trps": {} # For each TRP we'll have {"id": metadata_filename}
     }
 
     with open(target_folder + metainfo_filename + ".json", "w", encoding="utf-8") as tf:
@@ -330,7 +327,7 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
 
 
 #This function needs to be cached since it will be called exactly as many times as read_metainfo_key()
-@cache
+@lru_cache
 def load_metainfo_payload() -> dict:
     if check_metainfo_file():
         with open(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
@@ -339,7 +336,7 @@ def load_metainfo_payload() -> dict:
         raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
 
 
-@cache
+@alru_cache()
 async def load_metainfo_payload_async() -> dict:
     if await check_metainfo_file_async():
         async with aiofiles.open(f"{cwd}/{ops_folder}/{await get_active_ops_async()}/metainfo.json", mode='r', encoding='utf-8') as m:
@@ -353,7 +350,7 @@ def read_metainfo_key(keys_map: list) -> Any:
     This function reads data from a specific key-value pair in the metainfo.json file of the active operation.
 
     Parameters:
-        keys_map: the list which includes all the keys which bring to the key-value pair to read (the one to read included)
+        keys_map: a list which includes all the keys which bring to the key-value pair to read (the one to read included)
     """
     payload = load_metainfo_payload()
     for key in keys_map[:-1]:
@@ -366,7 +363,7 @@ async def read_metainfo_key_async(keys_map: list) -> Any:
     Reads a value from the metainfo file asynchronously
 
     Parameters:
-        keys_map: A list of keys to navigate the JSON structure
+        keys_map: a list of keys to navigate the JSON structure
 
     Returns:
         The value at the specified location in the JSON structure
@@ -375,18 +372,6 @@ async def read_metainfo_key_async(keys_map: list) -> Any:
     for key in keys_map[:-1]:
         payload = payload[key]
     return payload[keys_map[-1]]
-
-
-
-# ==================== TRP Related Utilities ====================
-
-def get_trp_ids() -> list[str]:
-    assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points first"
-    with open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]), "r") as f:
-        return list(json.load(f).keys())
-
-
-
 
 
 # ==================== ML Related Utilities ====================
@@ -414,15 +399,15 @@ def get_models_parameters_folder_path(target: str, road_category: str) -> str:
         raise Exception("Wrong target variable in the get_ml_model_parameters_folder_path() function")
 
 
-
-
-
 # ==================== Forecasting Settings Utilities ====================
 
 def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = default_max_forecasting_window_size) -> None:
     """
     Parameters:
         forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24
+
+    Returns:
+        None
     """
     assert os.path.isdir(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])), "Clean traffic volumes folder missing. Initialize an operation first and then set a forecasting target datetime"
     assert os.path.isdir(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])), "Clean average speeds folder missing. Initialize an operation first and then set a forecasting target datetime"
@@ -432,8 +417,8 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
     option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")
     print("Maximum number of days to forecast: ", max_forecasting_window_size)
 
-    last_available_data_dt = read_metainfo_key(keys_map=[target_data[option], "end_date_iso"]) #TODO UPDATE THIS WITH COMPUTE_METAINFO()
-    if last_available_data_dt is None:
+    last_available_data_dt = read_metainfo_key(keys_map=[target_data[option], "end_date_iso"]) #TODO UPDATE THIS WITH compute_metainfo()
+    if not last_available_data_dt: #If this is None then...
         logging.error(traceback.format_exc())
         raise Exception("End date not found in metainfo file. Run download first or set it first")
 
@@ -447,8 +432,8 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
     assert datetime.strptime(dt, dt_format) > datetime.strptime(last_available_data_dt, dt_iso), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
     assert forecasting_window_size <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
 
-    if check_datetime(dt) is True and option in list(target_data.keys()):
-        update_metainfo(value=dt, keys_map=["forecasting", "target_datetimes", option], mode="equals",)
+    if check_datetime(dt) and option in target_data.keys():
+        update_metainfo(value=dt, keys_map=["forecasting", "target_datetimes", option], mode="equals")
         print("Target datetime set to: ", dt, "\n\n")
         return None
     else:
@@ -482,8 +467,17 @@ def reset_forecasting_target_datetime() -> None:
         sys.exit(1)
 
 
+# ==================== Average Speeds Settings Utilities ====================
 
 
+def get_speeds_dates(trp_ids: list[str] | Generator[str, None, None]) -> tuple[str, str]:
+    speeds_dts = (
+        (data["data_info"]["speeds"]["start_date"], data["data_info"]["speeds"]["end_date"])
+        for trp_id in trp_ids
+        if (data := get_trp_metadata(trp_id=trp_id))["checks"]["has_speeds"]
+    )
+    dt_start, dt_end = zip(*speeds_dts, strict=True)
+    return min(dt_start), max(dt_end)
 
 # ==================== Operations' Settings Utilities ====================
 
@@ -498,7 +492,7 @@ def write_active_ops_file(ops_name: str) -> None:
 
 
 # Reading operations file, it indicates which road network we're taking into consideration
-@cache
+@lru_cache()
 def get_active_ops() -> str:
     try:
         with open(f"{active_ops_filename}.txt", "r", encoding="utf-8") as ops_file:
@@ -508,7 +502,7 @@ def get_active_ops() -> str:
         sys.exit(1)
 
 
-@cache
+@alru_cache()
 async def get_active_ops_async() -> str:
     try:
         async with aiofiles.open(f"{active_ops_filename}.txt", mode="r", encoding="utf-8") as ops_file:
@@ -725,7 +719,7 @@ def retrieve_n_ml_cpus() -> int:
 # ==================== Edges Utilities ====================
 
 
-def retrieve_edges() -> gpd.GeoDataFrame:
+def retrieve_edges() -> dict:
     with open(f"{read_metainfo_key(['folder_paths', 'rn_graph', f'{get_active_ops()}_edges', 'path'])}/traffic-nodes-2024_2025-02-28.geojson", "r", encoding="utf-8") as e:
         return geojson.load(e)["features"]
 
@@ -733,7 +727,7 @@ def retrieve_edges() -> gpd.GeoDataFrame:
 # ==================== Links Utilities ====================
 
 
-def retrieve_arches() -> gpd.GeoDataFrame:
+def retrieve_arches() -> dict:
     with open(f"{read_metainfo_key(['folder_paths', 'rn_graph', f'{get_active_ops()}_arches', 'path'])}/traffic_links_2024_2025-02-27.geojson", "r", encoding="utf-8") as a:
         return geojson.load(a)["features"]
 

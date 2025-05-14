@@ -133,12 +133,12 @@ def execute_eda() -> None:
     clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
     clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
 
-    for v in (trp_id for trp_id in trp_data.keys() if read_trp_metadata_key(trp_id=trp_id, metadata_keys_map=["checks", "has_volumes"])):
+    for v in (trp_id for trp_id in trp_data.keys() if get_trp_metadata(trp_id=trp_id)["checks", "has_volumes"]):
         volumes = pd.read_csv(clean_volumes_folder + v + "_volumes_C.csv")
         analyze_volumes(volumes)
         volumes_data_multicollinearity_test(volumes)
 
-    for s in (trp_id for trp_id in trp_data.keys() if read_trp_metadata_key(trp_id=trp_id, metadata_keys_map=["checks", "has_speeds"])):
+    for s in (trp_id for trp_id in trp_data.keys() if get_trp_metadata(trp_id=trp_id)["checks", "has_speeds"]):
         speeds = pd.read_csv(clean_speeds_folder + s + "_speeds_C.csv")
         analyze_avg_speeds(speeds)
         avg_speeds_data_multicollinearity_test(speeds)
@@ -436,6 +436,9 @@ def main():
 
         elif option == "0":
             sys.exit(0)
+
+        elif option == "z":
+            print(get_speeds_dates(get_trp_ids())) #TODO TEST
 
         else:
             print("Wrong option. Insert a valid one")
