@@ -8,7 +8,7 @@ import traceback
 import logging
 import asyncio
 import aiofiles
-from functools import lru_cache
+from functools import cache
 import pandas as pd
 import dask.dataframe as dd
 from cleantext import clean
@@ -39,7 +39,7 @@ metadata_lock = asyncio.Lock()
 
 # ==================== TRP Utilities ====================
 
-@lru_cache()
+@cache
 def import_TRPs_data():
     """
     This function returns json data about all TRPs (downloaded previously)
@@ -299,7 +299,7 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
     modes = ["equals", "append"]
 
     async with metainfo_lock:
-        if check_metainfo_file() is True:
+        if check_metainfo_file():
             async with aiofiles.open(metainfo_filepath, "r") as m:
                 payload = json.loads(await m.read())
         else:
@@ -330,7 +330,7 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
 
 
 #This function needs to be cached since it will be called exactly as many times as read_metainfo_key()
-@lru_cache()
+@cache
 def load_metainfo_payload() -> dict:
     if check_metainfo_file():
         with open(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
@@ -339,7 +339,7 @@ def load_metainfo_payload() -> dict:
         raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
 
 
-@alru_cache()
+@cache
 async def load_metainfo_payload_async() -> dict:
     if await check_metainfo_file_async():
         async with aiofiles.open(f"{cwd}/{ops_folder}/{await get_active_ops_async()}/metainfo.json", mode='r', encoding='utf-8') as m:
@@ -498,7 +498,7 @@ def write_active_ops_file(ops_name: str) -> None:
 
 
 # Reading operations file, it indicates which road network we're taking into consideration
-@lru_cache()
+@cache
 def get_active_ops() -> str:
     try:
         with open(f"{active_ops_filename}.txt", "r", encoding="utf-8") as ops_file:
@@ -508,7 +508,7 @@ def get_active_ops() -> str:
         sys.exit(1)
 
 
-@alru_cache()
+@cache
 async def get_active_ops_async() -> str:
     try:
         async with aiofiles.open(f"{active_ops_filename}.txt", mode="r", encoding="utf-8") as ops_file:
