@@ -66,15 +66,15 @@ async def download_volumes(functionality: str) -> None:
         await update_metainfo_async(time_start, ["traffic_volumes", "start_date_iso"], mode="equals")
         await update_metainfo_async(time_end, ["traffic_volumes", "end_date_iso"], mode="equals")
 
-        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso).strftime("%Y"), ["traffic_volumes", "start_year"], mode="equals", )
-        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso).strftime("%m"), ["traffic_volumes", "start_month"], mode="equals", )
-        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso).strftime("%d"), ["traffic_volumes", "start_day"], mode="equals", )
-        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso).strftime("%H"), ["traffic_volumes", "start_hour"], mode="equals", )
+        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso).strftime("%Y"), ["traffic_volumes", "start_year"], mode="equals")
+        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso).strftime("%m"), ["traffic_volumes", "start_month"], mode="equals")
+        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso).strftime("%d"), ["traffic_volumes", "start_day"], mode="equals")
+        await update_metainfo_async(datetime.datetime.strptime(time_start, dt_iso).strftime("%H"), ["traffic_volumes", "start_hour"], mode="equals")
 
-        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso).strftime("%Y"), ["traffic_volumes", "end_year"], mode="equals", )
-        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso).strftime("%m"), ["traffic_volumes", "end_month"], mode="equals", )
-        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso).strftime("%d"), ["traffic_volumes", "end_day"], mode="equals", )
-        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso).strftime("%H"), ["traffic_volumes", "end_hour"], mode="equals", )
+        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso).strftime("%Y"), ["traffic_volumes", "end_year"], mode="equals")
+        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso).strftime("%m"), ["traffic_volumes", "end_month"], mode="equals")
+        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso).strftime("%d"), ["traffic_volumes", "end_day"], mode="equals")
+        await update_metainfo_async(datetime.datetime.strptime(time_end, dt_iso).strftime("%H"), ["traffic_volumes", "end_hour"], mode="equals")
 
         relative_delta = relativedelta(datetime.datetime.strptime(time_end, dt_iso).date(), datetime.datetime.strptime(time_start, dt_iso).date(), )
         days_delta = (datetime.datetime.strptime(time_end, dt_iso).date() - datetime.datetime.strptime(time_start, dt_iso).date()).days
@@ -93,9 +93,8 @@ async def download_volumes(functionality: str) -> None:
     elif functionality == "2.3":
 
         assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points"
-        with open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]), "r") as trps_data:
-            for trp_id in tqdm(list(json.load(trps_data).keys())):
-                write_trp_metadata(trp_id, has_volumes=True)
+        for trp_id in tqdm(import_TRPs_data().keys()):
+            write_trp_metadata(trp_id)
 
     return None
 

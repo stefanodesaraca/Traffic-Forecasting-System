@@ -150,7 +150,6 @@ class TrafficVolumesCleaner(BaseCleaner):
         print("First registration day available: ", min(registration_dates))
         print("Last registration day available: ", max(registration_dates))
 
-
         by_hour_structured = {
             "trp_id": [],
             "volume": [],
@@ -416,6 +415,9 @@ class TrafficVolumesCleaner(BaseCleaner):
             by_hour_df = await asyncio.to_thread(self._parse_by_hour, json.loads(await m.read())) #In case there's no data by_hour_df will be None
 
         if by_hour_df is not None and by_hour_df.shape[0] > 0:
+
+            await update_trp_metadata_async(trp_id=trp_id, value=True, metadata_keys_map=["checks", "has_volumes"], mode="equals")
+
             try:
                 print("Shape before MICE: ", len(by_hour_df), len(by_hour_df.columns))
                 print("Number of zeros before MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
@@ -675,15 +677,15 @@ class AverageSpeedCleaner(BaseCleaner):
                 data = await self._parse_speeds_async(
                             await asyncio.to_thread(pd.read_csv,
                             await read_metainfo_key_async(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", **{"engine": "c"}))
-                await asyncio.to_thread(data.to_csv,await read_metainfo_key_async(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + trp_id + "_speeds_" + "C.csv")
 
-                await update_trp_metadata_async(
-                    trp_id=trp_id,
-                    value=trp_id + "_speeds_" + "C.csv",
-                    metadata_keys_map=["files", "speeds", "clean"],
-                    mode="equals"
-                )
+                if data is not None: #Checking if data isn't None. If it is, that means that the speeds file was empty
+                    await asyncio.to_thread(data.to_csv,await read_metainfo_key_async(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + trp_id + "_speeds_" + "C.csv")
+
+                    await update_trp_metadata_async(trp_id=trp_id, value=True, metadata_keys_map=["checks", "has_speeds"], mode="equals")
+                    await update_trp_metadata_async(trp_id=trp_id, value=trp_id + "_speeds_" + "C.csv", metadata_keys_map=["files", "speeds", "clean"], mode="equals")
+
                 return None
+
             else:
                 return await self._parse_speeds_async(await asyncio.to_thread(pd.read_csv, read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", **{"engine":"c"}))
 
