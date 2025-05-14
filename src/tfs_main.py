@@ -101,7 +101,7 @@ async def download_volumes(functionality: str) -> None:
 
 
 async def clean_data(functionality: str) -> None:
-    semaphore = Semaphore(70)
+    semaphore = Semaphore(50)
 
     async def limited_clean(trp_id: str, cleaner: TrafficVolumesCleaner | AverageSpeedCleaner, export: bool = True):
         async with semaphore:
@@ -132,15 +132,15 @@ def set_forecasting_options(functionality: str) -> None:
 def execute_eda() -> None:
     trp_data = import_TRPs_data()
     clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
-    clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path", ""])
+    clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
 
-    for v in (trp_id for trp_id in trp_data.keys() if trp_data[trp_id]["checks"]["has_volumes"]):
-        volumes = pd.read_csv(clean_volumes_folder + v)
+    for v in (trp_id for trp_id in trp_data.keys() if read_trp_metadata_key(trp_id=trp_id, metadata_keys_map=["checks", "has_volumes"])):
+        volumes = pd.read_csv(clean_volumes_folder + v + "_volumes_C.csv")
         analyze_volumes(volumes)
         volumes_data_multicollinearity_test(volumes)
 
-    for s in (trp_id for trp_id in trp_data.keys() if trp_data[trp_id]["checks"]["has_speeds"]):
-        speeds = pd.read_csv(clean_speeds_folder + s)
+    for s in (trp_id for trp_id in trp_data.keys() if read_trp_metadata_key(trp_id=trp_id, metadata_keys_map=["checks", "has_speeds"])):
+        speeds = pd.read_csv(clean_speeds_folder + s + "_speeds_C.csv")
         analyze_avg_speeds(speeds)
         avg_speeds_data_multicollinearity_test(speeds)
 

@@ -58,6 +58,16 @@ def get_trp_metadata(trp_id: str) -> dict[Any, Any]:
 
 
 def write_trp_metadata(trp_id: str, **kwargs: Any) -> None:
+    """
+    Writes metadata for a single TRP (Traffic Registration Point).
+
+    Parameters:
+        trp_id: an alphanumeric string identifier of the TRP
+        **kwargs: parameters which can be added directly into the metadata at write time
+
+    Returns:
+         None
+    """
     default_settings = {"raw_volumes_file": None, "has_volumes": False, "has_speeds": False}
     tracking = {**default_settings, **kwargs} # Overriding default settings with kwargs
     metadata = {
@@ -167,7 +177,7 @@ async def update_trp_metadata_async(trp_id: str, value: Any, metadata_keys_map: 
 
 
 def read_trp_metadata_key(trp_id: str, metadata_keys_map: list[str]) -> Any:
-    with open(read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]) + trp_id + "_metadata.json", "w") as metadata_reader:
+    with open(read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]) + trp_id + "_metadata.json", "r") as metadata_reader:
         payload = json.load(metadata_reader)
     for key in metadata_keys_map[:-1]:
         payload = payload[key]
