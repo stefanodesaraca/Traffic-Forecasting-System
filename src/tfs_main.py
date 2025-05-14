@@ -101,12 +101,17 @@ async def download_volumes(functionality: str) -> None:
 
 
 async def clean_data(functionality: str) -> None:
+    semaphore = Semaphore(70)
+
+    async def limited_clean(trp_id: str, cleaner: TrafficVolumesCleaner | AverageSpeedCleaner, export: bool = True):
+        async with semaphore:
+            await cleaner.clean_async(trp_id, export=export)
+
     if functionality == "5.6.1":
-        async with Semaphore(20):
-            await asyncio.gather(*(TrafficVolumesCleaner().clean_async(trp_id) for trp_id in get_trp_ids()))
+            await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=TrafficVolumesCleaner(), export=True) for trp_id in get_trp_ids())) # The star (*) in necessary since gather() requires the coroutines to fed as positional arguments of the function. So we can unpack the list with *
     elif functionality == "5.6.2":
-        async with Semaphore(20):
-            await asyncio.gather(*(AverageSpeedCleaner().clean_async(trp_id) for trp_id in get_trp_ids()))
+            await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=AverageSpeedCleaner(), export=True) for trp_id in get_trp_ids()))
+
     return None
 
 
