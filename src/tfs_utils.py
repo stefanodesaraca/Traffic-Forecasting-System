@@ -218,7 +218,9 @@ def write_metainfo(ops_name: str) -> None:
             "n_weeks": None,  # The total number of weeks which we have data about
             "raw_filenames": [],  # The list of raw traffic volumes file names
             "clean_filenames": [],  # The list of clean traffic volumes file names
-            "n_rows": []  # The total number of records downloaded (clean volumes)
+            "n_rows": [],  # The total number of records downloaded (clean volumes)
+            "start_date_iso": None,
+            "end_date_iso": None
         },
         "average_speeds": {
             "n_days": None,  # The total number of days which we have data about
@@ -227,7 +229,9 @@ def write_metainfo(ops_name: str) -> None:
             "n_weeks": None,  # The total number of weeks which we have data about
             "raw_filenames": [],  # The list of raw average speed file names
             "clean_filenames": [],  # The list of clean average speed file names
-            "n_rows": []  # The total number of records downloaded (clean average speeds)
+            "n_rows": [],  # The total number of records downloaded (clean average speeds)
+            "start_date_iso": None,
+            "end_date_iso": None
         },
         "folder_paths": {},
         "forecasting": {"target_datetimes": {"V": None, "AS": None}},
@@ -419,28 +423,32 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
     Returns:
         None
     """
-    assert os.path.isdir(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])), "Clean traffic volumes folder missing. Initialize an operation first and then set a forecasting target datetime"
-    assert os.path.isdir(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])), "Clean average speeds folder missing. Initialize an operation first and then set a forecasting target datetime"
 
     max_forecasting_window_size = max(default_max_forecasting_window_size, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
     option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")
     print("Maximum number of days to forecast: ", max_forecasting_window_size)
 
-    last_available_data_dt = read_metainfo_key(keys_map=[target_data[option], "end_date_iso"]) #TODO UPDATE THIS WITH compute_metainfo()
-    if not last_available_data_dt: #If this is None then...
-        logging.error(traceback.format_exc())
-        raise Exception("End date not found in metainfo file. Run download first or set it first")
+    if option == "V":
+        last_available_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"])
+    elif option == "AS":
+        _, last_available_data_dt = get_speeds_dates(import_TRPs_data()) #TODO UPDATE THIS WITH compute_metainfo() AND READ IT FROM metainfo.json
+        if not last_available_data_dt: #If this is None then...
+            logging.error(traceback.format_exc())
+            raise Exception("End date not found in metainfo file. Run download first or set it first")
+        last_available_data_dt = datetime.strptime(last_available_data_dt, "%Y-%m-%d %H:%M:%S").strftime(dt_iso)
+    else:
+        print("\033[91mWrong data option, try again\033[0m")
+        sys.exit(1)
 
     print("Latest data available: ", datetime.strptime(last_available_data_dt, dt_iso))
     print("Maximum settable date: ", relativedelta(datetime.strptime(last_available_data_dt, dt_iso), days=14))
 
     dt = input("Insert Target Datetime (YYYY-MM-DDTHH): ") # The month number must be zero-padded, for example: 01, 02, etc.
 
-    forecasting_window_size = (datetime.strptime(dt, dt_format) - datetime.strptime(last_available_data_dt, dt_iso)).days  # The number of days to forecast
-
     assert datetime.strptime(dt, dt_format) > datetime.strptime(last_available_data_dt, dt_iso), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
-    assert forecasting_window_size <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
+    assert (datetime.strptime(dt, dt_format) - datetime.strptime(last_available_data_dt, dt_iso)).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
+            # The number of days to forecast
 
     if check_datetime(dt) and option in target_data.keys():
         update_metainfo(value=dt, keys_map=["forecasting", "target_datetimes", option], mode="equals")
@@ -491,12 +499,11 @@ def get_speeds_dates(trp_ids: list[str] | Generator[str, None, None]) -> tuple[s
     Returns:
         tuple[str, str] <- The date of the first data available in first position and the one of the latest data available in second position
     """
-    speeds_dts = (
+    dt_start, dt_end = zip(*(
         (data["data_info"]["speeds"]["start_date"], data["data_info"]["speeds"]["end_date"])
         for trp_id in trp_ids
         if (data := get_trp_metadata(trp_id=trp_id))["checks"]["has_speeds"]
-    )
-    dt_start, dt_end = zip(*speeds_dts, strict=True)
+    ), strict=True)
     return min(dt_start), max(dt_end)
 
 
