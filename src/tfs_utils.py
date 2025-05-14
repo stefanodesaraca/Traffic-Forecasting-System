@@ -481,13 +481,22 @@ def reset_forecasting_target_datetime() -> None:
 
 
 def get_speeds_dates(trp_ids: list[str] | Generator[str, None, None]) -> tuple[str, str]:
+    """
+    Extracts and returns the date of the first and last data available from all average speed files.
+    Uses a generator of tuples internally so a generator of TRP IDs would be better to maximize performances.
+
+    Parameters:
+        trp_ids: a list or a generator of strings which represent IDs of each traffic registration point available
+
+    Returns:
+        tuple[str, str] <- The date of the first data available in first position and the one of the latest data available in second position
+    """
     speeds_dts = (
         (data["data_info"]["speeds"]["start_date"], data["data_info"]["speeds"]["end_date"])
         for trp_id in trp_ids
         if (data := get_trp_metadata(trp_id=trp_id))["checks"]["has_speeds"]
     )
     dt_start, dt_end = zip(*speeds_dts, strict=True)
-    print(dt_start, dt_end)
     return min(dt_start), max(dt_end)
 
 
