@@ -603,8 +603,8 @@ class AverageSpeedCleaner(BaseCleaner):
         t_min = speeds["date"].min()
         t_max = speeds["date"].max()
 
-        await update_trp_metadata_async(trp_id=trp_id, value=str(t_min), metadata_keys_map=["data_info", "volumes", "start_date"], mode="equals")
-        await update_trp_metadata_async(trp_id=trp_id, value=str(t_max), metadata_keys_map=["data_info", "volumes", "end_date"], mode="equals")
+        await update_trp_metadata_async(trp_id=trp_id, value=str(t_min), metadata_keys_map=["data_info", "speeds", "start_date"], mode="equals")
+        await update_trp_metadata_async(trp_id=trp_id, value=str(t_max), metadata_keys_map=["data_info", "speeds", "end_date"], mode="equals")
 
         print("Registrations time-range:")
         print("First day:", t_min)

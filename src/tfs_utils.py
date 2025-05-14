@@ -477,7 +477,9 @@ def get_speeds_dates(trp_ids: list[str] | Generator[str, None, None]) -> tuple[s
         if (data := get_trp_metadata(trp_id=trp_id))["checks"]["has_speeds"]
     )
     dt_start, dt_end = zip(*speeds_dts, strict=True)
+    print(dt_start, dt_end)
     return min(dt_start), max(dt_end)
+
 
 # ==================== Operations' Settings Utilities ====================
 
