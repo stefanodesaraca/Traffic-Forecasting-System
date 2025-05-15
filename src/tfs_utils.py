@@ -418,11 +418,14 @@ def get_models_parameters_folder_path(target: str, road_category: str) -> str:
 def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = default_max_forecasting_window_size) -> None:
     """
     Parameters:
-        forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24
+        forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24.
+            This parameter is needed since the predictions' confidence varies with how much in the future we want to predict, we'll set a limit on the number of days in future that the user may want to forecast
+            This limit is set by default as 14 days, but can be overridden with this parameter
 
     Returns:
         None
     """
+
 
     max_forecasting_window_size = max(default_max_forecasting_window_size, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
@@ -451,6 +454,7 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
     assert datetime.strptime(dt, dt_format) > datetime.strptime(last_available_data_dt, dt_iso), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
     assert (datetime.strptime(dt, dt_format) - datetime.strptime(last_available_data_dt, dt_iso)).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
             # The number of days to forecast
+    # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
     if check_datetime(dt) and option in target_data.keys():
         update_metainfo(value=dt, keys_map=["forecasting", "target_datetimes", option], mode="equals")

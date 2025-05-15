@@ -426,17 +426,17 @@ class OnePointVolumesForecaster(OnePointForecaster):
         self._target: str = "volume"
 
 
-    def preprocess(self, target_datetime: datetime, max_days: int = default_max_forecasting_window_size) -> dd.DataFrame:
+    def preprocess(self, target_datetime: datetime) -> dd.DataFrame:
         """
         Parameters:
             target_datetime: the target datetime which the user wants to predict data for
-            max_days: maximum number of days we want to predict
+
+        Returns:
+            A dask dataframe containing the dataset that will be used for the predictions
         """
         # Function workflow:
-        # 1. The user has to impute a target datetime for which it wants to predict data
-        # 1.1 Since the predictions' confidence varies with how much in the future we want to predict, we'll set a limit on the number of days in future that the user may want to forecast
-        #     This limit is set by default as 14 days, but can be modified by the specific max_days parameter
-        # 2. Given the number of days in the future to predict we'll calculate the number of hours from the last datetime available for the trp which we want to predict the data for and the nth day in the future
+        # 1. Receiving the target datetime to predict as formal parameter of the function we'll:
+        # 2. Calculate the number of hours from the last datetime available for the trp which we want to predict the data for and the nth day in the future
         # 3. Once the number of hours to predict has been calculated we'll multiply it by 24, which means that for each hour to predict we'll use 24 hours in the past as reference
         # 4. We'll get exactly n rows from the TRP's individual data (where n = d * 24 and d is the number of days in the future to predict)
         # 5. We'll create n rows (where each row will be one specific hour of the future to predict)
@@ -444,9 +444,6 @@ class OnePointVolumesForecaster(OnePointForecaster):
 
         target_datetime = target_datetime.strftime(dt_format)
         last_available_volumes_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso).strftime(dt_format)
-
-        # Checking if the target datetime isn't ahead of the maximum number of days to forecast
-        assert (datetime.strptime(target_datetime, dt_format) - datetime.strptime(last_available_volumes_data_dt, dt_format)).days <= max_days
 
         # Creating a datetime range with datetimes to predict. These will be inserted in the empty rows to be fed to the models for predictions
         rows_to_predict = []
@@ -499,4 +496,52 @@ class OnePointVolumesForecaster(OnePointForecaster):
             return model.predict(volumes)
 
 
-# TODO CREATE THE AvgSpeedForecaster CLASS AND THEN CREATE THE OnePointForecaster AND A2BForecaster CLASSES, THEY WILL JUST RETRIEVE AND USE THE PRE-MADE, TESTED AND EXPORTED MODELS
+
+
+class OnePointAverageSpeedForecaster(OnePointForecaster):
+    def __init__(self, trp_id: str, road_category: str):
+        super().__init__(trp_id, road_category)  # Calling the father class
+        self._trp_id: str = trp_id
+        self._road_category: str = road_category
+        self._n_records: int | None = None
+        self._target: str = "average_speed"
+
+
+    def preprocess(self, target_datetime: datetime):
+        """
+        Parameters:
+            target_datetime: the target datetime which the user wants to predict data for
+
+        Returns:
+            A dask dataframe containing the dataset that will be used for the predictions
+        """
+        # Function workflow:
+        # 1. Receiving the target datetime to predict as formal parameter of the function we'll:
+        # 2. Calculate the number of hours from the last datetime available for the trp which we want to predict the data for and the nth day in the future
+        # 3. Once the number of hours to predict has been calculated we'll multiply it by 24, which means that for each hour to predict we'll use 24 hours in the past as reference
+        # 4. We'll get exactly n rows from the TRP's individual data (where n = d * 24 and d is the number of days in the future to predict)
+        # 5. We'll create n rows (where each row will be one specific hour of the future to predict)
+        # 6. Finally, we'll return the new dataset ready to be fed to the model
+
+
+
+
+    def forecast_volumes(self, speeds: dd.DataFrame, model_name: str):
+
+        # -------------- Model loading --------------
+        model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
+
+        with joblib.parallel_backend("dask"):
+            return model.predict(speeds)
+
+
+
+
+
+
+
+
+
+
+
+# TODO CREATE THE OnePointForecaster AND A2BForecaster CLASSES, THEY WILL JUST RETRIEVE AND USE THE PRE-MADE, TESTED AND EXPORTED MODELS
