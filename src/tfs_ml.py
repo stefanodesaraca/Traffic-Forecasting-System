@@ -411,100 +411,11 @@ class OnePointForecaster:
     self.trp_road_category: to find the right model to predict the data
     """
 
-    def __init__(self, trp_id: str, road_category: str):
-        self._trp_id: str = trp_id
-        self._road_category: str = road_category
-
-
-
-class OnePointVolumesForecaster(OnePointForecaster):
-    def __init__(self, trp_id: str, road_category: str):
-        super().__init__(trp_id, road_category)  # Calling the father class
+    def __init__(self, trp_id: str, road_category: str, target: Literal["volume", "average_speed"]):
         self._trp_id: str = trp_id
         self._road_category: str = road_category
         self._n_records: int | None = None
-        self._target: str = "volume"
-
-
-    def preprocess(self, target_datetime: datetime) -> dd.DataFrame:
-        """
-        Parameters:
-            target_datetime: the target datetime which the user wants to predict data for
-
-        Returns:
-            A dask dataframe containing the dataset that will be used for the predictions
-        """
-        # Function workflow:
-        # 1. Receiving the target datetime to predict as formal parameter of the function we'll:
-        # 2. Calculate the number of hours from the last datetime available for the trp which we want to predict the data for and the nth day in the future
-        # 3. Once the number of hours to predict has been calculated we'll multiply it by 24, which means that for each hour to predict we'll use 24 hours in the past as reference
-        # 4. We'll get exactly n rows from the TRP's individual data (where n = d * 24 and d is the number of days in the future to predict)
-        # 5. We'll create n rows (where each row will be one specific hour of the future to predict)
-        # 6. Finally, we'll return the new dataset ready to be fed to the model
-
-        target_datetime = target_datetime.strftime(dt_format)
-        last_available_volumes_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso).strftime(dt_format)
-
-        # Creating a datetime range with datetimes to predict. These will be inserted in the empty rows to be fed to the models for predictions
-        rows_to_predict = []
-        for dt in pd.date_range(start=last_available_volumes_data_dt, end=target_datetime, freq="1h"):
-            dt_str = dt.strftime("%Y-%m-%d")
-            rows_to_predict.append({
-                "volume": np.nan,
-                "coverage": np.nan,
-                "day": dt.strftime("%d"),
-                "month": dt.strftime("%m"),
-                "year": dt.strftime("%Y"),
-                "hour": dt.strftime("%H"),
-                "week": dt.strftime("%V"),
-                "date": dt_str,
-                "trp_id": self._trp_id
-            })
-
-        self._n_records = len(rows_to_predict) * 24  # Number of records to collect from the TRP's individual data
-
-        rows_to_predict = dd.from_pandas(pd.DataFrame(rows_to_predict))
-        #rows_to_predict["volume"] = rows_to_predict["volume"].astype("int")
-        #rows_to_predict["coverage"] = rows_to_predict["coverage"].astype("float")
-        rows_to_predict["day"] = rows_to_predict["day"].astype("int")
-        rows_to_predict["month"] = rows_to_predict["month"].astype("int")
-        rows_to_predict["year"] = rows_to_predict["year"].astype("int")
-        rows_to_predict["hour"] = rows_to_predict["hour"].astype("int")
-        rows_to_predict["week"] = rows_to_predict["week"].astype("int")
-
-        rows_to_predict.persist()
-
-        predictions_dataset = dd.concat([dd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + self._trp_id + "_volumes.csv").tail(self._n_records), rows_to_predict], axis=0)
-        predictions_dataset = predictions_dataset.repartition(partition_size="512MB")
-        predictions_dataset = predictions_dataset.reset_index()
-        predictions_dataset = predictions_dataset.drop(columns=["index"])
-
-        t_learner = TrafficVolumesLearner(predictions_dataset, self._road_category, self._target)
-        predictions_dataset = t_learner.preprocess(z_score=False)
-
-        #print(predictions_dataset.compute().tail(200))
-
-        return predictions_dataset.persist()
-
-
-    def forecast_volumes(self, volumes: dd.DataFrame, model_name: str):
-
-        # -------------- Model loading --------------
-        model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
-
-        with joblib.parallel_backend("dask"):
-            return model.predict(volumes)
-
-
-
-
-class OnePointAverageSpeedForecaster(OnePointForecaster):
-    def __init__(self, trp_id: str, road_category: str):
-        super().__init__(trp_id, road_category)  # Calling the father class
-        self._trp_id: str = trp_id
-        self._road_category: str = road_category
-        self._n_records: int | None = None
-        self._target: str = "average_speed"
+        self._target: Literal["volume", "average_speed"] = target
 
 
     def preprocess(self, target_datetime: datetime):
@@ -523,7 +434,70 @@ class OnePointAverageSpeedForecaster(OnePointForecaster):
         # 5. We'll create n rows (where each row will be one specific hour of the future to predict)
         # 6. Finally, we'll return the new dataset ready to be fed to the model
 
+        target_datetime = target_datetime.strftime(dt_format)
+        last_available_volumes_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso).strftime(dt_format)
 
+        attr = {"volume": np.nan} if self._target == "volume" else {"mean_speed": np.nan, "percentile_85": np.nan}
+
+        # Creating a datetime range with datetimes to predict. These will be inserted in the empty rows to be fed to the models for predictions
+        rows_to_predict = []
+        for dt in pd.date_range(start=last_available_volumes_data_dt, end=target_datetime, freq="1h"):
+            dt_str = dt.strftime("%Y-%m-%d")
+            rows_to_predict.append({
+                **attr,
+                "coverage": np.nan,
+                "day": dt.strftime("%d"),
+                "month": dt.strftime("%m"),
+                "year": dt.strftime("%Y"),
+                "hour": dt.strftime("%H"),
+                "week": dt.strftime("%V"),
+                "date": dt_str,
+                "trp_id": self._trp_id
+            })
+
+        self._n_records = len(rows_to_predict) * 24  # Number of records to collect from the TRP's individual data
+
+        rows_to_predict = dd.from_pandas(pd.DataFrame(rows_to_predict))
+        rows_to_predict["day"] = rows_to_predict["day"].astype("int")
+        rows_to_predict["month"] = rows_to_predict["month"].astype("int")
+        rows_to_predict["year"] = rows_to_predict["year"].astype("int")
+        rows_to_predict["hour"] = rows_to_predict["hour"].astype("int")
+        rows_to_predict["week"] = rows_to_predict["week"].astype("int")
+
+        rows_to_predict.persist()
+
+        predictions_dataset = dd.concat([dd.read_csv(read_metainfo_key(["path"]) + self._trp_id + "_volumes.csv").tail(self._n_records), rows_to_predict], axis=0)
+        predictions_dataset = predictions_dataset.repartition(partition_size="512MB")
+        predictions_dataset = predictions_dataset.reset_index()
+        predictions_dataset = predictions_dataset.drop(columns=["index"])
+
+        t_learner = TrafficVolumesLearner(predictions_dataset, self._road_category, self._target) if self._target == "volume" else AverageSpeedLearner(predictions_dataset, self._road_category, self._target)
+        predictions_dataset = t_learner.preprocess(z_score=False)
+
+        # print(predictions_dataset.compute().tail(200))
+
+        return predictions_dataset.persist()
+
+
+
+class OnePointVolumesForecaster(OnePointForecaster):
+    def __init__(self, trp_id: str, road_category: str, target: Literal["volume"]):
+        super().__init__(trp_id, road_category, target)  # Calling the father class
+
+
+    def forecast_volumes(self, volumes: dd.DataFrame, model_name: str):
+
+        # -------------- Model loading --------------
+        model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
+
+        with joblib.parallel_backend("dask"):
+            return model.predict(volumes)
+
+
+
+class OnePointAverageSpeedForecaster(OnePointForecaster):
+    def __init__(self, trp_id: str, road_category: str, target: Literal["average_speed"]):
+        super().__init__(trp_id, road_category, target)  # Calling the father class
 
 
     def forecast_volumes(self, speeds: dd.DataFrame, model_name: str):
@@ -544,4 +518,4 @@ class OnePointAverageSpeedForecaster(OnePointForecaster):
 
 
 
-# TODO CREATE THE OnePointForecaster AND A2BForecaster CLASSES, THEY WILL JUST RETRIEVE AND USE THE PRE-MADE, TESTED AND EXPORTED MODELS
+# TODO CREATE THE A2BForecaster CLASS
