@@ -74,7 +74,7 @@ async def download_volumes(functionality: str) -> None:
 
         await update_metainfo_async(days_delta, ["traffic_volumes", "n_days"], mode="equals")
         await update_metainfo_async(months_delta, ["traffic_volumes", "n_months"], mode="equals")
-        await update_metainfo_async(years_delta, ["traffic_volumes", "n_years"], mode="equals")
+        await update_metainfo_async(years_delta, ["traffic_volumes", "n_years"], mode="equals") #TODO THIS CREATES A SECOND n_years. WHY DOESN'T IT OVERWRITE THE OLD n_years: null?
         await update_metainfo_async(weeks_delta, ["traffic_volumes", "n_weeks"], mode="equals")
 
         print("Downloading traffic volumes data for every registration point for the active operation...")
@@ -83,8 +83,12 @@ async def download_volumes(functionality: str) -> None:
     elif functionality == "2.3":
 
         assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points"
-        for trp_id in tqdm(import_TRPs_data().keys()):
-            write_trp_metadata(trp_id)
+
+        if len(os.listdir(read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]))) == 0:
+            for trp_id in tqdm(import_TRPs_data().keys()):
+                write_trp_metadata(trp_id)
+        else:
+            print("Metadata had already been computed.")
 
     return None
 
