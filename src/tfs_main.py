@@ -327,19 +327,25 @@ def execute_forecasts(functionality: str) -> None:
             print("\nTRP road category:", trp_road_category)
 
             if option == "V":
-                one_point_volume_forecaster = OnePointVolumesForecaster(trp_id=trp_id, road_category=trp_road_category)
+                one_point_volume_forecaster = OnePointVolumesForecaster(trp_id=trp_id, road_category=trp_road_category, target=target_data[option])
                 volumes_preprocessed = one_point_volume_forecaster.preprocess(target_datetime=dt)
 
                 for model_name in model_names_and_functions.keys():
                     results = one_point_volume_forecaster.forecast_volumes(volumes_preprocessed, model_name=model_name)
                     print(results)
 
-
             elif option == "AS":
-                pass  #TODO DEVELOP HERE
+                one_point_speeds_forecaster = OnePointAverageSpeedForecaster(trp_id=trp_id, road_category=trp_road_category, target=target_data[option])
+                speeds_preprocessed = one_point_speeds_forecaster.preprocess(target_datetime=dt)
+
+                for model_name in model_names_and_functions.keys():
+                    results = one_point_speeds_forecaster.forecast_speeds(speeds_preprocessed, model_name=model_name)
+                    print(results)
 
         else:
             print("\033[91mNon-valid TRP ID, returning to main menu\033[0m")
+            client.close()
+            cluster.close()
             main()
 
     client.close()

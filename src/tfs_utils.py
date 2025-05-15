@@ -426,7 +426,6 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
         None
     """
 
-
     max_forecasting_window_size = max(default_max_forecasting_window_size, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
     option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")

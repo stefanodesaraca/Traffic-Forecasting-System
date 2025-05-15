@@ -500,7 +500,7 @@ class OnePointAverageSpeedForecaster(OnePointForecaster):
         super().__init__(trp_id, road_category, target)  # Calling the father class
 
 
-    def forecast_volumes(self, speeds: dd.DataFrame, model_name: str):
+    def forecast_speeds(self, speeds: dd.DataFrame, model_name: str):
 
         # -------------- Model loading --------------
         model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
