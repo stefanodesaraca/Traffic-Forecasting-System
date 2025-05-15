@@ -166,6 +166,9 @@ class RoadNetwork(BaseModel):
             vertices: a list of Vertex objects
             municipality_id_filter: a list of municipality IDs to use as filter to only keep vertices which are actually located within that municipality
             **kwargs: other attributes which might be needed in the process
+
+        Returns:
+            None
         """
 
         # If a RoadNetwork class instance has been created and already been provided with vertices it's important to ensure that the ones that are located outside
@@ -186,6 +189,9 @@ class RoadNetwork(BaseModel):
             arches: a list of Arch objects
             municipality_id_filter: a list of municipality IDs to use as filter to only keep arches which are actually located within that municipality
             **kwargs: other attributes which might be needed in the process
+
+        Returns:
+            None
         """
 
         # If a RoadNetwork class instance has been created and already been provided with arches it's important to ensure that the ones that are located outside
@@ -206,6 +212,9 @@ class RoadNetwork(BaseModel):
             trps: a list of TrafficRegistrationPoint objects
             municipality_id_filter: a list of municipality IDs to use as filter to only keep arches which are actually located within that municipality
             **kwargs: other attributes which might be needed in the process
+
+        Returns:
+            None
         """
 
         # If a RoadNetwork class instance has been created and already been provided with traffic registration points it's important to ensure that the ones that are located outside
@@ -219,6 +228,15 @@ class RoadNetwork(BaseModel):
 
 
     def build(self, verbose: bool) -> None:
+        """
+        Loads vertices and arches into the network.
+
+        Parameters:
+            verbose: boolean parameters. Indicates the verbosity of the process.
+
+        Returns:
+            None
+        """
         if verbose is True:
             print("Loading vertices...")
         for v in tqdm(self._vertices):
@@ -234,12 +252,21 @@ class RoadNetwork(BaseModel):
 
 
     def get_graph(self) -> nx.Graph:
+        """
+        Returns the network's graph object.
+
+        Returns:
+            The road network's networkx graph object
+        """
         return self._network
 
 
     def degree_centrality(self) -> dict:
         """
         Returns the degree centrality for each node
+
+        Returns:
+            A dictionary comprehending the degree centrality of every node of the network
         """
         return nx.degree_centrality(self._network)
 
@@ -314,6 +341,9 @@ class RoadNetwork(BaseModel):
         Parameters:
             source: the source vertex ID as a string
             target: the target vertex ID as a string
+
+        Returns:
+            A list of tuples where each one is a pair of vertices linked by an arch
         """
         return nx.astar_path(G=self._network, source=source, target=target)
 
@@ -325,6 +355,9 @@ class RoadNetwork(BaseModel):
         Parameters:
             source: the source vertex ID as a string
             target: the target vertex ID as a string
+
+        Returns:
+            A list of tuples where each one is a pair of vertices linked by an arch
         """
         return nx.dijkstra_path(G=self._network, source=source, target=target)
 
