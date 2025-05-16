@@ -150,13 +150,13 @@ def execute_forecast_warmup(functionality: str) -> None:
     models = [m for m in model_names_and_functions.keys()]
     clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
     clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
-    road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data())
+    road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
 
 
     # TRPs - Volumes files and road categories
     trps_ids_volumes_by_road_category = {
-        category: [clean_volumes_folder + trp_id + "_volumes.csv" for trp_id in
-                   filter(lambda trp_id: get_trp_metadata(trp_id)[["road_category"] == category] and get_trp_metadata(trp_id)["checks"]["has_volumes"], get_trp_ids())]
+        category: [clean_volumes_folder + trp_id + "_volumes_C.csv" for trp_id in
+                   filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"]["has_volumes"], get_trp_ids())]
         for category in road_categories
     }
     trps_ids_volumes_by_road_category = {k: v for k, v in trps_ids_volumes_by_road_category.items() if len(v) >= 2}
@@ -168,8 +168,8 @@ def execute_forecast_warmup(functionality: str) -> None:
 
     # TRPs - Average speed files and road categories
     trps_ids_avg_speeds_by_road_category = {
-        category: [clean_speeds_folder + trp_id + "_speeds.csv" for trp_id in
-                   filter(lambda trp_id: get_trp_metadata(trp_id)[["road_category"] == category] and get_trp_metadata(trp_id)["checks"]["has_speeds"], get_trp_ids())]
+        category: [clean_speeds_folder + trp_id + "_speeds_C.csv" for trp_id in
+                   filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"]["has_speeds"], get_trp_ids())]
         for category in road_categories
     }
     trps_ids_avg_speeds_by_road_category = {k: v for k, v in trps_ids_avg_speeds_by_road_category.items() if len(v) >= 2}

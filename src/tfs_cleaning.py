@@ -417,7 +417,7 @@ class TrafficVolumesCleaner(BaseCleaner):
         if by_hour_df is not None and by_hour_df.shape[0] > 0:
 
             await update_trp_metadata_async(trp_id=trp_id, value=True, metadata_keys_map=["checks", "has_volumes"], mode="equals")
-            await update_trp_metadata_async(trp_id=trp_id, value=await read_metainfo_key_async(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"]) + trp_id + "_volumes.json", metadata_keys_map=["files", "speeds", "raw"], mode="equals")
+            await update_trp_metadata_async(trp_id=trp_id, value=trp_id + "_volumes.json", metadata_keys_map=["files", "volumes", "raw"], mode="equals")
 
             try:
                 print("Shape before MICE: ", len(by_hour_df), len(by_hour_df.columns))
@@ -468,7 +468,7 @@ class AverageSpeedCleaner(BaseCleaner):
 
         trp_id = str(speeds["trp_id"].unique()[0])  # There'll be only one value since each file only represents the data for one TRP only
 
-        update_trp_metadata(trp_id=trp_id, value=read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds.csv", metadata_keys_map=["files", "speeds", "raw"], mode="equals")
+        update_trp_metadata(trp_id=trp_id, value=trp_id + "_speeds.csv", metadata_keys_map=["files", "speeds", "raw"], mode="equals")
 
         # ------------------ Mean speed, percentile_85, coverage and hour_start cleaning ------------------
 
@@ -594,7 +594,7 @@ class AverageSpeedCleaner(BaseCleaner):
 
         trp_id = str(speeds["trp_id"].unique()[0])
 
-        await update_trp_metadata_async(trp_id=trp_id, value=await read_metainfo_key_async(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds.csv", metadata_keys_map=["files", "speeds", "raw"], mode="equals")
+        await update_trp_metadata_async(trp_id=trp_id, value=trp_id + "_speeds.csv", metadata_keys_map=["files", "speeds", "raw"], mode="equals")
 
         # Data cleaning
         speeds["coverage"] = speeds["coverage"].replace(",", ".", regex=True).astype("float") * 100
