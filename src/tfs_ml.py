@@ -5,6 +5,8 @@ import sys
 import traceback
 import logging
 from datetime import datetime
+from typing import Literal
+from pydantic.types import PositiveFloat
 
 import numpy as np
 import pickle
@@ -418,7 +420,7 @@ class OnePointForecaster:
         self._target: Literal["volume", "average_speed"] = target
 
 
-    def preprocess(self, target_datetime: datetime):
+    def preprocess(self, target_datetime: datetime) -> dd.DataFrame:
         """
         Parameters:
             target_datetime: the target datetime which the user wants to predict data for
@@ -479,13 +481,32 @@ class OnePointForecaster:
         return predictions_dataset.persist()
 
 
+    @classmethod
+    def prediction_errors(cls, y_true: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, PositiveFloat]:
+        """
+        Calculates the prediction errors for data that's already been recorded to test the accuracy of one or more models.
+        This method in particular is not bound to an instance of a class (being a @classmethod), but to the class itself because
+        it can be used for multiple purposes even outside the context of an instance of the class.
+
+        Parameters:
+            y_true: the true values of the target variable
+            y_pred: the predicted values of the target variable
+
+        Returns:
+            A dictionary of errors (positive floats) for each error metric.
+        """
+        return {"mean_absolute_error": np.round(mean_absolute_error(y_true, y_pred), 4),
+                "mean_squared_error": np.round(mean_squared_error(y_true, y_pred), 4),
+                "root_mean_squared_error": np.round(root_mean_squared_error(y_true, y_pred), 4)}
+
+
 
 class OnePointVolumesForecaster(OnePointForecaster):
     def __init__(self, trp_id: str, road_category: str, target: Literal["volume"]):
         super().__init__(trp_id, road_category, target)  # Calling the father class
 
 
-    def forecast_volumes(self, volumes: dd.DataFrame, model_name: str):
+    def forecast_volumes(self, volumes: dd.DataFrame, model_name: str) -> dd.DataFrame:
 
         # -------------- Model loading --------------
         model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
@@ -500,7 +521,7 @@ class OnePointAverageSpeedForecaster(OnePointForecaster):
         super().__init__(trp_id, road_category, target)  # Calling the father class
 
 
-    def forecast_speeds(self, speeds: dd.DataFrame, model_name: str):
+    def forecast_speeds(self, speeds: dd.DataFrame, model_name: str) -> dd.DataFrame:
 
         # -------------- Model loading --------------
         model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
