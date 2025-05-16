@@ -82,8 +82,6 @@ async def download_volumes(functionality: str) -> None:
 
     elif functionality == "2.3":
 
-        assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points"
-
         if len(os.listdir(read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]))) == 0:
             for trp_id in tqdm(import_TRPs_data().keys()):
                 write_trp_metadata(trp_id)

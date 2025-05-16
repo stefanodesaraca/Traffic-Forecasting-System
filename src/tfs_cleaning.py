@@ -416,7 +416,6 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         if by_hour_df is not None and by_hour_df.shape[0] > 0:
 
-            await update_trp_metadata_async(trp_id=trp_id, value=True, metadata_keys_map=["checks", "has_volumes"], mode="equals")
             await update_trp_metadata_async(trp_id=trp_id, value=trp_id + "_volumes.json", metadata_keys_map=["files", "volumes", "raw"], mode="equals")
 
             try:
@@ -444,6 +443,7 @@ class TrafficVolumesCleaner(BaseCleaner):
                 by_hour_df.to_csv(await read_metainfo_key_async(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + trp_id + "_volumes_" + "C.csv", index=False, encoding="utf-8")
                 print(f"TRP: {trp_id} data exported correctly\n")
 
+                await update_trp_metadata_async(trp_id=trp_id, value=True, metadata_keys_map=["checks", "has_volumes"], mode="equals") #Only updating the has_volumes only if it has clean volumes data
                 await update_trp_metadata_async(trp_id=trp_id, value=trp_id + "_volumes_" + "C.csv", metadata_keys_map=["files", "volumes", "clean"], mode="equals")
                 await update_trp_metadata_async(trp_id=trp_id, value=str(by_hour_df["date"].min()), metadata_keys_map=["data_info", "volumes", "start_date"], mode="equals")
                 await update_trp_metadata_async(trp_id=trp_id, value=str(by_hour_df["date"].max()), metadata_keys_map=["data_info", "volumes", "end_date"], mode="equals")
