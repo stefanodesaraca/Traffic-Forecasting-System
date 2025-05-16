@@ -84,7 +84,7 @@ async def download_volumes(functionality: str) -> None:
 
         if len(os.listdir(read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]))) == 0:
             for trp_id in tqdm(import_TRPs_data().keys()):
-                write_trp_metadata(trp_id)
+                write_trp_metadata(trp_id, **{"trp_data": import_TRPs_data()[trp_id]})
         else:
             print("Metadata had already been computed.")
 

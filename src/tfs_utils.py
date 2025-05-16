@@ -84,11 +84,11 @@ def write_trp_metadata(trp_id: str, **kwargs: Any) -> None:
     Returns:
          None
     """
-    default_settings = {"raw_volumes_file": None, "has_volumes": False, "has_speeds": False}
+    default_settings = {"raw_volumes_file": None, "has_volumes": False, "has_speeds": False, "trp_data": None}
     tracking = {**default_settings, **kwargs} # Overriding default settings with kwargs
     metadata = {
         "id": trp_id,
-        "trp_data": None,
+        "trp_data": tracking["trp_data"],
         "files": {
             "volumes": {
                 "raw": tracking["raw_volumes_file"],
