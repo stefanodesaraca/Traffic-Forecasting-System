@@ -274,7 +274,7 @@ class TrafficVolumesCleaner(BaseCleaner):
                 by_lane_structured["week"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%V"))
                 by_lane_structured["day"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%d"))
                 by_lane_structured["hour"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%H"))
-                by_lane_structured["volume"].append(lane["total"]["volumeNumbers"]["volume"] or None) # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
+                by_lane_structured["volume"].append(lane["total"]["volumeNumbers"]["volume"] if lane["node"]["total"]["volumeNumbers"] is not None else None) # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
                 by_lane_structured["coverage"].append(lane["total"]["coverage"]["percentage"] or None)
                 by_lane_structured["lane"].append(lane["lane"]["laneNumberAccordingToRoadLink"])
                 by_lane_structured["date"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").date().isoformat())
@@ -348,7 +348,7 @@ class TrafficVolumesCleaner(BaseCleaner):
                 by_direction_structured["week"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%V"))
                 by_direction_structured["day"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%d"))
                 by_direction_structured["hour"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").strftime("%H"))
-                by_direction_structured["volume"].append(direction_section["total"]["volumeNumbers"]["volume"] or None) # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
+                by_direction_structured["volume"].append(direction_section["total"]["volumeNumbers"]["volume"] if direction_section["node"]["total"]["volumeNumbers"] is not None else None) # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
                 by_direction_structured["coverage"].append(direction_section["total"]["coverage"]["percentage"] or None)
                 by_direction_structured["direction"].append(direction_section["heading"])
                 by_direction_structured["date"].append(datetime.strptime(reg_datetime, "%Y-%m-%dT%H").date().isoformat())
@@ -400,8 +400,8 @@ class TrafficVolumesCleaner(BaseCleaner):
                 print(f"TRP: {trp_id} metadata updated correctly\n\n")
 
                 return None
-            except AttributeError:
-                print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
+            except AttributeError as e:
+                print(f"\033[91mCouldn't export {trp_id} TRP volumes data. Error: {e}\033[0m")
                 return None
 
         print("--------------------------------------------------------\n\n")
@@ -449,8 +449,8 @@ class TrafficVolumesCleaner(BaseCleaner):
                 await update_trp_metadata_async(trp_id=trp_id, value=str(by_hour_df["date"].max()), metadata_keys_map=["data_info", "volumes", "end_date"], mode="equals")
 
                 print(f"TRP: {trp_id} metadata updated correctly\n\n")
-            except AttributeError:
-                print(f"\033[91mCouldn't export {trp_id} TRP volumes data\033[0m")
+            except AttributeError as e:
+                print(f"\033[91mCouldn't export {trp_id} TRP volumes data. Error: {e}\033[0m")
 
         print("--------------------------------------------------------\n\n")
 

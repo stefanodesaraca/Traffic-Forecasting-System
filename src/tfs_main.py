@@ -446,9 +446,6 @@ def main():
         elif option == "0":
             sys.exit(0)
 
-        elif option == "z":
-            print(get_speeds_dates(get_trp_ids())) #TODO TEST
-
         else:
             print("Wrong option. Insert a valid one")
             print()
