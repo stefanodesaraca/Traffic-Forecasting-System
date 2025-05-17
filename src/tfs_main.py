@@ -181,123 +181,56 @@ def execute_forecast_warmup(functionality: str) -> None:
     client = Client(cluster)
     # More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
 
-    # ------------ Hyperparameter tuning for traffic volumes ML models ------------
-    if functionality == "3.2.1":
-        merged_volumes_by_category = {}
 
-        # Merge all volumes files by category
-        for road_category, files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge(files) #Each file contains volumes from a single TRP
-            print(f"Shape of the merged data for road category {road_category}: ", (merged_volumes_by_category[road_category].shape[0].compute(), merged_volumes_by_category[road_category].shape[1]))
+    def process_data(
+            trps_ids_by_road_category: dict[str, list[str]],
+            models: list[str],
+            learner_class,
+            target: str,
+            process_description: str,
+            method_name: str
+    ) -> None:
 
-        for road_category, v in merged_volumes_by_category.items():
-            print(f"\n********************* Executing hyperparameter tuning on traffic volumes data for road category: {road_category} *********************\n")
+        merged_data_by_category = {}
 
-            volumes_learner = TrafficVolumesLearner(v, road_category=road_category, target=target_data["V"], client=client)
-            volumes_preprocessed = volumes_learner.preprocess()
+        for road_category, files in trps_ids_by_road_category.items():
+            merged_data_by_category[road_category] = merge(files)
+            print(f"Shape of the merged data for road category {road_category}: ", (merged_data_by_category[road_category].shape[0].compute(), merged_data_by_category[road_category].shape[1]))
 
-            X_train, X_test, y_train, y_test = split_data(volumes_preprocessed, target=target_data_temp["V"])
+        for road_category, data in merged_data_by_category.items():
+            print(f"\n********************* Executing {process_description} for road category: {road_category} *********************\n")
 
-            # -------------- GridSearchCV phase --------------
+            learner = learner_class(data, road_category=road_category, target=target, client=client)
+            preprocessed_data = learner.preprocess()
+
+            X_train, X_test, y_train, y_test = split_data(preprocessed_data, target=target_data_temp[target])
+
             for model_name in models:
-                volumes_learner.gridsearch(
-                    X_train,
-                    y_train,
-                    model_name=model_name
-                )
+                method = getattr(learner, method_name)
+                method(X_train if method_name != "test_model" else X_test,
+                       y_train if method_name != "test_model" else y_test,
+                       model_name=model_name)
 
-                # Check if workers are still alive
                 print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
-
                 time.sleep(1)  # To cool down the system
 
-    # ------------ Hyperparameter tuning for average speed ML models ------------
-    elif functionality == "3.2.2":
-        merged_speeds_by_category = {}
 
-        for road_category, speeds_files in trps_ids_avg_speeds_by_road_category.items():
-            merged_speeds_by_category[road_category] = merge(speeds_files)
+    try:
+        if functionality == "3.2.1":
+            process_data(trps_ids_volumes_by_road_category, models, TrafficVolumesLearner, target_data["V"], "hyperparameter tuning on traffic volumes data", "gridsearch")
 
-        for road_category, s in merged_speeds_by_category.items():
-            print(f"********************* Executing hyperparameter tuning on average speed data for road category: {road_category} *********************")
+        elif functionality == "3.2.2":
+            process_data(trps_ids_avg_speeds_by_road_category, models, AverageSpeedLearner, target_data["AS"], "hyperparameter tuning on average speed data", "gridsearch")
 
-            speeds_learner = AverageSpeedLearner(s, road_category=road_category, target=target_data["AS"], client=client)
-            speeds_preprocessed = speeds_learner.preprocess()
+        elif functionality == "3.2.3":
+            process_data(trps_ids_volumes_by_road_category, models, TrafficVolumesLearner, target_data["V"], "training models on traffic volumes data", "train_model")
 
-            X_train, X_test, y_train, y_test = split_data(speeds_preprocessed, target=target_data_temp["AS"])
+        elif functionality == "3.2.5":
+            process_data(trps_ids_volumes_by_road_category, models, TrafficVolumesLearner, target_data["V"], "testing models on traffic volumes data", "test_model")
 
-            for model_name in models:
-                speeds_learner.gridsearch(
-                    X_train,
-                    y_train,
-                    model_name=model_name,
-                )
-
-                # Check if workers are still alive
-                print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
-
-                time.sleep(1)  # To cool down the system
-
-    # ------------ Train ML models on traffic volumes data ------------
-    elif functionality == "3.2.3":
-        merged_volumes_by_category = {}
-
-        # Merge all volumes files by category
-        for road_category, files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge(files)
-
-        for road_category, v in merged_volumes_by_category.items():
-            print(f"\n********************* Training models on traffic volumes data for road category: {road_category} *********************\n")
-
-            volumes_learner = TrafficVolumesLearner(v, road_category=road_category, target=target_data["V"], client=client)
-            volumes_preprocessed = volumes_learner.preprocess()
-
-            X_train, X_test, y_train, y_test = split_data(volumes_preprocessed, target=target_data_temp["V"])
-
-            # -------------- Training phase --------------
-            for model_name in models:
-                volumes_learner.train_model(
-                    X_train,
-                    y_train,
-                    model_name=model_name,
-                )
-
-    elif functionality == "3.2.4":
-        print()
-
-    # ------------ Test ML models on traffic volumes data ------------
-    elif functionality == "3.2.5":
-        merged_volumes_by_category = {}
-
-        # Merge all volumes files by category
-        for road_category, files in trps_ids_volumes_by_road_category.items():
-            merged_volumes_by_category[road_category] = merge(files)
-
-        for road_category, v in merged_volumes_by_category.items():
-            print(
-                f"\n********************* Testing models on traffic volumes data for road category: {road_category} *********************\n"
-            )
-
-            volumes_learner = TrafficVolumesLearner(v, road_category=road_category, target=target_data["V"], client=client)
-            volumes_preprocessed = volumes_learner.preprocess()
-
-            X_train, X_test, y_train, y_test = split_data(volumes_preprocessed, target=target_data_temp["V"])
-
-            # -------------- Testing phase --------------
-            for model_name in models:
-                volumes_learner.test_model(
-                    X_test,
-                    y_test,
-                    model_name=model_name,
-                )
-
-        print("\n\n")
-
-    elif functionality == "3.2.6":
-        print()
-
-    client.close()
-    cluster.close()
+    finally:
+        client.close()
+        cluster.close()
 
     return None
 
