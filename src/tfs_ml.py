@@ -501,11 +501,13 @@ class OnePointForecaster:
 
 
     @classmethod
-    def export_predictions(cls, y_preds: dd.DataFrame, filepath: str) -> None:
+    def export_predictions(cls, y_preds: dd.DataFrame, predictions_metadata: dict, predictions_filepath: str, metadata_filepath: str) -> None:
         try:
-            dd.to_csv(y_preds, filepath, single_file=True, encoding="utf-8", **{"index": False})
+            with open(metadata_filepath, "w") as m:
+                json.dump(predictions_metadata, m, indent=4)
+            dd.to_csv(y_preds, predictions_filepath, single_file=True, encoding="utf-8", **{"index": False})
         except Exception as e:
-            print(f"Couldn't export data to {filepath}, error {e}")
+            print(f"Couldn't export data to {predictions_filepath}, error {e}")
         return None
 
 
