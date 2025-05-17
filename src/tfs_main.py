@@ -225,8 +225,14 @@ def execute_forecast_warmup(functionality: str) -> None:
         elif functionality == "3.2.3":
             process_data(trps_ids_volumes_by_road_category, models, TrafficVolumesLearner, target_data["V"], "training models on traffic volumes data", "train_model")
 
+        elif functionality == "3.2.4":
+            process_data(trps_ids_volumes_by_road_category, models, AverageSpeedLearner, target_data["AS"], "training models on average speed data", "train_model")
+
         elif functionality == "3.2.5":
             process_data(trps_ids_volumes_by_road_category, models, TrafficVolumesLearner, target_data["V"], "testing models on traffic volumes data", "test_model")
+
+        elif functionality == "3.2.6":
+            process_data(trps_ids_volumes_by_road_category, models, AverageSpeedLearner, target_data["AS"], "testing models on average speed data", "test_model")
 
     finally:
         client.close()
