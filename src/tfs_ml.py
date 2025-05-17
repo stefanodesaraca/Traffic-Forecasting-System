@@ -500,6 +500,16 @@ class OnePointForecaster:
                 "root_mean_squared_error": np.round(root_mean_squared_error(y_true, y_pred), 4)}
 
 
+    @classmethod
+    def export_predictions(cls, y_preds: dd.DataFrame, filepath: str) -> None:
+        try:
+            dd.to_csv(y_preds, filepath, single_file=True, encoding="utf-8", **{"index": False})
+        except Exception as e:
+            print(f"Couldn't export data to {filepath}, error {e}")
+        return None
+
+
+
 
 class OnePointVolumesForecaster(OnePointForecaster):
     def __init__(self, trp_id: str, road_category: str, target: Literal["volume"]):

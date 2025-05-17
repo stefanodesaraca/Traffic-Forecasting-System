@@ -214,6 +214,8 @@ def execute_forecast_warmup(functionality: str) -> None:
                 print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
                 time.sleep(1)  # To cool down the system
 
+        return None
+
 
     try:
         if functionality == "3.2.1":
