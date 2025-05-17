@@ -5,6 +5,7 @@ from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 import pprint
 import asyncio
+from contextlib import contextmanager
 from asyncio import Semaphore
 import dask.distributed
 from dask.distributed import Client, LocalCluster
@@ -17,6 +18,23 @@ from tfs_ml import *
 from tfs_road_network import *
 
 dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
+
+
+@contextmanager
+def dask_cluster_client(processes=False):
+    """
+    - Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
+    - Check localhost:8787 to watch real-time processing
+    - By default, the number of workers is obtained by dask using the standard os.cpu_count()
+    - More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
+    """
+    cluster = LocalCluster(processes=processes)
+    client = Client(cluster)
+    try:
+        yield client
+    finally:
+        client.close()
+        cluster.close()
 
 
 def manage_ops(functionality: str) -> None:
@@ -174,14 +192,6 @@ def execute_forecast_warmup(functionality: str) -> None:
     # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
 
 
-    # Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
-    # It's important to instantiate it here since, if it was done in the gridsearch function, it would mean the client would be started and closed everytime the function runs (which is not good)
-    cluster = LocalCluster(processes=False)  # Check localhost:8787 to watch real-time.
-    # By default, the number of workers is obtained by dask using the standard os.cpu_count()
-    client = Client(cluster)
-    # More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
-
-
     def process_data(
             trps_ids_by_road_category: dict[str, list[str]],
             models: list[str],
@@ -200,7 +210,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         for road_category, data in merged_data_by_category.items():
             print(f"\n********************* Executing {process_description} for road category: {road_category} *********************\n")
 
-            learner = learner_class(data, road_category=road_category, target=target, client=client)
+            learner = learner_class(data, road_category=road_category, target=target, client=client) # This client is ok here since the process_data function (in which it's located) only gets called after the client is opened as a context manager afterward (see down below in the code) *
             preprocessed_data = learner.preprocess()
 
             X_train, X_test, y_train, y_test = split_data(preprocessed_data, target=target_data_temp[target])
@@ -217,7 +227,8 @@ def execute_forecast_warmup(functionality: str) -> None:
         return None
 
 
-    try:
+    with dask_cluster_client(processes=False) as client: #*
+
         if functionality == "3.2.1":
             process_data(trps_ids_volumes_by_road_category, models, TrafficVolumesLearner, target_data["V"], "hyperparameter tuning on traffic volumes data", "gridsearch")
 
@@ -236,70 +247,62 @@ def execute_forecast_warmup(functionality: str) -> None:
         elif functionality == "3.2.6":
             process_data(trps_ids_volumes_by_road_category, models, AverageSpeedLearner, target_data["AS"], "testing models on average speed data", "test_model")
 
-    finally:
-        client.close()
-        cluster.close()
-
     return None
 
 
-def execute_forecasts(functionality: str) -> None:
+def get_forecaster(option: str, trp_id: str, road_category: str, target_data: str, dt: datetime) -> tuple[OnePointVolumesForecaster | OnePointAverageSpeedForecaster, str, dd.DataFrame] | tuple[None, None, None]:
+    forecaster_info = {
+        "V": {
+            "class": OnePointVolumesForecaster,
+            "method": "forecast_volumes",
+            "check": "has_volumes"
+        },
+        "AS": {
+            "class": OnePointAverageSpeedForecaster,
+            "method": "forecast_speeds",
+            "check": "has_speeds"
+        }
+    }
 
+    info = forecaster_info[option]
+    if get_trp_metadata(trp_id)["checks"][info["check"]]:
+        forecaster = info["class"](trp_id=trp_id, road_category=road_category, target=target_data)
+        return forecaster, info["method"], forecaster.preprocess(target_datetime=dt)
+    else:
+        print(f"TRP {trp_id} doesn't have {option.lower()} data, returning to main menu")
+        return None, None, None
+
+
+def execute_forecasts(functionality: str) -> None:
     check_metainfo_file()
 
     print("Which kind of data would you like to forecast?")
     print("V: Volumes | AS: Average Speeds")
-    option = input("Choice: ")
-    dt = read_forecasting_target_datetime(option)
+    option = input("Choice: ").upper()
 
-    cluster = LocalCluster(processes=False)
-    client = Client(cluster)
+    if option not in ["V", "AS"]:
+        print("Invalid option, returning to main menu")
+        return
 
-    # One-Point Forecast
-    if functionality == "3.3.1":
-        trp_ids = get_trp_ids()
-        print("TRP IDs: ", trp_ids)
-        trp_id = input("Insert TRP ID for forecasting: ")
+    with dask_cluster_client(processes=False) as client:
+        if functionality == "3.3.1":
+            trp_ids = get_trp_ids()
+            print("TRP IDs: ", trp_ids)
+            trp_id = input("Insert TRP ID for forecasting: ")
 
-        if trp_id in trp_ids:
-            trp_road_category = get_trp_metadata(trp_id)["road_category"]
-            print("\nTRP road category:", trp_road_category)
+            if trp_id in trp_ids:
+                trp_road_category = get_trp_metadata(trp_id)["road_category"]
+                print("\nTRP road category:", trp_road_category)
 
-            if option == "V":
-                if get_trp_metadata(trp_id)["checks"]["has_volumes"]:
-                    one_point_volume_forecaster = OnePointVolumesForecaster(trp_id=trp_id, road_category=trp_road_category, target=target_data[option])
-                    volumes_preprocessed = one_point_volume_forecaster.preprocess(target_datetime=dt)
+                forecaster, method, preprocessed_data = get_forecaster(option, trp_id, trp_road_category, target_data[option], read_forecasting_target_datetime(option))
 
+                if forecaster:
                     for model_name in model_names_and_functions.keys():
-                        results = one_point_volume_forecaster.forecast_volumes(volumes_preprocessed, model_name=model_name)
+                        results = getattr(forecaster, method)(preprocessed_data, model_name=model_name)
                         print(results)
-                else:
-                    print(f"TRP {trp_id} doesn't have volumes data, returning to main menu")
-                    client.close()
-                    cluster.close()
-                    main()
-
-            elif option == "AS":
-                if get_trp_metadata(trp_id)["checks"]["has_speeds"]:
-                    one_point_speeds_forecaster = OnePointAverageSpeedForecaster(trp_id=trp_id, road_category=trp_road_category, target=target_data[option])
-                    speeds_preprocessed = one_point_speeds_forecaster.preprocess(target_datetime=dt)
-
-                    for model_name in model_names_and_functions.keys():
-                        results = one_point_speeds_forecaster.forecast_speeds(speeds_preprocessed, model_name=model_name)
-                        print(results)
-                else:
-                    print(f"TRP {trp_id} doesn't have average speeds data, returning to main menu")
-                    client.close()
-                    cluster.close()
-                    main()
-        else:
-            print("\033[91mNon-valid TRP ID, returning to main menu\033[0m")
-            client.close()
-            cluster.close()
-            main()
-
-    client.close()
-    cluster.close()
+            else:
+                print("\033[91mNon-valid TRP ID, returning to main menu\033[0m")
+                return
 
     return None
 
