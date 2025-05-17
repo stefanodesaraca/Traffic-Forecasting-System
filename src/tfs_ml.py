@@ -501,7 +501,7 @@ class OnePointForecaster:
 
 
     @classmethod
-    def export_predictions(cls, y_preds: dd.DataFrame, predictions_metadata: dict, predictions_filepath: str, metadata_filepath: str) -> None:
+    def export_predictions(cls, y_preds: dd.DataFrame, predictions_metadata: dict[Any, Any], predictions_filepath: str, metadata_filepath: str) -> None:
         try:
             with open(metadata_filepath, "w") as m:
                 json.dump(predictions_metadata, m, indent=4)
@@ -509,7 +509,6 @@ class OnePointForecaster:
         except Exception as e:
             print(f"Couldn't export data to {predictions_filepath}, error {e}")
         return None
-
 
 
 
