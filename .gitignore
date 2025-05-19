@@ -8,8 +8,5 @@
 *.pyd
 
 docs/build
-docs/source/_static
-docs/source/_templates
-
 extra
 deploy_*
