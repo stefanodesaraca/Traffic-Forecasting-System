@@ -95,8 +95,11 @@ class BaseLearner:
 
     def gridsearch(self, X_train, y_train, model_name: str) -> None:
 
-        if self._target not in target_data.keys(): #TODO in .values() ?? BUT WHAT ABOUT THE "volume" KEY?
-            raise Exception("Wrong target variable in GridSearchCV executor function")
+        #TODO TEMPORARY SOLUTION, THIS IF IS IMPORTANT
+        #if self._target not in target_data.keys():
+            #raise Exception("Wrong target variable in GridSearchCV executor function")
+
+        if self._target == "traffic_volumes": self._target = "volume"
 
         grids = {"volume": volumes_models_gridsearch_parameters[model_name],
                  "average_speed": speeds_models_gridsearch_parameters[model_name]}

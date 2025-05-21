@@ -403,8 +403,8 @@ def get_models_folder_path(target: str, road_category: str) -> str:
 
 def get_models_parameters_folder_path(target: str, road_category: str) -> str:
     folder_paths = {
-        "volume": read_metainfo_key(keys_map=["ml", "models_parameters", "subfolders", "traffic_volumes", "subfolders", road_category, "path"]),
-        "average_speed": read_metainfo_key(keys_map=["ml", "models_parameters", "subfolders", "average_speed", "subfolders", road_category, "path"])
+        "volume": read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", "traffic_volumes", "subfolders", road_category, "path"]),
+        "average_speed": read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", "average_speed", "subfolders", road_category, "path"])
     }
     if folder_paths[target]:
         return folder_paths[target]
