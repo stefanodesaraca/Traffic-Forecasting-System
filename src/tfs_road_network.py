@@ -35,7 +35,7 @@ class Vertex(BaseModel):
     n_undirected_links: PositiveInt
     legal_turning_movements: list[dict[str, [str | list[str]]]]
     road_system_references: list[str]
-    municipality_ids: list[str] = None  # TODO TO GET THIS ONE SINCE IT DOESN'T EXIST YET IN THE DATA AVAILABLE RIGHT NOW. FOR NOW IT WILL BE NONE
+    municipality_ids: list[str] | None = None  # TODO TO GET THIS ONE SINCE IT DOESN'T EXIST YET IN THE DATA AVAILABLE RIGHT NOW. FOR NOW IT WILL BE NONE
 
 
     def get_vertex_data(self) -> dict[Any, Any]:
@@ -46,7 +46,16 @@ class Vertex(BaseModel):
 
 
     def export_vertex(self, filepath: str) -> None:
-        with open(filepath, "w", encoding="utf-8"):
+        """
+        Exports a single vertex's data to a JSON file.
+
+        Parameters:
+            filepath: the filepath to export the JSON file to.
+
+        Returns:
+            None
+        """
+        with open(filepath if filepath.endswith(".json") else filepath + ".json", "w", encoding="utf-8"):
             json.dump(self.get_vertex_data(), filepath, indent=4)
         return None
 
@@ -107,7 +116,16 @@ class Arch(BaseModel):
 
 
     def export_arch(self, filepath: str) -> None:
-        with open(filepath, "w", encoding="utf-8"):
+        """
+        Exports a single arch's data to a JSON file.
+
+        Parameters:
+            filepath: the filepath to export the JSON file to.
+
+        Returns:
+            None
+        """
+        with open(filepath if filepath.endswith(".json") else filepath + ".json", "w", encoding="utf-8"):
             json.dump(self.get_arch_data(), filepath, indent=4)
         return None
 
@@ -139,6 +157,28 @@ class TrafficRegistrationPoint(BaseModel):
     latest_data_volume_average_daily_by_year: str | datetime.datetime
     latest_data_volume_average_daily_by_season: str | datetime.datetime
     latest_data_volume_average_daily_by_month: str | datetime.datetime
+
+
+    def get_single_trp_network_data(self) -> dict[Any, Any]:
+        """
+        Returns all attributes and respective values of the TrafficRegistrationPoint instance.
+        """
+        return self.__dict__
+
+
+    def export_trp(self, filepath: str) -> None:
+        """
+        Exports a single TrafficRegistrationPoint's data to a JSON file.
+
+        Parameters:
+            filepath: the filepath to export the JSON file to.
+
+        Returns:
+            None
+        """
+        with open(filepath if filepath.endswith(".json") else filepath + ".json", "w", encoding="utf-8"):
+            json.dump(self.get_single_trp_network_data(), filepath, indent=4)
+        return None
 
 
 
