@@ -6,7 +6,7 @@ import json
 import pickle
 import networkx as nx
 import datetime
-from typing import Any, Iterator
+from typing import Any, Iterator, Literal
 from tqdm import tqdm
 from scipy.spatial.distance import euclidean, cityblock  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
 from geopy.distance import geodesic # To calculate distance (in meters) between two sets of coordinates (lat-lon). Geopy distance docs: https://geopy.readthedocs.io/en/stable/#module-geopy.distance
@@ -371,32 +371,35 @@ class RoadNetwork(BaseModel):
         return None
 
 
-    def get_astar_path(self, source: str, target: str) -> list[str]:
+    def get_astar_path(self, source: str, target: str, weight: str, heuristic: Literal["manhattan", "euclidean"]) -> list[str]:
         """
         Returns the shortest path calculated with the  algorithm.
 
         Parameters:
             source: the source vertex ID as a string
             target: the target vertex ID as a string
+            weight: the attribute to consider as weight for the arches of the graph
+            heuristic: the heuristic to use during the computation of the shortest path. Can be either "manhattan" or "euclidean"
 
         Returns:
             A list of vertices, each linked by an arch
         """
-        return nx.astar_path(G=self._network, source=source, target=target)
+        return nx.astar_path(G=self._network, source=source, target=target, heuristic={"manhattan": cityblock, "euclidean": euclidean}[heuristic], weight=weight)
 
 
-    def get_dijkstra_path(self, source: str, target: str) -> list[str]:
+    def get_dijkstra_path(self, source: str, target: str, weight: str) -> list[str]:
         """
         Returns the shortest path calculated with the  algorithm.
 
         Parameters:
             source: the source vertex ID as a string
             target: the target vertex ID as a string
+            weight: the attribute to consider as weight for the arches of the graph
 
         Returns:
             A list of vertices, each linked by an arch
         """
-        return nx.dijkstra_path(G=self._network, source=source, target=target)
+        return nx.dijkstra_path(G=self._network, source=source, target=target, weight=weight)
 
 
     def find_trps_on_path(self, path: list[str]) -> Iterator[str]:
