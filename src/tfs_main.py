@@ -195,7 +195,7 @@ def execute_forecast_warmup(functionality: str) -> None:
     def process_data(
             trps_ids_by_road_category: dict[str, list[str]],
             models: list[str],
-            learner_class,
+            learner_class: type[TrafficVolumesLearner | AverageSpeedLearner],
             target: str,
             process_description: str,
             method_name: str
@@ -213,7 +213,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             learner = learner_class(data, road_category=road_category, target=target, client=client) # This client is ok here since the process_data function (in which it's located) only gets called after the client is opened as a context manager afterward (see down below in the code) *
             preprocessed_data = learner.preprocess()
 
-            X_train, X_test, y_train, y_test = split_data(preprocessed_data, target=target_data_temp[target])
+            X_train, X_test, y_train, y_test = split_data(preprocessed_data, target=target)
 
             for model_name in models:
                 method = getattr(learner, method_name)
