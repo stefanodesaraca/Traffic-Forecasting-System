@@ -6,7 +6,7 @@ import json
 import pickle
 import networkx as nx
 import datetime
-from typing import Any
+from typing import Any, Iterator
 from tqdm import tqdm
 from scipy.spatial.distance import euclidean, cityblock  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
 from geopy.distance import geodesic # To calculate distance (in meters) between two sets of coordinates (lat-lon). Geopy distance docs: https://geopy.readthedocs.io/en/stable/#module-geopy.distance
@@ -35,8 +35,8 @@ class Vertex(BaseModel):
     n_undirected_links: PositiveInt
     legal_turning_movements: list[dict[str, [str | list[str]]]]
     road_system_references: list[str]
+    is_trp: bool #TODO TO VERIFY IF TRPS ARE POSITIONED ON Vertices OR Arches
     municipality_ids: list[str] | None = None  # TODO TO GET THIS ONE SINCE IT DOESN'T EXIST YET IN THE DATA AVAILABLE RIGHT NOW. FOR NOW IT WILL BE NONE
-
 
     def get_vertex_data(self) -> dict[Any, Any]:
         """
@@ -184,12 +184,9 @@ class TrafficRegistrationPoint(BaseModel):
 
 class RoadNetwork(BaseModel):
     network_id: str
-    _vertices: list[Vertex] = None  # Optional parameter
-    _arches: list[Arch] = None  # Optional parameter
-    _trps: list[TrafficRegistrationPoint] = None  # Optional parameter. This is the list of all TRPs located within the road network
-    n_vertices: int
-    n_arches: int
-    n_trp: int
+    _vertices: list[Vertex] | None = None  # Optional parameter
+    _arches: list[Arch] | None = None  # Optional parameter
+    _trps: list[TrafficRegistrationPoint] | None = None  # Optional parameter. This is the list of all TRPs located within the road network
     road_network_name: str
     _network: nx.Graph = nx.Graph()
 
@@ -374,7 +371,7 @@ class RoadNetwork(BaseModel):
         return None
 
 
-    def get_astar_path(self, source: str, target: str) -> list[tuple]:
+    def get_astar_path(self, source: str, target: str) -> list[str]:
         """
         Returns the shortest path calculated with the  algorithm.
 
@@ -383,12 +380,12 @@ class RoadNetwork(BaseModel):
             target: the target vertex ID as a string
 
         Returns:
-            A list of tuples where each one is a pair of vertices linked by an arch
+            A list of vertices, each linked by an arch
         """
         return nx.astar_path(G=self._network, source=source, target=target)
 
 
-    def get_dijkstra_path(self, source: str, target: str) -> list[tuple]:
+    def get_dijkstra_path(self, source: str, target: str) -> list[str]:
         """
         Returns the shortest path calculated with the  algorithm.
 
@@ -397,12 +394,26 @@ class RoadNetwork(BaseModel):
             target: the target vertex ID as a string
 
         Returns:
-            A list of tuples where each one is a pair of vertices linked by an arch
+            A list of vertices, each linked by an arch
         """
         return nx.dijkstra_path(G=self._network, source=source, target=target)
 
 
-# TODO ADD A find_trps_on_path(path: list[str]) -> list[str] FUNCTION. THIS WILL RETURN ALL TRPs ALONG A PATH (WHICH WILL BE SUPPLIED TO THE FUNCTION AS A LIST OF ARCHES)
+    def find_trps_on_path(self, path: list[str]) -> Iterator[str]:
+        """
+        Finds all TRPs present along a path by checking each node.
+
+        Parameters:
+            path: a list of strings, each one representing a specific vertex on the path.
+
+        Returns:
+            A filter object which contains only the vertices which actually have a TRP associated with them.
+        """
+
+        return filter(lambda v: self._network[v]["is_trp"] == True, path)
+
+
+
 
 # TODO FILTER ROAD NETWORK BY A LIST OF MUNICIPALITY IDs. SO ONE CAN CREATE A NETWORK WITH VERTICES OR ARCHES FROM ONLY SPECIFIC MUNICIPALITIES
 
