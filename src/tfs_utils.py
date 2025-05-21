@@ -30,7 +30,6 @@ dt_format = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded a
 # In this case we'll only ask for the hour value since, for now, it's the maximum granularity for the predictions we're going to make
 metainfo_filename = "metainfo"
 target_data = {"V": "traffic_volumes", "AS": "average_speeds"} #TODO (IN THE FUTURE) CONVERT AS TO "MS" AND "mean_speed"
-target_data_temp = {"V": "volumes", "AS": "mean_speed"} #NOTE TEMPORARY SOLUTION FOR THE ABOVE TODO
 default_max_forecasting_window_size = 14
 active_ops_filename = "active_ops"
 metainfo_lock = asyncio.Lock()
@@ -670,6 +669,9 @@ def split_data(data: dd.DataFrame, target: str) -> tuple[dd.DataFrame, dd.DataFr
     Returns:
         X_train, X_test, y_train, y_test
     """
+
+    #TODO TEMPORARY SOLUTION:
+    if target == "traffic_volumes": target = "volume"
 
     if target not in ("volume", "mean_speed"):
         raise ValueError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
