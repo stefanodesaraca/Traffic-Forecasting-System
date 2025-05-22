@@ -35,8 +35,8 @@ class Vertex(BaseModel):
     n_undirected_links: PositiveInt
     legal_turning_movements: list[dict[str, [str | list[str]]]]
     road_system_references: list[str]
-    is_trp: bool #TODO TO VERIFY IF TRPS ARE POSITIONED ON Vertices OR Arches
     municipality_ids: list[str] | None = None  # TODO TO GET THIS ONE SINCE IT DOESN'T EXIST YET IN THE DATA AVAILABLE RIGHT NOW. FOR NOW IT WILL BE NONE
+
 
     def get_vertex_data(self) -> dict[Any, Any]:
         """
@@ -105,6 +105,8 @@ class Arch(BaseModel):
     number_of_inhabitants: PositiveInt
     has_anomalies: bool
     anomalies: list  # TODO YET TO DEFINE THE DATA TYPE OF THE ELEMENTS OF THIS LIST
+    has_trps: bool
+    associated_trp_ids: list[str]
     weight: PositiveFloat | None = None  # Only set when executing forecasting with weighted arches
 
 
@@ -133,6 +135,8 @@ class Arch(BaseModel):
 
 class TrafficRegistrationPoint(BaseModel):
     trp_id: str
+    arch_id: str #The ID of the arch (road link) where the TRP is located
+    arch_road_link_reference: str # The road link reference number of the arch where the TRP is located
     name: str
     lat: float
     lon: float
@@ -413,7 +417,7 @@ class RoadNetwork(BaseModel):
             A filter object which contains only the vertices which actually have a TRP associated with them.
         """
 
-        return filter(lambda v: self._network[v]["is_trp"] == True, path)
+        return filter(lambda v: self._network[v]["has_trps"] == True, path)
 
 
 
