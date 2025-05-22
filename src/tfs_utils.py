@@ -358,7 +358,7 @@ async def load_metainfo_payload_async() -> dict:
         raise FileNotFoundError(f'Metainfo file for "{await get_active_ops_async()}" operation not found')
 
 
-def read_metainfo_key(keys_map: list) -> Any:
+def read_metainfo_key(keys_map: list[str]) -> Any:
     """
     This function reads data from a specific key-value pair in the metainfo.json file of the active operation.
 
