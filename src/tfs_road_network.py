@@ -6,7 +6,7 @@ import json
 import pickle
 import networkx as nx
 import datetime
-from typing import Any
+from typing import Any, Iterator, Literal
 from tqdm import tqdm
 from scipy.spatial.distance import euclidean, cityblock  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
 from geopy.distance import geodesic # To calculate distance (in meters) between two sets of coordinates (lat-lon). Geopy distance docs: https://geopy.readthedocs.io/en/stable/#module-geopy.distance
@@ -35,7 +35,7 @@ class Vertex(BaseModel):
     n_undirected_links: PositiveInt
     legal_turning_movements: list[dict[str, [str | list[str]]]]
     road_system_references: list[str]
-    municipality_ids: list[str] = None  # TODO TO GET THIS ONE SINCE IT DOESN'T EXIST YET IN THE DATA AVAILABLE RIGHT NOW. FOR NOW IT WILL BE NONE
+    municipality_ids: list[str] | None = None  # TODO TO GET THIS ONE SINCE IT DOESN'T EXIST YET IN THE DATA AVAILABLE RIGHT NOW. FOR NOW IT WILL BE NONE
 
 
     def get_vertex_data(self) -> dict[Any, Any]:
@@ -46,7 +46,16 @@ class Vertex(BaseModel):
 
 
     def export_vertex(self, filepath: str) -> None:
-        with open(filepath, "w", encoding="utf-8"):
+        """
+        Exports a single vertex's data to a JSON file.
+
+        Parameters:
+            filepath: the filepath to export the JSON file to.
+
+        Returns:
+            None
+        """
+        with open(filepath if filepath.endswith(".json") else filepath + ".json", "w", encoding="utf-8"):
             json.dump(self.get_vertex_data(), filepath, indent=4)
         return None
 
@@ -96,6 +105,8 @@ class Arch(BaseModel):
     number_of_inhabitants: PositiveInt
     has_anomalies: bool
     anomalies: list  # TODO YET TO DEFINE THE DATA TYPE OF THE ELEMENTS OF THIS LIST
+    has_trps: bool
+    associated_trp_ids: list[str]
     weight: PositiveFloat | None = None  # Only set when executing forecasting with weighted arches
 
 
@@ -107,7 +118,16 @@ class Arch(BaseModel):
 
 
     def export_arch(self, filepath: str) -> None:
-        with open(filepath, "w", encoding="utf-8"):
+        """
+        Exports a single arch's data to a JSON file.
+
+        Parameters:
+            filepath: the filepath to export the JSON file to.
+
+        Returns:
+            None
+        """
+        with open(filepath if filepath.endswith(".json") else filepath + ".json", "w", encoding="utf-8"):
             json.dump(self.get_arch_data(), filepath, indent=4)
         return None
 
@@ -115,6 +135,8 @@ class Arch(BaseModel):
 
 class TrafficRegistrationPoint(BaseModel):
     trp_id: str
+    arch_id: str #The ID of the arch (road link) where the TRP is located
+    arch_road_link_reference: str # The road link reference number of the arch where the TRP is located
     name: str
     lat: float
     lon: float
@@ -141,15 +163,34 @@ class TrafficRegistrationPoint(BaseModel):
     latest_data_volume_average_daily_by_month: str | datetime.datetime
 
 
+    def get_single_trp_network_data(self) -> dict[Any, Any]:
+        """
+        Returns all attributes and respective values of the TrafficRegistrationPoint instance.
+        """
+        return self.__dict__
+
+
+    def export_trp(self, filepath: str) -> None:
+        """
+        Exports a single TrafficRegistrationPoint's data to a JSON file.
+
+        Parameters:
+            filepath: the filepath to export the JSON file to.
+
+        Returns:
+            None
+        """
+        with open(filepath if filepath.endswith(".json") else filepath + ".json", "w", encoding="utf-8"):
+            json.dump(self.get_single_trp_network_data(), filepath, indent=4)
+        return None
+
+
 
 class RoadNetwork(BaseModel):
     network_id: str
-    _vertices: list[Vertex] = None  # Optional parameter
-    _arches: list[Arch] = None  # Optional parameter
-    _trps: list[TrafficRegistrationPoint] = None  # Optional parameter. This is the list of all TRPs located within the road network
-    n_vertices: int
-    n_arches: int
-    n_trp: int
+    _vertices: list[Vertex] | None = None  # Optional parameter
+    _arches: list[Arch] | None = None  # Optional parameter
+    _trps: list[TrafficRegistrationPoint] | None = None  # Optional parameter. This is the list of all TRPs located within the road network
     road_network_name: str
     _network: nx.Graph = nx.Graph()
 
@@ -334,35 +375,52 @@ class RoadNetwork(BaseModel):
         return None
 
 
-    def get_astar_path(self, source: str, target: str) -> list[tuple]:
+    def get_astar_path(self, source: str, target: str, weight: str, heuristic: Literal["manhattan", "euclidean"]) -> list[str]:
         """
         Returns the shortest path calculated with the  algorithm.
 
         Parameters:
             source: the source vertex ID as a string
             target: the target vertex ID as a string
+            weight: the attribute to consider as weight for the arches of the graph
+            heuristic: the heuristic to use during the computation of the shortest path. Can be either "manhattan" or "euclidean"
 
         Returns:
-            A list of tuples where each one is a pair of vertices linked by an arch
+            A list of vertices, each linked by an arch
         """
-        return nx.astar_path(G=self._network, source=source, target=target)
+        return nx.astar_path(G=self._network, source=source, target=target, heuristic={"manhattan": cityblock, "euclidean": euclidean}[heuristic], weight=weight)
 
 
-    def get_dijkstra_path(self, source: str, target: str) -> list[tuple]:
+    def get_dijkstra_path(self, source: str, target: str, weight: str) -> list[str]:
         """
         Returns the shortest path calculated with the  algorithm.
 
         Parameters:
             source: the source vertex ID as a string
             target: the target vertex ID as a string
+            weight: the attribute to consider as weight for the arches of the graph
 
         Returns:
-            A list of tuples where each one is a pair of vertices linked by an arch
+            A list of vertices, each linked by an arch
         """
-        return nx.dijkstra_path(G=self._network, source=source, target=target)
+        return nx.dijkstra_path(G=self._network, source=source, target=target, weight=weight)
 
 
-# TODO ADD A find_trps_on_path(path: list[str]) -> list[str] FUNCTION. THIS WILL RETURN ALL TRPs ALONG A PATH (WHICH WILL BE SUPPLIED TO THE FUNCTION AS A LIST OF ARCHES)
+    def find_trps_on_path(self, path: list[str]) -> Iterator[str]:
+        """
+        Finds all TRPs present along a path by checking each node.
+
+        Parameters:
+            path: a list of strings, each one representing a specific vertex on the path.
+
+        Returns:
+            A filter object which contains only the vertices which actually have a TRP associated with them.
+        """
+
+        return filter(lambda v: self._network[v]["has_trps"] == True, path)
+
+
+
 
 # TODO FILTER ROAD NETWORK BY A LIST OF MUNICIPALITY IDs. SO ONE CAN CREATE A NETWORK WITH VERTICES OR ARCHES FROM ONLY SPECIFIC MUNICIPALITIES
 

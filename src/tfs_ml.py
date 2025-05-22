@@ -81,7 +81,7 @@ class BaseLearner:
         client: a Dask distributed local cluster client to use to distribute processes
     """
 
-    def __init__(self, road_category: str, target: str, client: Client | None):
+    def __init__(self, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None):
         self._scorer: dict = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
@@ -90,17 +90,17 @@ class BaseLearner:
         }
         self._client: Client = client
         self._road_category: str = road_category
-        self._target: str = target
+        self._target: Literal["traffic_volumes", "average_speed"] = target
 
 
     def gridsearch(self, X_train, y_train, model_name: str) -> None:
 
-        if self._target not in target_data.keys():
+        if self._target not in target_data.values():
             raise Exception("Wrong target variable in GridSearchCV executor function")
 
-        grids = {"volume": volumes_models_gridsearch_parameters[model_name],
+        grids = {"traffic_volumes": volumes_models_gridsearch_parameters[model_name],
                  "average_speed": speeds_models_gridsearch_parameters[model_name]}
-        best_params = {"volume": volumes_best_parameters_by_model,
+        best_params = {"traffic_volumes": volumes_best_parameters_by_model,
                        "average_speed": speeds_best_parameters_by_model}
 
         model = model_names_and_functions[model_name]()  # Finding the function which returns the model and executing it
@@ -111,7 +111,6 @@ class BaseLearner:
         t_start = datetime.now()
         print(f"{model_name} GridSearchCV started at {t_start}\n")
 
-        time_cv = TimeSeriesSplit(n_splits=5)  # A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
         gridsearch = GridSearchCV(
             model,
             param_grid=grids[self._target],
@@ -120,7 +119,7 @@ class BaseLearner:
             return_train_score=True,
             n_jobs=retrieve_n_ml_cpus(),
             scheduler=self._client,
-            cv=time_cv,
+            cv=TimeSeriesSplit(n_splits=5)  # A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
         )  # The models_gridsearch_parameters is obtained from the tfs_models file
 
         with joblib.parallel_backend("dask"):

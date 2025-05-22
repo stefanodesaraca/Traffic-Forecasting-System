@@ -7,6 +7,6 @@
 *.egg-info
 *.pyd
 
-build
+docs/build
 extra
 deploy_*
