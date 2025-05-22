@@ -193,8 +193,7 @@ class BaseLearner:
         # -------------- Filenames, etc. --------------
 
         model_filename = get_active_ops() + "_" + self._road_category + "_" + model_name
-        models_folder_path = get_models_folder_path(self._target, self._road_category)
-        model_params_filepath = models_folder_path + get_active_ops() + "_" + self._road_category + "_" + model_name + "_" + "parameters" + ".json"
+        model_params_filepath = get_models_parameters_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + "_" + "parameters" + ".json"
 
         # -------------- Parameters extraction --------------
 
@@ -212,6 +211,8 @@ class BaseLearner:
 
         # -------------- Model exporting --------------
 
+        models_folder_path = get_models_folder_path(self._target, self._road_category)
+
         try:
             joblib.dump(model, models_folder_path + model_filename + ".joblib", protocol=pickle.HIGHEST_PROTOCOL)
             with open(models_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
@@ -228,8 +229,7 @@ class BaseLearner:
 
         # -------------- Model loading --------------
 
-        model = joblib.load(get_models_folder_path(self._target,
-                                                   self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
+        model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
 
         with joblib.parallel_backend("dask"):
             y_pred = model.predict(X_test.compute())
