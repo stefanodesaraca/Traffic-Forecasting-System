@@ -245,7 +245,7 @@ class BaseLearner:
 
 
 class TrafficVolumesLearner(BaseLearner):
-    def __init__(self, volumes_data: dd.DataFrame, road_category: str, target: str, client: Client | None = None):
+    def __init__(self, volumes_data: dd.DataFrame, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None = None):
         super().__init__(road_category=road_category, target=target, client=client)
         self.volumes_data: dd.DataFrame = volumes_data
 
@@ -324,7 +324,7 @@ class TrafficVolumesLearner(BaseLearner):
 
 
 class AverageSpeedLearner(BaseLearner):
-    def __init__(self, speeds_data: dd.DataFrame, road_category: str, target: str, client: Client | None = None):
+    def __init__(self, speeds_data: dd.DataFrame, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None = None):
         super().__init__(road_category=road_category, target=target, client=client)
         self.speeds_data: dd.DataFrame = speeds_data
 
@@ -412,11 +412,11 @@ class OnePointForecaster:
     self.trp_road_category: to find the right model to predict the data
     """
 
-    def __init__(self, trp_id: str, road_category: str, target: Literal["volume", "average_speed"]):
+    def __init__(self, trp_id: str, road_category: str, target: Literal["traffic_volumes", "average_speed"]):
         self._trp_id: str = trp_id
         self._road_category: str = road_category
         self._n_records: int | None = None
-        self._target: Literal["volume", "average_speed"] = target
+        self._target: Literal["traffic_volumes", "average_speed"] = target
 
 
     def preprocess(self, target_datetime: datetime) -> dd.DataFrame:
@@ -438,7 +438,7 @@ class OnePointForecaster:
         target_datetime = target_datetime.strftime(dt_format)
         last_available_volumes_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso).strftime(dt_format)
 
-        attr = {"volume": np.nan} if self._target == "volume" else {"mean_speed": np.nan, "percentile_85": np.nan}
+        attr = {"volume": np.nan} if self._target == "traffic_volumes" else {"mean_speed": np.nan, "percentile_85": np.nan}
 
         # Creating a datetime range with datetimes to predict. These will be inserted in the empty rows to be fed to the models for predictions
         rows_to_predict = []
@@ -472,7 +472,7 @@ class OnePointForecaster:
         predictions_dataset = predictions_dataset.reset_index()
         predictions_dataset = predictions_dataset.drop(columns=["index"])
 
-        t_learner = TrafficVolumesLearner(predictions_dataset, self._road_category, self._target) if self._target == "volume" else AverageSpeedLearner(predictions_dataset, self._road_category, self._target)
+        t_learner = TrafficVolumesLearner(predictions_dataset, self._road_category, self._target) if self._target == "traffic_volumes" else AverageSpeedLearner(predictions_dataset, self._road_category, self._target)
         predictions_dataset = t_learner.preprocess(z_score=False)
 
         # print(predictions_dataset.compute().tail(200))
@@ -512,7 +512,7 @@ class OnePointForecaster:
 
 
 class OnePointVolumesForecaster(OnePointForecaster):
-    def __init__(self, trp_id: str, road_category: str, target: Literal["volume"]):
+    def __init__(self, trp_id: str, road_category: str, target: Literal["traffic_volumes"]):
         super().__init__(trp_id, road_category, target)  # Calling the father class
 
 
