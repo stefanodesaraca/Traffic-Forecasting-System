@@ -480,12 +480,10 @@ class OnePointForecaster:
         return predictions_dataset.persist()
 
 
-    @classmethod
-    def prediction_errors(cls, y_true: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, PositiveFloat]:
+    @staticmethod
+    def prediction_errors(y_true: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, PositiveFloat]:
         """
         Calculates the prediction errors for data that's already been recorded to test the accuracy of one or more models.
-        This method in particular is not bound to an instance of a class (being a @classmethod), but to the class itself because
-        it can be used for multiple purposes even outside the context of an instance of the class.
 
         Parameters:
             y_true: the true values of the target variable
@@ -499,8 +497,8 @@ class OnePointForecaster:
                 "root_mean_squared_error": np.round(root_mean_squared_error(y_true, y_pred), 4)}
 
 
-    @classmethod
-    def export_predictions(cls, y_preds: dd.DataFrame, predictions_metadata: dict[Any, Any], predictions_filepath: str, metadata_filepath: str) -> None:
+    @staticmethod
+    def export_predictions(y_preds: dd.DataFrame, predictions_metadata: dict[Any, Any], predictions_filepath: str, metadata_filepath: str) -> None:
         try:
             with open(metadata_filepath, "w") as m:
                 json.dump(predictions_metadata, m, indent=4)
