@@ -193,8 +193,7 @@ class BaseLearner:
         # -------------- Filenames, etc. --------------
 
         model_filename = get_active_ops() + "_" + self._road_category + "_" + model_name
-        models_folder_path = get_models_folder_path(self._target, self._road_category)
-        model_params_filepath = models_folder_path + get_active_ops() + "_" + self._road_category + "_" + model_name + "_" + "parameters" + ".json"
+        model_params_filepath = get_models_parameters_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + "_" + "parameters" + ".json"
 
         # -------------- Parameters extraction --------------
 
@@ -212,6 +211,8 @@ class BaseLearner:
 
         # -------------- Model exporting --------------
 
+        models_folder_path = get_models_folder_path(self._target, self._road_category)
+
         try:
             joblib.dump(model, models_folder_path + model_filename + ".joblib", protocol=pickle.HIGHEST_PROTOCOL)
             with open(models_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
@@ -228,8 +229,7 @@ class BaseLearner:
 
         # -------------- Model loading --------------
 
-        model = joblib.load(get_models_folder_path(self._target,
-                                                   self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
+        model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
 
         with joblib.parallel_backend("dask"):
             y_pred = model.predict(X_test.compute())
@@ -245,7 +245,7 @@ class BaseLearner:
 
 
 class TrafficVolumesLearner(BaseLearner):
-    def __init__(self, volumes_data: dd.DataFrame, road_category: str, target: str, client: Client | None = None):
+    def __init__(self, volumes_data: dd.DataFrame, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None = None):
         super().__init__(road_category=road_category, target=target, client=client)
         self.volumes_data: dd.DataFrame = volumes_data
 
@@ -324,7 +324,7 @@ class TrafficVolumesLearner(BaseLearner):
 
 
 class AverageSpeedLearner(BaseLearner):
-    def __init__(self, speeds_data: dd.DataFrame, road_category: str, target: str, client: Client | None = None):
+    def __init__(self, speeds_data: dd.DataFrame, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None = None):
         super().__init__(road_category=road_category, target=target, client=client)
         self.speeds_data: dd.DataFrame = speeds_data
 
@@ -412,11 +412,11 @@ class OnePointForecaster:
     self.trp_road_category: to find the right model to predict the data
     """
 
-    def __init__(self, trp_id: str, road_category: str, target: Literal["volume", "average_speed"]):
+    def __init__(self, trp_id: str, road_category: str, target: Literal["traffic_volumes", "average_speed"]):
         self._trp_id: str = trp_id
         self._road_category: str = road_category
         self._n_records: int | None = None
-        self._target: Literal["volume", "average_speed"] = target
+        self._target: Literal["traffic_volumes", "average_speed"] = target
 
 
     def preprocess(self, target_datetime: datetime) -> dd.DataFrame:
@@ -438,7 +438,7 @@ class OnePointForecaster:
         target_datetime = target_datetime.strftime(dt_format)
         last_available_volumes_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso).strftime(dt_format)
 
-        attr = {"volume": np.nan} if self._target == "volume" else {"mean_speed": np.nan, "percentile_85": np.nan}
+        attr = {"volume": np.nan} if self._target == "traffic_volumes" else {"mean_speed": np.nan, "percentile_85": np.nan}
 
         # Creating a datetime range with datetimes to predict. These will be inserted in the empty rows to be fed to the models for predictions
         rows_to_predict = []
@@ -467,12 +467,12 @@ class OnePointForecaster:
 
         rows_to_predict.persist()
 
-        predictions_dataset = dd.concat([dd.read_csv(read_metainfo_key(["path"]) + self._trp_id + "_volumes.csv").tail(self._n_records), rows_to_predict], axis=0)
+        predictions_dataset = dd.concat([dd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + self._trp_id + "_volumes_C.csv").tail(self._n_records), rows_to_predict], axis=0)
         predictions_dataset = predictions_dataset.repartition(partition_size="512MB")
         predictions_dataset = predictions_dataset.reset_index()
         predictions_dataset = predictions_dataset.drop(columns=["index"])
 
-        t_learner = TrafficVolumesLearner(predictions_dataset, self._road_category, self._target) if self._target == "volume" else AverageSpeedLearner(predictions_dataset, self._road_category, self._target)
+        t_learner = TrafficVolumesLearner(predictions_dataset, self._road_category, self._target) if self._target == "traffic_volumes" else AverageSpeedLearner(predictions_dataset, self._road_category, self._target)
         predictions_dataset = t_learner.preprocess(z_score=False)
 
         # print(predictions_dataset.compute().tail(200))
@@ -480,12 +480,10 @@ class OnePointForecaster:
         return predictions_dataset.persist()
 
 
-    @classmethod
-    def prediction_errors(cls, y_true: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, PositiveFloat]:
+    @staticmethod
+    def prediction_errors(y_true: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, PositiveFloat]:
         """
         Calculates the prediction errors for data that's already been recorded to test the accuracy of one or more models.
-        This method in particular is not bound to an instance of a class (being a @classmethod), but to the class itself because
-        it can be used for multiple purposes even outside the context of an instance of the class.
 
         Parameters:
             y_true: the true values of the target variable
@@ -499,8 +497,8 @@ class OnePointForecaster:
                 "root_mean_squared_error": np.round(root_mean_squared_error(y_true, y_pred), 4)}
 
 
-    @classmethod
-    def export_predictions(cls, y_preds: dd.DataFrame, predictions_metadata: dict[Any, Any], predictions_filepath: str, metadata_filepath: str) -> None:
+    @staticmethod
+    def export_predictions(y_preds: dd.DataFrame, predictions_metadata: dict[Any, Any], predictions_filepath: str, metadata_filepath: str) -> None:
         try:
             with open(metadata_filepath, "w") as m:
                 json.dump(predictions_metadata, m, indent=4)
@@ -512,7 +510,7 @@ class OnePointForecaster:
 
 
 class OnePointVolumesForecaster(OnePointForecaster):
-    def __init__(self, trp_id: str, road_category: str, target: Literal["volume"]):
+    def __init__(self, trp_id: str, road_category: str, target: Literal["traffic_volumes"]):
         super().__init__(trp_id, road_category, target)  # Calling the father class
 
 

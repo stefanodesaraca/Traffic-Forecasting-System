@@ -291,7 +291,7 @@ def execute_forecasts(functionality: str) -> None:
             trp_id = input("Insert TRP ID for forecasting: ")
 
             if trp_id in trp_ids:
-                trp_road_category = get_trp_metadata(trp_id)["road_category"]
+                trp_road_category = get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"]
                 print("\nTRP road category:", trp_road_category)
 
                 forecaster, method, preprocessed_data = get_forecaster(option, trp_id, trp_road_category, target_data[option], read_forecasting_target_datetime(option))
