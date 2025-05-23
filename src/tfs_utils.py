@@ -677,22 +677,7 @@ def split_data(data: dd.DataFrame, target: str) -> tuple[dd.DataFrame, dd.DataFr
     n_rows = data.shape[0].compute()
     p_70 = int(n_rows * 0.70)
 
-    X_train = dd.from_pandas(X.head(p_70)).persist()
-    X_test = dd.from_pandas(X.tail(len(X) - p_70)).persist()
-
-    # print(X_train.head(10))
-    # print(X_test.head(10))
-
-    y_train = dd.from_pandas(y.head(p_70)).persist()
-    y_test = dd.from_pandas(y.tail(len(y) - p_70)).persist()
-
-    # print(y_train.head(10))
-    # print(y_test.head(10))
-
-    # print(X_train.tail(5), "\n", X_test.tail(5), "\n", y_train.tail(5), "\n", y_test.tail(5), "\n")
-    # print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
-
-    return X_train, X_test, y_train, y_test
+    return dd.from_pandas(X.head(p_70)).persist(), dd.from_pandas(X.tail(len(X) - p_70)).persist(), dd.from_pandas(y.head(p_70)).persist(), dd.from_pandas(y.tail(len(y) - p_70)).persist()
 
 
 def merge(trp_filepaths: list[str]) -> dd.DataFrame:
