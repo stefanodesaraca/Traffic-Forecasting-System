@@ -218,42 +218,37 @@ def execute_forecast_warmup(functionality: str) -> None:
     with dask_cluster_client(processes=False) as client: #*
 
         if functionality == "3.2.1":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"],
-                         "hyperparameter tuning on traffic volumes data", "preprocess_volumes", "gridsearch")
+            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"], "hyperparameter tuning on traffic volumes data", "preprocess_volumes", "gridsearch")
 
         elif functionality == "3.2.2":
-            process_data(trps_ids_avg_speeds_by_road_category, models, TFSLearner, target_data["AS"],
-                         "hyperparameter tuning on average speed data", "preprocess_speeds", "gridsearch")
+            process_data(trps_ids_avg_speeds_by_road_category, models, TFSLearner, target_data["AS"], "hyperparameter tuning on average speed data", "preprocess_speeds", "gridsearch")
 
         elif functionality == "3.2.3":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"],
-                         "training models on traffic volumes data", "preprocess_volumes", "train_model")
+            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"], "training models on traffic volumes data", "preprocess_volumes", "train_model")
 
         elif functionality == "3.2.4":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["AS"],
-                         "training models on average speed data", "preprocess_speeds", "train_model")
+            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["AS"], "training models on average speed data", "preprocess_speeds", "train_model")
 
         elif functionality == "3.2.5":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"],
-                         "testing models on traffic volumes data", "preprocess_volumes", "test_model")
+            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"], "testing models on traffic volumes data", "preprocess_volumes", "test_model")
 
         elif functionality == "3.2.6":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["AS"],
-                         "testing models on average speed data", "preprocess_speeds", "test_model")
+            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["AS"], "testing models on average speed data", "preprocess_speeds", "test_model")
 
     return None
 
 
-def get_forecaster(option: str, trp_id: str, road_category: str, target_data: str, dt: datetime) -> tuple[OnePointVolumesForecaster | OnePointAverageSpeedForecaster, str, dd.DataFrame] | tuple[None, None, None]:
+#TODO TO IMPROVE, OPTIMIZE AND SIMPLIFY
+def get_forecaster(option: str, trp_id: str, road_category: str, target_data: str) -> tuple[OnePointForecaster, str, dd.DataFrame] | tuple[None, None, None]:
     forecaster_info = {
         "V": {
-            "class": OnePointVolumesForecaster,
-            "method": "forecast_volumes",
+            "class": OnePointForecaster,
+            "method": "forecast",
             "check": "has_volumes"
         },
         "AS": {
-            "class": OnePointAverageSpeedForecaster,
-            "method": "forecast_speeds",
+            "class": OnePointForecaster,
+            "method": "forecast",
             "check": "has_speeds"
         }
     }
@@ -288,7 +283,7 @@ def execute_forecasts(functionality: str) -> None:
                 trp_road_category = get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"]
                 print("\nTRP road category:", trp_road_category)
 
-                forecaster, method, preprocessed_data = get_forecaster(option, trp_id, trp_road_category, target_data[option], read_forecasting_target_datetime(option))
+                forecaster, method, preprocessed_data = get_forecaster(option, trp_id, trp_road_category, target_data[option])
 
                 if forecaster:
                     for model_name in model_names_and_functions.keys():
