@@ -5,6 +5,7 @@ from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 import pprint
 import asyncio
+from typing import cast
 from contextlib import contextmanager
 from asyncio import Semaphore
 import dask.distributed
@@ -210,7 +211,8 @@ def execute_forecast_warmup(functionality: str) -> None:
         for road_category, data in merged_data_by_category.items():
             print(f"\n********************* Executing {process_description} for road category: {road_category} *********************\n")
 
-            learner = learner_class(data, road_category=road_category, target=target, client=client) # This client is ok here since the process_data function (in which it's located) only gets called after the client is opened as a context manager afterward (see down below in the code) *
+            learner = learner_class(data, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client) # This client is ok here since the process_data function (in which it's located) only gets called after the client is opened as a context manager afterward (see down below in the code) *
+            #Using cast() to tell the type checker that the "target" variable is actually a Literal
             preprocessed_data = learner.preprocess()
 
             X_train, X_test, y_train, y_test = split_data(preprocessed_data, target=target)
@@ -319,17 +321,41 @@ def manage_road_network(functionality: str) -> None:
 
 
 def main():
+    menu_options = {
+        "1.1": manage_ops,
+        "1.2": manage_ops,
+        "1.3": manage_ops,
+        "2.1": download_volumes,
+        "2.2": download_volumes,
+        "2.3": download_volumes,
+        "3.1.1": set_forecasting_options,
+        "3.1.2": set_forecasting_options,
+        "3.1.3": set_forecasting_options,
+        "3.2.1": execute_forecast_warmup,
+        "3.2.2": execute_forecast_warmup,
+        "3.2.3": execute_forecast_warmup,
+        "3.2.4": execute_forecast_warmup,
+        "3.2.5": execute_forecast_warmup,
+        "3.3.1": execute_forecasts,
+        "4.1": manage_road_network,
+        "4.2": manage_road_network,
+        "4.3": manage_road_network,
+        "5.2": execute_eda,
+        "5.6.1": clean_data,
+        "5.6.2": clean_data,
+    }
+
     while True:
-        print("""==================== MENU ==================== 
+        print("""==================== MENU ====================
 1. Set pre-analysis information
     1.1 Create an operation
     1.2 Set an operation as active (current one)
     1.3 Check the active operation name
- 2. Download data (Trafikkdata API)
+2. Download data (Trafikkdata API)
     2.1 Traffic registration points information
     2.2 Traffic volumes for every registration point
     2.3 Write metadata file for every TRP
- 3. Forecast
+3. Forecast
     3.1 Set forecasting target datetime
         3.1.1 Write forecasting target datetime
         3.1.2 Read forecasting target datetime
@@ -340,15 +366,13 @@ def main():
         3.2.3 Train models on traffic volumes data
         3.2.4 Train models on average speed data
         3.2.5 Test models on traffic volumes data
-        3.2.6 Test models on average speed data
     3.3 Execute forecast
         3.3.1 One-Point Forecast
-        3.3.2 A2B Forecast
- 4. Road network graph
+4. Road network graph
     4.1 Graph generation
     4.2 Graph read (from already existing graph)
     4.3 Graph analysis
- 5. Other options
+5. Other options
     5.1 Set forecasting system folders (manually)
     5.2 EDA (Exploratory Data Analysis)
     5.3 Erase all data about an operation
@@ -357,39 +381,20 @@ def main():
     5.6 Clean data
         5.6.1 Clean traffic volumes data
         5.6.2 Clean average speed data
-    
- 0. Exit""")
+
+0. Exit""")
 
         option = input("Choice: ")
         print()
 
-        if option in ["1.1", "1.2", "1.3"]:
-            manage_ops(option)
-
-        elif option in ["2.1", "2.2", "2.3"]:
-            asyncio.run(download_volumes(option))
-
-        elif option in ["3.1.1", "3.1.2", "3.1.3"]:
-            set_forecasting_options(option)
-
-        elif option in ["3.2.1", "3.2.2", "3.2.3", "3.2.4", "3.2.5"]:
-            execute_forecast_warmup(option)
-
-        elif option in ["3.3.1"]:
-            execute_forecasts(option)
-
-        elif option in ["4.1", "4.2", "4.3"]:
-            manage_road_network(option)
-
-        elif option == "5.2":
-            execute_eda()
-
-        elif option in ["5.6.1", "5.6.2"]:
-            asyncio.run(clean_data(option))
-
-        elif option == "0":
+        if option == "0":
             sys.exit(0)
-
+        elif option in menu_options.keys():
+            functionality = menu_options[option]
+            if asyncio.iscoroutinefunction(functionality):
+                asyncio.run(functionality(option))
+            else:
+                functionality(option)
         else:
             print("Wrong option. Insert a valid one")
             print()
