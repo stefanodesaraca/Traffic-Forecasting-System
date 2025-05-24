@@ -414,6 +414,7 @@ class OnePointForecaster:
         self._target: Literal["traffic_volumes", "average_speed"] = target
 
 
+    #TODO TO DIVIDE IN TWO PREPROCESSORS (TRAFFIC VOLUMES AND SPEEDS)
     def preprocess(self, target_datetime: datetime) -> dd.DataFrame:
         """
         Parameters:
@@ -482,6 +483,16 @@ class OnePointForecaster:
             return predictions_dataset.persist()
 
 
+    #TODO TO DIVIDE IN TWO FORECASTERS (TRAFFIC VOLUMES AND SPEEDS)
+    def forecast(self, data: dd.DataFrame, model_name: str) -> dd.DataFrame:
+
+        # -------------- Model loading --------------
+        model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
+
+        with joblib.parallel_backend("dask"):
+            return model.predict(data)
+
+
     @staticmethod
     def prediction_errors(y_true: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, PositiveFloat]:
         """
@@ -508,37 +519,6 @@ class OnePointForecaster:
         except Exception as e:
             print(f"Couldn't export data to {predictions_filepath}, error {e}")
         return None
-
-
-
-class OnePointVolumesForecaster(OnePointForecaster):
-    def __init__(self, trp_id: str, road_category: str, target: Literal["traffic_volumes"]):
-        super().__init__(trp_id, road_category, target)  # Calling the father class
-
-
-    def forecast_volumes(self, volumes: dd.DataFrame, model_name: str) -> dd.DataFrame:
-
-        # -------------- Model loading --------------
-        model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
-
-        with joblib.parallel_backend("dask"):
-            return model.predict(volumes)
-
-
-
-class OnePointAverageSpeedForecaster(OnePointForecaster):
-    def __init__(self, trp_id: str, road_category: str, target: Literal["average_speed"]):
-        super().__init__(trp_id, road_category, target)  # Calling the father class
-
-
-    def forecast_speeds(self, speeds: dd.DataFrame, model_name: str) -> dd.DataFrame:
-
-        # -------------- Model loading --------------
-        model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
-
-        with joblib.parallel_backend("dask"):
-            return model.predict(speeds)
-
 
 
 
