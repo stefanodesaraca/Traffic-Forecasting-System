@@ -46,35 +46,193 @@ dt_format = "%Y-%m-%dT%H"
 
 
 
-def sin_transformer(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
-    """
-    The timeframe indicates a number of days.
-    Details:
-        - The order of the function parameters has a specific reason. Since this function will be used with Dask's map_partition() (which takes a function and its parameters as input), it's important that the first parameter
-          of sin_transformer is actually the data where to execute the transformation itself by map_partition()
-    """
-    # For more information about Dask's map_partition() function: https://docs.dask.org/en/stable/generated/dask.dataframe.DataFrame.map_partitions.html
-    return np.sin(data * (2.0 * np.pi / timeframe))
+class TFSPreprocessor:
+
+    def __init__(self, data: dd.DataFrame, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None):
+        self._data: dd.DataFrame = data
 
 
-def cos_transformer(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
-    """
-    The timeframe indicates a number of days
-    Details:
-        - The order of the function parameters has a specific reason. Since this function will be used with Dask's map_partition() (which takes a function and its parameters as input), it's important that the first parameter
-          of sin_transformer is actually the data where to execute the transformation itself by map_partition()
-    """
-    # For more information about Dask's map_partition() function: https://docs.dask.org/en/stable/generated/dask.dataframe.DataFrame.map_partitions.html
-    return np.cos((data - 1) * (2.0 * np.pi / timeframe))
+    @staticmethod
+    def sin_encoder(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
+        """
+        The timeframe indicates a number of days.
+        Details:
+            - The order of the function parameters has a specific reason. Since this function will be used with Dask's map_partition() (which takes a function and its parameters as input), it's important that the first parameter
+              of sin_transformer is actually the data where to execute the transformation itself by map_partition()
+        """
+        # For more information about Dask's map_partition() function: https://docs.dask.org/en/stable/generated/dask.dataframe.DataFrame.map_partitions.html
+        return np.sin(data * (2.0 * np.pi / timeframe))
 
 
-def arctan2_decoder(sin_val: float, cos_val: float) -> int | float: #TODO VERIFY IF IT'S ACTUALLY AN INT (IF SO REMOVE | float)
-    angle_rad = np.arctan2(sin_val, cos_val)
-    return (angle_rad * 360) / (2 * np.pi)
+    @staticmethod
+    def cos_encoder(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
+        """
+        The timeframe indicates a number of days
+        Details:
+            - The order of the function parameters has a specific reason. Since this function will be used with Dask's map_partition() (which takes a function and its parameters as input), it's important that the first parameter
+              of sin_transformer is actually the data where to execute the transformation itself by map_partition()
+        """
+        # For more information about Dask's map_partition() function: https://docs.dask.org/en/stable/generated/dask.dataframe.DataFrame.map_partitions.html
+        return np.cos((data - 1) * (2.0 * np.pi / timeframe))
+
+
+    @staticmethod
+    def arctan2_decoder(sin_val: float, cos_val: float) -> int | float:  # TODO VERIFY IF IT'S ACTUALLY AN INT (IF SO REMOVE | float)
+        angle_rad = np.arctan2(sin_val, cos_val)
+        return (angle_rad * 360) / (2 * np.pi)
+
+
+    def preprocess_volumes(self, z_score: bool = True) -> dd.DataFrame:
+
+        # ------------------ Cyclical variables encoding ------------------
+
+        self._data["hour_sin"] = self._data["hour"].map_partitions(self.sin_encoder, timeframe=24)
+        self._data["hour_cos"] = self._data["hour"].map_partitions(self.cos_encoder, timeframe=24)
+
+        self._data["week_sin"] = self._data["week"].map_partitions(self.sin_encoder, timeframe=52)
+        self._data["week_cos"] = self._data["week"].map_partitions(self.cos_encoder, timeframe=52)
+
+        self._data["day_sin"] = self._data["day"].map_partitions(self.sin_encoder, timeframe=31)
+        self._data["day_cos"] = self._data["day"].map_partitions(self.cos_encoder, timeframe=31)
+
+        self._data["month_sin"] = self._data["month"].map_partitions(self.sin_encoder, timeframe=12)
+        self._data["month_cos"] = self._data["month"].map_partitions(self.cos_encoder, timeframe=12)
+
+        # print("\n\n")
+
+        # ------------------ Outliers filtering with Z-Score ------------------
+
+        if z_score:
+            self._data = ZScore(self._data, "volume")
+
+        self._data = self._data.sort_values(by=["date"], ascending=True)
+
+        # ------------------ TRP ID Target-Encoding ------------------
+
+        self._data["trp_id"] = self._data["trp_id"].astype("category")
+
+        encoder = LabelEncoder(use_categorical=True)  # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
+        self._data = self._data.assign(trp_id_encoded=encoder.fit_transform(self._data["trp_id"]))  # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
+        self._data.persist()
+
+        # print("Encoded TRP IDs:", sorted(volumes["trp_id_encoded"].unique().compute()))
+
+        # ------------------ Variables normalization ------------------
+
+        scaler = MinMaxScaler()
+        self._data[["volume", "coverage"]] = scaler.fit_transform(self._data[["volume", "coverage"]])
+
+        # ------------------ Creating lag features ------------------
+
+        lag6h_column_names = (f"volumes_lag6h_{i}" for i in range(1, 7))
+        lag12h_column_names = (f"volumes_lag12h_{i}" for i in range(1, 7))
+        lag24h_column_names = (f"volumes_lag24h_{i}" for i in range(1, 7))
+
+        for idx, n in enumerate(lag6h_column_names): self._data[n] = self._data["volume"].shift(idx + 6)  # 6 hours shift
+        for idx, n in enumerate(lag12h_column_names): self._data[n] = self._data["volume"].shift(idx + 12)  # 12 hours shift
+        for idx, n in enumerate(lag24h_column_names): self._data[n] = self._data["volume"].shift(idx + 24)  # 24 hours shift
+
+        # print(volumes.head(10))
+        # print(volumes.dtypes)
+
+        # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
+
+        self._data["is_covid_year"] = (self._data["year"].isin(get_covid_years())).astype("int")  # Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
+
+        # ------------------ Dropping columns which won't be fed to the ML models ------------------
+
+        self._data = self._data.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist()  # Keeping year and hour data and the encoded_trp_id
+
+        # print("Volumes dataframe head: ")
+        # print(self._data.head(5), "\n")
+
+        # print("Volumes dataframe tail: ")
+        # print(self._data.tail(5), "\n")
+
+        # print(self._data.compute().head(10))
+
+        return self._data #TODO IN THE FUTURE THIS COULD BE DIFFERENT, POSSIBLY IT WON'T RETURN ANYTHING
+
+
+    def preprocess_speeds(self, z_score: bool = True) -> dd.DataFrame:
+
+        # ------------------ Cyclical variables encoding ------------------
+
+        self._data["hour_start_sin"] = self._data["hour_start"].map_partitions(self.sin_encoder, timeframe=24)
+        self._data["hour_start_cos"] = self._data["hour_start"].map_partitions(self.cos_encoder, timeframe=24)
+
+        self._data["week_sin"] = self._data["week"].map_partitions(self.sin_encoder, timeframe=52)
+        self._data["week_cos"] = self._data["week"].map_partitions(self.cos_encoder, timeframe=52)
+
+        self._data["day_sin"] = self._data["day"].map_partitions(self.sin_encoder, timeframe=31)
+        self._data["day_cos"] = self._data["day"].map_partitions(self.cos_encoder, timeframe=31)
+
+        self._data["month_sin"] = self._data["month"].map_partitions(self.sin_encoder, timeframe=12)
+        self._data["month_cos"] = self._data["month"].map_partitions(self.cos_encoder, timeframe=12)
+
+        print("\n\n")
+
+        # ------------------ Outliers filtering with Z-Score ------------------
+
+        if z_score:
+            self._data = ZScore(self._data, "mean_speed")
+
+        self._data = self._data.sort_values(by=["date"], ascending=True)
+
+        # ------------------ TRP ID Target-Encoding ------------------
+
+        self._data["trp_id"] = self._data["trp_id"].astype("category")
+
+        encoder = LabelEncoder(use_categorical=True)  # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
+        self._data = self._data.assign(trp_id_encoded=encoder.fit_transform(self._data["trp_id"]))  # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
+        self._data.persist()
+
+        # print("Encoded TRP IDs:", sorted(self._data["trp_id_encoded"].unique().compute()))
+
+        # ------------------ Variables normalization ------------------
+
+        scaler = MinMaxScaler()
+        self._data[["mean_speed", "percentile_85", "coverage"]] = scaler.fit_transform(self._data[["mean_speed", "percentile_85", "coverage"]])
+
+        # ------------------ Creating lag features ------------------
+
+        lag6h_column_names = (f"mean_speed_lag6h_{i}" for i in range(1, 7))
+        lag12h_column_names = (f"mean_speed_lag12_{i}" for i in range(1, 7))
+        lag24h_column_names = (f"mean_speed_lag24_{i}" for i in range(1, 7))
+        percentile_85_lag6_column_names = (f"percentile_85_lag{i}" for i in range(1, 7))
+        percentile_85_lag12_column_names = (f"percentile_85_lag{i}" for i in range(1, 7))
+        percentile_85_lag24_column_names = (f"percentile_85_lag{i}" for i in range(1, 7))
+
+        for idx, n in enumerate(lag6h_column_names): self._data[n] = self._data["mean_speed"].shift(idx + 6)  # 6 hours shift
+        for idx, n in enumerate(lag12h_column_names): self._data[n] = self._data["mean_speed"].shift(idx + 12)  # 12 hours shift
+        for idx, n in enumerate(lag24h_column_names): self._data[n] = self._data["mean_speed"].shift(idx + 24)  # 24 hours shift
+
+        for idx, n in enumerate(percentile_85_lag6_column_names): self._data[n] = self._data["percentile_85"].shift(idx + 6)  # 6 hours shift
+        for idx, n in enumerate(percentile_85_lag12_column_names): self._data[n] = self._data["percentile_85"].shift(idx + 12)  # 12 hours shift
+        for idx, n in enumerate(percentile_85_lag24_column_names): self._data[n] = self._data["percentile_85"].shift(idx + 24)  # 24 hours shift
+
+        # print(self._data.head(10))
+        # print(self._data.dtypes)
+
+        # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
+
+        self._data["is_covid_year"] = self._data["year"].isin(get_covid_years()).astype("int")  # Creating a dummy variable which indicates if the average speed for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
+
+        # ------------------ Dropping columns which won't be fed to the ML models ------------------
+
+        self._data = self._data.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist()
+
+        # print("Average speeds dataframe head: ")
+        # print(self._data.head(5), "\n")
+
+        # print("Average speeds dataframe tail: ")
+        # print(self._data.tail(5), "\n")
+
+        return self._data #TODO IN THE FUTURE THIS COULD BE DIFFERENT, POSSIBLY IT WON'T RETURN ANYTHING
 
 
 
-class BaseLearner:
+class TFSLearner:
     """
     The base class for other classes which implement machine learning or statistical methods to learn a predict traffic volumes, average speed or other data about traffic.
     Parameters:
@@ -244,169 +402,6 @@ class BaseLearner:
 
 
 
-class TrafficVolumesLearner(BaseLearner):
-    def __init__(self, volumes_data: dd.DataFrame, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None = None):
-        super().__init__(road_category=road_category, target=target, client=client)
-        self.volumes_data: dd.DataFrame = volumes_data
-
-    def preprocess(self, z_score: bool = True) -> dd.DataFrame:
-        volumes = self.volumes_data
-
-        # ------------------ Cyclical variables encoding ------------------
-
-        volumes["hour_sin"] = volumes["hour"].map_partitions(sin_transformer, timeframe=24)
-        volumes["hour_cos"] = volumes["hour"].map_partitions(cos_transformer, timeframe=24)
-
-        volumes["week_sin"] = volumes["week"].map_partitions(sin_transformer, timeframe=52)
-        volumes["week_cos"] = volumes["week"].map_partitions(cos_transformer, timeframe=52)
-
-        volumes["day_sin"] = volumes["day"].map_partitions(sin_transformer, timeframe=31)
-        volumes["day_cos"] = volumes["day"].map_partitions(cos_transformer, timeframe=31)
-
-        volumes["month_sin"] = volumes["month"].map_partitions(sin_transformer, timeframe=12)
-        volumes["month_cos"] = volumes["month"].map_partitions(cos_transformer, timeframe=12)
-
-        # print("\n\n")
-
-        # ------------------ Outliers filtering with Z-Score ------------------
-
-        if z_score:
-            volumes = ZScore(volumes, "volume")
-
-        volumes = volumes.sort_values(by=["date"], ascending=True)
-
-        # ------------------ TRP ID Target-Encoding ------------------
-
-        volumes["trp_id"] = volumes["trp_id"].astype("category")
-
-        encoder = LabelEncoder(use_categorical=True)  # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
-        volumes = volumes.assign(trp_id_encoded=encoder.fit_transform(volumes["trp_id"]))  # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
-        volumes.persist()
-
-        # print("Encoded TRP IDs:", sorted(volumes["trp_id_encoded"].unique().compute()))
-
-        # ------------------ Variables normalization ------------------
-
-        scaler = MinMaxScaler()
-        volumes[["volume", "coverage"]] = scaler.fit_transform(volumes[["volume", "coverage"]])
-
-        # ------------------ Creating lag features ------------------
-
-        lag6h_column_names = (f"volumes_lag6h_{i}" for i in range(1, 7))
-        lag12h_column_names = (f"volumes_lag12h_{i}" for i in range(1, 7))
-        lag24h_column_names = (f"volumes_lag24h_{i}" for i in range(1, 7))
-
-        for idx, n in enumerate(lag6h_column_names): volumes[n] = volumes["volume"].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate(lag12h_column_names): volumes[n] = volumes["volume"].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate(lag24h_column_names): volumes[n] = volumes["volume"].shift(idx + 24)  # 24 hours shift
-
-        # print(volumes.head(10))
-        # print(volumes.dtypes)
-
-        # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
-
-        volumes["is_covid_year"] = (volumes["year"].isin(get_covid_years())).astype("int")  # Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
-
-        # ------------------ Dropping columns which won't be fed to the ML models ------------------
-
-        volumes = volumes.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist()  # Keeping year and hour data and the encoded_trp_id
-
-        # print("Volumes dataframe head: ")
-        # print(volumes.head(5), "\n")
-
-        # print("Volumes dataframe tail: ")
-        # print(volumes.tail(5), "\n")
-
-        # print(volumes.compute().head(10))
-
-        return volumes
-
-
-
-class AverageSpeedLearner(BaseLearner):
-    def __init__(self, speeds_data: dd.DataFrame, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None = None):
-        super().__init__(road_category=road_category, target=target, client=client)
-        self.speeds_data: dd.DataFrame = speeds_data
-
-    def preprocess(self, z_score: bool = True) -> dd.DataFrame:
-        speeds = self.speeds_data
-
-        # ------------------ Cyclical variables encoding ------------------
-
-        speeds["hour_start_sin"] = speeds["hour_start"].map_partitions(sin_transformer, timeframe=24)
-        speeds["hour_start_cos"] = speeds["hour_start"].map_partitions(cos_transformer, timeframe=24)
-
-        speeds["week_sin"] = speeds["week"].map_partitions(sin_transformer, timeframe=52)
-        speeds["week_cos"] = speeds["week"].map_partitions(cos_transformer, timeframe=52)
-
-        speeds["day_sin"] = speeds["day"].map_partitions(sin_transformer, timeframe=31)
-        speeds["day_cos"] = speeds["day"].map_partitions(cos_transformer, timeframe=31)
-
-        speeds["month_sin"] = speeds["month"].map_partitions(sin_transformer, timeframe=12)
-        speeds["month_cos"] = speeds["month"].map_partitions(cos_transformer, timeframe=12)
-
-        print("\n\n")
-
-        # ------------------ Outliers filtering with Z-Score ------------------
-
-        if z_score is True:
-            speeds = ZScore(speeds, "mean_speed")
-
-        speeds = speeds.sort_values(by=["date"], ascending=True)
-
-        # ------------------ TRP ID Target-Encoding ------------------
-
-        speeds["trp_id"] = speeds["trp_id"].astype("category")
-
-        encoder = LabelEncoder(use_categorical=True)  # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
-        speeds = speeds.assign(trp_id_encoded=encoder.fit_transform(speeds["trp_id"]))  # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
-        speeds.persist()
-
-        # print("Encoded TRP IDs:", sorted(volumes["trp_id_encoded"].unique().compute()))
-
-        # ------------------ Variables normalization ------------------
-
-        scaler = MinMaxScaler()
-        speeds[["mean_speed", "percentile_85", "coverage"]] = scaler.fit_transform(speeds[["mean_speed", "percentile_85", "coverage"]])
-
-        # ------------------ Creating lag features ------------------
-
-        lag6h_column_names = (f"mean_speed_lag6h_{i}" for i in range(1, 7))
-        lag12h_column_names = (f"mean_speed_lag12_{i}" for i in range(1, 7))
-        lag24h_column_names = (f"mean_speed_lag24_{i}" for i in range(1, 7))
-        percentile_85_lag6_column_names = (f"percentile_85_lag{i}" for i in range(1, 7))
-        percentile_85_lag12_column_names = (f"percentile_85_lag{i}" for i in range(1, 7))
-        percentile_85_lag24_column_names = (f"percentile_85_lag{i}" for i in range(1, 7))
-
-        for idx, n in enumerate(lag6h_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate(lag12h_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate(lag24h_column_names): speeds[n] = speeds["mean_speed"].shift(idx + 24)  # 24 hours shift
-
-        for idx, n in enumerate(percentile_85_lag6_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate(percentile_85_lag12_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate(percentile_85_lag24_column_names): speeds[n] = speeds["percentile_85"].shift(idx + 24)  # 24 hours shift
-
-        # print(speeds.head(10))
-        # print(speeds.dtypes)
-
-        # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
-
-        speeds["is_covid_year"] = speeds["year"].isin(get_covid_years()).astype("int")  # Creating a dummy variable which indicates if the average speed for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
-
-        # ------------------ Dropping columns which won't be fed to the ML models ------------------
-
-        speeds = speeds.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist()
-
-        # print("Average speeds dataframe head: ")
-        # print(speeds.head(5), "\n")
-
-        # print("Average speeds dataframe tail: ")
-        # print(speeds.tail(5), "\n")
-
-        return speeds
-
-
-
 class OnePointForecaster:
     """
     self.trp_road_category: to find the right model to predict the data
@@ -419,6 +414,7 @@ class OnePointForecaster:
         self._target: Literal["traffic_volumes", "average_speed"] = target
 
 
+    #TODO TO DIVIDE IN TWO PREPROCESSORS (TRAFFIC VOLUMES AND SPEEDS)
     def preprocess(self, target_datetime: datetime) -> dd.DataFrame:
         """
         Parameters:
@@ -467,17 +463,34 @@ class OnePointForecaster:
 
         rows_to_predict.persist()
 
-        predictions_dataset = dd.concat([dd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + self._trp_id + "_volumes_C.csv").tail(self._n_records), rows_to_predict], axis=0)
-        predictions_dataset = predictions_dataset.repartition(partition_size="512MB")
-        predictions_dataset = predictions_dataset.reset_index()
-        predictions_dataset = predictions_dataset.drop(columns=["index"])
+        with dask_cluster_client(processes=False) as client:
 
-        t_learner = TrafficVolumesLearner(predictions_dataset, self._road_category, self._target) if self._target == "traffic_volumes" else AverageSpeedLearner(predictions_dataset, self._road_category, self._target)
-        predictions_dataset = t_learner.preprocess(z_score=False)
+            if self._target == "traffic_volumes":
+                predictions_dataset = dd.concat([dd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + self._trp_id + "_volumes_C.csv").tail(self._n_records), rows_to_predict], axis=0)
+            elif self._target == "average_speed":
+                predictions_dataset = dd.concat([dd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + self._trp_id + "_speeds_C.csv").tail(self._n_records), rows_to_predict], axis=0)
 
-        # print(predictions_dataset.compute().tail(200))
+            predictions_dataset = predictions_dataset.repartition(partition_size="512MB")
+            predictions_dataset = predictions_dataset.reset_index()
+            predictions_dataset = predictions_dataset.drop(columns=["index"])
 
-        return predictions_dataset.persist()
+            if self._target == "traffic_volumes":
+                predictions_dataset = TFSPreprocessor(data=predictions_dataset, road_category=self._road_category, target=self._target, client=client).preprocess_volumes(z_score=False)
+            elif self._target == "average_speed":
+                predictions_dataset = TFSPreprocessor(data=predictions_dataset, road_category=self._road_category, target=self._target, client=client).preprocess_speeds(z_score=False)
+
+            #print(predictions_dataset.compute().tail(200))
+            return predictions_dataset.persist()
+
+
+    #TODO TO DIVIDE IN TWO FORECASTERS (TRAFFIC VOLUMES AND SPEEDS)
+    def forecast(self, data: dd.DataFrame, model_name: str) -> dd.DataFrame:
+
+        # -------------- Model loading --------------
+        model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
+
+        with joblib.parallel_backend("dask"):
+            return model.predict(data)
 
 
     @staticmethod
@@ -506,37 +519,6 @@ class OnePointForecaster:
         except Exception as e:
             print(f"Couldn't export data to {predictions_filepath}, error {e}")
         return None
-
-
-
-class OnePointVolumesForecaster(OnePointForecaster):
-    def __init__(self, trp_id: str, road_category: str, target: Literal["traffic_volumes"]):
-        super().__init__(trp_id, road_category, target)  # Calling the father class
-
-
-    def forecast_volumes(self, volumes: dd.DataFrame, model_name: str) -> dd.DataFrame:
-
-        # -------------- Model loading --------------
-        model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
-
-        with joblib.parallel_backend("dask"):
-            return model.predict(volumes)
-
-
-
-class OnePointAverageSpeedForecaster(OnePointForecaster):
-    def __init__(self, trp_id: str, road_category: str, target: Literal["average_speed"]):
-        super().__init__(trp_id, road_category, target)  # Calling the father class
-
-
-    def forecast_speeds(self, speeds: dd.DataFrame, model_name: str) -> dd.DataFrame:
-
-        # -------------- Model loading --------------
-        model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
-
-        with joblib.parallel_backend("dask"):
-            return model.predict(speeds)
-
 
 
 
