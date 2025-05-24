@@ -6,10 +6,7 @@ from tqdm import tqdm
 import pprint
 import asyncio
 from typing import cast
-from contextlib import contextmanager
 from asyncio import Semaphore
-import dask.distributed
-from dask.distributed import Client, LocalCluster
 
 from tfs_downloader import *
 from tfs_eda import *
@@ -19,23 +16,6 @@ from tfs_ml import *
 from tfs_road_network import *
 
 dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
-
-
-@contextmanager
-def dask_cluster_client(processes=False):
-    """
-    - Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
-    - Check localhost:8787 to watch real-time processing
-    - By default, the number of workers is obtained by dask using the standard os.cpu_count()
-    - More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
-    """
-    cluster = LocalCluster(processes=processes)
-    client = Client(cluster)
-    try:
-        yield client
-    finally:
-        client.close()
-        cluster.close()
 
 
 def manage_ops(functionality: str) -> None:
@@ -216,6 +196,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             preprocessed_data = learner.preprocess()
 
             X_train, X_test, y_train, y_test = split_data(preprocessed_data, target=target)
+            #print(X_train.head(5), X_test.head(5), y_train.head(5), y_test.head(5))
 
             for model_name in models:
                 method = getattr(learner, method_name)
@@ -269,7 +250,7 @@ def get_forecaster(option: str, trp_id: str, road_category: str, target_data: st
     info = forecaster_info[option]
     if get_trp_metadata(trp_id)["checks"][info["check"]]:
         forecaster = info["class"](trp_id=trp_id, road_category=road_category, target=target_data)
-        return forecaster, info["method"], forecaster.preprocess(target_datetime=dt)
+        return forecaster, info["method"], forecaster.preprocess()
     else:
         print(f"TRP {trp_id} doesn't have {option.lower()} data, returning to main menu")
         return None, None, None

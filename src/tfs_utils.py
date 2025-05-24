@@ -18,6 +18,9 @@ from dateutil.relativedelta import relativedelta
 from geopandas import GeoDataFrame
 from pydantic.types import PositiveInt
 from async_lru import alru_cache
+import dask.distributed
+from dask.distributed import Client, LocalCluster
+from contextlib import contextmanager
 
 
 pd.set_option("display.max_columns", None)
@@ -724,6 +727,21 @@ def retrieve_n_ml_cpus() -> int:
     # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
 
 
+@contextmanager
+def dask_cluster_client(processes=False):
+    """
+    - Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
+    - Check localhost:8787 to watch real-time processing
+    - By default, the number of workers is obtained by dask using the standard os.cpu_count()
+    - More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
+    """
+    cluster = LocalCluster(processes=processes)
+    client = Client(cluster)
+    try:
+        yield client
+    finally:
+        client.close()
+        cluster.close()
 
 
 
