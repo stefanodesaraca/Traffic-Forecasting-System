@@ -176,7 +176,7 @@ def execute_forecast_warmup(functionality: str) -> None:
     def process_data(
             trps_ids_by_road_category: dict[str, list[str]],
             models: list[str],
-            learner_class: type[TrafficVolumesLearner | AverageSpeedLearner],
+            learner_class: type[TFSLearner], #Keeping the flexibility of this parameter for now to be able to add other types of learner classes in the future
             target: str,
             process_description: str,
             method_name: str
@@ -191,12 +191,13 @@ def execute_forecast_warmup(functionality: str) -> None:
         for road_category, data in merged_data_by_category.items():
             print(f"\n********************* Executing {process_description} for road category: {road_category} *********************\n")
 
-            learner = learner_class(data, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client) # This client is ok here since the process_data function (in which it's located) only gets called after the client is opened as a context manager afterward (see down below in the code) *
             #Using cast() to tell the type checker that the "target" variable is actually a Literal
             preprocessed_data = learner.preprocess()
 
             X_train, X_test, y_train, y_test = split_data(preprocessed_data, target=target)
             #print(X_train.head(5), X_test.head(5), y_train.head(5), y_test.head(5))
+
+            learner = learner_class(road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client) # This client is ok here since the process_data function (in which it's located) only gets called after the client is opened as a context manager afterward (see down below in the code) *
 
             for model_name in models:
                 method = getattr(learner, method_name)
@@ -213,22 +214,22 @@ def execute_forecast_warmup(functionality: str) -> None:
     with dask_cluster_client(processes=False) as client: #*
 
         if functionality == "3.2.1":
-            process_data(trps_ids_volumes_by_road_category, models, TrafficVolumesLearner, target_data["V"], "hyperparameter tuning on traffic volumes data", "gridsearch")
+            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"], "hyperparameter tuning on traffic volumes data", "gridsearch")
 
         elif functionality == "3.2.2":
-            process_data(trps_ids_avg_speeds_by_road_category, models, AverageSpeedLearner, target_data["AS"], "hyperparameter tuning on average speed data", "gridsearch")
+            process_data(trps_ids_avg_speeds_by_road_category, models, TFSLearner, target_data["AS"], "hyperparameter tuning on average speed data", "gridsearch")
 
         elif functionality == "3.2.3":
-            process_data(trps_ids_volumes_by_road_category, models, TrafficVolumesLearner, target_data["V"], "training models on traffic volumes data", "train_model")
+            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"], "training models on traffic volumes data", "train_model")
 
         elif functionality == "3.2.4":
-            process_data(trps_ids_volumes_by_road_category, models, AverageSpeedLearner, target_data["AS"], "training models on average speed data", "train_model")
+            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["AS"], "training models on average speed data", "train_model")
 
         elif functionality == "3.2.5":
-            process_data(trps_ids_volumes_by_road_category, models, TrafficVolumesLearner, target_data["V"], "testing models on traffic volumes data", "test_model")
+            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"], "testing models on traffic volumes data", "test_model")
 
         elif functionality == "3.2.6":
-            process_data(trps_ids_volumes_by_road_category, models, AverageSpeedLearner, target_data["AS"], "testing models on average speed data", "test_model")
+            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["AS"], "testing models on average speed data", "test_model")
 
     return None
 

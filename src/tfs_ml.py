@@ -463,17 +463,20 @@ class OnePointForecaster:
         rows_to_predict.persist()
 
         with dask_cluster_client(processes=False) as client:
-            predictions_dataset = dd.concat([dd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + self._trp_id + "_volumes_C.csv").tail(self._n_records), rows_to_predict], axis=0)
+
+            if self._target == "traffic_volumes":
+                predictions_dataset = dd.concat([dd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + self._trp_id + "_volumes_C.csv").tail(self._n_records), rows_to_predict], axis=0)
+            elif self._target == "average_speed":
+                predictions_dataset = dd.concat([dd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + self._trp_id + "_speeds_C.csv").tail(self._n_records), rows_to_predict], axis=0)
+
             predictions_dataset = predictions_dataset.repartition(partition_size="512MB")
             predictions_dataset = predictions_dataset.reset_index()
             predictions_dataset = predictions_dataset.drop(columns=["index"])
 
             if self._target == "traffic_volumes":
                 predictions_dataset = TFSPreprocessor(data=predictions_dataset, road_category=self._road_category, target=self._target, client=client).preprocess_volumes(z_score=False)
-            elif self._target == "traffic_volumes":
+            elif self._target == "average_speed":
                 predictions_dataset = TFSPreprocessor(data=predictions_dataset, road_category=self._road_category, target=self._target, client=client).preprocess_speeds(z_score=False)
-            else:
-                raise ValueError("Wrong target variable")
 
             #print(predictions_dataset.compute().tail(200))
             return predictions_dataset.persist()
