@@ -424,6 +424,16 @@ class OnePointForecaster:
 
 
         def get_batches(iterable: list[dict[str, Any]] | Generator[dict[str, Any], None, None], batch_size: int) -> Generator[list[dict[str, Any]], Any, None, None]:
+            """
+            Returns a generator of a maximum of n elements where n is defined by the 'batch_size' parameter.
+
+            Parameters:
+                iterable: an iterable to slice into batches
+                batch_size: the maximum size of each batch
+
+            Returns:
+                A generator of a batch
+            """
             iterator = iter(iterable) if isinstance(iterable, list) else iterable
             while True:
                 batch = []
@@ -448,7 +458,7 @@ class OnePointForecaster:
                 "week": dt.strftime("%V"),
                 "date": dt.strftime("%Y-%m-%d"),
                 "trp_id": self._trp_id
-            } for dt in pd.date_range(start=last_available_volumes_data_dt, end=target_datetime, freq="1h")), batch_size=)])
+            } for dt in pd.date_range(start=last_available_volumes_data_dt, end=target_datetime, freq="1h")), batch_size=)]) #TODO THE BATCH SIZE SHOULD BE LIKE THE 25% OF THE WHOLE DATA. THEN CALL REPARTITION WITH 512MB AS SIZE
 
 
     def _get_volumes_X(self, data: dd.DataFrame) -> dd.DataFrame:
