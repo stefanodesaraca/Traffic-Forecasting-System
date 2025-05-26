@@ -483,7 +483,6 @@ class OnePointForecaster:
             return predictions_dataset.persist()
 
 
-    #TODO TO DIVIDE IN TWO FORECASTERS (TRAFFIC VOLUMES AND SPEEDS)
     def forecast(self, data: dd.DataFrame, model_name: str) -> dd.DataFrame:
 
         # -------------- Model loading --------------
@@ -494,7 +493,7 @@ class OnePointForecaster:
 
 
     @staticmethod
-    def prediction_errors(y_true: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, PositiveFloat]:
+    def post_prediction_errors(y_true: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, PositiveFloat]:
         """
         Calculates the prediction errors for data that's already been recorded to test the accuracy of one or more models.
 
