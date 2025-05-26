@@ -5,7 +5,7 @@ import sys
 import traceback
 import logging
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Generator
 from pydantic.types import PositiveFloat
 
 import numpy as np
@@ -13,10 +13,11 @@ import pickle
 import warnings
 from warnings import simplefilter
 import pandas as pd
-import dask.dataframe as dd
 import matplotlib.pyplot as plt
 from scipy import stats
 
+from dask import delayed, compute
+import dask.dataframe as dd
 from dask.distributed import Client
 import joblib
 
@@ -412,6 +413,63 @@ class OnePointForecaster:
         self._road_category: str = road_category
         self._n_records: int | None = None
         self._target: Literal["traffic_volumes", "average_speed"] = target
+
+
+    def _get_future_records(self, target_datetime: datetime) -> dd.DataFrame:
+
+        target_datetime = target_datetime.strftime(dt_format)
+        last_available_volumes_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso).strftime(dt_format)
+
+        attr = {"volume": np.nan} if self._target == "traffic_volumes" else {"mean_speed": np.nan, "percentile_85": np.nan}
+
+
+        def get_batches(iterable: list[dict[str, Any]] | Generator[dict[str, Any], None, None], batch_size: int) -> Generator[list[dict[str, Any]], Any, None, None]:
+            iterator = iter(iterable) if isinstance(iterable, list) else iterable
+            while True:
+                batch = []
+                for _ in range(batch_size):
+                    try:
+                        batch.append(next(iterator))
+                    except StopIteration:
+                        break
+                if not batch:
+                    break
+                yield batch
+
+
+        return dd.from_delayed([delayed(pd.DataFrame)(batch) for batch in get_batches(
+            ({
+                **attr,
+                "coverage": np.nan,
+                "day": dt.strftime("%d"),
+                "month": dt.strftime("%m"),
+                "year": dt.strftime("%Y"),
+                "hour": dt.strftime("%H"),
+                "week": dt.strftime("%V"),
+                "date": dt.strftime("%Y-%m-%d"),
+                "trp_id": self._trp_id
+            } for dt in pd.date_range(start=last_available_volumes_data_dt, end=target_datetime, freq="1h")), batch_size=)])
+
+
+    def _get_volumes_X(self, data: dd.DataFrame) -> dd.DataFrame:
+
+
+        return
+
+
+    def _get_volumes_y(self, data: dd.DataFrame) -> dd.DataFrame:
+
+        return
+
+
+    def _get_speeds_X(self, data: dd.DataFrame) -> dd.DataFrame:
+
+        return
+
+
+    def _get_speeds_y(self, data: dd.DataFrame) -> dd.DataFrame:
+
+        return
 
 
     #TODO TO DIVIDE IN TWO PREPROCESSORS (TRAFFIC VOLUMES AND SPEEDS)
