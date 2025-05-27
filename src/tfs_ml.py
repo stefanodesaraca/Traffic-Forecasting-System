@@ -35,6 +35,7 @@ from sklearn.metrics import (
     PredictionErrorDisplay
 )
 
+from tfs_exceptions import *
 from tfs_utils import *
 from tfs_models import *
 
@@ -288,7 +289,6 @@ class TFSLearner:
         return model_names_and_functions[model]()
 
 
-
     def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame, model_name: str) -> None:
 
         if self._target not in target_data.values():
@@ -316,6 +316,10 @@ class TFSLearner:
         with joblib.parallel_backend("dask"):
             gridsearch.fit(X=X_train, y=y_train)
 
+        t_end = datetime.now()
+        print(f"{model_name} GridSearchCV finished at {t_end}\n")
+        print(f"Time passed: {t_end - t_start}")
+
         try:
             gridsearch_results = pd.DataFrame(gridsearch.cv_results_)[
                 [
@@ -332,34 +336,39 @@ class TFSLearner:
                 ]
             ]
 
+            print(f"============== {model_name} grid search results ==============\n")
+            print(gridsearch_results, "\n")
+
+            print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
+            print("GridSearchCV best parameters: ", gridsearch.best_params_)
+            print("GridSearchCV best score: ", gridsearch.best_score_)
+            print("GridSearchCV best combination index (in the results dataframe): ", gridsearch.best_index_, "\n", )
+            # print(gridsearch.scorer_, "\n")
+
+            self._export_cv_results(gridsearch_results, model_name) #TODO TESTING
+
+            return gridsearch_results
+
         except KeyError as e:
-            print(f"\033[91mScoring not found. Error: {e}")
+            raise ScoringNotFoundError(f"\033[91mScoring not found. Parent error: {e}")
 
-        print(f"============== {model_name} grid search results ==============\n")
-        print(gridsearch_results, "\n")
+        finally:
+            gc.collect()
 
-        t_end = datetime.now()
-        print(f"{model_name} GridSearchCV finished at {t_end}\n")
-        print(f"Time passed: {t_end - t_start}")
 
-        gridsearch_results.to_json(f"./ops/{self._road_category}_{model_name}_grid_params_and_results.json", indent=4)  # TODO FOR TESTING PURPOSES
 
-        print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
-        print("GridSearchCV best parameters: ", gridsearch.best_params_)
-        print("GridSearchCV best score: ", gridsearch.best_score_)
-
-        print("GridSearchCV best combination index (in the results dataframe): ",gridsearch.best_index_,"\n",)
-
-        # print(gridsearch.scorer_, "\n")
+    #TODO TESTING FUNCTION
+    def _export_cv_results(self, gridsearch_results: pd.DataFrame, model: str) -> None:
+        gridsearch_results.to_json(f"./ops/{self._road_category}_{model}_gridsearch.json", indent=4)
+        return None
 
         # The best_parameters_by_model variable is obtained from the tfs_models file
         true_best_params = {
             model_name: gridsearch_results["params"].loc[best_params[self._target][model_name]]
             if gridsearch_results["params"].loc[best_params[self._target][model_name]]
-            is not None
+               is not None
             else {}
         }
-        # TODO THIS SHOULD PROBABLY BECOME: true_best_parameters = {model_name: gridsearch_results["params"].loc[best_parameters_by_model[road_category][model_name]] if gridsearch_results["params"].loc[best_parameters_by_model[raod_category][model_name]] is not None else {}}
         auxiliary_params = model_auxiliary_parameters[model_name]
 
         # This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
@@ -367,16 +376,31 @@ class TFSLearner:
             true_best_params[model_name][par] = val
 
         true_best_params["best_GridSearchCV_model_index"] = best_params[self._target][model_name]
-        true_best_params["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_params[self._target][model_name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
+        true_best_params["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_params[self._target][
+            model_name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
         print(f"True best parameters for {model_name}: ", true_best_params, "\n")
 
-        with open(get_models_parameters_folder_path(target=self._target, road_category=self._road_category) + (get_active_ops() + "_" + self._road_category + "_" + model_name + "_" + "parameters") + ".json", "w", encoding="utf-8") as params_file:
+        with open(get_models_parameters_folder_path(target=self._target, road_category=self._road_category) + (
+                get_active_ops() + "_" + self._road_category + "_" + model_name + "_" + "parameters") + ".json", "w",
+                  encoding="utf-8") as params_file:
             json.dump(true_best_params, params_file, indent=4)
 
-        gc.collect()
+
+
+
+
+
+
 
         return None
+
+
+
+
+
+
+
 
 
     def fit(self, X_train: dd.DataFrame, y_train: dd.DataFrame, model_name: str) -> None:
