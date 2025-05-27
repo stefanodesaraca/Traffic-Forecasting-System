@@ -40,6 +40,7 @@ def get_histgradientboosting_regressor() -> HistGradientBoostingRegressor:
 
 # ------------------- GridSearchCV Grids -------------------
 
+# Be aware that too low parameters could bring some models to stall while training, so don't go too low with the grid search parameters
 grids = {
     "traffic_volumes": {
         "RandomForestRegressor": {
@@ -101,27 +102,25 @@ grids = {
 
 #TODO SIMPLIFY THESE FIRST THREE DICTIONARIES
 
-model_names_and_functions = {
-    "RandomForestRegressor": get_random_forest_regressor,
-    "HistGradientBoostingRegressor": get_histgradientboosting_regressor,
-    "DecisionTreeRegressor": get_decision_tree_regressor,
-}
-
-
-model_names_and_class_objects = {
-    "RandomForestRegressor": RandomForestRegressor,
-    "HistGradientBoostingRegressor": HistGradientBoostingRegressor,
-    "DecisionTreeRegressor": DecisionTreeRegressor,
-}
-
-# Auxiliary parameters are common to all road categories' models
-model_auxiliary_parameters = {
-    "RandomForestRegressor": {"n_jobs": retrieve_n_ml_cpus(), "random_state": 100},
-    "HistGradientBoostingRegressor": {
-        "random_state": 100,
-        "categorical_features": None,
+model_definitions = {
+    "function": {
+        "RandomForestRegressor": get_random_forest_regressor,
+        "HistGradientBoostingRegressor": get_histgradientboosting_regressor,
+        "DecisionTreeRegressor": get_decision_tree_regressor,
     },
-    "DecisionTreeRegressor": {"random_state": 100},
+    "class_instance":{
+        "RandomForestRegressor": RandomForestRegressor,
+        "HistGradientBoostingRegressor": HistGradientBoostingRegressor,
+        "DecisionTreeRegressor": DecisionTreeRegressor,
+    },
+    "auxiliary_parameters": {
+        "RandomForestRegressor": {"n_jobs": retrieve_n_ml_cpus(), "random_state": 100},
+        "HistGradientBoostingRegressor": {
+            "random_state": 100,
+            "categorical_features": None,
+        },
+        "DecisionTreeRegressor": {"random_state": 100},
+    }
 }
 
 best_params = {
@@ -138,7 +137,5 @@ best_params = {
 }
 
 
-# ------------------- GridSearchCV average speed parameters -------------------
-# Be aware that too low parameters could bring some models to stall while training, so don't go too low with the grid search parameters
 
 
