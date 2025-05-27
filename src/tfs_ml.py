@@ -253,20 +253,51 @@ class TFSLearner:
         self._target: Literal["traffic_volumes", "average_speed"] = target
 
 
-    def gridsearch(self, X_train, y_train, model_name: str) -> None:
+    def _get_grid(self, model: str) -> dict[str, dict[str, Any]]:
+        """
+        Parameters:
+            model: the name of the model which we want to collect the grid for
+
+        Returns:
+            The model's grid
+        """
+        return {"traffic_volumes": volumes_models_gridsearch_parameters[model],
+                "average_speed": speeds_models_gridsearch_parameters[model]}[self._target]
+
+
+    def _get_best_params(self, model: str) -> dict[str, dict[str, Any]]:
+        """
+        Parameters:
+            model: the name of the model which we want to collect the true best parameters for
+
+        Returns:
+            The model's true best parameters
+        """
+        return {"traffic_volumes": volumes_models_gridsearch_parameters[model],
+                "average_speed": speeds_models_gridsearch_parameters[model]}[self._target]
+
+
+    def _get_model(self, model: str) -> Any:
+        """
+        Parameters:
+            model: the name of the model which we want to collect the class of
+
+        Returns:
+            The model object
+        """
+        return model_names_and_functions[model]()
+
+
+
+    def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame, model_name: str) -> None:
 
         if self._target not in target_data.values():
             raise Exception("Wrong target variable in GridSearchCV executor function")
 
-        grids = {"traffic_volumes": volumes_models_gridsearch_parameters[model_name],
-                 "average_speed": speeds_models_gridsearch_parameters[model_name]}
-        best_params = {"traffic_volumes": volumes_best_parameters_by_model,
-                       "average_speed": speeds_best_parameters_by_model}
+        grids = self._get_grid()
+        best_params = self._get_best_params()
 
-        model = model_names_and_functions[model_name]()  # Finding the function which returns the model and executing it
-
-        params_folder_path = get_models_parameters_folder_path(target=self._target, road_category=self._road_category)
-        model_filename = (get_active_ops() + "_" + self._road_category + "_" + model_name + "_" + "parameters")
+        model = self._get_model()  # Finding the function which returns the model and executing it
 
         t_start = datetime.now()
         print(f"{model_name} GridSearchCV started at {t_start}\n")
@@ -340,7 +371,7 @@ class TFSLearner:
 
         print(f"True best parameters for {model_name}: ", true_best_params, "\n")
 
-        with open(params_folder_path + model_filename + ".json", "w", encoding="utf-8") as params_file:
+        with open(get_models_parameters_folder_path(target=self._target, road_category=self._road_category) + (get_active_ops() + "_" + self._road_category + "_" + model_name + "_" + "parameters") + ".json", "w", encoding="utf-8") as params_file:
             json.dump(true_best_params, params_file, indent=4)
 
         gc.collect()
@@ -385,11 +416,11 @@ class TFSLearner:
             sys.exit(1)
 
 
-    def predict(self, X_test: dd.DataFrame, model_name: str) -> None:
+    def _load_model(self, model_name: str) -> Any:
+        return joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
 
-        # -------------- Model loading --------------
-        model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
 
+    def predict(self, X_test: dd.DataFrame, model: Any) -> None:
         with joblib.parallel_backend("dask"):
             return model.predict(X_test.compute())
 
