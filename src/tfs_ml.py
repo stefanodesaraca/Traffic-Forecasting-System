@@ -262,19 +262,7 @@ class TFSLearner:
         Returns:
             The model's grid
         """
-        return {"traffic_volumes": volumes_models_gridsearch_parameters[model],
-                "average_speed": speeds_models_gridsearch_parameters[model]}[self._target]
-
-
-    def _get_best_params(self, model: str) -> dict[str, dict[str, Any]]:
-        """
-        Parameters:
-            model: the name of the model which we want to collect the true best parameters for
-
-        Returns:
-            The model's true best parameters
-        """
-        return {"traffic_volumes": volumes_models_gridsearch_parameters[model],
+        return {"traffic_volumes": volume_grids[model],
                 "average_speed": speeds_models_gridsearch_parameters[model]}[self._target]
 
 
@@ -289,14 +277,12 @@ class TFSLearner:
         return model_names_and_functions[model]()
 
 
-    def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame, model_name: str) -> None:
+    def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame, model_name: str) -> None: #TODO REMOVE THE model_name PARAMETER. IDEALLY gridsearch() WOULD JUST HAVE X_train AND y_train
 
         if self._target not in target_data.values():
             raise Exception("Wrong target variable in GridSearchCV executor function")
 
         grids = self._get_grid()
-        best_params = self._get_best_params()
-
         model = self._get_model()  # Finding the function which returns the model and executing it
 
         t_start = datetime.now()
@@ -347,6 +333,8 @@ class TFSLearner:
 
             self._export_cv_results(gridsearch_results, model_name) #TODO TESTING
 
+            #TODO EXPORT TRUE BEST PARAMETERS
+
             return gridsearch_results
 
         except KeyError as e:
@@ -363,27 +351,18 @@ class TFSLearner:
         return None
 
         # The best_parameters_by_model variable is obtained from the tfs_models file
-        true_best_params = {
-            model_name: gridsearch_results["params"].loc[best_params[self._target][model_name]]
-            if gridsearch_results["params"].loc[best_params[self._target][model_name]]
-               is not None
-            else {}
-        }
-        auxiliary_params = model_auxiliary_parameters[model_name]
+        true_best_params = {model_name: gridsearch_results["params"].loc[best_params[self._target][model_name]] or {}}
 
         # This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
-        for par, val in auxiliary_params.items():
-            true_best_params[model_name][par] = val
+        true_best_params[model_name].update(model_auxiliary_parameters[model_name])
 
         true_best_params["best_GridSearchCV_model_index"] = best_params[self._target][model_name]
-        true_best_params["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_params[self._target][
-            model_name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
+        true_best_params["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_params[self._target][model_name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
         print(f"True best parameters for {model_name}: ", true_best_params, "\n")
 
         with open(get_models_parameters_folder_path(target=self._target, road_category=self._road_category) + (
-                get_active_ops() + "_" + self._road_category + "_" + model_name + "_" + "parameters") + ".json", "w",
-                  encoding="utf-8") as params_file:
+                get_active_ops() + "_" + self._road_category + "_" + model_name + "_" + "parameters") + ".json", "w", encoding="utf-8") as params_file:
             json.dump(true_best_params, params_file, indent=4)
 
 
@@ -393,16 +372,8 @@ class TFSLearner:
 
 
 
-        return None
 
-
-
-
-
-
-
-
-
+    #TODO TO IMPROVE AND SIMPLIFY THIS METHOD
     def fit(self, X_train: dd.DataFrame, y_train: dd.DataFrame, model_name: str) -> None:
 
         # -------------- Filenames, etc. --------------
@@ -462,9 +433,9 @@ class TFSLearner:
             A dictionary of errors (positive floats) for each error metric.
         """
         return {"r2": np.round(r2_score(y_true=y_test, y_pred=y_pred), 4),
-                "mean_absolute_error": np.round(mean_absolute_error(y_test, y_pred), 4),
-                "mean_squared_error": np.round(mean_squared_error(y_test, y_pred), 4),
-                "root_mean_squared_error": np.round(root_mean_squared_error(y_test, y_pred), 4)}
+                "mean_absolute_error": np.round(mean_absolute_error(y_true=y_test, y_pred=y_pred), 4),
+                "mean_squared_error": np.round(mean_squared_error(y_true=y_test, y_pred=y_pred), 4),
+                "root_mean_squared_error": np.round(root_mean_squared_error(y_true=y_test, y_pred=y_pred), 4)}
 
 
 

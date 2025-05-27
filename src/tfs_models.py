@@ -8,45 +8,39 @@ from sklearn.ensemble import (
 )
 from tfs_utils import retrieve_n_ml_cpus
 
-# ------------------- Functions that return the models themselves -------------------
-
+# ------------------- Functions that return the model instances -------------------
 
 def get_random_forest_regressor() -> RandomForestRegressor:
-    random_forest = RandomForestRegressor(
-        n_jobs=retrieve_n_ml_cpus(), random_state=100
-    )  # Has the max_depth, criterion (use squared_error, friedman_mse) n_estimators parameters
-    return random_forest
+    return RandomForestRegressor(
+        n_jobs=retrieve_n_ml_cpus(), random_state=100 # Has the max_depth, criterion (use squared_error, friedman_mse) n_estimators parameters
+    )
 
 
 def get_adaboost_regressor() -> AdaBoostRegressor:
-    ada_boost = AdaBoostRegressor(
+    return AdaBoostRegressor(
         random_state=100
-    )  # Has the loss (use linear and square) and n_estimators parameters
-    return ada_boost
+    ) # Has the loss (use linear and square) and n_estimators parameters
 
 
 def get_gradient_boosting_regressor() -> GradientBoostingRegressor:
-    gradient_boosting = GradientBoostingRegressor(
+    return GradientBoostingRegressor(
         random_state=100
     )  # Has the loss (use mean_squared_error and absolute_error), n_estimators, validation_fraction, n_iter_no_change, tol and max_depth parameters
-    return gradient_boosting
 
 
 def get_decision_tree_regressor() -> DecisionTreeRegressor:
-    decision_tree = DecisionTreeRegressor(random_state=100)  # Has max_depth parameter
-    return decision_tree
+    return DecisionTreeRegressor(random_state=100)  # Has max_depth parameter
 
 
 def get_histgradientboosting_regressor() -> HistGradientBoostingRegressor:
-    hist_gradient_boosting = HistGradientBoostingRegressor(
+    return HistGradientBoostingRegressor(
         random_state=100
     )  # Has the max_iter, max_depth parameters
-    return hist_gradient_boosting
 
 
 # ------------------- GridSearchCV volume parameters -------------------
 
-volumes_models_gridsearch_parameters = {
+volume_grids = {
     "RandomForestRegressor": {
         "n_estimators": [200, 400],
         "max_depth": [
@@ -72,11 +66,11 @@ volumes_models_gridsearch_parameters = {
     },
 }
 
-volumes_best_parameters_by_model = {
+volume_best_params_by_model = {
     "RandomForestRegressor": 1,
     "HistGradientBoostingRegressor": 1,
     "DecisionTreeRegressor": 1,
-}  # TODO CHOOSE SPECIFIC HYPERPARAMETERS FOR EACH MODEL AND FOR EACH ROAD CATEOGRY TO MAXIMISE PREDICTIVE ACCURACY
+}
 
 
 # ------------------- GridSearchCV auxiliary parameters and functions -------------------
@@ -138,7 +132,7 @@ speeds_models_gridsearch_parameters = {
 }
 
 
-speeds_best_parameters_by_model = {
+speeds_best_params_by_model = {
     "RandomForestRegressor": 1,
     "HistGradientBoostingRegressor": 1,
     "DecisionTreeRegressor": 1,
