@@ -274,16 +274,16 @@ class TFSLearner:
         Returns:
             The model object
         """
-        return model_names_and_functions[model]()
+        return model_definitions["function"][model]()
 
-
+    # TODO RENAME "model_name" INTO SOMETHING ELSE IN ALL FUNCTIONS THAT HAVE model_name AS A PARAMETER
     def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame, model_name: str) -> None: #TODO REMOVE THE model_name PARAMETER. IDEALLY gridsearch() WOULD JUST HAVE X_train AND y_train
 
         if self._target not in target_data.values():
             raise Exception("Wrong target variable in GridSearchCV executor function")
 
         grid = self._get_grid()
-        model = self._get_model()  # Finding the function which returns the model and executing it
+        model = self._get_model()
 
         t_start = datetime.now()
         print(f"{model_name} GridSearchCV started at {t_start}\n")
@@ -379,6 +379,7 @@ class TFSLearner:
 
         # -------------- Training --------------
 
+        #TODO model_definitions
         model = model_names_and_class_objects[model_name](**parameters)  # Unpacking the dictionary to set all parameters to instantiate the model's class object
 
         with joblib.parallel_backend("dask"):
