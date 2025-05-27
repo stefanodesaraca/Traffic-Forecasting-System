@@ -18,6 +18,7 @@ from dateutil.relativedelta import relativedelta
 from geopandas import GeoDataFrame
 from pydantic.types import PositiveInt
 from async_lru import alru_cache
+from dask import delayed
 import dask.distributed
 from dask.distributed import Client, LocalCluster
 from contextlib import contextmanager
@@ -681,7 +682,7 @@ def split_data(data: dd.DataFrame, target: str) -> tuple[dd.DataFrame, dd.DataFr
     n_rows = data.shape[0].compute()
     p_70 = int(n_rows * 0.70)
 
-    return dd.from_pandas(X.head(p_70)).persist(), dd.from_pandas(X.tail(len(X) - p_70)).persist(), dd.from_pandas(y.head(p_70)).persist(), dd.from_pandas(y.tail(len(y) - p_70)).persist()
+    return dd.from_delayed(delayed(X.head(p_70)).persist()), dd.from_delayed(delayed(X.tail(len(X) - p_70))).persist(), dd.from_delayed(delayed(y.head(p_70)).persist()), dd.from_delayed(delayed(y.tail(len(y) - p_70))).persist()
 
 
 def merge(trp_filepaths: list[str]) -> dd.DataFrame:

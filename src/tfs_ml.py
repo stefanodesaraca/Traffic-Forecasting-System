@@ -464,10 +464,13 @@ class OnePointForecaster:
                 "week": dt.strftime("%V"),
                 "date": dt.strftime("%Y-%m-%d"),
                 "trp_id": self._trp_id
-            } for dt in pd.date_range(start=last_available_volumes_data_dt.strftime(dt_format), end=target_datetime.strftime(dt_format), freq="1h")), batch_size=max(1, math.ceil((target_datetime - last_available_volumes_data_dt).days * 0.20)))])
+            } for dt in pd.date_range(start=last_available_volumes_data_dt.strftime(dt_format), end=target_datetime.strftime(dt_format), freq="1h")), batch_size=max(1, math.ceil((target_datetime - last_available_volumes_data_dt).days * 0.20)))]).repartition(partition_size="512MB").persist()
 
 
     def _get_volumes_X(self, data: dd.DataFrame) -> dd.DataFrame:
+
+        _
+
 
 
         return
