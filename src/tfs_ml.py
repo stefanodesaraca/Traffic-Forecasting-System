@@ -394,14 +394,22 @@ class TFSLearner:
             return model.predict(X_test.compute())
 
 
-    def evaluate_metrics(self, y_test: dd.DataFrame, y_pred: dd.DataFrame) -> dd.DataFrame:
+    @staticmethod
+    def evaluate(y_test: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, Any]:
+        """
+        Calculates the prediction errors for data that's already been recorded to test the accuracy of one or more models.
 
-        print("R^2: ", r2_score(y_true=y_test, y_pred=y_pred))
-        print("Mean Absolute Error: ", mean_absolute_error(y_true=y_test, y_pred=y_pred))
-        print("Mean Squared Error: ", mean_squared_error(y_true=y_test, y_pred=y_pred))
-        print("Root Mean Squared Error: ", root_mean_squared_error(y_true=y_test, y_pred=y_pred))
+        Parameters:
+            y_test: the true values of the target variable
+            y_pred: the predicted values of the target variable
 
-        return
+        Returns:
+            A dictionary of errors (positive floats) for each error metric.
+        """
+        return {"r2": np.round(r2_score(y_true=y_test, y_pred=y_pred), 4),
+                "mean_absolute_error": np.round(mean_absolute_error(y_test, y_pred), 4),
+                "mean_squared_error": np.round(mean_squared_error(y_test, y_pred), 4),
+                "root_mean_squared_error": np.round(root_mean_squared_error(y_test, y_pred), 4)}
 
 
 
@@ -549,23 +557,6 @@ class OnePointForecaster:
 
             #print(predictions_dataset.compute().tail(200))
             return predictions_dataset.persist()
-
-
-    @staticmethod
-    def post_prediction_errors(y_true: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, PositiveFloat]:
-        """
-        Calculates the prediction errors for data that's already been recorded to test the accuracy of one or more models.
-
-        Parameters:
-            y_true: the true values of the target variable
-            y_pred: the predicted values of the target variable
-
-        Returns:
-            A dictionary of errors (positive floats) for each error metric.
-        """
-        return {"mean_absolute_error": np.round(mean_absolute_error(y_true, y_pred), 4),
-                "mean_squared_error": np.round(mean_squared_error(y_true, y_pred), 4),
-                "root_mean_squared_error": np.round(root_mean_squared_error(y_true, y_pred), 4)}
 
 
     @staticmethod
