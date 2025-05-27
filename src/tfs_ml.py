@@ -348,7 +348,7 @@ class TFSLearner:
         return None
 
 
-    def train_model(self, X_train: dd.DataFrame, y_train: dd.DataFrame, model_name: str) -> None:
+    def fit(self, X_train: dd.DataFrame, y_train: dd.DataFrame, model_name: str) -> None:
 
         # -------------- Filenames, etc. --------------
 
@@ -385,22 +385,23 @@ class TFSLearner:
             sys.exit(1)
 
 
-    def test_model(self, X_test: dd.DataFrame, y_test: dd.DataFrame, model_name: str) -> None:
+    def predict(self, X_test: dd.DataFrame, model_name: str) -> None:
 
         # -------------- Model loading --------------
-
         model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
 
         with joblib.parallel_backend("dask"):
-            y_pred = model.predict(X_test.compute())
+            return model.predict(X_test.compute())
 
-        print(f"================= {model_name} testing metrics =================")
+
+    def evaluate_metrics(self, y_test: dd.DataFrame, y_pred: dd.DataFrame) -> dd.DataFrame:
+
         print("R^2: ", r2_score(y_true=y_test, y_pred=y_pred))
         print("Mean Absolute Error: ", mean_absolute_error(y_true=y_test, y_pred=y_pred))
         print("Mean Squared Error: ", mean_squared_error(y_true=y_test, y_pred=y_pred))
         print("Root Mean Squared Error: ", root_mean_squared_error(y_true=y_test, y_pred=y_pred))
 
-        return None
+        return
 
 
 
@@ -471,7 +472,7 @@ class OnePointForecaster:
     def _get_X(data: dd.DataFrame, target_col: str) -> dd.DataFrame:
         n_rows = data.shape[0].compute()
         p_70 = int(n_rows * 0.70)
-        return dd.from_delayed(delayed(data.drop(columns=[target_col]).head(p_70)).persist())
+        return dd.from_delayed(delayed(data.drop(columns=[target_col]).head(p_70)).persist()) # dd.from_delayed documentation: https://docs.dask.org/en/latest/generated/dask.dataframe.from_delayed.html
 
 
     @staticmethod
@@ -548,15 +549,6 @@ class OnePointForecaster:
 
             #print(predictions_dataset.compute().tail(200))
             return predictions_dataset.persist()
-
-
-    def forecast(self, data: dd.DataFrame, model_name: str) -> dd.DataFrame:
-
-        # -------------- Model loading --------------
-        model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
-
-        with joblib.parallel_backend("dask"):
-            return model.predict(data)
 
 
     @staticmethod
