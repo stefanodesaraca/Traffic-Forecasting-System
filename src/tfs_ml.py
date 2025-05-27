@@ -467,28 +467,32 @@ class OnePointForecaster:
             } for dt in pd.date_range(start=last_available_volumes_data_dt.strftime(dt_format), end=target_datetime.strftime(dt_format), freq="1h")), batch_size=max(1, math.ceil((target_datetime - last_available_volumes_data_dt).days * 0.20)))]).repartition(partition_size="512MB").persist()
 
 
-    def _get_volumes_X(self, data: dd.DataFrame) -> dd.DataFrame:
-
-        _
-
-
-
-        return
+    @staticmethod
+    def _get_volumes_X(data: dd.DataFrame) -> dd.DataFrame:
+        n_rows = data.shape[0].compute()
+        p_70 = int(n_rows * 0.70)
+        return dd.from_delayed(delayed(data.drop(columns=["volume"]).head(p_70)).persist())
 
 
-    def _get_volumes_y(self, data: dd.DataFrame) -> dd.DataFrame:
-
-        return
-
-
-    def _get_speeds_X(self, data: dd.DataFrame) -> dd.DataFrame:
-
-        return
+    @staticmethod
+    def _get_volumes_y(data: dd.DataFrame) -> dd.DataFrame:
+        n_rows = data.shape[0].compute()
+        p_70 = int(n_rows * 0.70)
+        return dd.from_delayed(delayed(data[["volume"]]).tail(n_rows - p_70)).persist()
 
 
-    def _get_speeds_y(self, data: dd.DataFrame) -> dd.DataFrame:
+    @staticmethod
+    def _get_speeds_X(data: dd.DataFrame) -> dd.DataFrame:
+        n_rows = data.shape[0].compute()
+        p_70 = int(n_rows * 0.70)
+        return dd.from_delayed(delayed(data.drop(columns=["mean_speed"]).head(p_70)).persist())
 
-        return
+
+    @staticmethod
+    def _get_speeds_y(data: dd.DataFrame) -> dd.DataFrame:
+        n_rows = data.shape[0].compute()
+        p_70 = int(n_rows * 0.70)
+        return dd.from_delayed(delayed(data[["mean_speed"]]).tail(n_rows - p_70)).persist()
 
 
     #TODO TO DIVIDE IN TWO PREPROCESSORS (TRAFFIC VOLUMES AND SPEEDS)
