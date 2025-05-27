@@ -1,5 +1,6 @@
 import os
 import time
+import math
 import gc
 import sys
 import traceback
@@ -416,12 +417,18 @@ class OnePointForecaster:
 
 
     def _get_future_records(self, target_datetime: datetime) -> dd.DataFrame:
+        """
+        Returns record of the future to predict.
 
-        target_datetime = target_datetime.strftime(dt_format)
-        last_available_volumes_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso).strftime(dt_format)
+        Parameters:
+            target_datetime: the target datetime which we want to predict data for and before
 
+        Returns:
+            A dask dataframe of empty records
+        """
+
+        last_available_volumes_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso)
         attr = {"volume": np.nan} if self._target == "traffic_volumes" else {"mean_speed": np.nan, "percentile_85": np.nan}
-
 
         def get_batches(iterable: list[dict[str, Any]] | Generator[dict[str, Any], None, None], batch_size: int) -> Generator[list[dict[str, Any]], Any, None, None]:
             """
@@ -446,7 +453,6 @@ class OnePointForecaster:
                     break
                 yield batch
 
-
         return dd.from_delayed([delayed(pd.DataFrame)(batch) for batch in get_batches(
             ({
                 **attr,
@@ -458,7 +464,7 @@ class OnePointForecaster:
                 "week": dt.strftime("%V"),
                 "date": dt.strftime("%Y-%m-%d"),
                 "trp_id": self._trp_id
-            } for dt in pd.date_range(start=last_available_volumes_data_dt, end=target_datetime, freq="1h")), batch_size=)]) #TODO THE BATCH SIZE SHOULD BE LIKE THE 25% OF THE WHOLE DATA. THEN CALL REPARTITION WITH 512MB AS SIZE
+            } for dt in pd.date_range(start=last_available_volumes_data_dt.strftime(dt_format), end=target_datetime.strftime(dt_format), freq="1h")), batch_size=max(1, math.ceil((target_datetime - last_available_volumes_data_dt).days * 0.20)))])
 
 
     def _get_volumes_X(self, data: dd.DataFrame) -> dd.DataFrame:
