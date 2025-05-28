@@ -10,6 +10,7 @@ import warnings
 from warnings import simplefilter
 from scipy import stats
 from datetime import datetime
+from enum import Enum
 from typing import Literal, Generator
 from pydantic import BaseModel as PydanticBaseModel, field_validator
 from pydantic.types import PositiveFloat
@@ -27,6 +28,12 @@ from dask_ml.model_selection import GridSearchCV
 
 from sklearn.base import BaseEstimator as ScikitLearnBaseEstimator
 from sklearn.model_selection import TimeSeriesSplit
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import (
+    RandomForestRegressor,
+    GradientBoostingRegressor,
+    HistGradientBoostingRegressor,
+)
 from sklearn.metrics import (
     make_scorer,
     r2_score,
@@ -50,6 +57,78 @@ pd.set_option("display.max_columns", None)
 
 dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
 dt_format = "%Y-%m-%dT%H"
+
+#TODO IN THE FUTURE THIS WOULD BE IMPLEMENTED THROUGH ENUMS
+#Be aware that too low parameters could bring some models to stall while training, so don't go too low with the grid search parameters
+grids = {
+    "traffic_volumes": {
+        "RandomForestRegressor": {
+            "n_estimators": [200, 400],
+            "max_depth": [
+                20,
+                40,
+            ],  # NOTE max_depth ABSOLUTELY SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE 10 CRASHES THE GRIDSEARCH ALGORITHM
+            "criterion": ["friedman_mse"],
+            "ccp_alpha": [0, 0.00002],  # ccp_alpha = 1 overfits
+        },
+        "DecisionTreeRegressor": {
+            "criterion": ["friedman_mse"],
+            "max_depth": [None, 100, 200],
+            "ccp_alpha": [0.0002, 0.00002],
+        },
+        "HistGradientBoostingRegressor": {
+            "max_iter": [500, 1500],
+            "max_depth": [None, 100],
+            "loss": ["absolute_error"],
+            "validation_fraction": [0.25],
+            "n_iter_no_change": [20],
+            "tol": [1e-7, 1e-4, 1e-3],
+            "l2_regularization": [0.001, 0.0001],
+        },
+    },
+    "average_speed": {
+        "RandomForestRegressor": {
+            "n_estimators": [100, 300],
+            "max_depth": [
+                40,
+                70,
+            ],  # NOTE max_depth ABSOLUTELY SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE 10 CRASHES THE GRIDSEARCH ALGORITHM
+            "criterion": [
+                "squared_error",
+                "friedman_mse",
+            ],  # Setting "absolute_error" within the metrics to try in the grid will raise errors due to the NaNs present in the lag features
+            "ccp_alpha": [0.002, 0.0002],  # ccp_alpha = 1 overfits
+        },
+        "DecisionTreeRegressor": {
+            "criterion": ["squared_error", "friedman_mse"],
+            "max_depth": [None, 30],
+            "ccp_alpha": [0, 0.0002, 0.00002],
+        },
+        "HistGradientBoostingRegressor": {
+            "max_iter": [100, 200, 300],
+            "max_depth": [None, 20, 50, 100],
+            "loss": ["absolute_error"],
+            "validation_fraction": [0.25],
+            "n_iter_no_change": [20, 50],
+            "tol": [1e-7, 1e-4, 1e-3],
+            "l2_regularization": [0, 0.001, 0.0001],
+        },
+    }
+}
+
+best_params = {
+    "traffic_volumes": {
+        "RandomForestRegressor": 1,
+        "HistGradientBoostingRegressor": 1,
+        "DecisionTreeRegressor": 1,
+    },
+    "average_speed": {
+        "RandomForestRegressor": 1,
+        "HistGradientBoostingRegressor": 1,
+        "DecisionTreeRegressor": 1,
+    }
+}
+
 
 
 class BaseModel(PydanticBaseModel):
@@ -246,6 +325,7 @@ class TFSPreprocessor:
 
 class ModelWrapper(BaseModel):
     model_obj: Any | None
+    fitting_params: dict[Any, Any]
 
 
     @field_validator("model_obj", mode="after")
@@ -261,8 +341,25 @@ class ModelWrapper(BaseModel):
 
 
     @property
+    def params(self) -> dict[Any, Any]:
+        """
+        Returns the current model's parameters at the time of the call of this method
+        """
+        return self.model_obj.get_params()
+
+
+    @property
     def fit_state(self):
         return self.model_obj.__sklearn_is_fitted__()
+
+
+    @property
+    def grid(self) -> dict[str, Any]:
+        """
+        Returns:
+            The model's grid
+        """
+        return grids[self._target][self._model.name]
 
 
     def set(self, model_object: Any) -> None:
@@ -289,13 +386,12 @@ class ModelWrapper(BaseModel):
             The trained model object
         """
 
-        params = self._get_pre_existing_model_parameters(self.name)  # Extracting the model parameters
-        model = model_definitions["class_instance"][self.name](**params)  # Unpacking the dictionary to set all parameters to instantiate the model's class object
+        model = model_definitions["class_instance"][self.name](**self.fitting_params)  # Unpacking the dictionary to set all parameters to instantiate the model's class object
 
         with joblib.parallel_backend("dask"):
             model.fit(X_train.compute(), y_train.compute())
 
-        print(f"Successfully trained {self.name} with parameters: {params}")
+        print(f"Successfully trained {self.name}")
 
         return self.model_obj
 
@@ -396,15 +492,6 @@ class TFSLearner:
         return joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + self._model.name + ".joblib")
 
 
-    # TODO THIS METHOD WILL BE MODIFIED WHEN THE NAMES OF THE TARGET VARIABLES WILL BE STANDARDIZED, POSSIBLY USING ENUMS
-    def _get_grid(self) -> dict[str, dict[str, Any]]:
-        """
-        Returns:
-            The model's grid
-        """
-        return grids[self._target][self._model.name]
-
-
     def _export_gridsearch_results(self, gridsearch_results: pd.DataFrame) -> None:
         """
         Exports GridSearchCV results to a JSON file
@@ -439,7 +526,7 @@ class TFSLearner:
         if self._target not in target_data.values():
             raise TargetVariableNotFoundError("Wrong target variable in GridSearchCV executor function")
 
-        grid = self._get_grid()
+        grid = self._model.grid
         model = self._model.get()
 
         t_start = datetime.now()
@@ -488,8 +575,8 @@ class TFSLearner:
             # print("GridSearchCV best combination index (in the results dataframe): ", gridsearch.best_index_, "\n", )
             # print(gridsearch.scorer_, "\n")
 
-            self._export_gridsearch_results(gridsearch_results, self._model.name)
-            self._export_gridsearch_results_test(gridsearch_results, self._model.name) #TODO TESTING
+            self._export_gridsearch_results(gridsearch_results)
+            self._export_gridsearch_results_test(gridsearch_results) #TODO TESTING
 
             #TODO EXPORT TRUE BEST PARAMETERS
 
