@@ -7,37 +7,6 @@ from sklearn.ensemble import (
 )
 from tfs_utils import retrieve_n_ml_cpus
 
-
-# ------------------- Functions that return the model instances -------------------
-
-def get_random_forest_regressor() -> RandomForestRegressor:
-    return RandomForestRegressor(
-        n_jobs=retrieve_n_ml_cpus(), random_state=100 # Has the max_depth, criterion (use squared_error, friedman_mse) n_estimators parameters
-    )
-
-
-def get_adaboost_regressor() -> AdaBoostRegressor:
-    return AdaBoostRegressor(
-        random_state=100
-    ) # Has the loss (use linear and square) and n_estimators parameters
-
-
-def get_gradient_boosting_regressor() -> GradientBoostingRegressor:
-    return GradientBoostingRegressor(
-        random_state=100
-    )  # Has the loss (use mean_squared_error and absolute_error), n_estimators, validation_fraction, n_iter_no_change, tol and max_depth parameters
-
-
-def get_decision_tree_regressor() -> DecisionTreeRegressor:
-    return DecisionTreeRegressor(random_state=100)  # Has max_depth parameter
-
-
-def get_histgradientboosting_regressor() -> HistGradientBoostingRegressor:
-    return HistGradientBoostingRegressor(
-        random_state=100
-    )  # Has the max_iter, max_depth parameters
-
-
 # ------------------- GridSearchCV Grids -------------------
 
 # Be aware that too low parameters could bring some models to stall while training, so don't go too low with the grid search parameters
@@ -103,11 +72,6 @@ grids = {
 #TODO SIMPLIFY THESE FIRST THREE DICTIONARIES
 
 model_definitions = {
-    "function": {
-        "RandomForestRegressor": get_random_forest_regressor,
-        "HistGradientBoostingRegressor": get_histgradientboosting_regressor,
-        "DecisionTreeRegressor": get_decision_tree_regressor,
-    },
     "class_instance":{
         "RandomForestRegressor": RandomForestRegressor,
         "HistGradientBoostingRegressor": HistGradientBoostingRegressor,

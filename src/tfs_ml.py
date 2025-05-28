@@ -386,32 +386,26 @@ class TFSLearner:
             return json.load(parameters_file)[model]
 
 
-    def _load_model(self, model: str) -> Any:
+    def _load_model(self) -> Any:
         """
         Loads pre-existing model from its corresponding joblib file
-
-        Parameters:
-            model: the model name
 
         Returns:
             The model object
         """
-        return joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model + ".joblib")
+        return joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + self._model.name + ".joblib")
 
 
     # TODO THIS METHOD WILL BE MODIFIED WHEN THE NAMES OF THE TARGET VARIABLES WILL BE STANDARDIZED, POSSIBLY USING ENUMS
-    def _get_grid(self, model: str) -> dict[str, dict[str, Any]]:
+    def _get_grid(self) -> dict[str, dict[str, Any]]:
         """
-        Parameters:
-            model: the name of the model which we want to collect the grid for
-
         Returns:
             The model's grid
         """
-        return grids[self._target][model]
+        return grids[self._target][self._model.name]
 
 
-    def _export_gridsearch_results(self, gridsearch_results: pd.DataFrame, model: str) -> None:
+    def _export_gridsearch_results(self, gridsearch_results: pd.DataFrame) -> None:
         """
         Exports GridSearchCV results to a JSON file
 
@@ -423,26 +417,24 @@ class TFSLearner:
             None
         """
 
-        true_best_params = {model: gridsearch_results["params"].loc[best_params[self._target][model]]} or {}
-        true_best_params.update(model_definitions["auxiliary_parameters"][model]) # This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
-        true_best_params["best_GridSearchCV_model_index"] = best_params[self._target][model]
+        true_best_params = {self._model.name: gridsearch_results["params"].loc[best_params[self._target][self._model.name]]} or {}
+        true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) # This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
+        true_best_params["best_GridSearchCV_model_index"] = best_params[self._target][self._model.name]
         true_best_params["best_GridSearchCV_model_scores"] = gridsearch_results.loc[true_best_params["best_GridSearchCV_model_index"]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
-        with open(get_models_parameters_folder_path(target=self._target, road_category=self._road_category) + (get_active_ops() + "_" + self._road_category + "_" + model + "_" + "parameters") + ".json", "w", encoding="utf-8") as params_file:
+        with open(get_models_parameters_folder_path(target=self._target, road_category=self._road_category) + (get_active_ops() + "_" + self._road_category + "_" + self._model.name + "_" + "parameters") + ".json", "w", encoding="utf-8") as params_file:
             json.dump(true_best_params, params_file, indent=4)
 
         return None
 
 
     # TODO TESTING FUNCTION
-    def _export_gridsearch_results_test(self, gridsearch_results: pd.DataFrame, model: str) -> None:
-        gridsearch_results.to_json(f"./ops/{self._road_category}_{model}_gridsearch.json", indent=4)
+    def _export_gridsearch_results_test(self, gridsearch_results: pd.DataFrame) -> None:
+        gridsearch_results.to_json(f"./ops/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
         return None
 
 
-
-    # TODO RENAME "model_name" INTO SOMETHING ELSE IN ALL FUNCTIONS THAT HAVE model_name AS A PARAMETER
-    def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> None: #TODO REMOVE THE model_name PARAMETER. IDEALLY gridsearch() WOULD JUST HAVE X_train AND y_train
+    def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> None:
 
         if self._target not in target_data.values():
             raise TargetVariableNotFoundError("Wrong target variable in GridSearchCV executor function")
