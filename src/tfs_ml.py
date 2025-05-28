@@ -7,6 +7,7 @@ import traceback
 import logging
 from datetime import datetime
 from typing import Literal, Generator
+from pydantic import BaseModel as PydanticBaseModel, field_validator
 from pydantic.types import PositiveFloat
 
 import numpy as np
@@ -25,6 +26,7 @@ import joblib
 from dask_ml.preprocessing import MinMaxScaler, LabelEncoder
 from dask_ml.model_selection import GridSearchCV
 
+from sklearn.base import BaseEstimator as ScikitLearnBaseEstimator
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import (
     make_scorer,
@@ -34,6 +36,9 @@ from sklearn.metrics import (
     root_mean_squared_error,
     PredictionErrorDisplay
 )
+
+from sktime.base import BaseEstimator as SktimeBaseEstimator
+from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastingBaseModel
 
 from tfs_exceptions import *
 from tfs_utils import *
@@ -46,6 +51,11 @@ pd.set_option("display.max_columns", None)
 
 dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
 dt_format = "%Y-%m-%dT%H"
+
+
+class BaseModel(PydanticBaseModel):
+    class Config:
+        arbitrary_types_allowed = True
 
 
 
@@ -235,6 +245,53 @@ class TFSPreprocessor:
 
 
 
+class ModelWrapper(BaseModel):
+    model_obj: Any | None
+
+
+    @staticmethod
+    def _is_sklearn_model(obj: Any) -> bool:
+        return isinstance(obj, ScikitLearnBaseEstimator)
+
+
+    @staticmethod
+    def _is_pytorch_forecasting_model(obj: Any) -> bool:
+        return isinstance(obj, PyTorchForecastingBaseModel)
+
+
+    @staticmethod
+    def is_sktime_model(obj: Any) -> bool:
+        return isinstance(obj, SktimeBaseEstimator)
+
+
+    @field_validator("model_obj", mode="after")
+    def validate_model_obj(self, model_obj) -> ScikitLearnBaseEstimator | PyTorchForecastingBaseModel | SktimeBaseEstimator:
+        if not isinstance(model_obj, ScikitLearnBaseEstimator | PyTorchForecastingBaseModel | SktimeBaseEstimator):
+            raise WrongEstimatorTypeError(f"Object passed is not an estimator accepted from this class. Type of the estimator received: {type(model_obj)}")
+        return model_obj
+
+
+    @property
+    def name(self) -> str:
+        return self.model_obj.__class__.__name__
+
+
+    @property
+    def fit_state(self):
+        return self.model_obj.__sklearn_is_fitted__()
+
+
+    def set(self, model_object: Any) -> None:
+        setattr(self, "model_obj", model_object)
+        return None
+
+
+    def get(self) -> None:
+        getattr(self, "model_obj")
+        return None
+
+
+
 class TFSLearner:
     """
     The base class for other classes which implement machine learning or statistical methods to learn a predict traffic volumes, average speed or other data about traffic.
@@ -242,7 +299,7 @@ class TFSLearner:
         client: a Dask distributed local cluster client to use to distribute processes
     """
 
-    def __init__(self, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None):
+    def __init__(self, model: Any, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None, **kwargs: Any):
         self._scorer: dict = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
@@ -252,6 +309,45 @@ class TFSLearner:
         self._client: Client = client
         self._road_category: str = road_category
         self._target: Literal["traffic_volumes", "average_speed"] = target
+        self._model: ModelWrapper = ModelWrapper(model_obj=model)
+
+
+    def _get_model(self, model: str) -> Any:
+        """
+        Parameters:
+            model: the name of the model which we want to collect the class of
+
+        Returns:
+            The model object
+        """
+        return model_definitions["function"][model]()
+
+
+    def _get_pre_existing_model_parameters(self, model: str) -> dict[str, Any]:
+        """
+        Reads a pre-existing model's parameters from its json file and returns them as a dictionary
+
+        Parameters:
+            model: the model name
+
+        Returns:
+            A dictionary with the model's parameters
+        """
+        with open(get_models_parameters_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model + "_" + "parameters" + ".json", "r", encoding="utf-8") as parameters_file:
+            return json.load(parameters_file)[model]
+
+
+    def _load_model(self, model: str) -> Any:
+        """
+        Loads pre-existing model from its corresponding joblib file
+
+        Parameters:
+            model: the model name
+
+        Returns:
+            The model object
+        """
+        return joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model + ".joblib")
 
 
     # TODO THIS METHOD WILL BE MODIFIED WHEN THE NAMES OF THE TARGET VARIABLES WILL BE STANDARDIZED, POSSIBLY USING ENUMS
@@ -266,18 +362,7 @@ class TFSLearner:
         return grids[self._target][model]
 
 
-    def _get_model(self, model: str) -> Any:
-        """
-        Parameters:
-            model: the name of the model which we want to collect the class of
-
-        Returns:
-            The model object
-        """
-        return model_definitions["function"][model]()
-
-
-    def _export_gridsearch_results(self, gridsearch_results: pd.DataFrame, model: Any) -> None:
+    def _export_gridsearch_results(self, gridsearch_results: pd.DataFrame, model: str) -> None:
         """
         Exports GridSearchCV results to a JSON file
 
@@ -306,31 +391,13 @@ class TFSLearner:
         return None
 
 
-    def _get_pre_existing_model_parameters(self, model: str) -> dict[str, Any]:
-        """
-        Reads a pre-existing model's parameters from its json file and returns them as a dictionary
+    def set(self, model: str) -> None:
 
-        Parameters:
-            model: the model name
-
-        Returns:
-            A dictionary with the model's parameters
-        """
-        with open(get_models_parameters_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model + "_" + "parameters" + ".json", "r", encoding="utf-8") as parameters_file:
-            return json.load(parameters_file)[model]
+        self.__setattr__()
 
 
-    def _load_model(self, model: str) -> Any:
-        """
-        Loads pre-existing model from its corresponding joblib file
+        return None
 
-        Parameters:
-            model: the model name
-
-        Returns:
-            The model object
-        """
-        return joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model + ".joblib")
 
 
     # TODO RENAME "model_name" INTO SOMETHING ELSE IN ALL FUNCTIONS THAT HAVE model_name AS A PARAMETER
@@ -403,7 +470,18 @@ class TFSLearner:
 
 
     #TODO TO IMPROVE AND SIMPLIFY THIS METHOD
-    def fit(self, X_train: dd.DataFrame, y_train: dd.DataFrame, model_name: str) -> None:
+    def fit(self, X_train: dd.DataFrame, y_train: dd.DataFrame, model: str) -> Any:
+        """
+        Trains the model on the imputed data
+
+        Parameters:
+            X_train: predictors variables' data
+            y_train: the target variable's data
+            model: the model's name
+
+        Returns:
+            The trained model object
+        """
 
         params = self._get_pre_existing_model_parameters(model_name)  # Extracting the model parameters
         model = model_definitions["class_instance"][model_name](**params)  # Unpacking the dictionary to set all parameters to instantiate the model's class object
