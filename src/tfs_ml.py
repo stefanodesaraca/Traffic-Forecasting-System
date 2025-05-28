@@ -63,34 +63,109 @@ class TFSPreprocessor:
     @staticmethod
     def sin_encoder(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
         """
-        The timeframe indicates a number of days.
-        Details:
-            - The order of the function parameters has a specific reason. Since this function will be used with Dask's map_partition() (which takes a function and its parameters as input), it's important that the first parameter
-              of sin_transformer is actually the data where to execute the transformation itself by map_partition()
+        Apply sine transformation for cyclical encoding.
+
+        Parameters
+        ----------
+        data : dd.Series or dd.DataFrame
+            The data where to execute the transformation.
+        timeframe : int
+            A number of days indicating the timeframe for the cyclical transformation.
+
+        Returns
+        -------
+        dd.Series or dd.DataFrame
+            The sine-transformed data.
+
+        Notes
+        -----
+        The order of the function parameters has a specific reason. Since this function
+        will be used with Dask's map_partition() (which takes a function and its parameters
+        as input), it's important that the first parameter of sin_transformer is actually
+        the data where to execute the transformation itself by map_partition().
+
+        For more information about Dask's map_partition() function:
+        https://docs.dask.org/en/stable/generated/dask.dataframe.DataFrame.map_partitions.html
         """
-        # For more information about Dask's map_partition() function: https://docs.dask.org/en/stable/generated/dask.dataframe.DataFrame.map_partitions.html
         return np.sin(data * (2.0 * np.pi / timeframe))
 
 
     @staticmethod
     def cos_encoder(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
         """
-        The timeframe indicates a number of days
-        Details:
-            - The order of the function parameters has a specific reason. Since this function will be used with Dask's map_partition() (which takes a function and its parameters as input), it's important that the first parameter
-              of sin_transformer is actually the data where to execute the transformation itself by map_partition()
+        Apply cosine transformation for cyclical encoding.
+
+        Parameters
+        ----------
+        data : dd.Series or dd.DataFrame
+            The data where to execute the transformation.
+        timeframe : int
+            A number of days indicating the timeframe for the cyclical transformation.
+
+        Returns
+        -------
+        dd.Series or dd.DataFrame
+            The cosine-transformed data.
+
+        Notes
+        -----
+        The order of the function parameters has a specific reason. Since this function
+        will be used with Dask's map_partition() (which takes a function and its parameters
+        as input), it's important that the first parameter of sin_transformer is actually
+        the data where to execute the transformation itself by map_partition().
+
+        For more information about Dask's map_partition() function:
+        https://docs.dask.org/en/stable/generated/dask.dataframe.DataFrame.map_partitions.html
         """
-        # For more information about Dask's map_partition() function: https://docs.dask.org/en/stable/generated/dask.dataframe.DataFrame.map_partitions.html
         return np.cos((data - 1) * (2.0 * np.pi / timeframe))
 
 
     @staticmethod
     def arctan2_decoder(sin_val: float, cos_val: float) -> int | float:  # TODO VERIFY IF IT'S ACTUALLY AN INT (IF SO REMOVE | float)
+        """
+        Decode cyclical features using arctan2 function.
+
+        Parameters
+        ----------
+        sin_val : float
+            The sine component value.
+        cos_val : float
+            The cosine component value.
+
+        Returns
+        -------
+        int or float
+            The decoded angle in degrees.
+        """
         angle_rad = np.arctan2(sin_val, cos_val)
         return (angle_rad * 360) / (2 * np.pi)
 
 
     def preprocess_volumes(self, z_score: bool = True) -> dd.DataFrame:
+        """
+        Preprocess traffic volume data for machine learning models.
+
+        Parameters
+        ----------
+        z_score : bool, default=True
+            Whether to apply Z-score outlier filtering.
+
+        Returns
+        -------
+        dd.DataFrame
+            The preprocessed traffic volume dataframe ready for ML models.
+
+        Notes
+        -----
+        This method performs the following preprocessing steps:
+        1. Cyclical variables encoding (hour, week, day, month)
+        2. Outliers filtering with Z-Score (optional)
+        3. TRP ID Target-Encoding
+        4. Variables normalization
+        5. Creating lag features (6h, 12h, 24h)
+        6. Creating COVID dummy variables
+        7. Dropping unnecessary columns
+        """
 
         # ------------------ Cyclical variables encoding ------------------
 
@@ -163,6 +238,30 @@ class TFSPreprocessor:
 
 
     def preprocess_speeds(self, z_score: bool = True) -> dd.DataFrame:
+        """
+        Preprocess average speed data for machine learning models.
+
+        Parameters
+        ----------
+        z_score : bool, default=True
+            Whether to apply Z-score outlier filtering.
+
+        Returns
+        -------
+        dd.DataFrame
+            The preprocessed average speed dataframe ready for ML models.
+
+        Notes
+        -----
+        This method performs the following preprocessing steps:
+        1. Cyclical variables encoding (hour_start, week, day, month)
+        2. Outliers filtering with Z-Score (optional)
+        3. TRP ID Target-Encoding
+        4. Variables normalization
+        5. Creating lag features for mean_speed and percentile_85 (6h, 12h, 24h)
+        6. Creating COVID dummy variables
+        7. Dropping unnecessary columns
+        """
 
         # ------------------ Cyclical variables encoding ------------------
 
