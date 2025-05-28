@@ -5,22 +5,22 @@ import gc
 import sys
 import traceback
 import logging
+import pickle
+import warnings
+from warnings import simplefilter
+from scipy import stats
 from datetime import datetime
 from typing import Literal, Generator
 from pydantic import BaseModel as PydanticBaseModel, field_validator
 from pydantic.types import PositiveFloat
 import numpy as np
-import pickle
-import warnings
-from warnings import simplefilter
 import pandas as pd
 import matplotlib.pyplot as plt
-from scipy import stats
+import joblib
 
 from dask import delayed, compute
 import dask.dataframe as dd
 from dask.distributed import Client
-import joblib
 
 from dask_ml.preprocessing import MinMaxScaler, LabelEncoder
 from dask_ml.model_selection import GridSearchCV
@@ -270,9 +270,11 @@ class ModelWrapper(BaseModel):
         return None
 
 
-    def get(self) -> None:
-        getattr(self, "model_obj")
-        return None
+    def get(self) -> Any:
+        if self.model_obj:
+            return self.model_obj
+        else:
+            raise ModelNotSetError("Model not passed to the wrapper class")
 
 
     def fit(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> Any:
@@ -457,7 +459,7 @@ class TFSLearner:
             raise TargetVariableNotFoundError("Wrong target variable in GridSearchCV executor function")
 
         grid = self._get_grid()
-        model = self._get_model()
+        model = self._model.get()
 
         t_start = datetime.now()
         print(f"{model_name} GridSearchCV started at {t_start}\n")
