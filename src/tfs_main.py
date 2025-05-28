@@ -14,6 +14,7 @@ from tfs_utils import *
 from tfs_cleaning import *
 from tfs_ml import *
 from tfs_road_network import *
+from tfs_ml_configs import *
 
 dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
 
@@ -144,7 +145,7 @@ def execute_eda() -> None:
 
 # TODO IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL. EXPLICITELY PRINT THAT FILES METADATA IS NEEDED BEFORE EXECUTING THE WARMUP
 def execute_forecast_warmup(functionality: str) -> None:
-    models = [m for m in model_definitions["class_instance"].keys()]
+    models = model_definitions["class_instance"].values()
     clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
     clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
     road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
@@ -286,7 +287,7 @@ def execute_forecasts(functionality: str) -> None:
                 forecaster, method, preprocessed_data = get_forecaster(option, trp_id, trp_road_category, target_data[option])
 
                 if forecaster:
-                    for model_name in model_names_and_functions.keys():
+                    for model_name in model_definitions["class_instances"].keys():
                         results = getattr(forecaster, method)(preprocessed_data, model_name=model_name)
                         print(results)
             else:

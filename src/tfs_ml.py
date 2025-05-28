@@ -801,7 +801,6 @@ class TFSLearner:
 
 
 
-
 class OnePointForecaster:
     """
     self.trp_road_category: to find the right model to predict the data
@@ -816,13 +815,17 @@ class OnePointForecaster:
 
     def _get_future_records(self, target_datetime: datetime) -> dd.DataFrame:
         """
-        Returns record of the future to predict.
+        Generate records of the future to predict.
 
-        Parameters:
-            target_datetime: the target datetime which we want to predict data for and before
+        Parameters
+        ----------
+        target_datetime : datetime
+            The target datetime which we want to predict data for and before.
 
-        Returns:
-            A dask dataframe of empty records
+        Returns
+        -------
+        dd.DataFrame
+            A dask dataframe of empty records for future predictions.
         """
 
         last_available_volumes_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso)
@@ -867,34 +870,68 @@ class OnePointForecaster:
 
     @staticmethod
     def _get_X(data: dd.DataFrame, target_col: str) -> dd.DataFrame:
-        n_rows = data.shape[0].compute()
-        p_70 = int(n_rows * 0.70)
-        return dd.from_delayed(delayed(data.drop(columns=[target_col]).head(p_70)).persist()) # dd.from_delayed documentation: https://docs.dask.org/en/latest/generated/dask.dataframe.from_delayed.html
+        """
+        Extract predictor variables' data from the dataset.
+
+        Parameters
+        ----------
+        data : dd.DataFrame
+            The input dataset.
+        target_col : str
+            The name of the target column to exclude.
+
+        Returns
+        -------
+        dd.DataFrame
+            Predictor variables' data
+        """
+        return data.drop(columns=[target_col]).persist() # dd.from_delayed documentation: https://docs.dask.org/en/latest/generated/dask.dataframe.from_delayed.html
 
 
     @staticmethod
     def _get_y(data: dd.DataFrame, target_col: str) -> dd.DataFrame:
-        n_rows = data.shape[0].compute()
-        p_70 = int(n_rows * 0.70)
-        return dd.from_delayed(delayed(data[[target_col]]).tail(n_rows - p_70)).persist()
+        """
+        Extract target variable's data from the dataset.
+
+        Parameters
+        ----------
+        data : dd.DataFrame
+            The input dataset.
+        target_col : str
+            The name of the target column.
+
+        Returns
+        -------
+        dd.DataFrame
+            Target variable's data
+        """
+        return data[[target_col]].persist()
 
 
     #TODO TO DIVIDE IN TWO PREPROCESSORS (TRAFFIC VOLUMES AND SPEEDS)
     def preprocess(self, target_datetime: datetime) -> dd.DataFrame:
         """
-        Parameters:
-            target_datetime: the target datetime which the user wants to predict data for
+        Preprocess data for single-point forecasting.
 
-        Returns:
-            A dask dataframe containing the dataset that will be used for the predictions
+        Parameters
+        ----------
+        target_datetime : datetime
+            The target datetime which the user wants to predict data for.
+
+        Returns
+        -------
+        dd.DataFrame
+            A dask dataframe containing the dataset that will be used for predictions.
+
+        Notes
+        -----
+        Function workflow:
+        1. Calculate the number of hours from the last available datetime to target datetime
+        2. For each hour to predict, use 24 hours in the past as reference
+        3. Get exactly n rows from the TRP's individual data (n = h * 24, h = hours to predict)
+        4. Create n rows for each specific hour of the future to predict
+        5. Return the new dataset ready to be fed to the model
         """
-        # Function workflow:
-        # 1. Receiving the target datetime to predict as formal parameter of the function we'll:
-        # 2. Calculate the number of hours from the last datetime available for the trp which we want to predict the data for and the nth day in the future
-        # 3. Once the number of hours to predict has been calculated we'll multiply it by 24, which means that for each hour to predict we'll use 24 hours in the past as reference
-        # 4. We'll get exactly n rows from the TRP's individual data (where n = d * 24 and d is the number of days in the future to predict)
-        # 5. We'll create n rows (where each row will be one specific hour of the future to predict)
-        # 6. Finally, we'll return the new dataset ready to be fed to the model
 
         target_datetime = target_datetime.strftime(dt_format)
         last_available_volumes_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso).strftime(dt_format)
@@ -950,6 +987,29 @@ class OnePointForecaster:
 
     @staticmethod
     def export_predictions(y_preds: dd.DataFrame, predictions_metadata: dict[Any, Any], predictions_filepath: str, metadata_filepath: str) -> None:
+        """
+        Export predictions and metadata to files.
+
+        Parameters
+        ----------
+        y_preds : dd.DataFrame
+            The predicted values to export.
+        predictions_metadata : dict[Any, Any]
+            Metadata associated with the predictions.
+        predictions_filepath : str
+            File path for saving predictions.
+        metadata_filepath : str
+            File path for saving metadata.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        Exports predictions as CSV and metadata as JSON. Handles exceptions
+        gracefully by printing error messages if export fails.
+        """
         try:
             with open(metadata_filepath, "w") as m:
                 json.dump(predictions_metadata, m, indent=4)
