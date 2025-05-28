@@ -249,21 +249,6 @@ class ModelWrapper(BaseModel):
     model_obj: Any | None
 
 
-    @staticmethod
-    def _is_sklearn_model(obj: Any) -> bool:
-        return isinstance(obj, ScikitLearnBaseEstimator)
-
-
-    @staticmethod
-    def _is_pytorch_forecasting_model(obj: Any) -> bool:
-        return isinstance(obj, PyTorchForecastingBaseModel)
-
-
-    @staticmethod
-    def is_sktime_model(obj: Any) -> bool:
-        return isinstance(obj, SktimeBaseEstimator)
-
-
     @field_validator("model_obj", mode="after")
     def validate_model_obj(self, model_obj) -> ScikitLearnBaseEstimator | PyTorchForecastingBaseModel | SktimeBaseEstimator:
         if not isinstance(model_obj, ScikitLearnBaseEstimator | PyTorchForecastingBaseModel | SktimeBaseEstimator):
