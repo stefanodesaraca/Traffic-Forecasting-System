@@ -5,27 +5,35 @@ import gc
 import sys
 import traceback
 import logging
-from datetime import datetime
-from typing import Literal, Generator
-from pydantic.types import PositiveFloat
-
-import numpy as np
 import pickle
 import warnings
 from warnings import simplefilter
+from scipy import stats
+from datetime import datetime
+from enum import Enum
+from typing import Literal, Generator
+from pydantic import BaseModel as PydanticBaseModel, field_validator
+from pydantic.types import PositiveFloat
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from scipy import stats
+import joblib
 
 from dask import delayed, compute
 import dask.dataframe as dd
 from dask.distributed import Client
-import joblib
 
 from dask_ml.preprocessing import MinMaxScaler, LabelEncoder
 from dask_ml.model_selection import GridSearchCV
 
+from sklearn.base import BaseEstimator as ScikitLearnBaseEstimator
 from sklearn.model_selection import TimeSeriesSplit
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import (
+    RandomForestRegressor,
+    GradientBoostingRegressor,
+    HistGradientBoostingRegressor,
+)
 from sklearn.metrics import (
     make_scorer,
     r2_score,
@@ -35,8 +43,11 @@ from sklearn.metrics import (
     PredictionErrorDisplay
 )
 
+from sktime.base import BaseEstimator as SktimeBaseEstimator
+from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastingBaseModel
+
+from tfs_exceptions import *
 from tfs_utils import *
-from tfs_models import *
 
 
 simplefilter(action="ignore", category=FutureWarning)
@@ -45,6 +56,83 @@ pd.set_option("display.max_columns", None)
 
 dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
 dt_format = "%Y-%m-%dT%H"
+
+#TODO IN THE FUTURE THIS WOULD BE IMPLEMENTED THROUGH ENUMS
+#Be aware that too low parameters could bring some models to stall while training, so don't go too low with the grid search parameters
+grids = {
+    "traffic_volumes": {
+        "RandomForestRegressor": {
+            "n_estimators": [200, 400],
+            "max_depth": [
+                20,
+                40,
+            ],  # NOTE max_depth ABSOLUTELY SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE 10 CRASHES THE GRIDSEARCH ALGORITHM
+            "criterion": ["friedman_mse"],
+            "ccp_alpha": [0, 0.00002],  # ccp_alpha = 1 overfits
+        },
+        "DecisionTreeRegressor": {
+            "criterion": ["friedman_mse"],
+            "max_depth": [None, 100, 200],
+            "ccp_alpha": [0.0002, 0.00002],
+        },
+        "HistGradientBoostingRegressor": {
+            "max_iter": [500, 1500],
+            "max_depth": [None, 100],
+            "loss": ["absolute_error"],
+            "validation_fraction": [0.25],
+            "n_iter_no_change": [20],
+            "tol": [1e-7, 1e-4, 1e-3],
+            "l2_regularization": [0.001, 0.0001],
+        },
+    },
+    "average_speed": {
+        "RandomForestRegressor": {
+            "n_estimators": [100, 300],
+            "max_depth": [
+                40,
+                70,
+            ],  # NOTE max_depth ABSOLUTELY SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE 10 CRASHES THE GRIDSEARCH ALGORITHM
+            "criterion": [
+                "squared_error",
+                "friedman_mse",
+            ],  # Setting "absolute_error" within the metrics to try in the grid will raise errors due to the NaNs present in the lag features
+            "ccp_alpha": [0.002, 0.0002],  # ccp_alpha = 1 overfits
+        },
+        "DecisionTreeRegressor": {
+            "criterion": ["squared_error", "friedman_mse"],
+            "max_depth": [None, 30],
+            "ccp_alpha": [0, 0.0002, 0.00002],
+        },
+        "HistGradientBoostingRegressor": {
+            "max_iter": [100, 200, 300],
+            "max_depth": [None, 20, 50, 100],
+            "loss": ["absolute_error"],
+            "validation_fraction": [0.25],
+            "n_iter_no_change": [20, 50],
+            "tol": [1e-7, 1e-4, 1e-3],
+            "l2_regularization": [0, 0.001, 0.0001],
+        },
+    }
+}
+
+best_params = {
+    "traffic_volumes": {
+        "RandomForestRegressor": 1,
+        "HistGradientBoostingRegressor": 1,
+        "DecisionTreeRegressor": 1,
+    },
+    "average_speed": {
+        "RandomForestRegressor": 1,
+        "HistGradientBoostingRegressor": 1,
+        "DecisionTreeRegressor": 1,
+    }
+}
+
+
+
+class BaseModel(PydanticBaseModel):
+    class Config:
+        arbitrary_types_allowed = True
 
 
 
@@ -234,6 +322,131 @@ class TFSPreprocessor:
 
 
 
+class ModelWrapper(BaseModel):
+    model_obj: Any | None
+    fitting_params: dict[Any, Any]
+
+
+    @field_validator("model_obj", mode="after")
+    def validate_model_obj(self, model_obj) -> ScikitLearnBaseEstimator | PyTorchForecastingBaseModel | SktimeBaseEstimator:
+        if not isinstance(model_obj, ScikitLearnBaseEstimator | PyTorchForecastingBaseModel | SktimeBaseEstimator):
+            raise WrongEstimatorTypeError(f"Object passed is not an estimator accepted from this class. Type of the estimator received: {type(model_obj)}")
+        return model_obj
+
+
+    @property
+    def name(self) -> str:
+        return self.model_obj.__class__.__name__
+
+
+    @property
+    def params(self) -> dict[Any, Any]:
+        """
+        Returns the current model's parameters at the time of the call of this method
+        """
+        return self.model_obj.get_params()
+
+
+    @property
+    def fit_state(self):
+        return self.model_obj.__sklearn_is_fitted__()
+
+
+    @property
+    def grid(self) -> dict[str, Any]:
+        """
+        Returns:
+            The model's grid
+        """
+        return grids[self._target][self._model.name]
+
+
+    def set(self, model_object: Any) -> None:
+        setattr(self, "model_obj", model_object)
+        return None
+
+
+    def get(self) -> Any:
+        if self.model_obj:
+            return self.model_obj
+        else:
+            raise ModelNotSetError("Model not passed to the wrapper class")
+
+
+    def fit(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> Any:
+        """
+        Trains the model on the imputed data
+
+        Parameters:
+            X_train: predictors variables' data
+            y_train: the target variable's data
+
+        Returns:
+            The trained model object
+        """
+
+        model = model_definitions["class_instance"][self.name](**self.fitting_params)  # Unpacking the dictionary to set all parameters to instantiate the model's class object
+
+        with joblib.parallel_backend("dask"):
+            model.fit(X_train.compute(), y_train.compute())
+
+        print(f"Successfully trained {self.name}")
+
+        return self.model_obj
+
+
+    def predict(self, X_test: dd.DataFrame) -> Any:
+        if isinstance(self.model_obj, ScikitLearnBaseEstimator):
+            with joblib.parallel_backend("dask"):
+                return self.model_obj.predict(X_test.compute())
+        elif isinstance(self.model_obj, PyTorchForecastingBaseModel):
+            pass #TODO STILL TO IMPLEMENT
+        elif isinstance(self.model_obj, SktimeBaseEstimator):
+            pass #TODO STILL TO IMPLEMENT
+        else:
+            raise TypeError(f"Unsupported model type: {type(self.model_obj)}")
+
+
+    @staticmethod
+    def evaluate(y_test: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, Any]:
+        """
+        Calculates the prediction errors for data that's already been recorded to test the accuracy of one or more models.
+
+        Parameters:
+            y_test: the true values of the target variable
+            y_pred: the predicted values of the target variable
+
+        Returns:
+            A dictionary of errors (positive floats) for each error metric.
+        """
+        return {"r2": np.round(r2_score(y_true=y_test, y_pred=y_pred), 4),
+                "mean_absolute_error": np.round(mean_absolute_error(y_true=y_test, y_pred=y_pred), 4),
+                "mean_squared_error": np.round(mean_squared_error(y_true=y_test, y_pred=y_pred), 4),
+                "root_mean_squared_error": np.round(root_mean_squared_error(y_true=y_test, y_pred=y_pred), 4)}
+
+
+    def export(self, filepath: str) -> None:
+        """
+        Exports the model into joblib and pickle format
+
+        Parameters:
+            filepath: the full filepath with filename included without file extension
+
+        Returns:
+            None
+        """
+        try:
+            joblib.dump(self.model_obj, filepath + ".joblib", protocol=pickle.HIGHEST_PROTOCOL)
+            with open(filepath + ".pkl", "wb") as ml_pkl_file:
+                pickle.dump(self.model_obj, ml_pkl_file, protocol=pickle.HIGHEST_PROTOCOL)
+            return None
+        except Exception as e:
+            logging.error(traceback.format_exc())
+            print(f"\033[91mCouldn't export trained model. Safely exited the program. Error: {e}\033[0m")
+            sys.exit(1)
+
+
+
 class TFSLearner:
     """
     The base class for other classes which implement machine learning or statistical methods to learn a predict traffic volumes, average speed or other data about traffic.
@@ -241,7 +454,7 @@ class TFSLearner:
         client: a Dask distributed local cluster client to use to distribute processes
     """
 
-    def __init__(self, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None):
+    def __init__(self, model: Any, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None, **kwargs: Any):
         self._scorer: dict = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
@@ -251,29 +464,76 @@ class TFSLearner:
         self._client: Client = client
         self._road_category: str = road_category
         self._target: Literal["traffic_volumes", "average_speed"] = target
+        self._model: ModelWrapper = ModelWrapper(model_obj=model)
 
 
-    def gridsearch(self, X_train, y_train, model_name: str) -> None:
+    def _get_pre_existing_model_parameters(self, model: str) -> dict[str, Any]:
+        """
+        Reads a pre-existing model's parameters from its json file and returns them as a dictionary
+
+        Parameters:
+            model: the model name
+
+        Returns:
+            A dictionary with the model's parameters
+        """
+        with open(get_models_parameters_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model + "_" + "parameters" + ".json", "r", encoding="utf-8") as parameters_file:
+            return json.load(parameters_file)[model]
+
+
+    def _load_model(self) -> Any:
+        """
+        Loads pre-existing model from its corresponding joblib file
+
+        Returns:
+            The model object
+        """
+        return joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + self._model.name + ".joblib")
+
+
+    def _export_gridsearch_results(self, gridsearch_results: pd.DataFrame) -> None:
+        """
+        Exports GridSearchCV results to a JSON file
+
+        Parameters:
+            gridsearch_results: the actual gridsearch results as a pandas dataframe
+            model: the name of the model for which the grid search took place
+
+        Returns:
+            None
+        """
+
+        true_best_params = {self._model.name: gridsearch_results["params"].loc[best_params[self._target][self._model.name]]} or {}
+        true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) # This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
+        true_best_params["best_GridSearchCV_model_index"] = best_params[self._target][self._model.name]
+        true_best_params["best_GridSearchCV_model_scores"] = gridsearch_results.loc[true_best_params["best_GridSearchCV_model_index"]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
+
+        with open(get_models_parameters_folder_path(target=self._target, road_category=self._road_category) + (get_active_ops() + "_" + self._road_category + "_" + self._model.name + "_" + "parameters") + ".json", "w", encoding="utf-8") as params_file:
+            json.dump(true_best_params, params_file, indent=4)
+
+        return None
+
+
+    # TODO TESTING FUNCTION
+    def _export_gridsearch_results_test(self, gridsearch_results: pd.DataFrame) -> None:
+        gridsearch_results.to_json(f"./ops/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
+        return None
+
+
+    def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> None:
 
         if self._target not in target_data.values():
-            raise Exception("Wrong target variable in GridSearchCV executor function")
+            raise TargetVariableNotFoundError("Wrong target variable in GridSearchCV executor function")
 
-        grids = {"traffic_volumes": volumes_models_gridsearch_parameters[model_name],
-                 "average_speed": speeds_models_gridsearch_parameters[model_name]}
-        best_params = {"traffic_volumes": volumes_best_parameters_by_model,
-                       "average_speed": speeds_best_parameters_by_model}
-
-        model = model_names_and_functions[model_name]()  # Finding the function which returns the model and executing it
-
-        params_folder_path = get_models_parameters_folder_path(target=self._target, road_category=self._road_category)
-        model_filename = (get_active_ops() + "_" + self._road_category + "_" + model_name + "_" + "parameters")
+        grid = self._model.grid
+        model = self._model.get()
 
         t_start = datetime.now()
-        print(f"{model_name} GridSearchCV started at {t_start}\n")
+        print(f"{self._model.name} GridSearchCV started at {t_start}\n")
 
         gridsearch = GridSearchCV(
             model,
-            param_grid=grids[self._target],
+            param_grid=grid,
             scoring=self._scorer,
             refit="mean_absolute_error",
             return_train_score=True,
@@ -284,6 +544,10 @@ class TFSLearner:
 
         with joblib.parallel_backend("dask"):
             gridsearch.fit(X=X_train, y=y_train)
+
+        t_end = datetime.now()
+        print(f"{self._model.name} GridSearchCV finished at {t_end}\n")
+        print(f"Time passed: {t_end - t_start}")
 
         try:
             gridsearch_results = pd.DataFrame(gridsearch.cv_results_)[
@@ -301,106 +565,29 @@ class TFSLearner:
                 ]
             ]
 
+            print(f"============== {self._model.name} grid search results ==============\n")
+            print(gridsearch_results, "\n")
+
+            # print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
+            # print("GridSearchCV best parameters: ", gridsearch.best_params_)
+            # print("GridSearchCV best score: ", gridsearch.best_score_)
+            # print("GridSearchCV best combination index (in the results dataframe): ", gridsearch.best_index_, "\n", )
+            # print(gridsearch.scorer_, "\n")
+
+            self._export_gridsearch_results(gridsearch_results)
+            self._export_gridsearch_results_test(gridsearch_results) #TODO TESTING
+
+            #TODO EXPORT TRUE BEST PARAMETERS
+
+            return gridsearch_results
+
         except KeyError as e:
-            print(f"\033[91mScoring not found. Error: {e}")
+            raise ScoringNotFoundError(f"\033[91mScoring not found. Parent error: {e}")
 
-        print(f"============== {model_name} grid search results ==============\n")
-        print(gridsearch_results, "\n")
-
-        t_end = datetime.now()
-        print(f"{model_name} GridSearchCV finished at {t_end}\n")
-        print(f"Time passed: {t_end - t_start}")
-
-        gridsearch_results.to_json(f"./ops/{self._road_category}_{model_name}_grid_params_and_results.json", indent=4)  # TODO FOR TESTING PURPOSES
-
-        print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
-        print("GridSearchCV best parameters: ", gridsearch.best_params_)
-        print("GridSearchCV best score: ", gridsearch.best_score_)
-
-        print("GridSearchCV best combination index (in the results dataframe): ",gridsearch.best_index_,"\n",)
-
-        # print(gridsearch.scorer_, "\n")
-
-        # The best_parameters_by_model variable is obtained from the tfs_models file
-        true_best_params = {
-            model_name: gridsearch_results["params"].loc[best_params[self._target][model_name]]
-            if gridsearch_results["params"].loc[best_params[self._target][model_name]]
-            is not None
-            else {}
-        }
-        # TODO THIS SHOULD PROBABLY BECOME: true_best_parameters = {model_name: gridsearch_results["params"].loc[best_parameters_by_model[road_category][model_name]] if gridsearch_results["params"].loc[best_parameters_by_model[raod_category][model_name]] is not None else {}}
-        auxiliary_params = model_auxiliary_parameters[model_name]
-
-        # This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
-        for par, val in auxiliary_params.items():
-            true_best_params[model_name][par] = val
-
-        true_best_params["best_GridSearchCV_model_index"] = best_params[self._target][model_name]
-        true_best_params["best_GridSearchCV_model_scores"] = gridsearch_results.loc[best_params[self._target][model_name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
-
-        print(f"True best parameters for {model_name}: ", true_best_params, "\n")
-
-        with open(params_folder_path + model_filename + ".json", "w", encoding="utf-8") as params_file:
-            json.dump(true_best_params, params_file, indent=4)
-
-        gc.collect()
-
-        return None
+        finally:
+            gc.collect()
 
 
-    def train_model(self, X_train: dd.DataFrame, y_train: dd.DataFrame, model_name: str) -> None:
-
-        # -------------- Filenames, etc. --------------
-
-        model_filename = get_active_ops() + "_" + self._road_category + "_" + model_name
-        model_params_filepath = get_models_parameters_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + "_" + "parameters" + ".json"
-
-        # -------------- Parameters extraction --------------
-
-        with open(model_params_filepath, "r") as parameters_file:
-            parameters = json.load(parameters_file)[model_name]  # Extracting the model parameters
-
-        # -------------- Training --------------
-
-        model = model_names_and_class_objects[model_name](**parameters)  # Unpacking the dictionary to set all parameters to instantiate the model's class object
-
-        with joblib.parallel_backend("dask"):
-            model.fit(X_train.compute(), y_train.compute())
-
-        print(f"Successfully trained {model_name} with parameters: {parameters}")
-
-        # -------------- Model exporting --------------
-
-        models_folder_path = get_models_folder_path(self._target, self._road_category)
-
-        try:
-            joblib.dump(model, models_folder_path + model_filename + ".joblib", protocol=pickle.HIGHEST_PROTOCOL)
-            with open(models_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
-                pickle.dump(model, ml_pkl_file, protocol=pickle.HIGHEST_PROTOCOL)
-            return None
-
-        except Exception as e:
-            logging.error(traceback.format_exc())
-            print(f"\033[91mCouldn't export trained model. Safely exited the program. Error: {e}\033[0m")
-            sys.exit(1)
-
-
-    def test_model(self, X_test: dd.DataFrame, y_test: dd.DataFrame, model_name: str) -> None:
-
-        # -------------- Model loading --------------
-
-        model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
-
-        with joblib.parallel_backend("dask"):
-            y_pred = model.predict(X_test.compute())
-
-        print(f"================= {model_name} testing metrics =================")
-        print("R^2: ", r2_score(y_true=y_test, y_pred=y_pred))
-        print("Mean Absolute Error: ", mean_absolute_error(y_true=y_test, y_pred=y_pred))
-        print("Mean Squared Error: ", mean_squared_error(y_true=y_test, y_pred=y_pred))
-        print("Root Mean Squared Error: ", root_mean_squared_error(y_true=y_test, y_pred=y_pred))
-
-        return None
 
 
 
@@ -471,7 +658,7 @@ class OnePointForecaster:
     def _get_X(data: dd.DataFrame, target_col: str) -> dd.DataFrame:
         n_rows = data.shape[0].compute()
         p_70 = int(n_rows * 0.70)
-        return dd.from_delayed(delayed(data.drop(columns=[target_col]).head(p_70)).persist())
+        return dd.from_delayed(delayed(data.drop(columns=[target_col]).head(p_70)).persist()) # dd.from_delayed documentation: https://docs.dask.org/en/latest/generated/dask.dataframe.from_delayed.html
 
 
     @staticmethod
@@ -548,32 +735,6 @@ class OnePointForecaster:
 
             #print(predictions_dataset.compute().tail(200))
             return predictions_dataset.persist()
-
-
-    def forecast(self, data: dd.DataFrame, model_name: str) -> dd.DataFrame:
-
-        # -------------- Model loading --------------
-        model = joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model_name + ".joblib")
-
-        with joblib.parallel_backend("dask"):
-            return model.predict(data)
-
-
-    @staticmethod
-    def post_prediction_errors(y_true: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, PositiveFloat]:
-        """
-        Calculates the prediction errors for data that's already been recorded to test the accuracy of one or more models.
-
-        Parameters:
-            y_true: the true values of the target variable
-            y_pred: the predicted values of the target variable
-
-        Returns:
-            A dictionary of errors (positive floats) for each error metric.
-        """
-        return {"mean_absolute_error": np.round(mean_absolute_error(y_true, y_pred), 4),
-                "mean_squared_error": np.round(mean_squared_error(y_true, y_pred), 4),
-                "root_mean_squared_error": np.round(root_mean_squared_error(y_true, y_pred), 4)}
 
 
     @staticmethod

@@ -23,6 +23,8 @@ import dask.distributed
 from dask.distributed import Client, LocalCluster
 from contextlib import contextmanager
 
+from tfs_exceptions import *
+
 
 pd.set_option("display.max_columns", None)
 
@@ -671,7 +673,7 @@ def split_data(data: dd.DataFrame, target: str) -> tuple[dd.DataFrame, dd.DataFr
     if target == "traffic_volumes": target = "volume"
 
     if target not in ("volume", "mean_speed"):
-        raise ValueError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
+        raise TargetVariableNotFoundError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
 
     X = data.drop(columns=[target])
     y = data[[target]]

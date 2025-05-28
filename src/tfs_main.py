@@ -144,7 +144,7 @@ def execute_eda() -> None:
 
 # TODO IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL. EXPLICITELY PRINT THAT FILES METADATA IS NEEDED BEFORE EXECUTING THE WARMUP
 def execute_forecast_warmup(functionality: str) -> None:
-    models = [m for m in model_names_and_functions.keys()]
+    models = [m for m in model_definitions["class_instance"].keys()]
     clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
     clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
     road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
@@ -224,16 +224,16 @@ def execute_forecast_warmup(functionality: str) -> None:
             process_data(trps_ids_avg_speeds_by_road_category, models, TFSLearner, target_data["AS"], "hyperparameter tuning on average speed data", "preprocess_speeds", "gridsearch")
 
         elif functionality == "3.2.3":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"], "training models on traffic volumes data", "preprocess_volumes", "train_model")
+            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"], "training models on traffic volumes data", "preprocess_volumes", "fit")
 
         elif functionality == "3.2.4":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["AS"], "training models on average speed data", "preprocess_speeds", "train_model")
+            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["AS"], "training models on average speed data", "preprocess_speeds", "fit")
 
         elif functionality == "3.2.5":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"], "testing models on traffic volumes data", "preprocess_volumes", "test_model")
+            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"], "testing models on traffic volumes data", "preprocess_volumes", "predict")
 
         elif functionality == "3.2.6":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["AS"], "testing models on average speed data", "preprocess_speeds", "test_model")
+            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["AS"], "testing models on average speed data", "preprocess_speeds", "predict")
 
     return None
 
@@ -243,12 +243,12 @@ def get_forecaster(option: str, trp_id: str, road_category: str, target_data: st
     forecaster_info = {
         "V": {
             "class": OnePointForecaster,
-            "method": "forecast",
+            "method": "forecast", #TODO THIS METHOD DOESN'T EXIST ANYMORE
             "check": "has_volumes"
         },
         "AS": {
             "class": OnePointForecaster,
-            "method": "forecast",
+            "method": "forecast", #TODO THIS METHOD DOESN'T EXIST ANYMORE
             "check": "has_speeds"
         }
     }
