@@ -1,6 +1,6 @@
-from datetime import datetime
 import os
 import time
+from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 import pprint
@@ -67,7 +67,7 @@ async def download_volumes(functionality: str) -> None:
 
         relative_delta = relativedelta(datetime.datetime.strptime(time_end, dt_iso).date(), datetime.datetime.strptime(time_start, dt_iso).date(), )
         days_delta = (datetime.datetime.strptime(time_end, dt_iso).date() - datetime.datetime.strptime(time_start, dt_iso).date()).days
-        years_delta = relative_delta.years if relative_delta.years is not None else 0
+        years_delta = relative_delta.years or 0
         months_delta = relative_delta.months + (years_delta * 12)
         weeks_delta = days_delta // 7
 

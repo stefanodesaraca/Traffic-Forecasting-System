@@ -11,7 +11,7 @@ from warnings import simplefilter
 from scipy import stats
 from datetime import datetime
 from enum import Enum
-from typing import Literal, Generator
+from typing import Literal, Generator, Protocol
 from pydantic import BaseModel as PydanticBaseModel, field_validator
 from pydantic.types import PositiveFloat
 import numpy as np
@@ -28,12 +28,7 @@ from dask_ml.model_selection import GridSearchCV
 
 from sklearn.base import BaseEstimator as ScikitLearnBaseEstimator
 from sklearn.model_selection import TimeSeriesSplit
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.ensemble import (
-    RandomForestRegressor,
-    GradientBoostingRegressor,
-    HistGradientBoostingRegressor,
-)
+
 from sklearn.metrics import (
     make_scorer,
     r2_score,
@@ -48,6 +43,7 @@ from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastin
 
 from tfs_exceptions import *
 from tfs_utils import *
+from tfs_ml_configs import *
 
 
 simplefilter(action="ignore", category=FutureWarning)
@@ -56,84 +52,6 @@ pd.set_option("display.max_columns", None)
 
 dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
 dt_format = "%Y-%m-%dT%H"
-
-#TODO IN THE FUTURE THIS WOULD BE IMPLEMENTED THROUGH ENUMS
-#Be aware that too low parameters could bring some models to stall while training, so don't go too low with the grid search parameters
-grids = {
-    "traffic_volumes": {
-        "RandomForestRegressor": {
-            "n_estimators": [200, 400],
-            "max_depth": [
-                20,
-                40,
-            ],  # NOTE max_depth ABSOLUTELY SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE 10 CRASHES THE GRIDSEARCH ALGORITHM
-            "criterion": ["friedman_mse"],
-            "ccp_alpha": [0, 0.00002],  # ccp_alpha = 1 overfits
-        },
-        "DecisionTreeRegressor": {
-            "criterion": ["friedman_mse"],
-            "max_depth": [None, 100, 200],
-            "ccp_alpha": [0.0002, 0.00002],
-        },
-        "HistGradientBoostingRegressor": {
-            "max_iter": [500, 1500],
-            "max_depth": [None, 100],
-            "loss": ["absolute_error"],
-            "validation_fraction": [0.25],
-            "n_iter_no_change": [20],
-            "tol": [1e-7, 1e-4, 1e-3],
-            "l2_regularization": [0.001, 0.0001],
-        },
-    },
-    "average_speed": {
-        "RandomForestRegressor": {
-            "n_estimators": [100, 300],
-            "max_depth": [
-                40,
-                70,
-            ],  # NOTE max_depth ABSOLUTELY SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE 10 CRASHES THE GRIDSEARCH ALGORITHM
-            "criterion": [
-                "squared_error",
-                "friedman_mse",
-            ],  # Setting "absolute_error" within the metrics to try in the grid will raise errors due to the NaNs present in the lag features
-            "ccp_alpha": [0.002, 0.0002],  # ccp_alpha = 1 overfits
-        },
-        "DecisionTreeRegressor": {
-            "criterion": ["squared_error", "friedman_mse"],
-            "max_depth": [None, 30],
-            "ccp_alpha": [0, 0.0002, 0.00002],
-        },
-        "HistGradientBoostingRegressor": {
-            "max_iter": [100, 200, 300],
-            "max_depth": [None, 20, 50, 100],
-            "loss": ["absolute_error"],
-            "validation_fraction": [0.25],
-            "n_iter_no_change": [20, 50],
-            "tol": [1e-7, 1e-4, 1e-3],
-            "l2_regularization": [0, 0.001, 0.0001],
-        },
-    }
-}
-
-best_params = {
-    "traffic_volumes": {
-        "RandomForestRegressor": 1,
-        "HistGradientBoostingRegressor": 1,
-        "DecisionTreeRegressor": 1,
-    },
-    "average_speed": {
-        "RandomForestRegressor": 1,
-        "HistGradientBoostingRegressor": 1,
-        "DecisionTreeRegressor": 1,
-    }
-}
-
-
-
-class BaseModel(PydanticBaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-
 
 
 class TFSPreprocessor:
@@ -322,8 +240,23 @@ class TFSPreprocessor:
 
 
 
+class EstimatorProtocol(Protocol, Any):
+    """
+    A protocol to inform the static type checker that an object of type EstimatorProtocol will have a predict() method
+    """
+    def predict(self, X: Any) -> Any:
+        ...
+
+
+
+class BaseModel(PydanticBaseModel):
+    class Config:
+        arbitrary_types_allowed = True
+
+
+
 class ModelWrapper(BaseModel):
-    model_obj: Any | None
+    model_obj: EstimatorProtocol
     fitting_params: dict[Any, Any]
 
 
@@ -449,12 +382,33 @@ class ModelWrapper(BaseModel):
 
 class TFSLearner:
     """
-    The base class for other classes which implement machine learning or statistical methods to learn a predict traffic volumes, average speed or other data about traffic.
-    Parameters:
-        client: a Dask distributed local cluster client to use to distribute processes
+    Base class for models that learn to predict traffic volumes, average speed,
+    or other traffic-related data using machine learning or statistical methods.
+
+    Parameters
+    ----------
+    model : class
+        The model **class** (not an instance). For example:
+        `TFSLearner(model=EstimatorClass, ...)` and **not**
+        `TFSLearner(model=EstimatorClass(), ...)`.
+
+    road_category : str
+        The category of the road where the TRP that recorded the data was located
+
+    fitting_params : dict
+        Parameters used when fitting the model
+
+    target : str
+        The target variable to predict (e.g., 'traffic_volumes', 'average_speed').
+
+    client : dask.distributed.Client
+        A Dask distributed client used to parallelize computation.
+
+    **kwargs
+        Additional keyword arguments passed to the model or processing logic.
     """
 
-    def __init__(self, model: Any, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None, **kwargs: Any):
+    def __init__(self, model: Any, road_category: str, fitting_params: dict[Any, Any], target: Literal["traffic_volumes", "average_speed"], client: Client | None, **kwargs: Any):
         self._scorer: dict = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
@@ -464,7 +418,7 @@ class TFSLearner:
         self._client: Client = client
         self._road_category: str = road_category
         self._target: Literal["traffic_volumes", "average_speed"] = target
-        self._model: ModelWrapper = ModelWrapper(model_obj=model)
+        self._model: ModelWrapper = ModelWrapper(model_obj=model, fitting_params=fitting_params)
 
 
     def _get_pre_existing_model_parameters(self, model: str) -> dict[str, Any]:
