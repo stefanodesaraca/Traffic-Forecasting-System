@@ -343,7 +343,21 @@ class EstimatorProtocol(Protocol, Any):
     """
     A protocol to inform the static type checker that an object of type EstimatorProtocol will have a predict() method
     """
+
     def predict(self, X: Any) -> Any:
+        """
+        Make predictions using the estimator.
+
+        Parameters
+        ----------
+        X : Any
+            Input features for prediction.
+
+        Returns
+        -------
+        Any
+            Predicted values.
+        """
         ...
 
 
@@ -368,37 +382,87 @@ class ModelWrapper(BaseModel):
 
     @property
     def name(self) -> str:
+        """
+        Get the name of the model.
+
+        Returns
+        -------
+        str
+            The class name of the model object.
+        """
         return self.model_obj.__class__.__name__
 
 
     @property
     def params(self) -> dict[Any, Any]:
         """
-        Returns the current model's parameters at the time of the call of this method
+        Get the current model's parameters.
+
+        Returns
+        -------
+        dict[Any, Any]
+            The current model's parameters at the time of the call of this method.
         """
         return self.model_obj.get_params()
 
 
     @property
     def fit_state(self):
+        """
+        Get the fitting state of the model.
+
+        Returns
+        -------
+        bool
+            Whether the model has been fitted.
+        """
         return self.model_obj.__sklearn_is_fitted__()
 
 
     @property
     def grid(self) -> dict[str, Any]:
         """
-        Returns:
-            The model's grid
+        Get the model's custom hyperparameter grid.
+
+        Returns
+        -------
+        dict[str, Any]
+            The model's grid for hyperparameter tuning.
         """
         return grids[self._target][self._model.name]
 
 
     def set(self, model_object: Any) -> None:
+        """
+        Set the model object in the wrapper. Basically just imputing a model object (not an instance) inside the wrapper
+
+        Parameters
+        ----------
+        model_object : Any
+            The model object to wrap.
+
+        Returns
+        -------
+        None
+        """
         setattr(self, "model_obj", model_object)
         return None
 
 
     def get(self) -> Any:
+        """
+        Get the model object.
+
+        Returns
+        -------
+        Any
+            The model object.
+
+        Raises
+        ------
+        ModelNotSetError
+            If no model has been passed to the wrapper class.
+        """
         if self.model_obj:
             return self.model_obj
         else:
@@ -407,14 +471,19 @@ class ModelWrapper(BaseModel):
 
     def fit(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> Any:
         """
-        Trains the model on the imputed data
+        Train the model on the input data.
 
-        Parameters:
-            X_train: predictors variables' data
-            y_train: the target variable's data
+        Parameters
+        ----------
+        X_train : dd.DataFrame
+            Predictor variables' data for training.
+        y_train : dd.DataFrame
+            The target variable's data for training.
 
-        Returns:
-            The trained model object
+        Returns
+        -------
+        Any
+            The trained model object.
         """
 
         model = model_definitions["class_instance"][self.name](**self.fitting_params)  # Unpacking the dictionary to set all parameters to instantiate the model's class object
@@ -428,6 +497,29 @@ class ModelWrapper(BaseModel):
 
 
     def predict(self, X_test: dd.DataFrame) -> Any:
+        """
+        Make predictions using the trained model.
+
+        Parameters
+        ----------
+        X_test : dd.DataFrame
+            Input features for prediction.
+
+        Returns
+        -------
+        Any
+            Predicted values.
+
+        Raises
+        ------
+        TypeError
+            If the model type is unsupported.
+
+        Notes
+        -----
+        Currently supports ScikitLearnBaseEstimator. PyTorchForecastingBaseModel
+        and SktimeBaseEstimator support is still to be implemented.
+        """
         if isinstance(self.model_obj, ScikitLearnBaseEstimator):
             with joblib.parallel_backend("dask"):
                 return self.model_obj.predict(X_test.compute())
@@ -440,16 +532,25 @@ class ModelWrapper(BaseModel):
 
 
     @staticmethod
-    def evaluate(y_test: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, Any]:
+    def evaluate_regression(y_test: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, Any]:
         """
-        Calculates the prediction errors for data that's already been recorded to test the accuracy of one or more models.
+        Calculate prediction errors for regression model testing.
 
-        Parameters:
-            y_test: the true values of the target variable
-            y_pred: the predicted values of the target variable
+        Parameters
+        ----------
+        y_test : dd.DataFrame
+            The true values of the target variable.
+        y_pred : dd.DataFrame
+            The predicted values of the target variable.
 
-        Returns:
-            A dictionary of errors (positive floats) for each error metric.
+        Returns
+        -------
+        dict[str, Any]
+            A dictionary of errors (positive floats) for each error metric including:
+            - r2: R-squared score
+            - mean_absolute_error: Mean Absolute Error
+            - mean_squared_error: Mean Squared Error
+            - root_mean_squared_error: Root Mean Squared Error
         """
         return {"r2": np.round(r2_score(y_true=y_test, y_pred=y_pred), 4),
                 "mean_absolute_error": np.round(mean_absolute_error(y_true=y_test, y_pred=y_pred), 4),
@@ -459,13 +560,24 @@ class ModelWrapper(BaseModel):
 
     def export(self, filepath: str) -> None:
         """
-        Exports the model into joblib and pickle format
+        Export the model in joblib and pickle formats.
 
-        Parameters:
-            filepath: the full filepath with filename included without file extension
+        Parameters
+        ----------
+        filepath : str
+            The full filepath with filename included without file extension.
 
-        Returns:
-            None
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        The model will be saved in two formats:
+        - .joblib format using joblib.dump()
+        - .pkl format using pickle.dump()
+
+        The function will exit the program if export fails.
         """
         try:
             joblib.dump(self.model_obj, filepath + ".joblib", protocol=pickle.HIGHEST_PROTOCOL)
