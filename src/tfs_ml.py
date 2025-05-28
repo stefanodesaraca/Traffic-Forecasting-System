@@ -9,7 +9,6 @@ from datetime import datetime
 from typing import Literal, Generator
 from pydantic import BaseModel as PydanticBaseModel, field_validator
 from pydantic.types import PositiveFloat
-
 import numpy as np
 import pickle
 import warnings
@@ -276,6 +275,80 @@ class ModelWrapper(BaseModel):
         return None
 
 
+    def fit(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> Any:
+        """
+        Trains the model on the imputed data
+
+        Parameters:
+            X_train: predictors variables' data
+            y_train: the target variable's data
+
+        Returns:
+            The trained model object
+        """
+
+        params = self._get_pre_existing_model_parameters(self.name)  # Extracting the model parameters
+        model = model_definitions["class_instance"][self.name](**params)  # Unpacking the dictionary to set all parameters to instantiate the model's class object
+
+        with joblib.parallel_backend("dask"):
+            model.fit(X_train.compute(), y_train.compute())
+
+        print(f"Successfully trained {self.name} with parameters: {params}")
+
+        return self.model_obj
+
+
+    def predict(self, X_test: dd.DataFrame) -> Any:
+        if isinstance(self.model_obj, ScikitLearnBaseEstimator):
+            with joblib.parallel_backend("dask"):
+                return self.model_obj.predict(X_test.compute())
+        elif isinstance(self.model_obj, PyTorchForecastingBaseModel):
+            pass #TODO STILL TO IMPLEMENT
+        elif isinstance(self.model_obj, SktimeBaseEstimator):
+            pass #TODO STILL TO IMPLEMENT
+        else:
+            raise TypeError(f"Unsupported model type: {type(self.model_obj)}")
+
+
+    @staticmethod
+    def evaluate(y_test: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, Any]:
+        """
+        Calculates the prediction errors for data that's already been recorded to test the accuracy of one or more models.
+
+        Parameters:
+            y_test: the true values of the target variable
+            y_pred: the predicted values of the target variable
+
+        Returns:
+            A dictionary of errors (positive floats) for each error metric.
+        """
+        return {"r2": np.round(r2_score(y_true=y_test, y_pred=y_pred), 4),
+                "mean_absolute_error": np.round(mean_absolute_error(y_true=y_test, y_pred=y_pred), 4),
+                "mean_squared_error": np.round(mean_squared_error(y_true=y_test, y_pred=y_pred), 4),
+                "root_mean_squared_error": np.round(root_mean_squared_error(y_true=y_test, y_pred=y_pred), 4)}
+
+
+    def export(self, filepath: str) -> None:
+        """
+        Exports the model into joblib and pickle format
+
+        Parameters:
+            filepath: the full filepath with filename included without file extension
+
+        Returns:
+            None
+        """
+        try:
+            joblib.dump(self.model_obj, filepath + ".joblib", protocol=pickle.HIGHEST_PROTOCOL)
+            with open(filepath + ".pkl", "wb") as ml_pkl_file:
+                pickle.dump(self.model_obj, ml_pkl_file, protocol=pickle.HIGHEST_PROTOCOL)
+            return None
+        except Exception as e:
+            logging.error(traceback.format_exc())
+            print(f"\033[91mCouldn't export trained model. Safely exited the program. Error: {e}\033[0m")
+            sys.exit(1)
+
+
 
 class TFSLearner:
     """
@@ -376,14 +449,6 @@ class TFSLearner:
         return None
 
 
-    def set(self, model: str) -> None:
-
-        self.__setattr__()
-
-
-        return None
-
-
 
     # TODO RENAME "model_name" INTO SOMETHING ELSE IN ALL FUNCTIONS THAT HAVE model_name AS A PARAMETER
     def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame, model_name: str) -> None: #TODO REMOVE THE model_name PARAMETER. IDEALLY gridsearch() WOULD JUST HAVE X_train AND y_train
@@ -454,70 +519,6 @@ class TFSLearner:
             gc.collect()
 
 
-    #TODO TO IMPROVE AND SIMPLIFY THIS METHOD
-    def fit(self, X_train: dd.DataFrame, y_train: dd.DataFrame, model: str) -> Any:
-        """
-        Trains the model on the imputed data
-
-        Parameters:
-            X_train: predictors variables' data
-            y_train: the target variable's data
-            model: the model's name
-
-        Returns:
-            The trained model object
-        """
-
-        params = self._get_pre_existing_model_parameters(model_name)  # Extracting the model parameters
-        model = model_definitions["class_instance"][model_name](**params)  # Unpacking the dictionary to set all parameters to instantiate the model's class object
-
-        with joblib.parallel_backend("dask"):
-            model.fit(X_train.compute(), y_train.compute())
-
-        print(f"Successfully trained {model_name} with parameters: {params}")
-
-        # -------------- Model exporting --------------
-
-        models_folder_path = get_models_folder_path(self._target, self._road_category)
-
-
-        model_filename = get_active_ops() + "_" + self._road_category + "_" + model_name
-
-        try:
-            joblib.dump(model, models_folder_path + model_filename + ".joblib", protocol=pickle.HIGHEST_PROTOCOL)
-            with open(models_folder_path + model_filename + ".pkl", "wb") as ml_pkl_file:
-                pickle.dump(model, ml_pkl_file, protocol=pickle.HIGHEST_PROTOCOL)
-            return None
-
-        except Exception as e:
-            logging.error(traceback.format_exc())
-            print(f"\033[91mCouldn't export trained model. Safely exited the program. Error: {e}\033[0m")
-            sys.exit(1)
-
-
-
-
-    def predict(self, X_test: dd.DataFrame, model: Any) -> None:
-        with joblib.parallel_backend("dask"):
-            return model.predict(X_test.compute())
-
-
-    @staticmethod
-    def evaluate(y_test: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, Any]:
-        """
-        Calculates the prediction errors for data that's already been recorded to test the accuracy of one or more models.
-
-        Parameters:
-            y_test: the true values of the target variable
-            y_pred: the predicted values of the target variable
-
-        Returns:
-            A dictionary of errors (positive floats) for each error metric.
-        """
-        return {"r2": np.round(r2_score(y_true=y_test, y_pred=y_pred), 4),
-                "mean_absolute_error": np.round(mean_absolute_error(y_true=y_test, y_pred=y_pred), 4),
-                "mean_squared_error": np.round(mean_squared_error(y_true=y_test, y_pred=y_pred), 4),
-                "root_mean_squared_error": np.round(root_mean_squared_error(y_true=y_test, y_pred=y_pred), 4)}
 
 
 
