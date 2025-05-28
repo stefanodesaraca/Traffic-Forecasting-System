@@ -632,40 +632,43 @@ class TFSLearner:
         self._model: ModelWrapper = ModelWrapper(model_obj=model, fitting_params=fitting_params)
 
 
-    def _get_pre_existing_model_parameters(self, model: str) -> dict[str, Any]:
+    def _get_pre_existing_model_parameters(self) -> dict[str, Any]:
         """
-        Reads a pre-existing model's parameters from its json file and returns them as a dictionary
+        Read a pre-existing model's parameters from its json file.
 
-        Parameters:
-            model: the model name
-
-        Returns:
-            A dictionary with the model's parameters
+        Returns
+        -------
+        dict[str, Any]
+            A dictionary with the model's parameters.
         """
-        with open(get_models_parameters_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + model + "_" + "parameters" + ".json", "r", encoding="utf-8") as parameters_file:
-            return json.load(parameters_file)[model]
+        with open(get_models_parameters_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + self._model.name + "_" + "parameters" + ".json", "r", encoding="utf-8") as parameters_file:
+            return json.load(parameters_file)[self._model.name]
 
 
     def _load_model(self) -> Any:
         """
-        Loads pre-existing model from its corresponding joblib file
+        Load pre-existing model from its corresponding joblib file.
 
-        Returns:
-            The model object
+        Returns
+        -------
+        Any
+            The model object.
         """
         return joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + self._model.name + ".joblib")
 
 
     def _export_gridsearch_results(self, gridsearch_results: pd.DataFrame) -> None:
         """
-        Exports GridSearchCV results to a JSON file
+        Export GridSearchCV results to a JSON file.
 
-        Parameters:
-            gridsearch_results: the actual gridsearch results as a pandas dataframe
-            model: the name of the model for which the grid search took place
+        Parameters
+        ----------
+        gridsearch_results : pd.DataFrame
+            The actual gridsearch results as a pandas dataframe.
 
-        Returns:
-            None
+        Returns
+        -------
+        None
         """
 
         true_best_params = {self._model.name: gridsearch_results["params"].loc[best_params[self._target][self._model.name]]} or {}
@@ -681,11 +684,54 @@ class TFSLearner:
 
     # TODO TESTING FUNCTION
     def _export_gridsearch_results_test(self, gridsearch_results: pd.DataFrame) -> None:
+        """
+        Export GridSearchCV results for testing purposes.
+
+        Parameters
+        ----------
+        gridsearch_results : pd.DataFrame
+            The gridsearch results to export.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        This is a testing function that exports results in JSON format and will soon be removed when the testing and refinement phase will be over
+        """
         gridsearch_results.to_json(f"./ops/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
         return None
 
 
     def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> None:
+        """
+        Perform grid search cross-validation for hyperparameter tuning.
+
+        Parameters
+        ----------
+        X_train : dd.DataFrame
+            Predictors' training data.
+        y_train : dd.DataFrame
+            Target variable's training data.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        TargetVariableNotFoundError
+            If wrong target variable is specified.
+        ScoringNotFoundError
+            If scoring metric is not found.
+
+        Notes
+        -----
+        Uses TimeSeriesSplit for cross-validation to respect temporal relationships
+        in the data. The grid search uses multiple scoring metrics and refits on
+        'mean_absolute_error'.
+        """
 
         if self._target not in target_data.values():
             raise TargetVariableNotFoundError("Wrong target variable in GridSearchCV executor function")
