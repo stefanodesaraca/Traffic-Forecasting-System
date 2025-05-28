@@ -372,17 +372,6 @@ class TFSLearner:
         self._model: ModelWrapper = ModelWrapper(model_obj=model)
 
 
-    def _get_model(self, model: str) -> Any:
-        """
-        Parameters:
-            model: the name of the model which we want to collect the class of
-
-        Returns:
-            The model object
-        """
-        return model_definitions["function"][model]()
-
-
     def _get_pre_existing_model_parameters(self, model: str) -> dict[str, Any]:
         """
         Reads a pre-existing model's parameters from its json file and returns them as a dictionary
@@ -453,7 +442,7 @@ class TFSLearner:
 
 
     # TODO RENAME "model_name" INTO SOMETHING ELSE IN ALL FUNCTIONS THAT HAVE model_name AS A PARAMETER
-    def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame, model_name: str) -> None: #TODO REMOVE THE model_name PARAMETER. IDEALLY gridsearch() WOULD JUST HAVE X_train AND y_train
+    def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> None: #TODO REMOVE THE model_name PARAMETER. IDEALLY gridsearch() WOULD JUST HAVE X_train AND y_train
 
         if self._target not in target_data.values():
             raise TargetVariableNotFoundError("Wrong target variable in GridSearchCV executor function")
@@ -462,7 +451,7 @@ class TFSLearner:
         model = self._model.get()
 
         t_start = datetime.now()
-        print(f"{model_name} GridSearchCV started at {t_start}\n")
+        print(f"{self._model.name} GridSearchCV started at {t_start}\n")
 
         gridsearch = GridSearchCV(
             model,
@@ -479,7 +468,7 @@ class TFSLearner:
             gridsearch.fit(X=X_train, y=y_train)
 
         t_end = datetime.now()
-        print(f"{model_name} GridSearchCV finished at {t_end}\n")
+        print(f"{self._model.name} GridSearchCV finished at {t_end}\n")
         print(f"Time passed: {t_end - t_start}")
 
         try:
@@ -498,7 +487,7 @@ class TFSLearner:
                 ]
             ]
 
-            print(f"============== {model_name} grid search results ==============\n")
+            print(f"============== {self._model.name} grid search results ==============\n")
             print(gridsearch_results, "\n")
 
             # print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
@@ -507,8 +496,8 @@ class TFSLearner:
             # print("GridSearchCV best combination index (in the results dataframe): ", gridsearch.best_index_, "\n", )
             # print(gridsearch.scorer_, "\n")
 
-            self._export_gridsearch_results(gridsearch_results, model_name)
-            self._export_gridsearch_results_test(gridsearch_results, model_name) #TODO TESTING
+            self._export_gridsearch_results(gridsearch_results, self._model.name)
+            self._export_gridsearch_results_test(gridsearch_results, self._model.name) #TODO TESTING
 
             #TODO EXPORT TRUE BEST PARAMETERS
 
