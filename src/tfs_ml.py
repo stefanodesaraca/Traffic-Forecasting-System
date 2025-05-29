@@ -56,8 +56,15 @@ dt_format = "%Y-%m-%dT%H"
 
 class TFSPreprocessor:
 
-    def __init__(self, data: dd.DataFrame, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None):
+    def __init__(self, data: dd.DataFrame, road_category: str, client: Client):
         self._data: dd.DataFrame = data
+        self.road_category = road_category
+        self.client = client
+
+
+    @property
+    def size(self) -> tuple[int, int]:
+        return self._data.shape[0].compute(), self._data.shape[1]
 
 
     @staticmethod

@@ -697,8 +697,7 @@ def merge(trp_filepaths: list[str]) -> dd.DataFrame:
         merged_data = dd.concat([dd.read_csv(trp) for trp in trp_filepaths], axis=0)
         merged_data = merged_data.repartition(partition_size="512MB")
         merged_data = merged_data.sort_values(["date"], ascending=True)  # Sorting records by date
-        merged_data = merged_data.persist()
-        return merged_data
+        return merged_data.persist()
     except ValueError as e:
         print(f"\033[91mNo data to concatenate. Error: {e}")
         sys.exit(1)

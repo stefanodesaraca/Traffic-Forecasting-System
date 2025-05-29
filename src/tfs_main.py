@@ -176,7 +176,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
     def process_data(
             trps_ids_by_road_category: dict[str, list[str]],
-            models: list[str],
+            models: list[Any],
             learner_class: type[TFSLearner], #Keeping the flexibility of this parameter for now to be able to add other types of learner classes in the future
             target: str,
             process_description: str,
@@ -184,17 +184,12 @@ def execute_forecast_warmup(functionality: str) -> None:
             learner_method: str
     ) -> None:
 
-        merged_data_by_category = {}
-
         for road_category, files in trps_ids_by_road_category.items():
-            merged_data_by_category[road_category] = merge(files)
-            print(f"Shape of the merged data for road category {road_category}: ", (merged_data_by_category[road_category].shape[0].compute(), merged_data_by_category[road_category].shape[1]))
 
-        for road_category, data in merged_data_by_category.items():
             print(f"\n********************* Executing {process_description} for road category: {road_category} *********************\n")
 
-
-            preprocessor = TFSPreprocessor(data=data, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)
+            preprocessor = TFSPreprocessor(data=merge(files), road_category=road_category, client=client)
+            print(f"Shape of the merged data for road category {road_category}: ", preprocessor.size)
             preprocessing_method = getattr(preprocessor, preprocessor_method) #Getting the appropriate preprocessing method based on the target variable to preprocess
             preprocessed_data = preprocessing_method() #Calling the preprocessing method
 
