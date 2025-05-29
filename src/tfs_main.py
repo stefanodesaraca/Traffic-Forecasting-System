@@ -257,7 +257,7 @@ def get_forecaster(option: str, trp_id: str, road_category: str, target_data: st
     info = forecaster_info[option]
     if get_trp_metadata(trp_id)["checks"][info["check"]]:
         forecaster = info["class"](trp_id=trp_id, road_category=road_category, target=target_data)
-        return forecaster, info["method"], forecaster.preprocess()
+        return forecaster, info["method"], forecaster.prep()
     else:
         print(f"TRP {trp_id} doesn't have {option.lower()} data, returning to main menu")
         return None, None, None

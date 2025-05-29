@@ -5,6 +5,7 @@ import gc
 import sys
 import traceback
 import logging
+import inspect
 import pickle
 import warnings
 from warnings import simplefilter
@@ -59,8 +60,8 @@ class TFSPreprocessor:
 
     def __init__(self, data: dd.DataFrame, road_category: str, client: Client):
         self._data: dd.DataFrame = data
-        self.road_category = road_category
-        self.client = client
+        self.road_category: str = road_category
+        self.client: Client = client
 
 
     @property
@@ -637,7 +638,6 @@ class TFSLearner:
         self._model: ModelWrapper = ModelWrapper(model_obj=model, fitting_params=fitting_params)
 
 
-
     def get_model(self) -> ModelWrapper:
         return self._model
 
@@ -816,7 +816,6 @@ class TFSLearner:
 
 
 
-
 class OnePointForecaster:
     """
     self.trp_road_category: to find the right model to predict the data
@@ -924,51 +923,21 @@ class OnePointForecaster:
         return data[[target_col]].persist()
 
 
-    #TODO TO DIVIDE IN TWO PREPROCESSORS (TRAFFIC VOLUMES AND SPEEDS)
-    def preprocess(self, target_datetime: datetime) -> dd.DataFrame:
-        """
-        Preprocess data for single-point forecasting.
-
-        Parameters
-        ----------
-        target_datetime : datetime
-            The target datetime which the user wants to predict data for.
-
-        Returns
-        -------
-        dd.DataFrame
-            A dask dataframe containing the dataset that will be used for predictions.
-
-        Notes
-        -----
-        Function workflow:
-        1. Calculate the number of hours from the last available datetime to target datetime
-        2. For each hour to predict, use 24 hours in the past as reference
-        3. Get exactly n rows from the TRP's individual data (n = h * 24, h = hours to predict)
-        4. Create n rows for each specific hour of the future to predict
-        5. Return the new dataset ready to be fed to the model
-        """
-
-        target_datetime = target_datetime.strftime(dt_format)
-        last_available_volumes_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso).strftime(dt_format)
-
-        attr = {"volume": np.nan} if self._target == "traffic_volumes" else {"mean_speed": np.nan, "percentile_85": np.nan}
+    def get_future_records(self, target_datetime: datetime, attrs: dict[str, np.nan]) -> dd.DataFrame:
 
         # Creating a datetime range with datetimes to predict. These will be inserted in the empty rows to be fed to the models for predictions
-        rows_to_predict = []
-        for dt in pd.date_range(start=last_available_volumes_data_dt, end=target_datetime, freq="1h"):
-            dt_str = dt.strftime("%Y-%m-%d")
-            rows_to_predict.append({
-                **attr,
+        rows_to_predict = [{
+                **attrs,
                 "coverage": np.nan,
                 "day": dt.strftime("%d"),
                 "month": dt.strftime("%m"),
                 "year": dt.strftime("%Y"),
                 "hour": dt.strftime("%H"),
                 "week": dt.strftime("%V"),
-                "date": dt_str,
+                "date": dt.strftime("%Y-%m-%d"),
                 "trp_id": self._trp_id
-            })
+            } for dt in pd.date_range(start=datetime.strptime(read_metainfo_key(keys_map=[self._target, "end_date_iso"]), dt_iso).strftime(dt_format), end=target_datetime.strftime(dt_format), freq="1h")]
+            #The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
         self._n_records = len(rows_to_predict) * 24  # Number of records to collect from the TRP's individual data
 
@@ -979,26 +948,13 @@ class OnePointForecaster:
         rows_to_predict["hour"] = rows_to_predict["hour"].astype("int")
         rows_to_predict["week"] = rows_to_predict["week"].astype("int")
 
-        rows_to_predict.persist()
 
-        with dask_cluster_client(processes=False) as client:
+        if self._target == "traffic_volumes":
+            predictions_dataset = TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=client).preprocess_volumes(z_score=False)
+        elif self._target == "average_speed":
+            predictions_dataset = TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=client).preprocess_speeds(z_score=False)
 
-            if self._target == "traffic_volumes":
-                predictions_dataset = dd.concat([dd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"]) + self._trp_id + "_volumes_C.csv").tail(self._n_records), rows_to_predict], axis=0)
-            elif self._target == "average_speed":
-                predictions_dataset = dd.concat([dd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"]) + self._trp_id + "_speeds_C.csv").tail(self._n_records), rows_to_predict], axis=0)
-
-            predictions_dataset = predictions_dataset.repartition(partition_size="512MB")
-            predictions_dataset = predictions_dataset.reset_index()
-            predictions_dataset = predictions_dataset.drop(columns=["index"])
-
-            if self._target == "traffic_volumes":
-                predictions_dataset = TFSPreprocessor(data=predictions_dataset, road_category=self._road_category, target=self._target, client=client).preprocess_volumes(z_score=False)
-            elif self._target == "average_speed":
-                predictions_dataset = TFSPreprocessor(data=predictions_dataset, road_category=self._road_category, target=self._target, client=client).preprocess_speeds(z_score=False)
-
-            #print(predictions_dataset.compute().tail(200))
-            return predictions_dataset.persist()
+        return rows_to_predict.persist()
 
 
     @staticmethod
