@@ -203,9 +203,12 @@ def execute_forecast_warmup(functionality: str) -> None:
                 learner = learner_class(model=model, fitting_params=fitting_params, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)  # This client is ok here since the process_data function (in which it's located) only gets called after the client is opened as a context manager afterward (see down below in the code) *
                 # Using cast() to tell the type checker that the "target" variable is actually a Literal
 
-                method = getattr(learner, learner_method)
-                method(X_train if learner_method != "test_model" else X_test,
-                       y_train if learner_method != "test_model" else y_test)
+                # Some methods like fit() or predict() belong to the wrapped model object that's set as a TFSLearner class attribute.
+                #   On the other side, methods like gridsearch() only belong to the TFSLearner class, so they can only be called on an instance of that class.
+                #   With the inner hasattr() check we ensure that the method is called on the right instance
+                method = getattr(learner if hasattr(learner, learner_method) else learner.get_model(), learner_method)
+                method(X_train if learner_method != "predict" else X_test,
+                       y_train if learner_method != "predict" else y_test)
 
                 print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
                 time.sleep(1)  # To cool down the system

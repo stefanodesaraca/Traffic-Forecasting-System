@@ -54,6 +54,7 @@ dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
 dt_format = "%Y-%m-%dT%H"
 
 
+
 class TFSPreprocessor:
 
     def __init__(self, data: dd.DataFrame, road_category: str, client: Client):
@@ -621,12 +622,9 @@ class TFSLearner:
 
     client : dask.distributed.Client
         A Dask distributed client used to parallelize computation.
-
-    **kwargs
-        Additional keyword arguments passed to the model or processing logic.
     """
 
-    def __init__(self, model: Any, road_category: str, fitting_params: dict[Any, Any], target: Literal["traffic_volumes", "average_speed"], client: Client | None, **kwargs: Any):
+    def __init__(self, model: Any, road_category: str, fitting_params: dict[Any, Any], target: Literal["traffic_volumes", "average_speed"], client: Client | None):
         self._scorer: dict = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
@@ -637,6 +635,11 @@ class TFSLearner:
         self._road_category: str = road_category
         self._target: Literal["traffic_volumes", "average_speed"] = target
         self._model: ModelWrapper = ModelWrapper(model_obj=model, fitting_params=fitting_params)
+
+
+
+    def get_model(self) -> ModelWrapper:
+        return self._model
 
 
     def _get_pre_existing_model_parameters(self) -> dict[str, Any]:
@@ -663,6 +666,23 @@ class TFSLearner:
         """
         return joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + self._model.name + ".joblib")
 
+
+    def print_gridsearch_results(self, gridsearch_results: pd.DataFrame) -> None:
+
+        print(f"============== {self._model.name} grid search results ==============\n")
+        print(gridsearch_results, "\n")
+
+        # print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
+        # print("GridSearchCV best parameters: ", gridsearch.best_params_)
+        # print("GridSearchCV best score: ", gridsearch.best_score_)
+        # print("GridSearchCV best combination index (in the results dataframe): ", gridsearch.best_index_, "\n", )
+        # print(gridsearch.scorer_, "\n")
+
+        # TODO USE THESE FUNCTIONS OUTSIDE OF THIS METHOD, SO IT WOULD BE POSSIBLE TO JUST RETURN THE DF
+        self._export_gridsearch_results(gridsearch_results)
+        self._export_gridsearch_results_test(gridsearch_results)  # TODO TESTING
+
+        # TODO EXPORT TRUE BEST PARAMETERS
 
     def _export_gridsearch_results(self, gridsearch_results: pd.DataFrame) -> None:
         """
@@ -711,7 +731,7 @@ class TFSLearner:
         return None
 
 
-    def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> None:
+    def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> pd.DataFrame | None:
         """
         Perform grid search cross-validation for hyperparameter tuning.
 
@@ -768,7 +788,7 @@ class TFSLearner:
         print(f"Time passed: {t_end - t_start}")
 
         try:
-            gridsearch_results = pd.DataFrame(gridsearch.cv_results_)[
+            return pd.DataFrame(gridsearch.cv_results_)[
                 [
                     "params",
                     "mean_fit_time",
@@ -783,27 +803,16 @@ class TFSLearner:
                 ]
             ]
 
-            print(f"============== {self._model.name} grid search results ==============\n")
-            print(gridsearch_results, "\n")
-
-            # print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
-            # print("GridSearchCV best parameters: ", gridsearch.best_params_)
-            # print("GridSearchCV best score: ", gridsearch.best_score_)
-            # print("GridSearchCV best combination index (in the results dataframe): ", gridsearch.best_index_, "\n", )
-            # print(gridsearch.scorer_, "\n")
-
-            self._export_gridsearch_results(gridsearch_results)
-            self._export_gridsearch_results_test(gridsearch_results) #TODO TESTING
-
-            #TODO EXPORT TRUE BEST PARAMETERS
-
-            return gridsearch_results
-
         except KeyError as e:
             raise ScoringNotFoundError(f"\033[91mScoring not found. Parent error: {e}")
 
         finally:
             gc.collect()
+
+
+
+
+
 
 
 
