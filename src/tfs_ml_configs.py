@@ -1,7 +1,6 @@
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import (
     RandomForestRegressor,
-    GradientBoostingRegressor,
     HistGradientBoostingRegressor,
 )
 

@@ -196,14 +196,16 @@ def execute_forecast_warmup(functionality: str) -> None:
             X_train, X_test, y_train, y_test = split_data(preprocessed_data, target=target)
             #print(X_train.head(5), X_test.head(5), y_train.head(5), y_test.head(5))
 
-            learner = learner_class(road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client) # This client is ok here since the process_data function (in which it's located) only gets called after the client is opened as a context manager afterward (see down below in the code) *
-            #Using cast() to tell the type checker that the "target" variable is actually a Literal
+            for model in models:
 
-            for model_name in models:
+                fitting_params = grids[target][model.__name__].update(model_definitions["auxiliary_parameters"][model.__name__])
+                print(fitting_params) #TODO FOR TESTING PURPOSES
+                learner = learner_class(model=model, fitting_params=fitting_params, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)  # This client is ok here since the process_data function (in which it's located) only gets called after the client is opened as a context manager afterward (see down below in the code) *
+                # Using cast() to tell the type checker that the "target" variable is actually a Literal
+
                 method = getattr(learner, learner_method)
                 method(X_train if learner_method != "test_model" else X_test,
-                       y_train if learner_method != "test_model" else y_test,
-                       model_name=model_name)
+                       y_train if learner_method != "test_model" else y_test)
 
                 print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
                 time.sleep(1)  # To cool down the system
