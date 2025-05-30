@@ -821,11 +821,12 @@ class OnePointForecaster:
     self.trp_road_category: to find the right model to predict the data
     """
 
-    def __init__(self, trp_id: str, road_category: str, target: Literal["traffic_volumes", "average_speed"]):
+    def __init__(self, trp_id: str, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client):
         self._trp_id: str = trp_id
         self._road_category: str = road_category
         self._n_records: int | None = None
         self._target: Literal["traffic_volumes", "average_speed"] = target
+        self.client: Client = client
 
 
     def _get_future_records(self, target_datetime: datetime) -> dd.DataFrame:
@@ -950,11 +951,11 @@ class OnePointForecaster:
 
 
         if self._target == "traffic_volumes":
-            predictions_dataset = TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=client).preprocess_volumes(z_score=False)
+            return TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=self.client).preprocess_volumes(z_score=False)
         elif self._target == "average_speed":
-            predictions_dataset = TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=client).preprocess_speeds(z_score=False)
-
-        return rows_to_predict.persist()
+            return TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=self.client).preprocess_speeds(z_score=False)
+        else:
+            raise TargetVariableNotFoundError("Wrong target variable")
 
 
     @staticmethod
