@@ -815,12 +815,11 @@ class OnePointForecaster:
     def __init__(self, trp_id: str, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client):
         self._trp_id: str = trp_id
         self._road_category: str = road_category
-        self._n_records: int | None = None
         self._target: Literal["traffic_volumes", "average_speed"] = target
         self._client: Client = client
 
 
-    def _get_future_records(self, target_datetime: datetime) -> dd.DataFrame:
+    def get_future_records(self, target_datetime: datetime) -> dd.DataFrame:
         """
         Generate records of the future to predict.
 
@@ -835,7 +834,6 @@ class OnePointForecaster:
             A dask dataframe of empty records for future predictions.
         """
 
-        last_available_volumes_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso)
         attr = {"volume": np.nan} if self._target == "traffic_volumes" else {"mean_speed": np.nan, "percentile_85": np.nan}
 
         def get_batches(iterable: list[dict[str, Any]] | Generator[dict[str, Any], None, None], batch_size: int) -> Generator[list[dict[str, Any]], Any, None, None]:
@@ -861,7 +859,8 @@ class OnePointForecaster:
                     break
                 yield batch
 
-        return dd.from_delayed([delayed(pd.DataFrame)(batch) for batch in get_batches(
+        last_available_data_dt = datetime.strptime(read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"]), dt_iso)
+        rows_to_predict = dd.from_delayed([delayed(pd.DataFrame)(batch) for batch in get_batches(
             ({
                 **attr,
                 "coverage": np.nan,
@@ -872,7 +871,22 @@ class OnePointForecaster:
                 "week": dt.strftime("%V"),
                 "date": dt.strftime("%Y-%m-%d"),
                 "trp_id": self._trp_id
-            } for dt in pd.date_range(start=last_available_volumes_data_dt.strftime(dt_format), end=target_datetime.strftime(dt_format), freq="1h")), batch_size=max(1, math.ceil((target_datetime - last_available_volumes_data_dt).days * 0.20)))]).repartition(partition_size="512MB").persist()
+            } for dt in pd.date_range(start=last_available_data_dt.strftime(dt_format), end=target_datetime.strftime(dt_format), freq="1h")), batch_size=max(1, math.ceil((target_datetime - last_available_data_dt).days * 0.20)))]).repartition(partition_size="512MB").persist()
+            # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
+
+        rows_to_predict["day"] = rows_to_predict["day"].astype("int")
+        rows_to_predict["month"] = rows_to_predict["month"].astype("int")
+        rows_to_predict["year"] = rows_to_predict["year"].astype("int")
+        rows_to_predict["hour"] = rows_to_predict["hour"].astype("int")
+        rows_to_predict["week"] = rows_to_predict["week"].astype("int")
+
+        if self._target == "traffic_volumes":
+            return TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=self._client).preprocess_volumes(z_score=False)
+        elif self._target == "average_speed":
+            return TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=self._client).preprocess_speeds(z_score=False)
+        else:
+            raise TargetVariableNotFoundError("Wrong target variable")
+
 
 
     @staticmethod
@@ -913,38 +927,6 @@ class OnePointForecaster:
             Target variable's data
         """
         return data[[target_col]].persist()
-
-
-    def get_future_records(self, target_datetime: datetime, attrs: dict[str, np.nan]) -> dd.DataFrame:
-
-        # Creating a datetime range with datetimes to predict. These will be inserted in the empty rows to be fed to the models for predictions
-        rows_to_predict = pd.DataFrame([{
-                **attrs,
-                "coverage": np.nan,
-                "day": dt.strftime("%d"),
-                "month": dt.strftime("%m"),
-                "year": dt.strftime("%Y"),
-                "hour": dt.strftime("%H"),
-                "week": dt.strftime("%V"),
-                "date": dt.strftime("%Y-%m-%d"),
-                "trp_id": self._trp_id
-            } for dt in pd.date_range(start=datetime.strptime(read_metainfo_key(keys_map=[self._target, "end_date_iso"]), dt_iso).strftime(dt_format), end=target_datetime.strftime(dt_format), freq="1h")])
-            #The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
-
-        self._n_records = rows_to_predict.shape[0] * 24  # Number of records to collect from the TRP's individual data
-
-        rows_to_predict["day"] = rows_to_predict["day"].astype("int")
-        rows_to_predict["month"] = rows_to_predict["month"].astype("int")
-        rows_to_predict["year"] = rows_to_predict["year"].astype("int")
-        rows_to_predict["hour"] = rows_to_predict["hour"].astype("int")
-        rows_to_predict["week"] = rows_to_predict["week"].astype("int")
-
-        if self._target == "traffic_volumes":
-            return TFSPreprocessor(data=dd.from_pandas(rows_to_predict), road_category=self._road_category, client=self._client).preprocess_volumes(z_score=False)
-        elif self._target == "average_speed":
-            return TFSPreprocessor(data=dd.from_pandas(rows_to_predict), road_category=self._road_category, client=self._client).preprocess_speeds(z_score=False)
-        else:
-            raise TargetVariableNotFoundError("Wrong target variable")
 
 
     @staticmethod
