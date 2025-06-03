@@ -239,31 +239,7 @@ def execute_forecast_warmup(functionality: str) -> None:
     return None
 
 
-#TODO TO IMPROVE, OPTIMIZE AND SIMPLIFY
-def get_forecaster(option: str, trp_id: str, road_category: str, target_data: str) -> tuple[OnePointForecaster, str, dd.DataFrame] | tuple[None, None, None]:
-    forecaster_info = {
-        "V": {
-            "class": OnePointForecaster,
-            "method": "forecast", #TODO THIS METHOD DOESN'T EXIST ANYMORE
-            "check": "has_volumes"
-        },
-        "AS": {
-            "class": OnePointForecaster,
-            "method": "forecast", #TODO THIS METHOD DOESN'T EXIST ANYMORE
-            "check": "has_speeds"
-        }
-    }
-
-    info = forecaster_info[option]
-    if get_trp_metadata(trp_id)["checks"][info["check"]]:
-        forecaster = info["class"]
-        return forecaster, info["method"], forecaster.prep()
-    else:
-        print(f"TRP {trp_id} doesn't have {option.lower()} data, returning to main menu")
-        return None, None, None
-
-
-def execute_forecasting(functionality: str, trp_id: str, road_category: str, target: str) -> None:
+def execute_forecasting(functionality: str) -> None:
     check_metainfo_file()
 
     print("Which kind of data would you like to forecast?")
@@ -285,13 +261,13 @@ def execute_forecasting(functionality: str, trp_id: str, road_category: str, tar
 
             trp_metadata = get_trp_metadata(trp_id)
 
-            if not trp_metadata["checks"]["has_volumes" if target == "V" else "has_speeds"]:
+            if not trp_metadata["checks"]["has_volumes" if option == "V" else "has_speeds"]:
                 raise TargetDataNotAvailableError(f"Target data not available for TRP: {trp_id}")
 
             trp_road_category = trp_metadata["trp_data"]["location"]["roadReference"]["roadCategory"]["id"]
             print("\nTRP road category: ", trp_road_category)
 
-            forecaster = OnePointForecaster(trp_id=trp_id, road_category=road_category, target=target_data, client=client)
+            forecaster = OnePointForecaster(trp_id=trp_id, road_category=trp_road_category, target=target_data[option], client=client)
 
             forecaster, method, preprocessed_data = get_forecaster(option, trp_id, trp_road_category, target_data[option])
 
