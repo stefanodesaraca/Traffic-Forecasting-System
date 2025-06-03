@@ -245,9 +245,13 @@ def execute_forecasting(functionality: str) -> None:
             X, y = split_data(model_training_dataset, target=target_data, mode=1)
 
             for model in model_definitions["class_instances"].keys():
-                learner = TFSLearner(model=model(**model_definitions["auxiliary_parameters"][model.__name__]), road_category=trp_road_category, target=target_data[option], client=client)
-                results = learner.get_model().fit(X, y)
-                print(results)
+
+                params = {**model_definitions["auxiliary_parameters"][model.__name__]} #TODO ADD THE BEST PARAMETERS FOR THIS SPECIFIC MODEL (OBTAINED FORM THE GRIDSEARCH) AND THEN INCLUDE EVERYTHING INTO model() IN TFSLearner
+                learner = TFSLearner(model=model(), road_category=trp_road_category, target=target_data[option], client=client)
+                model = learner.get_model().fit(X, y)
+
+                predictions = model.predict(future_records)
+                print(predictions)
 
     return None
 
