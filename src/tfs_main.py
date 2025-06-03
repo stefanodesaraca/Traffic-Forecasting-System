@@ -112,7 +112,7 @@ def set_forecasting_options(functionality: str) -> None:
 
     elif functionality == "3.1.2":
         option = input("Press V to read forecasting target datetime for traffic volumes or AS for average speeds: ")
-        print("Target datetime: ", read_forecasting_target_datetime(data_kind=option), "\n\n",)
+        print("Target datetime: ", read_forecasting_target_datetime(target=option), "\n\n", )
 
     elif functionality == "3.1.3":
         reset_forecasting_target_datetime()
@@ -197,10 +197,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             #print(X_train.head(5), X_test.head(5), y_train.head(5), y_test.head(5))
 
             for model in models:
-
-                fitting_params = grids[target][model.__name__].update(model_definitions["auxiliary_parameters"][model.__name__])
-                print(fitting_params) #TODO FOR TESTING PURPOSES
-                learner = learner_class(model=model, fitting_params=fitting_params, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)  # This client is ok here since the process_data function (in which it's located) only gets called after the client is opened as a context manager afterward (see down below in the code) *
+                learner = learner_class(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)  # This client is ok here since the process_data function (in which it's located) only gets called after the client is opened as a context manager afterward (see down below in the code) *
                 # Using cast() to tell the type checker that the "target" variable is actually a Literal
 
                 # Some methods like fit() or predict() belong to the wrapped model object that's set as a TFSLearner class attribute.
@@ -268,16 +265,13 @@ def execute_forecasting(functionality: str) -> None:
             print("\nTRP road category: ", trp_road_category)
 
             forecaster = OnePointForecaster(trp_id=trp_id, road_category=trp_road_category, target=target_data[option], client=client)
+            future_records = forecaster.get_future_records(target_datetime=read_forecasting_target_datetime(target=target_data), attrs=target_data[option]) #Already preprocessed
 
-            forecaster, method, preprocessed_data = get_forecaster(option, trp_id, trp_road_category, target_data[option])
-
-            if forecaster:
-                for model_name in model_definitions["class_instances"].keys():
-                    results = getattr(forecaster, method)(preprocessed_data, model_name=model_name)
-                    print(results)
-            else:
-                print("\033[91mNon-valid TRP ID, returning to main menu\033[0m")
-                return
+            for model in model_definitions["class_instances"].keys():
+                learner = TFSLearner(model=model(**model_definitions["auxiliary_parameters"][model.__name__]), road_category=trp_road_category, target=target_data[option], client=client)
+                model = learner.get_model()
+                results = model.fit()
+                print(results)
 
     return None
 

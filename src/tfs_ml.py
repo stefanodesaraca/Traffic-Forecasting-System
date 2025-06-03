@@ -12,7 +12,7 @@ from warnings import simplefilter
 from scipy import stats
 from datetime import datetime
 from enum import Enum
-from typing import Literal, Generator, Protocol
+from typing import Any, Literal, Generator, Protocol
 from pydantic import BaseModel as PydanticBaseModel, field_validator
 from pydantic.types import PositiveFloat
 import numpy as np
@@ -353,6 +353,24 @@ class EstimatorProtocol(Protocol, Any):
     A protocol to inform the static type checker that an object of type EstimatorProtocol will have a predict() method
     """
 
+    def fit(self, X_train: Any, y_train: Any) -> Any:
+        """
+        Make predictions using the estimator.
+
+        Parameters
+        ----------
+        X_train : Any
+            Input predictor features for training.
+        y_train : Any
+            Input target features for training.
+        Returns
+        -------
+        Any
+            Fitted model
+        """
+        ...
+
+
     def predict(self, X: Any) -> Any:
         """
         Make predictions using the estimator.
@@ -379,7 +397,6 @@ class BaseModel(PydanticBaseModel):
 
 class ModelWrapper(BaseModel):
     model_obj: EstimatorProtocol
-    fitting_params: dict[Any, Any]
 
 
     @field_validator("model_obj", mode="after")
@@ -472,10 +489,9 @@ class ModelWrapper(BaseModel):
         ModelNotSetError
             If no model has been passed to the wrapper class.
         """
-        if self.model_obj:
-            return self.model_obj
-        else:
+        if not self.model_obj:
             raise ModelNotSetError("Model not passed to the wrapper class")
+        return self.model_obj
 
 
     def fit(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> Any:
@@ -495,14 +511,8 @@ class ModelWrapper(BaseModel):
             The trained model object.
         """
 
-        model = model_definitions["class_instance"][self.name](**self.fitting_params)  # Unpacking the dictionary to set all parameters to instantiate the model's class object
-
         with joblib.parallel_backend("dask"):
-            model.fit(X_train.compute(), y_train.compute())
-
-        print(f"Successfully trained {self.name}")
-
-        return self.model_obj
+            return self.model_obj.fit(X_train.compute(), y_train.compute())
 
 
     def predict(self, X_test: dd.DataFrame) -> Any:
@@ -625,7 +635,7 @@ class TFSLearner:
         A Dask distributed client used to parallelize computation.
     """
 
-    def __init__(self, model: Any, road_category: str, fitting_params: dict[Any, Any], target: Literal["traffic_volumes", "average_speed"], client: Client | None):
+    def __init__(self, model: Any, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None):
         self._scorer: dict = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
@@ -635,7 +645,7 @@ class TFSLearner:
         self._client: Client = client
         self._road_category: str = road_category
         self._target: Literal["traffic_volumes", "average_speed"] = target
-        self._model: ModelWrapper = ModelWrapper(model_obj=model, fitting_params=fitting_params)
+        self._model: ModelWrapper = ModelWrapper(model_obj=model)
 
 
     def get_model(self) -> ModelWrapper:

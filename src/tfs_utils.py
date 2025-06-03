@@ -466,11 +466,11 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
             sys.exit(1)
 
 
-def read_forecasting_target_datetime(data_kind: str) -> datetime:
+def read_forecasting_target_datetime(target: str) -> datetime:
     try:
-        return datetime.strptime(read_metainfo_key(keys_map=["forecasting", "target_datetimes", data_kind]), dt_format)
+        return datetime.strptime(read_metainfo_key(keys_map=["forecasting", "target_datetimes", target]), dt_format)
     except TypeError:
-        print(f"\033[91mTarget datetime for {data_kind} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
+        print(f"\033[91mTarget datetime for {target} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
         sys.exit(1)
     except FileNotFoundError:
         print("\033[91mTarget Datetime File Not Found\033[0m")
