@@ -679,12 +679,12 @@ class TFSLearner:
         # print(gridsearch.scorer_, "\n")
 
         # TODO USE THESE FUNCTIONS OUTSIDE OF THIS METHOD, SO IT WOULD BE POSSIBLE TO JUST RETURN THE DF
-        self._export_gridsearch_results(gridsearch_results)
-        self._export_gridsearch_results_test(gridsearch_results)  # TODO TESTING
+        self._export_gridsearch_results(gridsearch_results, filepath=get_models_parameters_folder_path(target=self._target, road_category=self._road_category) + (get_active_ops() + "_" + self._road_category + "_" + self._model.name + "_" + "parameters") + ".json")
 
         # TODO EXPORT TRUE BEST PARAMETERS
 
-    def _export_gridsearch_results(self, gridsearch_results: pd.DataFrame) -> None:
+
+    def _export_gridsearch_results(self, gridsearch_results: pd.DataFrame, filepath: str) -> None:
         """
         Export GridSearchCV results to a JSON file.
 
@@ -703,31 +703,12 @@ class TFSLearner:
         true_best_params["best_GridSearchCV_model_index"] = best_params[self._target][self._model.name]
         true_best_params["best_GridSearchCV_model_scores"] = gridsearch_results.loc[true_best_params["best_GridSearchCV_model_index"]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
-        with open(get_models_parameters_folder_path(target=self._target, road_category=self._road_category) + (get_active_ops() + "_" + self._road_category + "_" + self._model.name + "_" + "parameters") + ".json", "w", encoding="utf-8") as params_file:
+        with open(filepath, "w", encoding="utf-8") as params_file:
             json.dump(true_best_params, params_file, indent=4)
 
-        return None
-
-
-    # TODO TESTING FUNCTION
-    def _export_gridsearch_results_test(self, gridsearch_results: pd.DataFrame) -> None:
-        """
-        Export GridSearchCV results for testing purposes.
-
-        Parameters
-        ----------
-        gridsearch_results : pd.DataFrame
-            The gridsearch results to export.
-
-        Returns
-        -------
-        None
-
-        Notes
-        -----
-        This is a testing function that exports results in JSON format and will soon be removed when the testing and refinement phase will be over
-        """
+        #TODO TESTING:
         gridsearch_results.to_json(f"./ops/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
+
         return None
 
 
@@ -927,7 +908,7 @@ class OnePointForecaster:
     def get_future_records(self, target_datetime: datetime, attrs: dict[str, np.nan]) -> dd.DataFrame:
 
         # Creating a datetime range with datetimes to predict. These will be inserted in the empty rows to be fed to the models for predictions
-        rows_to_predict = [{
+        rows_to_predict = pd.DataFrame([{
                 **attrs,
                 "coverage": np.nan,
                 "day": dt.strftime("%d"),
@@ -937,23 +918,21 @@ class OnePointForecaster:
                 "week": dt.strftime("%V"),
                 "date": dt.strftime("%Y-%m-%d"),
                 "trp_id": self._trp_id
-            } for dt in pd.date_range(start=datetime.strptime(read_metainfo_key(keys_map=[self._target, "end_date_iso"]), dt_iso).strftime(dt_format), end=target_datetime.strftime(dt_format), freq="1h")]
+            } for dt in pd.date_range(start=datetime.strptime(read_metainfo_key(keys_map=[self._target, "end_date_iso"]), dt_iso).strftime(dt_format), end=target_datetime.strftime(dt_format), freq="1h")])
             #The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
-        self._n_records = len(rows_to_predict) * 24  # Number of records to collect from the TRP's individual data
+        self._n_records = rows_to_predict.shape[0] * 24  # Number of records to collect from the TRP's individual data
 
-        rows_to_predict = dd.from_pandas(pd.DataFrame(rows_to_predict))
         rows_to_predict["day"] = rows_to_predict["day"].astype("int")
         rows_to_predict["month"] = rows_to_predict["month"].astype("int")
         rows_to_predict["year"] = rows_to_predict["year"].astype("int")
         rows_to_predict["hour"] = rows_to_predict["hour"].astype("int")
         rows_to_predict["week"] = rows_to_predict["week"].astype("int")
 
-
         if self._target == "traffic_volumes":
-            return TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=self.client).preprocess_volumes(z_score=False)
+            return TFSPreprocessor(data=dd.from_pandas(rows_to_predict), road_category=self._road_category, client=self.client).preprocess_volumes(z_score=False)
         elif self._target == "average_speed":
-            return TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=self.client).preprocess_speeds(z_score=False)
+            return TFSPreprocessor(data=dd.from_pandas(rows_to_predict), road_category=self._road_category, client=self.client).preprocess_speeds(z_score=False)
         else:
             raise TargetVariableNotFoundError("Wrong target variable")
 
