@@ -807,7 +807,7 @@ class OnePointForecaster:
         self._road_category: str = road_category
         self._n_records: int | None = None
         self._target: Literal["traffic_volumes", "average_speed"] = target
-        self.client: Client = client
+        self._client: Client = client
 
 
     def _get_future_records(self, target_datetime: datetime) -> dd.DataFrame:
@@ -930,9 +930,9 @@ class OnePointForecaster:
         rows_to_predict["week"] = rows_to_predict["week"].astype("int")
 
         if self._target == "traffic_volumes":
-            return TFSPreprocessor(data=dd.from_pandas(rows_to_predict), road_category=self._road_category, client=self.client).preprocess_volumes(z_score=False)
+            return TFSPreprocessor(data=dd.from_pandas(rows_to_predict), road_category=self._road_category, client=self._client).preprocess_volumes(z_score=False)
         elif self._target == "average_speed":
-            return TFSPreprocessor(data=dd.from_pandas(rows_to_predict), road_category=self._road_category, client=self.client).preprocess_speeds(z_score=False)
+            return TFSPreprocessor(data=dd.from_pandas(rows_to_predict), road_category=self._road_category, client=self._client).preprocess_speeds(z_score=False)
         else:
             raise TargetVariableNotFoundError("Wrong target variable")
 

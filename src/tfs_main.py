@@ -256,14 +256,14 @@ def get_forecaster(option: str, trp_id: str, road_category: str, target_data: st
 
     info = forecaster_info[option]
     if get_trp_metadata(trp_id)["checks"][info["check"]]:
-        forecaster = info["class"](trp_id=trp_id, road_category=road_category, target=target_data)
+        forecaster = info["class"]
         return forecaster, info["method"], forecaster.prep()
     else:
         print(f"TRP {trp_id} doesn't have {option.lower()} data, returning to main menu")
         return None, None, None
 
 
-def execute_forecasts(functionality: str) -> None:
+def execute_forecasting(functionality: str, trp_id: str, road_category: str, target: str) -> None:
     check_metainfo_file()
 
     print("Which kind of data would you like to forecast?")
@@ -280,16 +280,25 @@ def execute_forecasts(functionality: str) -> None:
             print("TRP IDs: ", trp_ids)
             trp_id = input("Insert TRP ID for forecasting: ")
 
-            if trp_id in trp_ids:
-                trp_road_category = get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"]
-                print("\nTRP road category:", trp_road_category)
+            if trp_id not in trp_ids:
+                raise TRPNotFoundError("TRP ID not in available TRP IDs list")
 
-                forecaster, method, preprocessed_data = get_forecaster(option, trp_id, trp_road_category, target_data[option])
+            trp_metadata = get_trp_metadata(trp_id)
 
-                if forecaster:
-                    for model_name in model_definitions["class_instances"].keys():
-                        results = getattr(forecaster, method)(preprocessed_data, model_name=model_name)
-                        print(results)
+            if not trp_metadata["checks"]["has_volumes" if target == "V" else "has_speeds"]:
+                raise TargetDataNotAvailableError(f"Target data not available for TRP: {trp_id}")
+
+            trp_road_category = trp_metadata["trp_data"]["location"]["roadReference"]["roadCategory"]["id"]
+            print("\nTRP road category: ", trp_road_category)
+
+            forecaster = OnePointForecaster(trp_id=trp_id, road_category=road_category, target=target_data, client=client)
+
+            forecaster, method, preprocessed_data = get_forecaster(option, trp_id, trp_road_category, target_data[option])
+
+            if forecaster:
+                for model_name in model_definitions["class_instances"].keys():
+                    results = getattr(forecaster, method)(preprocessed_data, model_name=model_name)
+                    print(results)
             else:
                 print("\033[91mNon-valid TRP ID, returning to main menu\033[0m")
                 return
@@ -324,7 +333,7 @@ def main():
         "3.2.3": execute_forecast_warmup,
         "3.2.4": execute_forecast_warmup,
         "3.2.5": execute_forecast_warmup,
-        "3.3.1": execute_forecasts,
+        "3.3.1": execute_forecasting,
         "4.1": manage_road_network,
         "4.2": manage_road_network,
         "4.3": manage_road_network,
