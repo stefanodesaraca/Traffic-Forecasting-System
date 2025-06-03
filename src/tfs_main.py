@@ -220,8 +220,10 @@ def execute_forecasting(functionality: str) -> None:
         print("Invalid option, returning to main menu")
         return
 
-    with dask_cluster_client(processes=False) as client:
-        if functionality == "3.3.1":
+    if functionality == "3.3.1":
+
+        with dask_cluster_client(processes=False) as client:
+
             trp_ids = get_trp_ids()
             print("TRP IDs: ", trp_ids)
             trp_id = input("Insert TRP ID for forecasting: ")
