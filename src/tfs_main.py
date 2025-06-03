@@ -240,10 +240,12 @@ def execute_forecasting(functionality: str) -> None:
             forecaster = OnePointForecaster(trp_id=trp_id, road_category=trp_road_category, target=target_data[option], client=client)
             future_records = forecaster.get_future_records(target_datetime=read_forecasting_target_datetime(target=target_data)) #Already preprocessed
 
+            #TODO TEST training_mode = BOTH 0 AND 1
+            model_training_dataset = forecaster.get_training_records(training_mode=0, road_category=trp_road_category, limit=future_records.shape[0].compute() * 24)
+
             for model in model_definitions["class_instances"].keys():
                 learner = TFSLearner(model=model(**model_definitions["auxiliary_parameters"][model.__name__]), road_category=trp_road_category, target=target_data[option], client=client)
-                model = learner.get_model()
-                results = model.fit()
+                results = learner.get_model().fit()
                 print(results)
 
     return None

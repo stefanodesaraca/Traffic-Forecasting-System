@@ -656,7 +656,8 @@ def del_ops_folder(ops_name: str) -> None:
 
 # ==================== Auxiliary Utilities ====================
 
-def get_trp_ids_by_road_category(target: str) -> dict[Any, Any] | None:
+
+def get_trp_ids_by_road_category(target: str) -> dict[str, list[str]] | None:
 
     road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
 
@@ -688,7 +689,7 @@ def get_trp_ids_by_road_category(target: str) -> dict[Any, Any] | None:
         TargetVariableNotFoundError(f"Wrong target variable imputed. {target} is not a target variable")
 
 
-def split_data(data: dd.DataFrame, target: str, mode: int) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
+def split_data(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
     """
     Splits the Dask DataFrame into training and testing sets based on the target column and mode.
 
