@@ -242,10 +242,11 @@ def execute_forecasting(functionality: str) -> None:
 
             #TODO TEST training_mode = BOTH 0 AND 1
             model_training_dataset = forecaster.get_training_records(training_mode=0, road_category=trp_road_category, limit=future_records.shape[0].compute() * 24)
+            X, y = split_data(model_training_dataset, target=target_data, mode=1)
 
             for model in model_definitions["class_instances"].keys():
                 learner = TFSLearner(model=model(**model_definitions["auxiliary_parameters"][model.__name__]), road_category=trp_road_category, target=target_data[option], client=client)
-                results = learner.get_model().fit()
+                results = learner.get_model().fit(X, y)
                 print(results)
 
     return None
