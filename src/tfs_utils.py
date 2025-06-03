@@ -656,6 +656,37 @@ def del_ops_folder(ops_name: str) -> None:
 
 # ==================== Auxiliary Utilities ====================
 
+def get_trp_ids_by_road_category(target: str) -> dict[Any, Any] | None:
+
+    road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
+
+    if target == "traffic_volumes":
+        clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
+
+        # TRPs - Volumes files and road categories
+        trps_ids_volumes_by_road_category = {
+            category: [clean_volumes_folder + trp_id + "_volumes_C.csv" for trp_id in
+                       filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"]["has_volumes"], get_trp_ids())]
+            for category in road_categories
+        }
+        return {k: v for k, v in trps_ids_volumes_by_road_category.items() if len(v) >= 2}
+        # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
+
+    elif target == "average_speed":
+        clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
+
+        # TRPs - Average speed files and road categories
+        trps_ids_avg_speeds_by_road_category = {
+            category: [clean_speeds_folder + trp_id + "_speeds_C.csv" for trp_id in
+                       filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"]["has_speeds"], get_trp_ids())]
+            for category in road_categories
+        }
+        return {k: v for k, v in trps_ids_avg_speeds_by_road_category.items() if len(v) >= 2}
+        # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
+
+    else:
+        TargetVariableNotFoundError(f"Wrong target variable imputed. {target} is not a target variable")
+
 
 def split_data(data: dd.DataFrame, target: str, mode: int) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
     """
@@ -689,7 +720,6 @@ def split_data(data: dd.DataFrame, target: str, mode: int) -> tuple[dd.DataFrame
         return dd.from_delayed(delayed(X.head(p_70)).persist()), dd.from_delayed(delayed(X.tail(len(X) - p_70))).persist(), dd.from_delayed(delayed(y.head(p_70)).persist()), dd.from_delayed(delayed(y.tail(len(y) - p_70))).persist()
     else:
         raise WrongSplittingMode("Wrong splitting mode imputed")
-
 
 
 def merge(trp_filepaths: list[str]) -> dd.DataFrame:

@@ -146,28 +146,6 @@ def execute_eda() -> None:
 # TODO IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL. EXPLICITELY PRINT THAT FILES METADATA IS NEEDED BEFORE EXECUTING THE WARMUP
 def execute_forecast_warmup(functionality: str) -> None:
     models = model_definitions["class_instance"].values()
-    clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
-    clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
-    road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
-
-    # TRPs - Volumes files and road categories
-    trps_ids_volumes_by_road_category = {
-        category: [clean_volumes_folder + trp_id + "_volumes_C.csv" for trp_id in
-                   filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"]["has_volumes"], get_trp_ids())]
-        for category in road_categories
-    }
-    trps_ids_volumes_by_road_category = {k: v for k, v in trps_ids_volumes_by_road_category.items() if len(v) >= 2}
-    # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
-
-    # TRPs - Average speed files and road categories
-    trps_ids_avg_speeds_by_road_category = {
-        category: [clean_speeds_folder + trp_id + "_speeds_C.csv" for trp_id in
-                   filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"]["has_speeds"], get_trp_ids())]
-        for category in road_categories
-    }
-    trps_ids_avg_speeds_by_road_category = {k: v for k, v in trps_ids_avg_speeds_by_road_category.items() if len(v) >= 2}
-    # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
-
 
     def process_data(
             trps_ids_by_road_category: dict[str, list[str]],
@@ -211,22 +189,22 @@ def execute_forecast_warmup(functionality: str) -> None:
     with dask_cluster_client(processes=False) as client: #*
 
         if functionality == "3.2.1":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"], "hyperparameter tuning on traffic volumes data", "preprocess_volumes", "gridsearch")
+            process_data(get_trp_ids_by_road_category(target=target_data["V"]), models, TFSLearner, target_data["V"], "hyperparameter tuning on traffic volumes data", "preprocess_volumes", "gridsearch")
 
         elif functionality == "3.2.2":
-            process_data(trps_ids_avg_speeds_by_road_category, models, TFSLearner, target_data["AS"], "hyperparameter tuning on average speed data", "preprocess_speeds", "gridsearch")
+            process_data(get_trp_ids_by_road_category(target=target_data["AS"]), models, TFSLearner, target_data["AS"], "hyperparameter tuning on average speed data", "preprocess_speeds", "gridsearch")
 
         elif functionality == "3.2.3":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"], "training models on traffic volumes data", "preprocess_volumes", "fit")
+            process_data(get_trp_ids_by_road_category(target=target_data["V"]), models, TFSLearner, target_data["V"], "training models on traffic volumes data", "preprocess_volumes", "fit")
 
         elif functionality == "3.2.4":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["AS"], "training models on average speed data", "preprocess_speeds", "fit")
+            process_data(get_trp_ids_by_road_category(target=target_data["AS"]), models, TFSLearner, target_data["AS"], "training models on average speed data", "preprocess_speeds", "fit")
 
         elif functionality == "3.2.5":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"], "testing models on traffic volumes data", "preprocess_volumes", "predict")
+            process_data(get_trp_ids_by_road_category(target=target_data["V"]), models, TFSLearner, target_data["V"], "testing models on traffic volumes data", "preprocess_volumes", "predict")
 
         elif functionality == "3.2.6":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["AS"], "testing models on average speed data", "preprocess_speeds", "predict")
+            process_data(get_trp_ids_by_road_category(target=target_data["AS"]), models, TFSLearner, target_data["AS"], "testing models on average speed data", "preprocess_speeds", "predict")
 
     return None
 
