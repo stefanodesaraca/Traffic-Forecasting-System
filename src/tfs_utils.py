@@ -657,13 +657,16 @@ def del_ops_folder(ops_name: str) -> None:
 # ==================== Auxiliary Utilities ====================
 
 
-def split_data(data: dd.DataFrame, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
+def split_data(data: dd.DataFrame, target: str, mode: int) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
     """
-    Splits the Dask DataFrame into training and testing sets based on the target column.
+    Splits the Dask DataFrame into training and testing sets based on the target column and mode.
 
     Parameters:
         data: dd.DataFrame
         target: str ("volume" or "mean_speed")
+        mode: the mode which indicates the kind of split it's intended to execute.
+                0 - Stands for the classic 4 section train-test-split (X_train, X_test, y_train, y_test)
+                1 - Indicates a forecasted specific train-test-split (X, y)
 
     Returns:
         X_train, X_test, y_train, y_test
@@ -678,13 +681,15 @@ def split_data(data: dd.DataFrame, target: str) -> tuple[dd.DataFrame, dd.DataFr
     X = data.drop(columns=[target])
     y = data[[target]]
 
-    # print("X shape: ", f"({len(X)}, {len(X.columns)})", "\n")
-    # print("y shape: ", f"({len(y)}, {len(y.columns)})", "\n")
+    if mode == 1:
+        return X.persist(), y.persist()
+    elif mode == 0:
+        n_rows = data.shape[0].compute()
+        p_70 = int(n_rows * 0.70)
+        return dd.from_delayed(delayed(X.head(p_70)).persist()), dd.from_delayed(delayed(X.tail(len(X) - p_70))).persist(), dd.from_delayed(delayed(y.head(p_70)).persist()), dd.from_delayed(delayed(y.tail(len(y) - p_70))).persist()
+    else:
+        raise WrongSplittingMode("Wrong splitting mode imputed")
 
-    n_rows = data.shape[0].compute()
-    p_70 = int(n_rows * 0.70)
-
-    return dd.from_delayed(delayed(X.head(p_70)).persist()), dd.from_delayed(delayed(X.tail(len(X) - p_70))).persist(), dd.from_delayed(delayed(y.head(p_70)).persist()), dd.from_delayed(delayed(y.tail(len(y) - p_70))).persist()
 
 
 def merge(trp_filepaths: list[str]) -> dd.DataFrame:

@@ -888,47 +888,6 @@ class OnePointForecaster:
             raise TargetVariableNotFoundError("Wrong target variable")
 
 
-
-    @staticmethod
-    def _get_X(data: dd.DataFrame, target_col: str) -> dd.DataFrame:
-        """
-        Extract predictor variables' data from the dataset.
-
-        Parameters
-        ----------
-        data : dd.DataFrame
-            The input dataset.
-        target_col : str
-            The name of the target column to exclude.
-
-        Returns
-        -------
-        dd.DataFrame
-            Predictor variables' data
-        """
-        return data.drop(columns=[target_col]).persist() # dd.from_delayed documentation: https://docs.dask.org/en/latest/generated/dask.dataframe.from_delayed.html
-
-
-    @staticmethod
-    def _get_y(data: dd.DataFrame, target_col: str) -> dd.DataFrame:
-        """
-        Extract target variable's data from the dataset.
-
-        Parameters
-        ----------
-        data : dd.DataFrame
-            The input dataset.
-        target_col : str
-            The name of the target column.
-
-        Returns
-        -------
-        dd.DataFrame
-            Target variable's data
-        """
-        return data[[target_col]].persist()
-
-
     @staticmethod
     def export_predictions(y_preds: dd.DataFrame, predictions_metadata: dict[Any, Any], predictions_filepath: str, metadata_filepath: str) -> None:
         """

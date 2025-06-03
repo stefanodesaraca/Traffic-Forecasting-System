@@ -150,7 +150,6 @@ def execute_forecast_warmup(functionality: str) -> None:
     clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
     road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
 
-
     # TRPs - Volumes files and road categories
     trps_ids_volumes_by_road_category = {
         category: [clean_volumes_folder + trp_id + "_volumes_C.csv" for trp_id in
@@ -159,10 +158,6 @@ def execute_forecast_warmup(functionality: str) -> None:
     }
     trps_ids_volumes_by_road_category = {k: v for k, v in trps_ids_volumes_by_road_category.items() if len(v) >= 2}
     # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
-
-    print(trps_ids_volumes_by_road_category)
-    # pprint.pprint(trps_ids_by_road_category)
-
 
     # TRPs - Average speed files and road categories
     trps_ids_avg_speeds_by_road_category = {
@@ -193,7 +188,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             preprocessing_method = getattr(preprocessor, preprocessor_method) #Getting the appropriate preprocessing method based on the target variable to preprocess
             preprocessed_data = preprocessing_method() #Calling the preprocessing method
 
-            X_train, X_test, y_train, y_test = split_data(preprocessed_data, target=target)
+            X_train, X_test, y_train, y_test = split_data(preprocessed_data, target=target, mode=0)
             #print(X_train.head(5), X_test.head(5), y_train.head(5), y_test.head(5))
 
             for model in models:
@@ -265,7 +260,7 @@ def execute_forecasting(functionality: str) -> None:
             print("\nTRP road category: ", trp_road_category)
 
             forecaster = OnePointForecaster(trp_id=trp_id, road_category=trp_road_category, target=target_data[option], client=client)
-            future_records = forecaster.get_future_records(target_datetime=read_forecasting_target_datetime(target=target_data), attrs=target_data[option]) #Already preprocessed
+            future_records = forecaster.get_future_records(target_datetime=read_forecasting_target_datetime(target=target_data)) #Already preprocessed
 
             for model in model_definitions["class_instances"].keys():
                 learner = TFSLearner(model=model(**model_definitions["auxiliary_parameters"][model.__name__]), road_category=trp_road_category, target=target_data[option], client=client)
