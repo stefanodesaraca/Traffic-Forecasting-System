@@ -551,7 +551,7 @@ class ModelWrapper(BaseModel):
 
 
     @staticmethod
-    def evaluate_regression(y_test: dd.DataFrame, y_pred: dd.DataFrame) -> dict[str, Any]:
+    def evaluate_regression(y_test: dd.DataFrame, y_pred: dd.DataFrame, scorer: dict[str, make_scorer | callable]) -> dict[str, Any]:
         """
         Calculate prediction errors for regression model testing.
 
@@ -561,20 +561,17 @@ class ModelWrapper(BaseModel):
             The true values of the target variable.
         y_pred : dd.DataFrame
             The predicted values of the target variable.
+        scorer : dict[str, make_scorer | callable]
+            The scorer which will be used to evaluate the regression.
+            The order of the parameters to impute must be y_true first and y_pred second.
+            Each scoring function must accept exactly and only the parameters mentioned above.
 
         Returns
         -------
         dict[str, Any]
-            A dictionary of errors (positive floats) for each error metric including:
-            - r2: R-squared score
-            - mean_absolute_error: Mean Absolute Error
-            - mean_squared_error: Mean Squared Error
-            - root_mean_squared_error: Root Mean Squared Error
+            A dictionary of errors (positive floats) for each error metric.
         """
-        return {"r2": np.round(r2_score(y_true=y_test, y_pred=y_pred), 4),
-                "mean_absolute_error": np.round(mean_absolute_error(y_true=y_test, y_pred=y_pred), 4),
-                "mean_squared_error": np.round(mean_squared_error(y_true=y_test, y_pred=y_pred), 4),
-                "root_mean_squared_error": np.round(root_mean_squared_error(y_true=y_test, y_pred=y_pred), 4)}
+        return {k: np.round(s(y_test, y_pred), decimals=4) for k, s in scorer.items()}
 
 
     def export(self, filepath: str) -> None:
@@ -624,9 +621,6 @@ class TFSLearner:
 
     road_category : str
         The category of the road where the TRP that recorded the data was located
-
-    fitting_params : dict
-        Parameters used when fitting the model
 
     target : str
         The target variable to predict (e.g., 'traffic_volumes', 'average_speed').
@@ -694,13 +688,13 @@ class TFSLearner:
         # TODO EXPORT TRUE BEST PARAMETERS
 
 
-    def _export_gridsearch_results(self, gridsearch_results: pd.DataFrame, filepath: str) -> None:
+    def _export_gridsearch_results(self, results: pd.DataFrame, filepath: str) -> None:
         """
         Export GridSearchCV results to a JSON file.
 
         Parameters
         ----------
-        gridsearch_results : pd.DataFrame
+        results : pd.DataFrame
             The actual gridsearch results as a pandas dataframe.
 
         Returns
@@ -708,16 +702,16 @@ class TFSLearner:
         None
         """
 
-        true_best_params = {self._model.name: gridsearch_results["params"].loc[best_params[self._target][self._model.name]]} or {}
+        true_best_params = {self._model.name: results["params"].loc[best_params[self._target][self._model.name]]} or {}
         true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) # This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
         true_best_params["best_GridSearchCV_model_index"] = best_params[self._target][self._model.name]
-        true_best_params["best_GridSearchCV_model_scores"] = gridsearch_results.loc[true_best_params["best_GridSearchCV_model_index"]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
+        true_best_params["best_GridSearchCV_model_scores"] = results.loc[true_best_params["best_GridSearchCV_model_index"]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
         with open(filepath, "w", encoding="utf-8") as params_file:
             json.dump(true_best_params, params_file, indent=4)
 
         #TODO TESTING:
-        gridsearch_results.to_json(f"./ops/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
+        results.to_json(f"./ops/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
 
         return None
 

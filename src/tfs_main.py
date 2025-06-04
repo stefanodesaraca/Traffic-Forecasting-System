@@ -248,12 +248,11 @@ def execute_forecasting(functionality: str) -> None:
 
             for name, model in model_definitions["class_instances"].items():
 
-                with open(read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", target_data[option], "subfolders", trp_road_category, "path"]) + get_active_ops() + trp_road_category + name + "_parameters.json", "r") as params_reader:
+                with open(get_models_parameters_folder_path(target_data[option], trp_road_category) + get_active_ops() + "_" + trp_road_category + "_" + name + "_parameters.json", "r") as params_reader:
                     best_params = json.load(params_reader)[name]
 
                 learner = TFSLearner(model=model(**model_definitions["auxiliary_parameters"][name], **best_params), road_category=trp_road_category, target=target_data[option], client=client)
                 model = learner.get_model().fit(X, y)
-
                 predictions = model.predict(future_records)
                 print(predictions)
 
