@@ -630,7 +630,7 @@ class TFSLearner:
     """
 
     def __init__(self, model: callable, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None):
-        self._scorer: dict = {
+        self._scorer: dict[str, make_scorer] = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
             "root_mean_squared_error": make_scorer(root_mean_squared_error),
@@ -644,6 +644,10 @@ class TFSLearner:
 
     def get_model(self) -> ModelWrapper:
         return self._model
+
+
+    def get_scorer(self) -> dict[str, make_scorer]:
+        return self._scorer
 
 
     def _load_model(self) -> Any:

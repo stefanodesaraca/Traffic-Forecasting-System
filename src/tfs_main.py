@@ -147,73 +147,78 @@ def execute_eda() -> None:
 def execute_forecast_warmup(functionality: str) -> None:
     models = model_definitions["class_instance"].values()
 
-    def process_data(
-            trps_ids_by_road_category: dict[str, list[str]],
-            models: list[Any],
-            learner_class: type[TFSLearner], #Keeping the flexibility of this parameter for now to be able to add other types of learner classes in the future
-            target: str,
-            process_description: str,
-            preprocessor_method: str,
-            learner_method: str
-    ) -> None:
+
+    def preprocess_data(files: list[str], preprocessor_method: str, splitting_mode: Literal[0, 1], road_category: str, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
+
+        print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
+
+        preprocessor = TFSPreprocessor(data=merge(files), road_category=road_category, client=client)
+        print(f"Shape of the merged data for road category {road_category}: ", preprocessor.size)
+        preprocessing_method = getattr(preprocessor, preprocessor_method)  # Getting the appropriate preprocessing method based on the target variable to preprocess
+
+        return split_data(preprocessing_method(), target=target, mode=splitting_mode) # Calling the preprocessing method with preprocessing_method()
+
+
+    def execute_gridsearch(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable, road_category: str, target: str) -> None:
+
+        gridsearch_result = learner.gridsearch(X_train, y_train)
+        learner.export_gridsearch_results(gridsearch_result, filepath=get_models_parameters_folder_path(cast(Literal["traffic_volumes", "average_speed"], target), road_category) + get_active_ops() + "_" + road_category + "_" + learner.get_model().name + "_parameters.json")
+        print(f"============== {learner.get_model().name} grid search results ==============\n")
+        print(gridsearch_result, "\n")
+
+        return None
+
+
+    def execute_training(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable):
+        learner.get_model().fit(X_train, y_train).export()
+        print("Fitting phase ended")
+        return
+
+
+    def execute_testing(X_test: dd.DataFrame, y_test: dd.DataFrame, learner: callable):
+        model = learner.get_model()
+        y_pred = model.predict(X_test)
+        print(model.evaluate_regression(y_test=y_test, y_pred=y_pred, scorer=learner.get_scorer()))
+        return
+
+
+    def warmup_executor(learner_class: callable, trps_ids_by_road_category: dict[str, list[str]], models: list[callable], preprocessor_method: str, preprocessing_split: Literal[0, 1], target: str):
 
         for road_category, files in trps_ids_by_road_category.items():
-
-            print(f"\n********************* Executing {process_description} for road category: {road_category} *********************\n")
-
-            preprocessor = TFSPreprocessor(data=merge(files), road_category=road_category, client=client)
-            print(f"Shape of the merged data for road category {road_category}: ", preprocessor.size)
-            preprocessing_method = getattr(preprocessor, preprocessor_method) #Getting the appropriate preprocessing method based on the target variable to preprocess
-            preprocessed_data = preprocessing_method() #Calling the preprocessing method
-
-            X_train, X_test, y_train, y_test = split_data(preprocessed_data, target=target, mode=0)
-            #print(X_train.head(5), X_test.head(5), y_train.head(5), y_test.head(5))
+            preprocess_data(files=files, preprocessor_method=preprocessor_method, splitting_mode=preprocessing_split, target=target, road_category=road_category)
 
             for model in models:
-
-                #TODO GET THE MODEL PARAMETERS
+                # TODO GET THE MODEL PARAMETERS
 
                 learner = learner_class(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)  # This client is ok here since the process_data function (in which it's located) only gets called after the client is opened as a context manager afterward (see down below in the code) *
                 # Using cast() to tell the type checker that the "target" variable is actually a Literal
 
-                # Some methods like fit() or predict() belong to the wrapped model object that's set as a TFSLearner class attribute.
-                #   On the other side, methods like gridsearch() only belong to the TFSLearner class, so they can only be called on an instance of that class.
-                #   With the inner hasattr() check we ensure that the method is called on the right instance
-                method = getattr(learner if hasattr(learner, learner_method) else learner.get_model(), learner_method)
-
-                if learner_method != "gridsearch":
-                    method(X_train if learner_method != "predict" else X_test,
-                           y_train if learner_method != "predict" else y_test)
-                else:
-                    gridsearch_result = method(X_train, y_train)
-                    learner.export_gridsearch_results(gridsearch_result, filepath=get_models_parameters_folder_path(cast(Literal["traffic_volumes", "average_speed"], target), road_category) + get_active_ops() + "_" + road_category + "_" + model.__class__.__name__ + "_parameters.json")
-                    print(f"============== {model.__class__.__name__} grid search results ==============\n")
-                    print(gridsearch_result, "\n")
-
-                print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
-                time.sleep(1)  # To cool down the system
-                return None
+        return
 
 
     with dask_cluster_client(processes=False) as client: #*
 
         if functionality == "3.2.1":
-            process_data(get_trp_ids_by_road_category(target=target_data["V"]), models, TFSLearner, target_data["V"], "hyperparameter tuning on traffic volumes data", "preprocess_volumes", "gridsearch")
+            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["V"]), models=models, preprocessor_method=target_data["V"], preprocessing_split=0)
 
         elif functionality == "3.2.2":
-            process_data(get_trp_ids_by_road_category(target=target_data["AS"]), models, TFSLearner, target_data["AS"], "hyperparameter tuning on average speed data", "preprocess_speeds", "gridsearch")
+            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["AS"]), models=models, preprocessor_method=target_data["AS"], preprocessing_split=0)
 
         elif functionality == "3.2.3":
-            process_data(get_trp_ids_by_road_category(target=target_data["V"]), models, TFSLearner, target_data["V"], "training models on traffic volumes data", "preprocess_volumes", "fit")
+            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["V"]), models=models, preprocessor_method=target_data["V"], preprocessing_split=0)
 
         elif functionality == "3.2.4":
-            process_data(get_trp_ids_by_road_category(target=target_data["AS"]), models, TFSLearner, target_data["AS"], "training models on average speed data", "preprocess_speeds", "fit")
+            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["AS"]), models=models, preprocessor_method=target_data["AS"], preprocessing_split=0)
 
         elif functionality == "3.2.5":
-            process_data(get_trp_ids_by_road_category(target=target_data["V"]), models, TFSLearner, target_data["V"], "testing models on traffic volumes data", "preprocess_volumes", "predict")
+            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["V"]), models=models, preprocessor_method=target_data["V"], preprocessing_split=0)
 
         elif functionality == "3.2.6":
-            process_data(get_trp_ids_by_road_category(target=target_data["AS"]), models, TFSLearner, target_data["AS"], "testing models on average speed data", "preprocess_speeds", "predict")
+            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["AS"]), models=models, preprocessor_method=target_data["AS"], preprocessing_split=0)
+
+
+        print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
+        time.sleep(1)  # To cool down the system
 
     return None
 
