@@ -646,19 +646,6 @@ class TFSLearner:
         return self._model
 
 
-    def _get_pre_existing_model_parameters(self) -> dict[str, Any]:
-        """
-        Read a pre-existing model's parameters from its json file.
-
-        Returns
-        -------
-        dict[str, Any]
-            A dictionary with the model's parameters.
-        """
-        with open(get_models_parameters_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + self._model.name + "_" + "parameters" + ".json", "r", encoding="utf-8") as parameters_file:
-            return json.load(parameters_file)[self._model.name]
-
-
     def _load_model(self) -> Any:
         """
         Load pre-existing model from its corresponding joblib file.

@@ -181,7 +181,6 @@ def execute_forecast_warmup(functionality: str) -> None:
                 if learner_method != "gridsearch":
                     method(X_train if learner_method != "predict" else X_test,
                            y_train if learner_method != "predict" else y_test)
-
                 else:
                     gridsearch_result = method(X_train, y_train)
                     learner.export_gridsearch_results(gridsearch_result, filepath=get_models_parameters_folder_path(cast(Literal["traffic_volumes", "average_speed"], target), road_category) + get_active_ops() + "_" + road_category + "_" + model.__class__.__name__ + "_parameters.json")
