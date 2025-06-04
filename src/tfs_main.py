@@ -185,7 +185,8 @@ def execute_forecast_warmup(functionality: str) -> None:
                 else:
                     gridsearch_result = method(X_train, y_train)
                     learner.export_gridsearch_results(gridsearch_result, filepath=get_models_parameters_folder_path(cast(Literal["traffic_volumes", "average_speed"], target), road_category) + get_active_ops() + "_" + road_category + "_" + model.__class__.__name__ + "_parameters.json")
-
+                    print(f"============== {model.__class__.__name__} grid search results ==============\n")
+                    print(gridsearch_result, "\n")
 
                 print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
                 time.sleep(1)  # To cool down the system
@@ -195,12 +196,10 @@ def execute_forecast_warmup(functionality: str) -> None:
     with dask_cluster_client(processes=False) as client: #*
 
         if functionality == "3.2.1":
-            gridsearch_results = process_data(get_trp_ids_by_road_category(target=target_data["V"]), models, TFSLearner, target_data["V"], "hyperparameter tuning on traffic volumes data", "preprocess_volumes", "gridsearch")
-
+            process_data(get_trp_ids_by_road_category(target=target_data["V"]), models, TFSLearner, target_data["V"], "hyperparameter tuning on traffic volumes data", "preprocess_volumes", "gridsearch")
 
         elif functionality == "3.2.2":
-            gridsearch_results = process_data(get_trp_ids_by_road_category(target=target_data["AS"]), models, TFSLearner, target_data["AS"], "hyperparameter tuning on average speed data", "preprocess_speeds", "gridsearch")
-
+            process_data(get_trp_ids_by_road_category(target=target_data["AS"]), models, TFSLearner, target_data["AS"], "hyperparameter tuning on average speed data", "preprocess_speeds", "gridsearch")
 
         elif functionality == "3.2.3":
             process_data(get_trp_ids_by_road_category(target=target_data["V"]), models, TFSLearner, target_data["V"], "training models on traffic volumes data", "preprocess_volumes", "fit")

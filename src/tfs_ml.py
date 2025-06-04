@@ -671,21 +671,6 @@ class TFSLearner:
         return joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + self._model.name + ".joblib")
 
 
-    def print_gridsearch_results(self, gridsearch_results: pd.DataFrame) -> None:
-
-        print(f"============== {self._model.name} grid search results ==============\n")
-        print(gridsearch_results, "\n")
-
-        # print("GridSearchCV best estimator: ", gridsearch.best_estimator_)
-        # print("GridSearchCV best parameters: ", gridsearch.best_params_)
-        # print("GridSearchCV best score: ", gridsearch.best_score_)
-        # print("GridSearchCV best combination index (in the results dataframe): ", gridsearch.best_index_, "\n", )
-        # print(gridsearch.scorer_, "\n")
-
-        # TODO USE THESE FUNCTIONS OUTSIDE OF THIS METHOD, SO IT WOULD BE POSSIBLE TO JUST RETURN THE DF
-        self.export_gridsearch_results(gridsearch_results, filepath=get_models_parameters_folder_path(target=self._target, road_category=self._road_category) + (get_active_ops() + "_" + self._road_category + "_" + self._model.name + "_" + "parameters") + ".json")
-
-
     def export_gridsearch_results(self, results: pd.DataFrame, filepath: str) -> None:
         """
         Export GridSearchCV true best results to a JSON file.
