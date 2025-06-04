@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from datetime import datetime
@@ -245,10 +246,12 @@ def execute_forecasting(functionality: str) -> None:
             model_training_dataset = forecaster.get_training_records(training_mode=0, road_category=trp_road_category, limit=future_records.shape[0].compute() * 24)
             X, y = split_data(model_training_dataset, target=target_data, mode=1)
 
-            for model in model_definitions["class_instances"].keys():
+            for name, model in model_definitions["class_instances"].items():
 
-                params = {**model_definitions["auxiliary_parameters"][model.__name__]} #TODO ADD THE BEST PARAMETERS FOR THIS SPECIFIC MODEL (OBTAINED FORM THE GRIDSEARCH) AND THEN INCLUDE EVERYTHING INTO model() IN TFSLearner
-                learner = TFSLearner(model=model(), road_category=trp_road_category, target=target_data[option], client=client)
+                with open(read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", target_data[option], "subfolders", trp_road_category, "path"]) + get_active_ops() + trp_road_category + name + "_parameters.json", "r") as params_reader:
+                    best_params = json.load(params_reader)[name]
+
+                learner = TFSLearner(model=model(**model_definitions["auxiliary_parameters"][name], **best_params), road_category=trp_road_category, target=target_data[option], client=client)
                 model = learner.get_model().fit(X, y)
 
                 predictions = model.predict(future_records)
