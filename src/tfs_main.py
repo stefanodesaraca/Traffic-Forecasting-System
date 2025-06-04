@@ -16,7 +16,6 @@ from tfs_ml import *
 from tfs_road_network import *
 from tfs_ml_configs import *
 
-dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 
 def manage_ops(functionality: str) -> None:
@@ -99,9 +98,9 @@ async def clean_data(functionality: str) -> None:
             await cleaner.clean_async(trp_id, export=export)
 
     if functionality == "5.6.1":
-            await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=TrafficVolumesCleaner(), export=True) for trp_id in get_trp_ids())) # The star (*) in necessary since gather() requires the coroutines to fed as positional arguments of the function. So we can unpack the list with *
+        await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=TrafficVolumesCleaner(), export=True) for trp_id in get_trp_ids())) # The star (*) in necessary since gather() requires the coroutines to fed as positional arguments of the function. So we can unpack the list with *
     elif functionality == "5.6.2":
-            await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=AverageSpeedCleaner(), export=True) for trp_id in get_trp_ids()))
+        await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=AverageSpeedCleaner(), export=True) for trp_id in get_trp_ids()))
 
     return None
 

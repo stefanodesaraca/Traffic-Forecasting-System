@@ -844,9 +844,6 @@ class OnePointForecaster:
             raise WrongTrainRecordsRetrievalMode("training_mode parameter value is not valid")
 
 
-
-
-
     def get_future_records(self, target_datetime: datetime) -> dd.DataFrame:
         """
         Generate records of the future to predict.
