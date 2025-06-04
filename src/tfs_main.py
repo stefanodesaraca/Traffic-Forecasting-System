@@ -170,6 +170,9 @@ def execute_forecast_warmup(functionality: str) -> None:
             #print(X_train.head(5), X_test.head(5), y_train.head(5), y_test.head(5))
 
             for model in models:
+
+                #TODO GET THE MODEL PARAMETERS
+
                 learner = learner_class(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)  # This client is ok here since the process_data function (in which it's located) only gets called after the client is opened as a context manager afterward (see down below in the code) *
                 # Using cast() to tell the type checker that the "target" variable is actually a Literal
 

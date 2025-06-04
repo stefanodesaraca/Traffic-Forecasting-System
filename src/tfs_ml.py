@@ -614,10 +614,10 @@ class TFSLearner:
 
     Parameters
     ----------
-    model : class
-        The model **class** (not an instance). For example:
-        `TFSLearner(model=EstimatorClass, ...)` and **not**
-        `TFSLearner(model=EstimatorClass(), ...)`.
+    model : callable (class instance)
+        The model **class instance** (not an object). For example:
+        `TFSLearner(model=EstimatorClass(), ...)` and **not**
+        `TFSLearner(model=EstimatorClass, ...)`.
 
     road_category : str
         The category of the road where the TRP that recorded the data was located
@@ -629,7 +629,7 @@ class TFSLearner:
         A Dask distributed client used to parallelize computation.
     """
 
-    def __init__(self, model: Any, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None):
+    def __init__(self, model: callable, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None):
         self._scorer: dict = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
