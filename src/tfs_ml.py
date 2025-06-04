@@ -683,19 +683,19 @@ class TFSLearner:
         # print(gridsearch.scorer_, "\n")
 
         # TODO USE THESE FUNCTIONS OUTSIDE OF THIS METHOD, SO IT WOULD BE POSSIBLE TO JUST RETURN THE DF
-        self._export_gridsearch_results(gridsearch_results, filepath=get_models_parameters_folder_path(target=self._target, road_category=self._road_category) + (get_active_ops() + "_" + self._road_category + "_" + self._model.name + "_" + "parameters") + ".json")
-
-        # TODO EXPORT TRUE BEST PARAMETERS
+        self.export_gridsearch_results(gridsearch_results, filepath=get_models_parameters_folder_path(target=self._target, road_category=self._road_category) + (get_active_ops() + "_" + self._road_category + "_" + self._model.name + "_" + "parameters") + ".json")
 
 
-    def _export_gridsearch_results(self, results: pd.DataFrame, filepath: str) -> None:
+    def export_gridsearch_results(self, results: pd.DataFrame, filepath: str) -> None:
         """
-        Export GridSearchCV results to a JSON file.
+        Export GridSearchCV true best results to a JSON file.
 
         Parameters
         ----------
         results : pd.DataFrame
             The actual gridsearch results as a pandas dataframe.
+        filepath : str
+            The filepath of the JSON file containing the true best parameters obtained from the GridSearchCV
 
         Returns
         -------
@@ -704,8 +704,7 @@ class TFSLearner:
 
         true_best_params = {self._model.name: results["params"].loc[best_params[self._target][self._model.name]]} or {}
         true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) # This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
-        true_best_params["best_GridSearchCV_model_index"] = best_params[self._target][self._model.name]
-        true_best_params["best_GridSearchCV_model_scores"] = results.loc[true_best_params["best_GridSearchCV_model_index"]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
+        true_best_params["best_GridSearchCV_model_scores"] = results.loc[best_params[self._target][self._model.name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
         with open(filepath, "w", encoding="utf-8") as params_file:
             json.dump(true_best_params, params_file, indent=4)

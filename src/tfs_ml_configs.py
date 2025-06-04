@@ -65,7 +65,7 @@ grids = {
 }
 
 model_definitions = {
-    "class_instance":{
+    "class_instance": {
         "RandomForestRegressor": RandomForestRegressor,
         "HistGradientBoostingRegressor": HistGradientBoostingRegressor,
         "DecisionTreeRegressor": DecisionTreeRegressor,

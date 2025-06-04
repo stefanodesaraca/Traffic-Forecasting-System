@@ -177,22 +177,30 @@ def execute_forecast_warmup(functionality: str) -> None:
                 #   On the other side, methods like gridsearch() only belong to the TFSLearner class, so they can only be called on an instance of that class.
                 #   With the inner hasattr() check we ensure that the method is called on the right instance
                 method = getattr(learner if hasattr(learner, learner_method) else learner.get_model(), learner_method)
-                method(X_train if learner_method != "predict" else X_test,
-                       y_train if learner_method != "predict" else y_test)
+
+                if learner_method != "gridsearch":
+                    method(X_train if learner_method != "predict" else X_test,
+                           y_train if learner_method != "predict" else y_test)
+
+                else:
+                    gridsearch_result = method(X_train, y_train)
+                    learner.export_gridsearch_results(gridsearch_result, filepath=get_models_parameters_folder_path(cast(Literal["traffic_volumes", "average_speed"], target), road_category) + get_active_ops() + "_" + road_category + "_" + model.__class__.__name__ + "_parameters.json")
+
 
                 print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
                 time.sleep(1)  # To cool down the system
-
-        return None
+                return None
 
 
     with dask_cluster_client(processes=False) as client: #*
 
         if functionality == "3.2.1":
-            process_data(get_trp_ids_by_road_category(target=target_data["V"]), models, TFSLearner, target_data["V"], "hyperparameter tuning on traffic volumes data", "preprocess_volumes", "gridsearch")
+            gridsearch_results = process_data(get_trp_ids_by_road_category(target=target_data["V"]), models, TFSLearner, target_data["V"], "hyperparameter tuning on traffic volumes data", "preprocess_volumes", "gridsearch")
+
 
         elif functionality == "3.2.2":
-            process_data(get_trp_ids_by_road_category(target=target_data["AS"]), models, TFSLearner, target_data["AS"], "hyperparameter tuning on average speed data", "preprocess_speeds", "gridsearch")
+            gridsearch_results = process_data(get_trp_ids_by_road_category(target=target_data["AS"]), models, TFSLearner, target_data["AS"], "hyperparameter tuning on average speed data", "preprocess_speeds", "gridsearch")
+
 
         elif functionality == "3.2.3":
             process_data(get_trp_ids_by_road_category(target=target_data["V"]), models, TFSLearner, target_data["V"], "training models on traffic volumes data", "preprocess_volumes", "fit")
@@ -249,9 +257,9 @@ def execute_forecasting(functionality: str) -> None:
             for name, model in model_definitions["class_instances"].items():
 
                 with open(get_models_parameters_folder_path(target_data[option], trp_road_category) + get_active_ops() + "_" + trp_road_category + "_" + name + "_parameters.json", "r") as params_reader:
-                    best_params = json.load(params_reader)[name]
+                    best_params = json.load(params_reader)[name] # Attributes which aren't included in the gridsearch grid are already included in best_params since they were first gathered together and then exported
 
-                learner = TFSLearner(model=model(**model_definitions["auxiliary_parameters"][name], **best_params), road_category=trp_road_category, target=target_data[option], client=client)
+                learner = TFSLearner(model=model(**best_params), road_category=trp_road_category, target=target_data[option], client=client)
                 model = learner.get_model().fit(X, y)
                 predictions = model.predict(future_records)
                 print(predictions)
