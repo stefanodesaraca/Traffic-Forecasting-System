@@ -153,7 +153,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 
         preprocessor = TFSPreprocessor(data=merge(files), road_category=road_category, client=client)
-        print(f"Shape of the merged data for road category {road_category}: ", preprocessor.size)
+        print(f"Shape of the merged data for road category {road_category}: ", preprocessor.shape)
         preprocessing_method = getattr(preprocessor, preprocessor_method)  # Getting the appropriate preprocessing method based on the target variable to preprocess
 
         return split_data(preprocessing_method(), target=target, mode=splitting_mode) # Calling the preprocessing method with preprocessing_method()
@@ -199,22 +199,22 @@ def execute_forecast_warmup(functionality: str) -> None:
     with dask_cluster_client(processes=False) as client: #*
 
         if functionality == "3.2.1":
-            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["V"]), models=models, preprocessor_method=target_data["V"], preprocessing_split=0)
+            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["V"]), models=models, preprocessor_method=target_data["V"], preprocessing_split=0, target=target_data["V"])
 
         elif functionality == "3.2.2":
-            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["AS"]), models=models, preprocessor_method=target_data["AS"], preprocessing_split=0)
+            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["AS"]), models=models, preprocessor_method=target_data["AS"], preprocessing_split=0, target=target_data["AS"])
 
         elif functionality == "3.2.3":
-            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["V"]), models=models, preprocessor_method=target_data["V"], preprocessing_split=0)
+            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["V"]), models=models, preprocessor_method=target_data["V"], preprocessing_split=0, target=target_data["V"])
 
         elif functionality == "3.2.4":
-            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["AS"]), models=models, preprocessor_method=target_data["AS"], preprocessing_split=0)
+            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["AS"]), models=models, preprocessor_method=target_data["AS"], preprocessing_split=0, target=target_data["AS"])
 
         elif functionality == "3.2.5":
-            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["V"]), models=models, preprocessor_method=target_data["V"], preprocessing_split=0)
+            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["V"]), models=models, preprocessor_method=target_data["V"], preprocessing_split=0, target=target_data["V"])
 
         elif functionality == "3.2.6":
-            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["AS"]), models=models, preprocessor_method=target_data["AS"], preprocessing_split=0)
+            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["AS"]), models=models, preprocessor_method=target_data["AS"], preprocessing_split=0, target=target_data["AS"])
 
 
         print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)

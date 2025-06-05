@@ -65,7 +65,7 @@ class TFSPreprocessor:
 
 
     @property
-    def size(self) -> tuple[int, int]:
+    def shape(self) -> tuple[int, int]:
         return self._data.shape[0].compute(), self._data.shape[1]
 
 
