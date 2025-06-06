@@ -23,6 +23,8 @@ import dask.distributed
 from dask.distributed import Client, LocalCluster
 from contextlib import contextmanager
 
+from tfs_exceptions import *
+
 
 pd.set_option("display.max_columns", None)
 
@@ -464,11 +466,11 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
             sys.exit(1)
 
 
-def read_forecasting_target_datetime(data_kind: str) -> datetime:
+def read_forecasting_target_datetime(target: str) -> datetime:
     try:
-        return datetime.strptime(read_metainfo_key(keys_map=["forecasting", "target_datetimes", data_kind]), dt_format)
+        return datetime.strptime(read_metainfo_key(keys_map=["forecasting", "target_datetimes", target]), dt_format)
     except TypeError:
-        print(f"\033[91mTarget datetime for {data_kind} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
+        print(f"\033[91mTarget datetime for {target} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
         sys.exit(1)
     except FileNotFoundError:
         print("\033[91mTarget Datetime File Not Found\033[0m")
@@ -655,34 +657,70 @@ def del_ops_folder(ops_name: str) -> None:
 # ==================== Auxiliary Utilities ====================
 
 
-def split_data(data: dd.DataFrame, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
+def get_trp_ids_by_road_category(target: str) -> dict[str, list[str]] | None:
+
+    road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
+
+    if target == target_data["V"]:
+        clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
+
+        # TRPs - Volumes files and road categories
+        trps_ids_volumes_by_road_category = {
+            category: [clean_volumes_folder + trp_id + "_volumes_C.csv" for trp_id in
+                       filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"]["has_volumes"], get_trp_ids())]
+            for category in road_categories
+        }
+        return {k: v for k, v in trps_ids_volumes_by_road_category.items() if len(v) >= 2}
+        # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
+
+    elif target == target_data["AS"]:
+        clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
+
+        # TRPs - Average speed files and road categories
+        trps_ids_avg_speeds_by_road_category = {
+            category: [clean_speeds_folder + trp_id + "_speeds_C.csv" for trp_id in
+                       filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"]["has_speeds"], get_trp_ids())]
+            for category in road_categories
+        }
+        return {k: v for k, v in trps_ids_avg_speeds_by_road_category.items() if len(v) >= 2}
+        # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
+
+    else:
+        TargetVariableNotFoundError(f"Wrong target variable imputed. {target} is not a target variable")
+
+
+def split_data(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
     """
-    Splits the Dask DataFrame into training and testing sets based on the target column.
+    Splits the Dask DataFrame into training and testing sets based on the target column and mode.
 
     Parameters:
         data: dd.DataFrame
         target: str ("volume" or "mean_speed")
+        mode: the mode which indicates the kind of split it's intended to execute.
+                0 - Stands for the classic 4 section train-test-split (X_train, X_test, y_train, y_test)
+                1 - Indicates a forecasted specific train-test-split (X, y)
 
     Returns:
         X_train, X_test, y_train, y_test
     """
 
     #TODO TEMPORARY SOLUTION:
-    if target == "traffic_volumes": target = "volume"
+    if target == target_data["V"]: target = "volume"
 
     if target not in ("volume", "mean_speed"):
-        raise ValueError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
+        raise TargetVariableNotFoundError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
 
     X = data.drop(columns=[target])
     y = data[[target]]
 
-    # print("X shape: ", f"({len(X)}, {len(X.columns)})", "\n")
-    # print("y shape: ", f"({len(y)}, {len(y.columns)})", "\n")
-
-    n_rows = data.shape[0].compute()
-    p_70 = int(n_rows * 0.70)
-
-    return dd.from_delayed(delayed(X.head(p_70)).persist()), dd.from_delayed(delayed(X.tail(len(X) - p_70))).persist(), dd.from_delayed(delayed(y.head(p_70)).persist()), dd.from_delayed(delayed(y.tail(len(y) - p_70))).persist()
+    if mode == 1:
+        return X.persist(), y.persist()
+    elif mode == 0:
+        n_rows = data.shape[0].compute()
+        p_70 = int(n_rows * 0.70)
+        return dd.from_delayed(delayed(X.head(p_70)).persist()), dd.from_delayed(delayed(X.tail(len(X) - p_70))).persist(), dd.from_delayed(delayed(y.head(p_70)).persist()), dd.from_delayed(delayed(y.tail(len(y) - p_70))).persist()
+    else:
+        raise WrongSplittingMode("Wrong splitting mode imputed")
 
 
 def merge(trp_filepaths: list[str]) -> dd.DataFrame:
@@ -695,8 +733,7 @@ def merge(trp_filepaths: list[str]) -> dd.DataFrame:
         merged_data = dd.concat([dd.read_csv(trp) for trp in trp_filepaths], axis=0)
         merged_data = merged_data.repartition(partition_size="512MB")
         merged_data = merged_data.sort_values(["date"], ascending=True)  # Sorting records by date
-        merged_data = merged_data.persist()
-        return merged_data
+        return merged_data.persist()
     except ValueError as e:
         print(f"\033[91mNo data to concatenate. Error: {e}")
         sys.exit(1)

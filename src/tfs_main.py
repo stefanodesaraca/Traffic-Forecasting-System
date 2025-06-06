@@ -1,6 +1,7 @@
-from datetime import datetime
+import json
 import os
 import time
+from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 import pprint
@@ -14,8 +15,8 @@ from tfs_utils import *
 from tfs_cleaning import *
 from tfs_ml import *
 from tfs_road_network import *
+from tfs_ml_configs import *
 
-dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 
 def manage_ops(functionality: str) -> None:
@@ -67,7 +68,7 @@ async def download_volumes(functionality: str) -> None:
 
         relative_delta = relativedelta(datetime.datetime.strptime(time_end, dt_iso).date(), datetime.datetime.strptime(time_start, dt_iso).date(), )
         days_delta = (datetime.datetime.strptime(time_end, dt_iso).date() - datetime.datetime.strptime(time_start, dt_iso).date()).days
-        years_delta = relative_delta.years if relative_delta.years is not None else 0
+        years_delta = relative_delta.years or 0
         months_delta = relative_delta.months + (years_delta * 12)
         weeks_delta = days_delta // 7
 
@@ -98,9 +99,9 @@ async def clean_data(functionality: str) -> None:
             await cleaner.clean_async(trp_id, export=export)
 
     if functionality == "5.6.1":
-            await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=TrafficVolumesCleaner(), export=True) for trp_id in get_trp_ids())) # The star (*) in necessary since gather() requires the coroutines to fed as positional arguments of the function. So we can unpack the list with *
+        await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=TrafficVolumesCleaner(), export=True) for trp_id in get_trp_ids())) # The star (*) in necessary since gather() requires the coroutines to fed as positional arguments of the function. So we can unpack the list with *
     elif functionality == "5.6.2":
-            await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=AverageSpeedCleaner(), export=True) for trp_id in get_trp_ids()))
+        await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=AverageSpeedCleaner(), export=True) for trp_id in get_trp_ids()))
 
     return None
 
@@ -111,7 +112,7 @@ def set_forecasting_options(functionality: str) -> None:
 
     elif functionality == "3.1.2":
         option = input("Press V to read forecasting target datetime for traffic volumes or AS for average speeds: ")
-        print("Target datetime: ", read_forecasting_target_datetime(data_kind=option), "\n\n",)
+        print("Target datetime: ", read_forecasting_target_datetime(target=option), "\n\n", )
 
     elif functionality == "3.1.3":
         reset_forecasting_target_datetime()
@@ -144,125 +145,79 @@ def execute_eda() -> None:
 
 # TODO IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL. EXPLICITELY PRINT THAT FILES METADATA IS NEEDED BEFORE EXECUTING THE WARMUP
 def execute_forecast_warmup(functionality: str) -> None:
-    models = [m for m in model_names_and_functions.keys()]
-    clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
-    clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
-    road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
+    models = model_definitions["class_instance"].values()
 
 
-    # TRPs - Volumes files and road categories
-    trps_ids_volumes_by_road_category = {
-        category: [clean_volumes_folder + trp_id + "_volumes_C.csv" for trp_id in
-                   filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"]["has_volumes"], get_trp_ids())]
-        for category in road_categories
-    }
-    trps_ids_volumes_by_road_category = {k: v for k, v in trps_ids_volumes_by_road_category.items() if len(v) >= 2}
-    # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
+    def preprocess_data(files: list[str], road_category: str, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
 
-    print(trps_ids_volumes_by_road_category)
-    # pprint.pprint(trps_ids_by_road_category)
+        print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 
+        preprocessor = TFSPreprocessor(data=merge(files), road_category=road_category, client=client)
+        print(f"Shape of the merged data for road category {road_category}: ", preprocessor.shape)
 
-    # TRPs - Average speed files and road categories
-    trps_ids_avg_speeds_by_road_category = {
-        category: [clean_speeds_folder + trp_id + "_speeds_C.csv" for trp_id in
-                   filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"]["has_speeds"], get_trp_ids())]
-        for category in road_categories
-    }
-    trps_ids_avg_speeds_by_road_category = {k: v for k, v in trps_ids_avg_speeds_by_road_category.items() if len(v) >= 2}
-    # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
+        if target == target_data["V"]:
+            return split_data(preprocessor.preprocess_volumes(), target=target, mode=0)
+        elif target == target_data["AS"]:
+            return split_data(preprocessor.preprocess_speeds(), target=target, mode=0)
+        else:
+            raise TargetVariableNotFoundError("Wrong target variable imputed")
 
 
-    def process_data(
-            trps_ids_by_road_category: dict[str, list[str]],
-            models: list[str],
-            learner_class: type[TFSLearner], #Keeping the flexibility of this parameter for now to be able to add other types of learner classes in the future
-            target: str,
-            process_description: str,
-            preprocessor_method: str,
-            learner_method: str
-    ) -> None:
+    def execute_gridsearch(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
 
-        merged_data_by_category = {}
-
-        for road_category, files in trps_ids_by_road_category.items():
-            merged_data_by_category[road_category] = merge(files)
-            print(f"Shape of the merged data for road category {road_category}: ", (merged_data_by_category[road_category].shape[0].compute(), merged_data_by_category[road_category].shape[1]))
-
-        for road_category, data in merged_data_by_category.items():
-            print(f"\n********************* Executing {process_description} for road category: {road_category} *********************\n")
-
-
-            preprocessor = TFSPreprocessor(data=data, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)
-            preprocessing_method = getattr(preprocessor, preprocessor_method) #Getting the appropriate preprocessing method based on the target variable to preprocess
-            preprocessed_data = preprocessing_method() #Calling the preprocessing method
-
-            X_train, X_test, y_train, y_test = split_data(preprocessed_data, target=target)
-            #print(X_train.head(5), X_test.head(5), y_train.head(5), y_test.head(5))
-
-            learner = learner_class(road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client) # This client is ok here since the process_data function (in which it's located) only gets called after the client is opened as a context manager afterward (see down below in the code) *
-            #Using cast() to tell the type checker that the "target" variable is actually a Literal
-
-            for model_name in models:
-                method = getattr(learner, learner_method)
-                method(X_train if learner_method != "test_model" else X_test,
-                       y_train if learner_method != "test_model" else y_test,
-                       model_name=model_name)
-
-                print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
-                time.sleep(1)  # To cool down the system
+        gridsearch_result = learner.gridsearch(X_train, y_train)
+        learner.export_gridsearch_results(gridsearch_result)
+        print(f"============== {learner.get_model().name} grid search results ==============\n")
+        print(gridsearch_result, "\n")
 
         return None
 
 
-    with dask_cluster_client(processes=False) as client: #*
+    def execute_training(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable):
+        learner.get_model().fit(X_train, y_train).export()
+        print("Fitting phase ended")
+        return
 
-        if functionality == "3.2.1":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"], "hyperparameter tuning on traffic volumes data", "preprocess_volumes", "gridsearch")
 
-        elif functionality == "3.2.2":
-            process_data(trps_ids_avg_speeds_by_road_category, models, TFSLearner, target_data["AS"], "hyperparameter tuning on average speed data", "preprocess_speeds", "gridsearch")
+    def execute_testing(X_test: dd.DataFrame, y_test: dd.DataFrame, learner: callable):
+        model = learner.get_model()
+        y_pred = model.predict(X_test)
+        print(model.evaluate_regression(y_test=y_test, y_pred=y_pred, scorer=learner.get_scorer()))
+        return
 
-        elif functionality == "3.2.3":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"], "training models on traffic volumes data", "preprocess_volumes", "train_model")
 
-        elif functionality == "3.2.4":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["AS"], "training models on average speed data", "preprocess_speeds", "train_model")
+    def process_functionality(target: str, function: callable) -> None:
+        for road_category, files in get_trp_ids_by_road_category(target=target).items():
+            X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
+            for model in models:
+                learner = TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)
+                function(X_train if function.__name__ in ["execute_gridsearch", "execute_training"] else X_test,
+                         y_train if function.__name__ in ["execute_gridsearch", "execute_training"] else y_test,
+                         learner)
 
-        elif functionality == "3.2.5":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["V"], "testing models on traffic volumes data", "preprocess_volumes", "test_model")
+    with dask_cluster_client(processes=False) as client:
+        functionality_mapping = {
+            "3.2.1": ("V", execute_gridsearch),
+            "3.2.2": ("AS", execute_gridsearch),
+            "3.2.3": ("V", execute_training),
+            "3.2.4": ("AS", execute_training),
+            "3.2.5": ("V", execute_testing),
+            "3.2.6": ("AS", execute_testing)
+        }
 
-        elif functionality == "3.2.6":
-            process_data(trps_ids_volumes_by_road_category, models, TFSLearner, target_data["AS"], "testing models on average speed data", "preprocess_speeds", "test_model")
+        if functionality in functionality_mapping:
+            target, operation = functionality_mapping[functionality]
+            process_functionality(target, operation)
+        else:
+            raise ValueError(f"Unknown functionality: {functionality}")
+
+        print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
+        time.sleep(1)  # To cool down the system
 
     return None
 
 
-#TODO TO IMPROVE, OPTIMIZE AND SIMPLIFY
-def get_forecaster(option: str, trp_id: str, road_category: str, target_data: str) -> tuple[OnePointForecaster, str, dd.DataFrame] | tuple[None, None, None]:
-    forecaster_info = {
-        "V": {
-            "class": OnePointForecaster,
-            "method": "forecast",
-            "check": "has_volumes"
-        },
-        "AS": {
-            "class": OnePointForecaster,
-            "method": "forecast",
-            "check": "has_speeds"
-        }
-    }
-
-    info = forecaster_info[option]
-    if get_trp_metadata(trp_id)["checks"][info["check"]]:
-        forecaster = info["class"](trp_id=trp_id, road_category=road_category, target=target_data)
-        return forecaster, info["method"], forecaster.preprocess()
-    else:
-        print(f"TRP {trp_id} doesn't have {option.lower()} data, returning to main menu")
-        return None, None, None
-
-
-def execute_forecasts(functionality: str) -> None:
+def execute_forecasting(functionality: str) -> None:
     check_metainfo_file()
 
     print("Which kind of data would you like to forecast?")
@@ -273,25 +228,41 @@ def execute_forecasts(functionality: str) -> None:
         print("Invalid option, returning to main menu")
         return
 
-    with dask_cluster_client(processes=False) as client:
-        if functionality == "3.3.1":
+    if functionality == "3.3.1":
+
+        with dask_cluster_client(processes=False) as client:
+
             trp_ids = get_trp_ids()
             print("TRP IDs: ", trp_ids)
             trp_id = input("Insert TRP ID for forecasting: ")
 
-            if trp_id in trp_ids:
-                trp_road_category = get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"]
-                print("\nTRP road category:", trp_road_category)
+            if trp_id not in trp_ids:
+                raise TRPNotFoundError("TRP ID not in available TRP IDs list")
 
-                forecaster, method, preprocessed_data = get_forecaster(option, trp_id, trp_road_category, target_data[option])
+            trp_metadata = get_trp_metadata(trp_id)
 
-                if forecaster:
-                    for model_name in model_names_and_functions.keys():
-                        results = getattr(forecaster, method)(preprocessed_data, model_name=model_name)
-                        print(results)
-            else:
-                print("\033[91mNon-valid TRP ID, returning to main menu\033[0m")
-                return
+            if not trp_metadata["checks"]["has_volumes" if option == "V" else "has_speeds"]:
+                raise TargetDataNotAvailableError(f"Target data not available for TRP: {trp_id}")
+
+            trp_road_category = trp_metadata["trp_data"]["location"]["roadReference"]["roadCategory"]["id"]
+            print("\nTRP road category: ", trp_road_category)
+
+            forecaster = OnePointForecaster(trp_id=trp_id, road_category=trp_road_category, target=target_data[option], client=client)
+            future_records = forecaster.get_future_records(target_datetime=read_forecasting_target_datetime(target=target_data)) #Already preprocessed
+
+            #TODO TEST training_mode = BOTH 0 AND 1
+            model_training_dataset = forecaster.get_training_records(training_mode=0, road_category=trp_road_category, limit=future_records.shape[0].compute() * 24)
+            X, y = split_data(model_training_dataset, target=target_data, mode=1)
+
+            for name, model in model_definitions["class_instances"].items():
+
+                with open(get_models_parameters_folder_path(target_data[option], trp_road_category) + get_active_ops() + "_" + trp_road_category + "_" + name + "_parameters.json", "r") as params_reader:
+                    best_params = json.load(params_reader)[name] # Attributes which aren't included in the gridsearch grid are already included in best_params since they were first gathered together and then exported
+
+                learner = TFSLearner(model=model(**best_params), road_category=trp_road_category, target=target_data[option], client=client)
+                model = learner.get_model().fit(X, y)
+                predictions = model.predict(future_records)
+                print(predictions)
 
     return None
 
@@ -323,7 +294,8 @@ def main():
         "3.2.3": execute_forecast_warmup,
         "3.2.4": execute_forecast_warmup,
         "3.2.5": execute_forecast_warmup,
-        "3.3.1": execute_forecasts,
+        "3.2.6": execute_forecast_warmup,
+        "3.3.1": execute_forecasting,
         "4.1": manage_road_network,
         "4.2": manage_road_network,
         "4.3": manage_road_network,
@@ -353,6 +325,7 @@ def main():
         3.2.3 Train models on traffic volumes data
         3.2.4 Train models on average speed data
         3.2.5 Test models on traffic volumes data
+        3.2.6 Test models on average speed data
     3.3 Execute forecast
         3.3.1 One-Point Forecast
 4. Road network graph
