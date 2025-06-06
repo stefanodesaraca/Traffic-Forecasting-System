@@ -186,55 +186,30 @@ def execute_forecast_warmup(functionality: str) -> None:
         return
 
 
-    with dask_cluster_client(processes=False) as client: #*
+    def process_functionality(target: str, function: callable) -> None:
+        for road_category, files in get_trp_ids_by_road_category(target=target).items():
+            X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
+            for model in models:
+                learner = TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)
+                function(X_train if function.__name__ in ["execute_gridsearch", "execute_training"] else X_test,
+                         y_train if function.__name__ in ["execute_gridsearch", "execute_training"] else y_test,
+                         learner)
 
-        if functionality == "3.2.1":
-            target = target_data["V"]
-            for road_category, files in get_trp_ids_by_road_category(target=target).items():
-                X_train, _, y_train, _ = preprocess_data(files=files, target=target, road_category=road_category)
+    with dask_cluster_client(processes=False) as client:
+        functionality_mapping = {
+            "3.2.1": ("V", execute_gridsearch),
+            "3.2.2": ("AS", execute_gridsearch),
+            "3.2.3": ("V", execute_training),
+            "3.2.4": ("AS", execute_training),
+            "3.2.5": ("V", execute_testing),
+            "3.2.6": ("AS", execute_testing)
+        }
 
-                for model in models:
-                    execute_gridsearch(X_train=X_train, y_train=y_train, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client), road_category=road_category, target=target)
-
-        elif functionality == "3.2.2":
-            target = target_data["AS"]
-            for road_category, files in get_trp_ids_by_road_category(target=target).items():
-                X_train, _, y_train, _ = preprocess_data(files=files, target=target, road_category=road_category)
-
-                for model in models:
-                    execute_gridsearch(X_train=X_train, y_train=y_train, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client), road_category=road_category, target=target)
-
-        elif functionality == "3.2.3":
-            target = target_data["V"]
-            for road_category, files in get_trp_ids_by_road_category(target=target).items():
-                X_train, _, y_train, _ = preprocess_data(files=files, target=target, road_category=road_category)
-
-                for model in models:
-                    execute_training(X_train=X_train, y_train=y_train, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client))
-
-        elif functionality == "3.2.4":
-            target = target_data["AS"]
-            for road_category, files in get_trp_ids_by_road_category(target=target).items():
-                X_train, _, y_train, _ = preprocess_data(files=files, target=target, road_category=road_category)
-
-                for model in models:
-                    execute_training(X_train=X_train, y_train=y_train, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client))
-
-        elif functionality == "3.2.5":
-            target = target_data["V"]
-            for road_category, files in get_trp_ids_by_road_category(target=target).items():
-                _, X_test, _, y_test = preprocess_data(files=files, target=target, road_category=road_category)
-
-                for model in models:
-                    execute_testing(X_test=X_test, y_test=y_test, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client))
-
-        elif functionality == "3.2.6":
-            target = target_data["AS"]
-            for road_category, files in get_trp_ids_by_road_category(target=target).items():
-                _, X_test, _, y_test = preprocess_data(files=files, target=target, road_category=road_category)
-
-                for model in models:
-                    execute_testing(X_test=X_test, y_test=y_test, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client))
+        if functionality in functionality_mapping:
+            target, operation = functionality_mapping[functionality]
+            process_functionality(target, operation)
+        else:
+            raise ValueError(f"Unknown functionality: {functionality}")
 
         print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
         time.sleep(1)  # To cool down the system
