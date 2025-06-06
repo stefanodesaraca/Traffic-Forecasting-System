@@ -186,42 +186,55 @@ def execute_forecast_warmup(functionality: str) -> None:
         return
 
 
-    def warmup_executor(learner_class: callable, trps_ids_by_road_category: dict[str, list[str]], models: list[callable], target: str, func: callable, func_args: dict[str, Any]):
-
-        for road_category, files in trps_ids_by_road_category.items():
-            X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
-
-            for model in models:
-                # TODO GET THE MODEL PARAMETERS
-
-                learner = learner_class(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)  # This client is ok here since the process_data function (in which it's located) only gets called after the client is opened as a context manager afterward (see down below in the code) *
-                # Using cast() to tell the type checker that the "target" variable is actually a Literal
-
-                func(**func_args)
-
-        return
-
-
     with dask_cluster_client(processes=False) as client: #*
 
         if functionality == "3.2.1":
-            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["V"]), models=models, target=target_data["V"])
+            target = target_data["V"]
+            for road_category, files in get_trp_ids_by_road_category(target=target).items():
+                X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
+
+                for model in models:
+                    execute_gridsearch(X_train=X_train, y_train=y_train, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client), road_category=road_category, target=target)
 
         elif functionality == "3.2.2":
-            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["AS"]), models=models, target=target_data["AS"])
+            target = target_data["AS"]
+            for road_category, files in get_trp_ids_by_road_category(target=target).items():
+                X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
+
+                for model in models:
+                    execute_gridsearch(X_train=X_train, y_train=y_train, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client), road_category=road_category, target=target)
 
         elif functionality == "3.2.3":
-            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["V"]), models=models, target=target_data["V"])
+            target = target_data["V"]
+            for road_category, files in get_trp_ids_by_road_category(target=target).items():
+                X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
+
+                for model in models:
+                    execute_training(X_train=X_train, y_train=y_train, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client))
 
         elif functionality == "3.2.4":
-            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["AS"]), models=models, target=target_data["AS"])
+            target = target_data["AS"]
+            for road_category, files in get_trp_ids_by_road_category(target=target).items():
+                X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
+
+                for model in models:
+                    execute_training(X_train=X_train, y_train=y_train, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client))
 
         elif functionality == "3.2.5":
-            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["V"]), models=models, target=target_data["V"])
+            target = target_data["V"]
+            for road_category, files in get_trp_ids_by_road_category(target=target).items():
+                X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
+
+                for model in models:
+                    execute_testing(X_test=X_test, y_test=y_test, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client))
 
         elif functionality == "3.2.6":
-            warmup_executor(learner_class=TFSLearner, trps_ids_by_road_category=get_trp_ids_by_road_category(target=target_data["AS"]), models=models, target=target_data["AS"])
+            target = target_data["AS"]
+            for road_category, files in get_trp_ids_by_road_category(target=target).items():
+                X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
 
+                for model in models:
+                    execute_testing(X_test=X_test, y_test=y_test, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client))
 
         print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
         time.sleep(1)  # To cool down the system
@@ -306,6 +319,7 @@ def main():
         "3.2.3": execute_forecast_warmup,
         "3.2.4": execute_forecast_warmup,
         "3.2.5": execute_forecast_warmup,
+        "3.2.6": execute_forecast_warmup,
         "3.3.1": execute_forecasting,
         "4.1": manage_road_network,
         "4.2": manage_road_network,
@@ -336,6 +350,7 @@ def main():
         3.2.3 Train models on traffic volumes data
         3.2.4 Train models on average speed data
         3.2.5 Test models on traffic volumes data
+        3.2.6 Test models on average speed data
     3.3 Execute forecast
         3.3.1 One-Point Forecast
 4. Road network graph

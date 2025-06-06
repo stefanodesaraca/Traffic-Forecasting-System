@@ -661,7 +661,7 @@ def get_trp_ids_by_road_category(target: str) -> dict[str, list[str]] | None:
 
     road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
 
-    if target == "traffic_volumes":
+    if target == target_data["V"]:
         clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
 
         # TRPs - Volumes files and road categories
@@ -673,7 +673,7 @@ def get_trp_ids_by_road_category(target: str) -> dict[str, list[str]] | None:
         return {k: v for k, v in trps_ids_volumes_by_road_category.items() if len(v) >= 2}
         # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
 
-    elif target == "average_speed":
+    elif target == target_data["AS"]:
         clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
 
         # TRPs - Average speed files and road categories
@@ -705,7 +705,7 @@ def split_data(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd
     """
 
     #TODO TEMPORARY SOLUTION:
-    if target == "traffic_volumes": target = "volume"
+    if target == target_data["V"]: target = "volume"
 
     if target not in ("volume", "mean_speed"):
         raise TargetVariableNotFoundError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
