@@ -163,10 +163,10 @@ def execute_forecast_warmup(functionality: str) -> None:
             raise TargetVariableNotFoundError("Wrong target variable imputed")
 
 
-    def execute_gridsearch(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable, road_category: str, target: str) -> None:
+    def execute_gridsearch(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
 
         gridsearch_result = learner.gridsearch(X_train, y_train)
-        learner.export_gridsearch_results(gridsearch_result, filepath=get_models_parameters_folder_path(cast(Literal["traffic_volumes", "average_speed"], target), road_category) + get_active_ops() + "_" + road_category + "_" + learner.get_model().name + "_parameters.json")
+        learner.export_gridsearch_results(gridsearch_result)
         print(f"============== {learner.get_model().name} grid search results ==============\n")
         print(gridsearch_result, "\n")
 

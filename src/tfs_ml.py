@@ -12,7 +12,7 @@ from warnings import simplefilter
 from scipy import stats
 from datetime import datetime
 from enum import Enum
-from typing import Any, Literal, Generator, Protocol
+from typing import Any, Literal, Generator, Protocol, cast
 from pydantic import BaseModel as PydanticBaseModel, field_validator
 from pydantic.types import PositiveFloat
 import numpy as np
@@ -662,7 +662,7 @@ class TFSLearner:
         return joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + self._model.name + ".joblib")
 
 
-    def export_gridsearch_results(self, results: pd.DataFrame, filepath: str) -> None:
+    def export_gridsearch_results(self, results: pd.DataFrame) -> None:
         """
         Export GridSearchCV true best results to a JSON file.
 
@@ -670,9 +670,6 @@ class TFSLearner:
         ----------
         results : pd.DataFrame
             The actual gridsearch results as a pandas dataframe.
-        filepath : str
-            The filepath of the JSON file containing the true best parameters obtained from the GridSearchCV
-
         Returns
         -------
         None
@@ -682,7 +679,8 @@ class TFSLearner:
         true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) # This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
         true_best_params["best_GridSearchCV_model_scores"] = results.loc[best_params[self._target][self._model.name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
-        with open(filepath, "w", encoding="utf-8") as params_file:
+        #TODO FIND A WAY TO LET THE FILE PATH BE CUSTOMIZABLE
+        with open(get_models_parameters_folder_path(cast(Literal["traffic_volumes", "average_speed"], self._target), self._road_category) + get_active_ops() + "_" + self._road_category + "_" + self._model.name + "_parameters.json", "w", encoding="utf-8") as params_file:
             json.dump(true_best_params, params_file, indent=4)
 
         #TODO TESTING:
