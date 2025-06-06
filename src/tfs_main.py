@@ -191,7 +191,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         if functionality == "3.2.1":
             target = target_data["V"]
             for road_category, files in get_trp_ids_by_road_category(target=target).items():
-                X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
+                X_train, _, y_train, _ = preprocess_data(files=files, target=target, road_category=road_category)
 
                 for model in models:
                     execute_gridsearch(X_train=X_train, y_train=y_train, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client), road_category=road_category, target=target)
@@ -199,7 +199,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         elif functionality == "3.2.2":
             target = target_data["AS"]
             for road_category, files in get_trp_ids_by_road_category(target=target).items():
-                X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
+                X_train, _, y_train, _ = preprocess_data(files=files, target=target, road_category=road_category)
 
                 for model in models:
                     execute_gridsearch(X_train=X_train, y_train=y_train, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client), road_category=road_category, target=target)
@@ -207,7 +207,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         elif functionality == "3.2.3":
             target = target_data["V"]
             for road_category, files in get_trp_ids_by_road_category(target=target).items():
-                X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
+                X_train, _, y_train, _ = preprocess_data(files=files, target=target, road_category=road_category)
 
                 for model in models:
                     execute_training(X_train=X_train, y_train=y_train, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client))
@@ -215,7 +215,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         elif functionality == "3.2.4":
             target = target_data["AS"]
             for road_category, files in get_trp_ids_by_road_category(target=target).items():
-                X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
+                X_train, _, y_train, _ = preprocess_data(files=files, target=target, road_category=road_category)
 
                 for model in models:
                     execute_training(X_train=X_train, y_train=y_train, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client))
@@ -223,7 +223,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         elif functionality == "3.2.5":
             target = target_data["V"]
             for road_category, files in get_trp_ids_by_road_category(target=target).items():
-                X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
+                _, X_test, _, y_test = preprocess_data(files=files, target=target, road_category=road_category)
 
                 for model in models:
                     execute_testing(X_test=X_test, y_test=y_test, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client))
@@ -231,7 +231,7 @@ def execute_forecast_warmup(functionality: str) -> None:
         elif functionality == "3.2.6":
             target = target_data["AS"]
             for road_category, files in get_trp_ids_by_road_category(target=target).items():
-                X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
+                _, X_test, _, y_test = preprocess_data(files=files, target=target, road_category=road_category)
 
                 for model in models:
                     execute_testing(X_test=X_test, y_test=y_test, learner=TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client))
