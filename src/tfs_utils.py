@@ -661,34 +661,20 @@ def get_trp_ids_by_road_category(target: str) -> dict[str, list[str]] | None:
 
     road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
 
-    if target == target_data["V"]:
-        clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
+    try:
+        clean_data_folder = read_metainfo_key(keys_map=["folder_paths", "data", target, "subfolders", "clean", "path"])
 
-        # TRPs - Volumes files and road categories
-        trps_ids_volumes_by_road_category = {
-            category: [clean_volumes_folder + trp_id + "_volumes_C.csv" for trp_id in
-                       filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"]["has_volumes"], get_trp_ids())]
+        check = "has_volumes" if target == target_data["V"] else "has_speeds" #TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
+
+        return {k: v for k, v in {
+            category: [clean_data_folder + trp_id + "_volumes_C.csv" for trp_id in
+                       filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"][check], get_trp_ids())]
             for category in road_categories
-        }
-
-        print(trps_ids_volumes_by_road_category)
-        return {k: v for k, v in trps_ids_volumes_by_road_category.items() if len(v) >= 2}
+        }.items() if len(v) >= 2}
         # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
 
-    elif target == target_data["AS"]:
-        clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
-
-        # TRPs - Average speed files and road categories
-        trps_ids_avg_speeds_by_road_category = {
-            category: [clean_speeds_folder + trp_id + "_speeds_C.csv" for trp_id in
-                       filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"]["has_speeds"], get_trp_ids())]
-            for category in road_categories
-        }
-        return {k: v for k, v in trps_ids_avg_speeds_by_road_category.items() if len(v) >= 2}
-        # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
-
-    else:
-        TargetVariableNotFoundError(f"Wrong target variable imputed. {target} is not a target variable")
+    except Exception as e:
+        TargetVariableNotFoundError(f"Wrong target variable imputed. {target} is not a target variable. Error: {e}")
 
 
 def split_data(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
