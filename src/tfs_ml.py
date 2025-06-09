@@ -12,7 +12,7 @@ from warnings import simplefilter
 from scipy import stats
 from datetime import datetime
 from enum import Enum
-from typing import Any, Literal, Generator, Protocol, cast
+from typing import Any, Literal, Generator, Protocol, cast, runtime_checkable
 from pydantic import BaseModel as PydanticBaseModel, field_validator
 from pydantic.types import PositiveFloat
 import numpy as np
@@ -348,7 +348,8 @@ class TFSPreprocessor:
 
 
 
-class EstimatorProtocol(Protocol, Any):
+@runtime_checkable
+class EstimatorProtocol(Protocol):
     """
     A protocol to inform the static type checker that an object of type EstimatorProtocol will have a predict() method
     """
@@ -388,6 +389,14 @@ class EstimatorProtocol(Protocol, Any):
         ...
 
 
+    def __sklearn_is_fitted__(self) -> bool:
+        ...
+
+
+    def get_params(self) -> dict:
+        ...
+
+
 
 class BaseModel(PydanticBaseModel):
     class Config:
@@ -400,7 +409,8 @@ class ModelWrapper(BaseModel):
 
 
     @field_validator("model_obj", mode="after")
-    def validate_model_obj(self, model_obj) -> ScikitLearnBaseEstimator | PyTorchForecastingBaseModel | SktimeBaseEstimator:
+    @classmethod
+    def validate_model_obj(cls, model_obj) -> ScikitLearnBaseEstimator | PyTorchForecastingBaseModel | SktimeBaseEstimator:
         if not isinstance(model_obj, ScikitLearnBaseEstimator | PyTorchForecastingBaseModel | SktimeBaseEstimator):
             raise WrongEstimatorTypeError(f"Object passed is not an estimator accepted from this class. Type of the estimator received: {type(model_obj)}")
         return model_obj
@@ -541,7 +551,7 @@ class ModelWrapper(BaseModel):
         """
         if isinstance(self.model_obj, ScikitLearnBaseEstimator):
             with joblib.parallel_backend("dask"):
-                return self.model_obj.predict(X_test.compute())
+                return self.model_obj.predict(X_test.compute()) # type: ignore[attr-defined] # <- WARNING: this comment is used to avoid seeing a useless warning since the model will indeed have a predict method, but the scikit-learn BaseEstimator class doesn't
         elif isinstance(self.model_obj, PyTorchForecastingBaseModel):
             pass #TODO STILL TO IMPLEMENT
         elif isinstance(self.model_obj, SktimeBaseEstimator):
@@ -551,7 +561,7 @@ class ModelWrapper(BaseModel):
 
 
     @staticmethod
-    def evaluate_regression(y_test: dd.DataFrame, y_pred: dd.DataFrame, scorer: dict[str, make_scorer | callable]) -> dict[str, Any]:
+    def evaluate_regression(y_test: dd.DataFrame, y_pred: dd.DataFrame, scorer: dict[str, callable]) -> dict[str, Any]:
         """
         Calculate prediction errors for regression model testing.
 
@@ -561,7 +571,7 @@ class ModelWrapper(BaseModel):
             The true values of the target variable.
         y_pred : dd.DataFrame
             The predicted values of the target variable.
-        scorer : dict[str, make_scorer | callable]
+        scorer : dict[str, callable]
             The scorer which will be used to evaluate the regression.
             The order of the parameters to impute must be y_true first and y_pred second.
             Each scoring function must accept exactly and only the parameters mentioned above.

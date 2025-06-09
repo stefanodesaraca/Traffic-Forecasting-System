@@ -670,6 +670,8 @@ def get_trp_ids_by_road_category(target: str) -> dict[str, list[str]] | None:
                        filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"]["has_volumes"], get_trp_ids())]
             for category in road_categories
         }
+
+        print(trps_ids_volumes_by_road_category)
         return {k: v for k, v in trps_ids_volumes_by_road_category.items() if len(v) >= 2}
         # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
 
