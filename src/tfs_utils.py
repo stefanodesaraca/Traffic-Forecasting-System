@@ -661,21 +661,17 @@ def get_trp_ids_by_road_category(target: str) -> dict[str, list[str]] | None:
 
     road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
 
-    try:
-        clean_data_folder = read_metainfo_key(keys_map=["folder_paths", "data", target, "subfolders", "clean", "path"])
+    clean_data_folder = read_metainfo_key(keys_map=["folder_paths", "data", target_data[target], "subfolders", "clean", "path"])
 
-        check = "has_volumes" if target == target_data["V"] else "has_speeds" #TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
-        data = "_volumes_C.csv" if target == target_data["V"] else "_speeds_C.csv" #TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
+    check = "has_volumes" if target == "V" else "has_speeds"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
+    data = "_volumes_C.csv" if target == "V" else "_speeds_C.csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
 
-        return {k: v for k, v in {
-            category: [clean_data_folder + trp_id + data for trp_id in
-                       filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"][check], get_trp_ids())]
-            for category in road_categories
-        }.items() if len(v) >= 2}
-        # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
-
-    except Exception as e:
-        TargetVariableNotFoundError(f"Wrong target variable imputed. {target} is not a target variable. Error: {e}")
+    return {k: d for k, d in {
+        category: [clean_data_folder + trp_id + data for trp_id in
+                   filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"][check], get_trp_ids())]
+        for category in road_categories
+    }.items() if len(d) >= 2}
+    # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
 
 
 def split_data(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
@@ -707,7 +703,7 @@ def split_data(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd
     elif mode == 0:
         n_rows = data.shape[0].compute()
         p_70 = int(n_rows * 0.70)
-        return dd.from_delayed(delayed(X.head(p_70)).persist()), dd.from_delayed(delayed(X.tail(len(X) - p_70))).persist(), dd.from_delayed(delayed(y.head(p_70)).persist()), dd.from_delayed(delayed(y.tail(len(y) - p_70))).persist()
+        return dd.from_delayed(delayed(X.head(p_70)).persist()), dd.from_delayed(delayed(X.tail(n_rows - p_70))).persist(), dd.from_delayed(delayed(y.head(p_70)).persist()), dd.from_delayed(delayed(y.tail(n_rows - p_70))).persist()
     else:
         raise WrongSplittingMode("Wrong splitting mode imputed")
 
