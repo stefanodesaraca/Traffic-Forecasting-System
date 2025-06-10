@@ -192,7 +192,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             for model in models:
 
                 with open(read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", target_data[target], "subfolders", road_category, "path"])) as params_reader:
-                    params = json.load(params_reader)[model.__class__.__name.__] if function.__name__ != "execute_gridsearch" else {}
+                    params = json.load(params_reader)[model.__class__.__name.__] if function.__name__ != "execute_gridsearch" else model_definitions["auxiliary_parameters"].get(model.__class__.__name.__, {})
 
                 learner = TFSLearner(model=model(**params), road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)
                 function(X_train if function.__name__ in ["execute_gridsearch", "execute_training"] else X_test,
