@@ -692,6 +692,8 @@ def split_data(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd
     #TODO TEMPORARY SOLUTION:
     if target == target_data["V"]: target = "volume"
 
+    print("I'm here")
+
     if target not in ("volume", "mean_speed"):
         raise TargetVariableNotFoundError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
 
@@ -703,7 +705,8 @@ def split_data(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd
     elif mode == 0:
         n_rows = data.shape[0].compute()
         p_70 = int(n_rows * 0.70)
-        return dd.from_delayed(delayed(X.head(p_70)).persist()), dd.from_delayed(delayed(X.tail(n_rows - p_70))).persist(), dd.from_delayed(delayed(y.head(p_70)).persist()), dd.from_delayed(delayed(y.tail(n_rows - p_70))).persist()
+        print("Returning X_train, X_test, y_train, y_test")  # Debugging line
+        return dd.from_delayed(delayed(X.head(p_70))), dd.from_delayed(delayed(X.tail(n_rows - p_70))), dd.from_delayed(delayed(y.head(p_70))), dd.from_delayed(delayed(y.tail(n_rows - p_70)))
     else:
         raise WrongSplittingMode("Wrong splitting mode imputed")
 
