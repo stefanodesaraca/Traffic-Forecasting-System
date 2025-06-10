@@ -146,6 +146,8 @@ def execute_eda() -> None:
 # TODO IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL. EXPLICITELY PRINT THAT FILES METADATA IS NEEDED BEFORE EXECUTING THE WARMUP
 def execute_forecast_warmup(functionality: str) -> None:
     models = model_definitions["class_instance"].values()
+    print(list(models)[0])
+    print(type(list(models)[0]))
 
 
     def preprocess_data(files: list[str], road_category: str, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
@@ -191,8 +193,8 @@ def execute_forecast_warmup(functionality: str) -> None:
             X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target_data[target], road_category=road_category)
             for model in models:
 
-                with open(read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", target_data[target], "subfolders", road_category, "path"])) as params_reader:
-                    params = json.load(params_reader)[model.__class__.__name.__] if function.__name__ != "execute_gridsearch" else model_definitions["auxiliary_parameters"].get(model.__class__.__name.__, {})
+                with open(read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", target_data[target], "subfolders", road_category, "path"]) + get_active_ops() + "_" + road_category + "_" + model.__class__.__name__ + "_parameters.json", "r", encoding="utf-8") as params_reader:
+                    params = json.load(params_reader)[model.__class__.__name__] if function.__name__ != "execute_gridsearch" else model_definitions["auxiliary_parameters"].get(model.__class__.__name__, {})
 
                 learner = TFSLearner(model=model(**params), road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)
                 function(X_train if function.__name__ in ["execute_gridsearch", "execute_training"] else X_test,
