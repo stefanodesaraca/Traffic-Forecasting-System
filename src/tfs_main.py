@@ -190,7 +190,11 @@ def execute_forecast_warmup(functionality: str) -> None:
         for road_category, files in get_trp_ids_by_road_category(target=target).items():
             X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target_data[target], road_category=road_category)
             for model in models:
-                learner = TFSLearner(model=model, road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)
+
+                with open(read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", target_data[target], "subfolders", road_category, "path"])) as params_reader:
+                    params = json.load(params_reader)[model.__class__.__name.__] if function.__name__ != "execute_gridsearch" else {}
+
+                learner = TFSLearner(model=model(**params), road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)
                 function(X_train if function.__name__ in ["execute_gridsearch", "execute_training"] else X_test,
                          y_train if function.__name__ in ["execute_gridsearch", "execute_training"] else y_test,
                          learner)
