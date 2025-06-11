@@ -348,56 +348,6 @@ class TFSPreprocessor:
 
 
 
-@runtime_checkable
-class EstimatorProtocol(Protocol):
-    """
-    A protocol to inform the static type checker that an object of type EstimatorProtocol will have a predict() method
-    """
-
-    def fit(self, X_train: Any, y_train: Any) -> Any:
-        """
-        Make predictions using the estimator.
-
-        Parameters
-        ----------
-        X_train : Any
-            Input predictor features for training.
-        y_train : Any
-            Input target features for training.
-        Returns
-        -------
-        Any
-            Fitted model
-        """
-        ...
-
-
-    def predict(self, X: Any) -> Any:
-        """
-        Make predictions using the estimator.
-
-        Parameters
-        ----------
-        X : Any
-            Input features for prediction.
-
-        Returns
-        -------
-        Any
-            Predicted values.
-        """
-        ...
-
-
-    def __sklearn_is_fitted__(self) -> bool:
-        ...
-
-
-    def get_params(self) -> dict:
-        ...
-
-
-
 class BaseModel(PydanticBaseModel):
     class Config:
         arbitrary_types_allowed = True
@@ -405,13 +355,13 @@ class BaseModel(PydanticBaseModel):
 
 
 class ModelWrapper(BaseModel):
-    model_obj: EstimatorProtocol
+    model_obj: Any
 
 
     @field_validator("model_obj", mode="after")
     @classmethod
-    def validate_model_obj(cls, model_obj) -> ScikitLearnBaseEstimator | PyTorchForecastingBaseModel | SktimeBaseEstimator:
-        if not isinstance(model_obj, ScikitLearnBaseEstimator | PyTorchForecastingBaseModel | SktimeBaseEstimator):
+    def validate_model_obj(cls, model_obj) -> Any:
+        if not issubclass(model_obj.__class__, ScikitLearnBaseEstimator | PyTorchForecastingBaseModel | SktimeBaseEstimator):
             raise WrongEstimatorTypeError(f"Object passed is not an estimator accepted from this class. Type of the estimator received: {type(model_obj)}")
         return model_obj
 
