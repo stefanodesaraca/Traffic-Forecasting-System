@@ -661,10 +661,10 @@ def get_trp_ids_by_road_category(target: str) -> dict[str, list[str]] | None:
 
     road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
 
-    clean_data_folder = read_metainfo_key(keys_map=["folder_paths", "data", target_data[target], "subfolders", "clean", "path"])
+    clean_data_folder = read_metainfo_key(keys_map=["folder_paths", "data", target, "subfolders", "clean", "path"])
 
-    check = "has_volumes" if target == "V" else "has_speeds"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
-    data = "_volumes_C.csv" if target == "V" else "_speeds_C.csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
+    check = "has_volumes" if target == "traffic_volumes" else "has_speeds"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
+    data = "_volumes_C.csv" if target == "traffic_volumes" else "_speeds_C.csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
 
     return {k: d for k, d in {
         category: [clean_data_folder + trp_id + data for trp_id in

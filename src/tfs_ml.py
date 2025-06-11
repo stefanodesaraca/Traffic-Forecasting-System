@@ -356,6 +356,7 @@ class BaseModel(PydanticBaseModel):
 
 class ModelWrapper(BaseModel):
     model_obj: Any
+    target: Literal["traffic_volumes", "average_speed"]
 
 
     @field_validator("model_obj", mode="after")
@@ -415,7 +416,7 @@ class ModelWrapper(BaseModel):
         dict[str, Any]
             The model's grid for hyperparameter tuning.
         """
-        return grids[self._target][self._model.name]
+        return grids[self.target][self.name]
 
 
     def set(self, model_object: Any) -> None:
@@ -599,7 +600,7 @@ class TFSLearner:
         self._client: Client = client
         self._road_category: str = road_category
         self._target: Literal["traffic_volumes", "average_speed"] = target
-        self._model: ModelWrapper = ModelWrapper(model_obj=model)
+        self._model: ModelWrapper = ModelWrapper(model_obj=model, target=self._target)
 
 
     def get_model(self) -> ModelWrapper:

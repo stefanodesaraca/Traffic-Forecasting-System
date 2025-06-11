@@ -188,10 +188,10 @@ def execute_forecast_warmup(functionality: str) -> None:
 
     def process_functionality(target: str, function: callable) -> None:
         for road_category, files in get_trp_ids_by_road_category(target=target).items():
-            X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target_data[target], road_category=road_category)
+            X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
             for model in models:
 
-                with open(read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", target_data[target], "subfolders", road_category, "path"]) + get_active_ops() + "_" + road_category + "_" + model.__name__ + "_parameters.json", "r", encoding="utf-8") as params_reader:
+                with open(read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", target, "subfolders", road_category, "path"]) + get_active_ops() + "_" + road_category + "_" + model.__name__ + "_parameters.json", "r", encoding="utf-8") as params_reader:
                     params = json.load(params_reader)[model.__name__] if function.__name__ != "execute_gridsearch" else model_definitions["auxiliary_parameters"].get(model.__name__, {})
 
                 learner = TFSLearner(model=model(**params), road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)
@@ -201,12 +201,12 @@ def execute_forecast_warmup(functionality: str) -> None:
 
     with dask_cluster_client(processes=False) as client:
         functionality_mapping = {
-            "3.2.1": ("V", execute_gridsearch),
-            "3.2.2": ("AS", execute_gridsearch),
-            "3.2.3": ("V", execute_training),
-            "3.2.4": ("AS", execute_training),
-            "3.2.5": ("V", execute_testing),
-            "3.2.6": ("AS", execute_testing)
+            "3.2.1": ("traffic_volumes", execute_gridsearch),
+            "3.2.2": ("average_speed", execute_gridsearch),
+            "3.2.3": ("traffic_volumes", execute_training),
+            "3.2.4": ("average_speed", execute_training),
+            "3.2.5": ("traffic_volumes", execute_testing),
+            "3.2.6": ("average_speed", execute_testing)
         }
 
         if functionality in functionality_mapping:
