@@ -450,7 +450,11 @@ class ModelWrapper(BaseModel):
         ModelNotSetError
             If no model has been passed to the wrapper class.
         """
-        if not self.model_obj:
+        #For future development of this function:
+        #When self.model_obj is a scikit-learn model (for example: RandomForestRegressor), using "if not self.model_obj" internally tries to evaluate the object in a boolean context.
+        # For scikit-learn models like RandomForestRegressor, this can trigger special methods like __len__ or others
+        # that assume the model has already been fitted (which would populate attributes like estimators_), leading to the AttributeError.
+        if self.model_obj is None:
             raise ModelNotSetError("Model not passed to the wrapper class")
         return self.model_obj
 
