@@ -1,5 +1,7 @@
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Literal, Generator
+from pathlib import Path
 import os
 import json
 import pprint
@@ -21,14 +23,13 @@ from async_lru import alru_cache
 from dask import delayed
 import dask.distributed
 from dask.distributed import Client, LocalCluster
-from contextlib import contextmanager
 
 from tfs_exceptions import *
 
 
 pd.set_option("display.max_columns", None)
 
-
+#TODO BRING ALL OF THESE INTO A SEPARATE CONFIG FILE IN THE FUTURE
 cwd = os.getcwd()
 ops_folder = "ops"
 dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
@@ -552,89 +553,102 @@ def del_active_ops_file() -> None:
     return None
 
 
-#TODO TO OPTMIZE
 # If the user wants to create a new operation, this function will be called
 def create_ops_folder(ops_name: str) -> None:
     ops_name = clean_text(ops_name)
     os.makedirs(f"{ops_folder}/{ops_name}", exist_ok=True)
+    rcs = ["E", "R", "F", "K", "P"] #TODO DEFINE UNIQUELY IN CONFIG FILE IN THE FUTURE
 
     write_metainfo(ops_name)
 
-    main_folders = ["data", "eda", "rn_graph", "ml"]
-    data_subfolders = [
-        "traffic_volumes",
-        "average_speed",
-        "travel_times",
-        "trp_metadata"
-    ]
-    data_sub_subfolders = ["raw", "clean"]  # To isolate raw data from the clean one
-    eda_subfolders = [f"{ops_name}_shapiro_wilk_test", f"{ops_name}_plots"]
-    eda_sub_subfolders = ["traffic_volumes", "avg_speeds"]
-    rn_graph_subfolders = [
-        f"{ops_name}_edges",
-        f"{ops_name}_arches",
-        f"{ops_name}_graph_analysis",
-        f"{ops_name}_shortest_paths"
-    ]
-    ml_subfolders = ["models_parameters", "models", "models_performance", "ml_reports"]
-    ml_sub_subfolders = ["traffic_volumes", "average_speed"]
-    ml_sub_sub_subfolders = [road_category for road_category in ["E", "R", "F", "K", "P"]]
+    folder_structure = {
+        "data": {
+            "traffic_volumes": {
+                "raw": {},
+                "clean": {}
+            },
+            "average_speed": {
+                "raw": {},
+                "clean": {}
+            },
+            "travel_times": {
+                "raw": {},
+                "clean": {}
+            },
+            "trp_metadata": {}  # No subfolders
+        },
+        "eda": {
+            f"{ops_name}_shapiro_wilk_test": {},
+            f"{ops_name}_plots": {
+                "traffic_volumes": {},
+                "avg_speeds": {}
+            }
+        },
+        "rn_graph": {
+            f"{ops_name}_edges": {},
+            f"{ops_name}_arches": {},
+            f"{ops_name}_graph_analysis": {},
+            f"{ops_name}_shortest_paths": {}
+        },
+        "ml": {
+            "models_parameters": {
+                "traffic_volumes": {
+                    rc: {} for rc in rcs
+                },
+                "average_speed": {
+                    rc: {} for rc in rcs
+                }
+            },
+            "models": {
+                "traffic_volumes": {
+                    rc: {} for rc in rcs
+                },
+                "average_speed": {
+                    rc: {} for rc in rcs
+                }
+            },
+            "models_performance": {
+                "traffic_volumes": {
+                    rc: {} for rc in rcs
+                },
+                "average_speed": {
+                    rc: {} for rc in rcs
+                }
+            },
+            "ml_reports": {
+                "traffic_volumes": {
+                    rc: {} for rc in rcs
+                },
+                "average_speed": {
+                    rc: {} for rc in rcs
+                }
+            }
+        }
+    }
 
     with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "r", encoding="utf-8") as m:
         metainfo = json.load(m)
     metainfo["folder_paths"] = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
 
-    for mf in main_folders:
-        main_f = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_{mf}/"
-        os.makedirs(main_f, exist_ok=True)
-        metainfo["folder_paths"][mf] = {}
+    def create_nested_folders(base_path: str, structure: dict[str, dict | None]) -> dict[str, Any]:
+        result = {}
+        for folder, subfolders in structure.items():
+            folder_path = os.path.join(base_path, folder)
+            os.makedirs(folder_path, exist_ok=True)
+            if isinstance(subfolders, dict) and subfolders:
+                result[folder] = {
+                    "path": folder_path,
+                    "subfolders": create_nested_folders(folder_path, subfolders)
+                }
+            else:
+                result[folder] = {"path": folder_path,
+                                  "subfolders": {}}
+        return result
 
-    # Data subfolders
-    for dsf in data_subfolders:
-        data_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}/"
-        os.makedirs(data_sub, exist_ok=True)
-        metainfo["folder_paths"]["data"][dsf] = {"path": data_sub, "subfolders": {}}
-
-        # Data sub-subfolders
-        for dssf in data_sub_subfolders:
-            if dsf != "trp_metadata":
-                data_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}/{dssf}_{dsf}/"
-                os.makedirs(data_2sub, exist_ok=True)
-                metainfo["folder_paths"]["data"][dsf]["subfolders"][dssf] = {"path": data_2sub}
-
-    for e in eda_subfolders:
-        eda_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{e}/"
-        os.makedirs(eda_sub, exist_ok=True)
-        metainfo["folder_paths"]["eda"][e] = {"path": eda_sub, "subfolders": {}}
-
-        for esub in eda_sub_subfolders:
-            if e != f"{ops_name}_shapiro_wilk_test":
-                eda_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{e}/{esub}_eda_plots/"
-                os.makedirs(eda_2sub, exist_ok=True)
-                metainfo["folder_paths"]["eda"][e]["subfolders"][esub] = {"path": eda_2sub}
-
-    # Graph subfolders
-    for gsf in rn_graph_subfolders:
-        gsf_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_rn_graph/{gsf}/"
-        os.makedirs(gsf_sub, exist_ok=True)
-        metainfo["folder_paths"]["rn_graph"][gsf] = {"path": gsf_sub, "subfolders": None}
-
-    # Machine learning subfolders
-    for mlsf in ml_subfolders:
-        ml_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/"
-        os.makedirs(ml_sub, exist_ok=True)
-        metainfo["folder_paths"]["ml"][mlsf] = {"path": ml_sub, "subfolders": {}}
-
-        # Machine learning sub-subfolders
-        for mlssf in ml_sub_subfolders:
-            ml_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/{ops_name}_{mlssf}_{mlsf}/"
-            os.makedirs(ml_2sub, exist_ok=True)
-            metainfo["folder_paths"]["ml"][mlsf]["subfolders"][mlssf] = {"path": ml_2sub,"subfolders": {}}
-
-            for mlsssf in ml_sub_sub_subfolders:
-                ml_3sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/{ops_name}_{mlssf}_{mlsf}/{ops_name}_{mlsssf}_{mlssf}_{mlsf}/"
-                os.makedirs(ml_3sub, exist_ok=True)
-                metainfo["folder_paths"]["ml"][mlsf]["subfolders"][mlssf]["subfolders"][mlsssf] = {"path": ml_3sub}
+    for key, sub_structure in folder_structure.items():
+        main_dir = os.path.join(cwd, ops_folder, ops_name, f"{ops_name}_{key}")
+        os.makedirs(main_dir, exist_ok=True) #Creating main directories and respective subfolder structure
+        metainfo["folder_paths"][key] = create_nested_folders(main_dir, sub_structure)
 
     with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "w", encoding="utf-8") as m:
         json.dump(metainfo, m, indent=4)
