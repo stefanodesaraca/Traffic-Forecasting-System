@@ -251,11 +251,11 @@ def write_metainfo(ops_name: str) -> None:
     return None
 
 
-def check_metainfo_file() -> bool:
+def check_metainfo() -> bool:
     return os.path.isfile(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json")  # Either True (if file exists) or False (in case the file doesn't exist)
 
 
-async def check_metainfo_file_async() -> bool:
+async def check_metainfo_async() -> bool:
     # This should check for the existence of the file asynchronously
     return os.path.isfile(f"{cwd}/{ops_folder}/{await get_active_ops_async()}/metainfo.json")
 
@@ -273,7 +273,7 @@ def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
     metainfo_filepath = f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
     modes = ["equals", "append"]
 
-    if check_metainfo_file() is True:
+    if check_metainfo() is True:
         with open(metainfo_filepath, "r", encoding="utf-8") as m:
             payload = json.load(m)
     else:
@@ -317,7 +317,7 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
     modes = ["equals", "append"]
 
     async with metainfo_lock:
-        if check_metainfo_file():
+        if check_metainfo():
             async with aiofiles.open(metainfo_filepath, "r") as m:
                 payload = json.loads(await m.read())
         else:
@@ -350,7 +350,7 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
 #This function needs to be cached since it will be called exactly as many times as read_metainfo_key()
 @lru_cache
 def load_metainfo_payload() -> dict:
-    if check_metainfo_file():
+    if check_metainfo():
         with open(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
             return json.load(m)
     else:
@@ -359,7 +359,7 @@ def load_metainfo_payload() -> dict:
 
 @alru_cache()
 async def load_metainfo_payload_async() -> dict:
-    if await check_metainfo_file_async():
+    if await check_metainfo_async():
         async with aiofiles.open(f"{cwd}/{ops_folder}/{await get_active_ops_async()}/metainfo.json", mode='r', encoding='utf-8') as m:
             return json.loads(await m.read())
     else:
@@ -433,7 +433,7 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
     if option == "V":
         last_available_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"])
     elif option == "AS":
-        _, last_available_data_dt = get_speeds_dates(import_TRPs_data()) #TODO UPDATE THIS WITH compute_metainfo() AND READ IT FROM metainfo.json
+        _, last_available_data_dt = get_speeds_dates(import_TRPs_data())
         if last_available_data_dt is None:
             logging.error(traceback.format_exc())
             raise Exception("End date not found in metainfo file. Run download first or set it first")
@@ -626,7 +626,7 @@ def create_ops_folder(ops_name: str) -> None:
         }
     }
 
-    with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "r", encoding="utf-8") as m:
+    with open(os.path.join(cwd, ops_folder, ops_name, f"{metainfo_filename}.json"), "r", encoding="utf-8") as m:
         metainfo = json.load(m)
     metainfo["folder_paths"] = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
 
@@ -650,7 +650,7 @@ def create_ops_folder(ops_name: str) -> None:
         os.makedirs(main_dir, exist_ok=True) #Creating main directories and respective subfolder structure
         metainfo["folder_paths"][key] = create_nested_folders(main_dir, sub_structure)
 
-    with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "w", encoding="utf-8") as m:
+    with open(os.path.join(cwd, ops_folder, ops_name, f"{metainfo_filename}.json"), "w", encoding="utf-8") as m:
         json.dump(metainfo, m, indent=4)
 
     return None
@@ -759,7 +759,7 @@ def clean_text(text: str) -> str:
     return clean(text, no_emoji=True, no_currency_symbols=True).replace(" ", "_").lower()
 
 
-def retrieve_n_ml_cpus() -> int:
+def get_ml_cpus() -> int:
     return int(os.cpu_count() * 0.75) # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
     # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
 
@@ -801,4 +801,3 @@ def retrieve_arches() -> dict:
 
 
 
-# ==================== TrafficRegistrationPoints Utilities ====================

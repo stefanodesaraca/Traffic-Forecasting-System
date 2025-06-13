@@ -4,7 +4,7 @@ from sklearn.ensemble import (
     HistGradientBoostingRegressor,
 )
 
-from tfs_ml import retrieve_n_ml_cpus
+from tfs_ml import get_ml_cpus
 
 #TODO IN THE FUTURE THIS WOULD BE IMPLEMENTED THROUGH ENUMS
 #Be aware that too low parameters could bring some models to stall while training, so don't go too low with the grid search parameters
@@ -71,7 +71,7 @@ model_definitions = {
         "DecisionTreeRegressor": DecisionTreeRegressor,
     },
     "auxiliary_parameters": {
-        "RandomForestRegressor": {"n_jobs": retrieve_n_ml_cpus(), "random_state": 100},
+        "RandomForestRegressor": {"n_jobs": get_ml_cpus(), "random_state": 100},
         "HistGradientBoostingRegressor": {
             "random_state": 100,
             "categorical_features": None,

@@ -222,7 +222,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
 
 def execute_forecasting(functionality: str) -> None:
-    check_metainfo_file()
+    check_metainfo()
 
     print("Which kind of data would you like to forecast?")
     print("V: Volumes | AS: Average Speeds")
