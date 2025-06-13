@@ -30,12 +30,14 @@ async def start_client_async() -> Client:
     return Client(transport=AIOHTTPTransport(url="https://trafikkdata-api.atlas.vegvesen.no/"), fetch_schema_from_transport=True)
 
 
+#TODO IN THE FUTURE ASYNCHRONIZE EVERY FUNCTION (CREATE A SPECIFIC FEATURE BRANCH FOR THAT MODIFICATION)
+
 # --------------------------------- GraphQL Queries Section (Data Fetching) ---------------------------------
 
 
 # The number 3 indicates the Oslo og Viken county, which only includes the Oslo municipality
 async def fetch_traffic_registration_points(client: Client) -> dict | ExecutionResult:
-    tmp_query = gql(
+    return await client.execute_async(gql(
         """
         {
           trafficRegistrationPoints(
@@ -93,22 +95,19 @@ async def fetch_traffic_registration_points(client: Client) -> dict | ExecutionR
           }
         }
         """
-    )
-    return await client.execute_async(tmp_query)
+    ))
 
 
 def fetch_traffic_volumes_for_trp_id(client: Client, traffic_registration_point: str, time_start: str, time_end: str, last_end_cursor: str, next_page_query: bool) -> dict | ExecutionResult:
-    tv_query = {}
-
-    if next_page_query is False:
-        tv_query = gql(f"""{{
+    return client.execute(gql(f"""
+        {{
             trafficData(trafficRegistrationPointId: "{traffic_registration_point}") {{
-            trafficRegistrationPoint{{
-                  id
-                  name
+                trafficRegistrationPoint {{
+                    id
+                    name
                 }}
                 volume {{
-                    byHour(from: "{time_start}", to: "{time_end}") {{
+                    byHour(from: "{time_start}", to: "{time_end}"{f', after: "{last_end_cursor}"' if next_page_query else ''}) {{
                         edges {{
                             node {{
                                 from
@@ -155,82 +154,23 @@ def fetch_traffic_volumes_for_trp_id(client: Client, traffic_registration_point:
                     }}
                 }}
             }}
-        }}""")
-
-    elif next_page_query is True:
-        tv_query = gql(f"""{{
-                    trafficData(trafficRegistrationPointId: "{traffic_registration_point}") {{
-                    trafficRegistrationPoint{{
-                          id
-                          name
-                        }}
-                        volume {{
-                            byHour(from: "{time_start}", to: "{time_end}", after: "{last_end_cursor}") {{
-                                edges {{
-                                    node {{
-                                        from
-                                        to
-                                        total {{
-                                            volumeNumbers {{
-                                                volume
-                                            }}
-                                            coverage {{
-                                                percentage
-                                            }}
-                                        }}
-                                        byLane {{
-                                            lane {{
-                                                laneNumberAccordingToRoadLink
-                                                laneNumberAccordingToMetering
-                                            }}
-                                            total {{
-                                                coverage {{
-                                                    percentage
-                                                }}
-                                                volumeNumbers {{
-                                                    volume
-                                                }}
-                                            }}
-                                        }}
-                                        byDirection {{
-                                            heading
-                                            total {{
-                                                coverage {{
-                                                    percentage
-                                                }}
-                                                volumeNumbers {{
-                                                    volume
-                                                }}
-                                            }}
-                                        }}
-                                    }}
-                                }}
-                                pageInfo {{
-                                    hasNextPage
-                                    endCursor
-                                }}
-                            }}
-                        }}
-                    }}
-                }}""")
-
-    return client.execute(tv_query)
+        }}
+        """))
 
 
 def fetch_road_categories(client: Client) -> dict | ExecutionResult:
-    rc_query = gql("""
+    return client.execute(gql("""
     {
         roadCategories{
             id
             name
         }
     }
-    """)
-    return client.execute(rc_query)
+    """))
 
 #TODO TO IMPLEMENT
 def fetch_areas(client: Client) -> dict | ExecutionResult:
-    a_query = gql("""
+    return client.execute(gql("""
     {
       areas {
         countryParts {
@@ -252,8 +192,7 @@ def fetch_areas(client: Client) -> dict | ExecutionResult:
         }
       }
     }
-    """)
-    return client.execute(a_query)
+    """))
 
 
 # --------------------------------- JSON Writing Section ---------------------------------
@@ -268,7 +207,7 @@ async def traffic_registration_points_to_json() -> None:
     client = await start_client_async()
     TRPs = await fetch_traffic_registration_points(client)
 
-    async with aiofiles.open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]),"w") as trps_w:
+    async with aiofiles.open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]), "w") as trps_w:
         await trps_w.write(json.dumps({data["id"]: data for data in TRPs["trafficRegistrationPoints"]}, indent=4))
     return None
 
