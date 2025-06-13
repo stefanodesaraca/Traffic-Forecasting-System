@@ -23,8 +23,6 @@ from tfs_utils import *
 pd.set_option("display.max_rows", None)
 pd.set_option("display.max_columns", None)
 
-dt_format = "%Y-%m-%dT%H"
-
 
 class BaseCleaner:
     def __init__(self):
