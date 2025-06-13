@@ -1,5 +1,7 @@
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Literal, Generator
+from pathlib import Path
 import os
 import json
 import pprint
@@ -21,12 +23,13 @@ from async_lru import alru_cache
 from dask import delayed
 import dask.distributed
 from dask.distributed import Client, LocalCluster
-from contextlib import contextmanager
+
+from tfs_exceptions import *
 
 
 pd.set_option("display.max_columns", None)
 
-
+#TODO BRING ALL OF THESE INTO A SEPARATE CONFIG FILE IN THE FUTURE
 cwd = os.getcwd()
 ops_folder = "ops"
 dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
@@ -248,11 +251,11 @@ def write_metainfo(ops_name: str) -> None:
     return None
 
 
-def check_metainfo_file() -> bool:
+def check_metainfo() -> bool:
     return os.path.isfile(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json")  # Either True (if file exists) or False (in case the file doesn't exist)
 
 
-async def check_metainfo_file_async() -> bool:
+async def check_metainfo_async() -> bool:
     # This should check for the existence of the file asynchronously
     return os.path.isfile(f"{cwd}/{ops_folder}/{await get_active_ops_async()}/metainfo.json")
 
@@ -270,7 +273,7 @@ def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
     metainfo_filepath = f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
     modes = ["equals", "append"]
 
-    if check_metainfo_file() is True:
+    if check_metainfo() is True:
         with open(metainfo_filepath, "r", encoding="utf-8") as m:
             payload = json.load(m)
     else:
@@ -314,7 +317,7 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
     modes = ["equals", "append"]
 
     async with metainfo_lock:
-        if check_metainfo_file():
+        if check_metainfo():
             async with aiofiles.open(metainfo_filepath, "r") as m:
                 payload = json.loads(await m.read())
         else:
@@ -347,7 +350,7 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
 #This function needs to be cached since it will be called exactly as many times as read_metainfo_key()
 @lru_cache
 def load_metainfo_payload() -> dict:
-    if check_metainfo_file():
+    if check_metainfo():
         with open(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
             return json.load(m)
     else:
@@ -356,7 +359,7 @@ def load_metainfo_payload() -> dict:
 
 @alru_cache()
 async def load_metainfo_payload_async() -> dict:
-    if await check_metainfo_file_async():
+    if await check_metainfo_async():
         async with aiofiles.open(f"{cwd}/{ops_folder}/{await get_active_ops_async()}/metainfo.json", mode='r', encoding='utf-8') as m:
             return json.loads(await m.read())
     else:
@@ -430,7 +433,7 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
     if option == "V":
         last_available_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"])
     elif option == "AS":
-        _, last_available_data_dt = get_speeds_dates(import_TRPs_data()) #TODO UPDATE THIS WITH compute_metainfo() AND READ IT FROM metainfo.json
+        _, last_available_data_dt = get_speeds_dates(import_TRPs_data())
         if last_available_data_dt is None:
             logging.error(traceback.format_exc())
             raise Exception("End date not found in metainfo file. Run download first or set it first")
@@ -464,11 +467,11 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
             sys.exit(1)
 
 
-def read_forecasting_target_datetime(data_kind: str) -> datetime:
+def read_forecasting_target_datetime(target: str) -> datetime:
     try:
-        return datetime.strptime(read_metainfo_key(keys_map=["forecasting", "target_datetimes", data_kind]), dt_format)
+        return datetime.strptime(read_metainfo_key(keys_map=["forecasting", "target_datetimes", target]), dt_format)
     except TypeError:
-        print(f"\033[91mTarget datetime for {data_kind} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
+        print(f"\033[91mTarget datetime for {target} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
         sys.exit(1)
     except FileNotFoundError:
         print("\033[91mTarget Datetime File Not Found\033[0m")
@@ -550,91 +553,104 @@ def del_active_ops_file() -> None:
     return None
 
 
-#TODO TO OPTMIZE
 # If the user wants to create a new operation, this function will be called
 def create_ops_folder(ops_name: str) -> None:
     ops_name = clean_text(ops_name)
     os.makedirs(f"{ops_folder}/{ops_name}", exist_ok=True)
+    rcs = ["E", "R", "F", "K", "P"] #TODO DEFINE UNIQUELY IN CONFIG FILE IN THE FUTURE
 
     write_metainfo(ops_name)
 
-    main_folders = ["data", "eda", "rn_graph", "ml"]
-    data_subfolders = [
-        "traffic_volumes",
-        "average_speed",
-        "travel_times",
-        "trp_metadata"
-    ]
-    data_sub_subfolders = ["raw", "clean"]  # To isolate raw data from the clean one
-    eda_subfolders = [f"{ops_name}_shapiro_wilk_test", f"{ops_name}_plots"]
-    eda_sub_subfolders = ["traffic_volumes", "avg_speeds"]
-    rn_graph_subfolders = [
-        f"{ops_name}_edges",
-        f"{ops_name}_arches",
-        f"{ops_name}_graph_analysis",
-        f"{ops_name}_shortest_paths"
-    ]
-    ml_subfolders = ["models_parameters", "models", "models_performance", "ml_reports"]
-    ml_sub_subfolders = ["traffic_volumes", "average_speed"]
-    ml_sub_sub_subfolders = [road_category for road_category in ["E", "R", "F", "K", "P"]]
+    folder_structure = {
+        "data": {
+            "traffic_volumes": {
+                "raw": {},
+                "clean": {}
+            },
+            "average_speed": {
+                "raw": {},
+                "clean": {}
+            },
+            "travel_times": {
+                "raw": {},
+                "clean": {}
+            },
+            "trp_metadata": {}  # No subfolders
+        },
+        "eda": {
+            f"{ops_name}_shapiro_wilk_test": {},
+            f"{ops_name}_plots": {
+                "traffic_volumes": {},
+                "avg_speeds": {}
+            }
+        },
+        "rn_graph": {
+            f"{ops_name}_edges": {},
+            f"{ops_name}_arches": {},
+            f"{ops_name}_graph_analysis": {},
+            f"{ops_name}_shortest_paths": {}
+        },
+        "ml": {
+            "models_parameters": {
+                "traffic_volumes": {
+                    rc: {} for rc in rcs
+                },
+                "average_speed": {
+                    rc: {} for rc in rcs
+                }
+            },
+            "models": {
+                "traffic_volumes": {
+                    rc: {} for rc in rcs
+                },
+                "average_speed": {
+                    rc: {} for rc in rcs
+                }
+            },
+            "models_performance": {
+                "traffic_volumes": {
+                    rc: {} for rc in rcs
+                },
+                "average_speed": {
+                    rc: {} for rc in rcs
+                }
+            },
+            "ml_reports": {
+                "traffic_volumes": {
+                    rc: {} for rc in rcs
+                },
+                "average_speed": {
+                    rc: {} for rc in rcs
+                }
+            }
+        }
+    }
 
-    with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "r", encoding="utf-8") as m:
+    with open(os.path.join(cwd, ops_folder, ops_name, f"{metainfo_filename}.json"), "r", encoding="utf-8") as m:
         metainfo = json.load(m)
     metainfo["folder_paths"] = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
 
-    for mf in main_folders:
-        main_f = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_{mf}/"
-        os.makedirs(main_f, exist_ok=True)
-        metainfo["folder_paths"][mf] = {}
+    def create_nested_folders(base_path: str, structure: dict[str, dict | None]) -> dict[str, Any]:
+        result = {}
+        for folder, subfolders in structure.items():
+            folder_path = os.path.join(base_path, folder)
+            os.makedirs(folder_path, exist_ok=True)
+            if isinstance(subfolders, dict) and subfolders:
+                result[folder] = {
+                    "path": folder_path,
+                    "subfolders": create_nested_folders(folder_path, subfolders)
+                }
+            else:
+                result[folder] = {"path": folder_path,
+                                  "subfolders": {}}
+        return result
 
-    # Data subfolders
-    for dsf in data_subfolders:
-        data_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}/"
-        os.makedirs(data_sub, exist_ok=True)
-        metainfo["folder_paths"]["data"][dsf] = {"path": data_sub, "subfolders": {}}
+    for key, sub_structure in folder_structure.items():
+        main_dir = os.path.join(cwd, ops_folder, ops_name, f"{ops_name}_{key}")
+        os.makedirs(main_dir, exist_ok=True) #Creating main directories and respective subfolder structure
+        metainfo["folder_paths"][key] = create_nested_folders(main_dir, sub_structure)
 
-        # Data sub-subfolders
-        for dssf in data_sub_subfolders:
-            if dsf != "trp_metadata":
-                data_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/{dsf}/{dssf}_{dsf}/"
-                os.makedirs(data_2sub, exist_ok=True)
-                metainfo["folder_paths"]["data"][dsf]["subfolders"][dssf] = {"path": data_2sub}
-
-    for e in eda_subfolders:
-        eda_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{e}/"
-        os.makedirs(eda_sub, exist_ok=True)
-        metainfo["folder_paths"]["eda"][e] = {"path": eda_sub, "subfolders": {}}
-
-        for esub in eda_sub_subfolders:
-            if e != f"{ops_name}_shapiro_wilk_test":
-                eda_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_eda/{e}/{esub}_eda_plots/"
-                os.makedirs(eda_2sub, exist_ok=True)
-                metainfo["folder_paths"]["eda"][e]["subfolders"][esub] = {"path": eda_2sub}
-
-    # Graph subfolders
-    for gsf in rn_graph_subfolders:
-        gsf_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_rn_graph/{gsf}/"
-        os.makedirs(gsf_sub, exist_ok=True)
-        metainfo["folder_paths"]["rn_graph"][gsf] = {"path": gsf_sub, "subfolders": None}
-
-    # Machine learning subfolders
-    for mlsf in ml_subfolders:
-        ml_sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/"
-        os.makedirs(ml_sub, exist_ok=True)
-        metainfo["folder_paths"]["ml"][mlsf] = {"path": ml_sub, "subfolders": {}}
-
-        # Machine learning sub-subfolders
-        for mlssf in ml_sub_subfolders:
-            ml_2sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/{ops_name}_{mlssf}_{mlsf}/"
-            os.makedirs(ml_2sub, exist_ok=True)
-            metainfo["folder_paths"]["ml"][mlsf]["subfolders"][mlssf] = {"path": ml_2sub,"subfolders": {}}
-
-            for mlsssf in ml_sub_sub_subfolders:
-                ml_3sub = f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_ml/{ops_name}_{mlsf}/{ops_name}_{mlssf}_{mlsf}/{ops_name}_{mlsssf}_{mlssf}_{mlsf}/"
-                os.makedirs(ml_3sub, exist_ok=True)
-                metainfo["folder_paths"]["ml"][mlsf]["subfolders"][mlssf]["subfolders"][mlsssf] = {"path": ml_3sub}
-
-    with open(f"{ops_folder}/{ops_name}/{metainfo_filename}.json", "w", encoding="utf-8") as m:
+    with open(os.path.join(cwd, ops_folder, ops_name, f"{metainfo_filename}.json"), "w", encoding="utf-8") as m:
         json.dump(metainfo, m, indent=4)
 
     return None
@@ -655,34 +671,55 @@ def del_ops_folder(ops_name: str) -> None:
 # ==================== Auxiliary Utilities ====================
 
 
-def split_data(data: dd.DataFrame, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
+def get_trp_ids_by_road_category(target: str) -> dict[str, list[str]] | None:
+
+    road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
+
+    clean_data_folder = read_metainfo_key(keys_map=["folder_paths", "data", target, "subfolders", "clean", "path"])
+
+    check = "has_volumes" if target == "traffic_volumes" else "has_speeds"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
+    data = "_volumes_C.csv" if target == "traffic_volumes" else "_speeds_C.csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
+
+    return {k: d for k, d in {
+        category: [clean_data_folder + trp_id + data for trp_id in
+                   filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"][check], get_trp_ids())]
+        for category in road_categories
+    }.items() if len(d) >= 2}
+    # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
+
+
+def split_data(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
     """
-    Splits the Dask DataFrame into training and testing sets based on the target column.
+    Splits the Dask DataFrame into training and testing sets based on the target column and mode.
 
     Parameters:
         data: dd.DataFrame
         target: str ("volume" or "mean_speed")
+        mode: the mode which indicates the kind of split it's intended to execute.
+                0 - Stands for the classic 4 section train-test-split (X_train, X_test, y_train, y_test)
+                1 - Indicates a forecasted specific train-test-split (X, y)
 
     Returns:
         X_train, X_test, y_train, y_test
     """
 
     #TODO TEMPORARY SOLUTION:
-    if target == "traffic_volumes": target = "volume"
+    if target == target_data["V"]: target = "volume"
 
     if target not in ("volume", "mean_speed"):
-        raise ValueError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
+        raise TargetVariableNotFoundError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
 
     X = data.drop(columns=[target])
     y = data[[target]]
 
-    # print("X shape: ", f"({len(X)}, {len(X.columns)})", "\n")
-    # print("y shape: ", f"({len(y)}, {len(y.columns)})", "\n")
-
-    n_rows = data.shape[0].compute()
-    p_70 = int(n_rows * 0.70)
-
-    return dd.from_delayed(delayed(X.head(p_70)).persist()), dd.from_delayed(delayed(X.tail(len(X) - p_70))).persist(), dd.from_delayed(delayed(y.head(p_70)).persist()), dd.from_delayed(delayed(y.tail(len(y) - p_70))).persist()
+    if mode == 1:
+        return X.persist(), y.persist()
+    elif mode == 0:
+        n_rows = data.shape[0].compute()
+        p_70 = int(n_rows * 0.70)
+        return dd.from_delayed(delayed(X.head(p_70))), dd.from_delayed(delayed(X.tail(n_rows - p_70))), dd.from_delayed(delayed(y.head(p_70))), dd.from_delayed(delayed(y.tail(n_rows - p_70)))
+    else:
+        raise WrongSplittingMode("Wrong splitting mode imputed")
 
 
 def merge(trp_filepaths: list[str]) -> dd.DataFrame:
@@ -695,8 +732,7 @@ def merge(trp_filepaths: list[str]) -> dd.DataFrame:
         merged_data = dd.concat([dd.read_csv(trp) for trp in trp_filepaths], axis=0)
         merged_data = merged_data.repartition(partition_size="512MB")
         merged_data = merged_data.sort_values(["date"], ascending=True)  # Sorting records by date
-        merged_data = merged_data.persist()
-        return merged_data
+        return merged_data.persist()
     except ValueError as e:
         print(f"\033[91mNo data to concatenate. Error: {e}")
         sys.exit(1)
@@ -723,7 +759,7 @@ def clean_text(text: str) -> str:
     return clean(text, no_emoji=True, no_currency_symbols=True).replace(" ", "_").lower()
 
 
-def retrieve_n_ml_cpus() -> int:
+def get_ml_cpus() -> int:
     return int(os.cpu_count() * 0.75) # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
     # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
 
@@ -765,4 +801,3 @@ def retrieve_arches() -> dict:
 
 
 
-# ==================== TrafficRegistrationPoints Utilities ====================
