@@ -22,7 +22,7 @@ from tfs_ml_configs import *
 def manage_ops(functionality: str) -> None:
     if functionality == "1.1":
         ops_name = input("Insert new operation name: ")
-        create_ops_folder(ops_name)
+        create_ops_dir(ops_name)
 
     elif functionality == "1.2":
         ops_name = input("Insert the operation to set as active: ")
@@ -34,6 +34,9 @@ def manage_ops(functionality: str) -> None:
     elif functionality == "1.4":
         reset_active_ops()
 
+    elif functionality == "1.5":
+        ops_name = input("Insert the name of the operation to delete: ")
+        del_ops_dir(ops_name)
     else:
         print("\033[91mFunctionality not found, try again with a correct one\033[0m")
         print("\033[91mReturning to the main menu...\033[0m\n\n")
@@ -56,9 +59,7 @@ async def download_volumes(functionality: str) -> None:
         time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
         time_end = input("Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
 
-        if check_datetime_format(time_start) is True and check_datetime_format(time_end) is True:
-            pass
-        else:
+        if not check_datetime_format(time_start) and not check_datetime_format(time_end):
             print("\033[91mWrong datetime format, try again with a correct one\033[0m")
             print("Returning to the main menu...\n\n")
             main()
@@ -84,7 +85,6 @@ async def download_volumes(functionality: str) -> None:
         await traffic_volumes_data_to_json(time_start=time_start, time_end=time_end)
 
     elif functionality == "2.3":
-
         if len(os.listdir(read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]))) == 0:
             for trp_id in tqdm(import_TRPs_data().keys()):
                 write_trp_metadata(trp_id, **{"trp_data": import_TRPs_data()[trp_id]})
@@ -293,6 +293,7 @@ def main():
         "1.2": manage_ops,
         "1.3": manage_ops,
         "1.4": manage_ops,
+        "1.5": manage_ops,
         "2.1": download_volumes,
         "2.2": download_volumes,
         "2.3": download_volumes,
@@ -321,6 +322,7 @@ def main():
     1.2 Set an operation as active (current one)
     1.3 Check the active operation name
     1.4 Reset active operation
+    1.5 Delete an operation
 2. Download data (Trafikkdata API)
     2.1 Traffic registration points information
     2.2 Traffic volumes for every registration point

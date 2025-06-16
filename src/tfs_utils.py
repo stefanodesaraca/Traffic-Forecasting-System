@@ -533,7 +533,7 @@ def reset_active_ops() -> None:
 
 
 # If the user wants to create a new operation, this function will be called
-def create_ops_folder(ops_name: str) -> None:
+def create_ops_dir(ops_name: str) -> None:
     ops_name = clean_text(ops_name)
     os.makedirs(os.path.join(OPS_FOLDER, ops_name), exist_ok=True)
     rcs = ["E", "R", "F", "K", "P"] #TODO DEFINE UNIQUELY IN CONFIG FILE IN THE FUTURE
@@ -635,8 +635,7 @@ def create_ops_folder(ops_name: str) -> None:
     return None
 
 
-# TODO TO IMPLEMENT
-def del_ops_folder(ops_name: str) -> None:
+def del_ops_dir(ops_name: str) -> None:
     try:
         os.rmdir(ops_name)
         print(f"{ops_name} Operation Folder Deleted")
