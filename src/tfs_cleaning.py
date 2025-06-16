@@ -5,8 +5,6 @@ from datetime import datetime
 import os
 import pandas as pd
 import pprint
-import traceback
-import logging
 import dask.dataframe as dd
 import asyncio
 import aiofiles
@@ -513,10 +511,8 @@ class AverageSpeedCleaner(BaseCleaner):
                 return await self._parse_speeds_async(await asyncio.to_thread(pd.read_csv, read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "raw", "path"]) + trp_id + "_speeds" + ".csv", sep=";", **{"engine":"c"}))
 
         except FileNotFoundError or IndexError as e:
-            logging.error(traceback.format_exc())
             print(f"\033[91mNo average speed data for TRP: {trp_id}. Error: {e}\033[0m\n")
             return None
         except Exception as e:
-            logging.error(traceback.format_exc())
             print(f"\033[91mFailed to export speeds for TRP: {trp_id}. Error: {e}\033[0m")
             return None

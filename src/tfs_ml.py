@@ -3,8 +3,6 @@ import time
 import math
 import gc
 import sys
-import traceback
-import logging
 import inspect
 import pickle
 import warnings
@@ -566,7 +564,6 @@ class ModelWrapper(BaseModel):
                 pickle.dump(self.model_obj, ml_pkl_file, protocol=pickle.HIGHEST_PROTOCOL)
             return None
         except Exception as e:
-            logging.error(traceback.format_exc())
             print(f"\033[91mCouldn't export trained model. Safely exited the program. Error: {e}\033[0m")
             sys.exit(1)
 

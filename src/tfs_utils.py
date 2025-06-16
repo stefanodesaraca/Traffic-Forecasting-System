@@ -4,8 +4,6 @@ from typing import Any, Literal, Generator
 import os
 import json
 import sys
-import traceback
-import logging
 import asyncio
 import aiofiles
 from functools import lru_cache
@@ -27,7 +25,7 @@ pd.set_option("display.max_columns", None)
 
 #TODO ---- BRING ALL OF THESE INTO A SEPARATE CONFIG FILE IN THE FUTURE ----
 
-cwd = os.getcwd()
+CWD = os.getcwd()
 OPS_FOLDER = "ops"
 METAINFO_FILENAME = "metainfo"
 ACTIVE_OPS_FILENAME = "active_ops"
@@ -216,7 +214,7 @@ def write_metainfo(ops_name: str) -> None:
             "raw_average_speeds_size": None,
             "clean_average_speeds_size": None,
             "has_clean_data": {},
-            "traffic_registration_points_file": f"{cwd}/{OPS_FOLDER}/{ops_name}/{ops_name}_data/traffic_registration_points.json"
+            "traffic_registration_points_file": f"{CWD}/{OPS_FOLDER}/{ops_name}/{ops_name}_data/traffic_registration_points.json"
         },
         "traffic_volumes": {
             "n_days": None,  # The total number of days which we have data about
@@ -252,12 +250,12 @@ def write_metainfo(ops_name: str) -> None:
 
 
 def check_metainfo() -> bool:
-    return os.path.isfile(f"{cwd}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json")  # Either True (if file exists) or False (in case the file doesn't exist)
+    return os.path.isfile(f"{CWD}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json")  # Either True (if file exists) or False (in case the file doesn't exist)
 
 
 async def check_metainfo_async() -> bool:
     # This should check for the existence of the file asynchronously
-    return os.path.isfile(f"{cwd}/{OPS_FOLDER}/{await get_active_ops_async()}/metainfo.json")
+    return os.path.isfile(f"{CWD}/{OPS_FOLDER}/{await get_active_ops_async()}/metainfo.json")
 
 
 def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
@@ -270,7 +268,7 @@ def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
                   The elements in the list must be ordered in which the keys are located in the metainfo dictionary
         mode: the mode which we intend to use for a specific operation on the metainfo file. For example: we may want to set a value for a specific key, or we may want to append another value to a list (which is the value of a specific key-value pair)
     """
-    metainfo_filepath = f"{cwd}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json"
+    metainfo_filepath = f"{CWD}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json"
     modes = ["equals", "append"]
 
     if check_metainfo() is True:
@@ -313,7 +311,7 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
                   The elements in the list must be ordered in which the keys are located in the metainfo dictionary
         mode: the mode which we intend to use for a specific operation on the metainfo file. For example: we may want to set a value for a specific key, or we may want to append another value to a list (which is the value of a specific key-value pair)
     """
-    metainfo_filepath = f"{cwd}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json"
+    metainfo_filepath = f"{CWD}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json"
     modes = ["equals", "append"]
 
     async with metainfo_lock:
@@ -351,7 +349,7 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
 @lru_cache
 def load_metainfo_payload() -> dict:
     if check_metainfo():
-        with open(f"{cwd}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
+        with open(f"{CWD}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
             return json.load(m)
     else:
         raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
@@ -360,7 +358,7 @@ def load_metainfo_payload() -> dict:
 @alru_cache()
 async def load_metainfo_payload_async() -> dict:
     if await check_metainfo_async():
-        async with aiofiles.open(f"{cwd}/{OPS_FOLDER}/{await get_active_ops_async()}/metainfo.json", mode='r', encoding='utf-8') as m:
+        async with aiofiles.open(f"{CWD}/{OPS_FOLDER}/{await get_active_ops_async()}/metainfo.json", mode='r', encoding='utf-8') as m:
             return json.loads(await m.read())
     else:
         raise FileNotFoundError(f'Metainfo file for "{await get_active_ops_async()}" operation not found')
@@ -435,7 +433,6 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = DEF
     elif option == "AS":
         _, last_available_data_dt = get_speeds_dates(import_TRPs_data())
         if last_available_data_dt is None:
-            logging.error(traceback.format_exc())
             raise Exception("End date not found in metainfo file. Run download first or set it first")
 
         last_available_data_dt = datetime.strptime(last_available_data_dt, "%Y-%m-%d %H:%M:%S").strftime(DT_ISO)
@@ -627,7 +624,7 @@ def create_ops_folder(ops_name: str) -> None:
         }
     }
 
-    with open(os.path.join(cwd, OPS_FOLDER, ops_name, f"{METAINFO_FILENAME}.json"), "r", encoding="utf-8") as m:
+    with open(os.path.join(CWD, OPS_FOLDER, ops_name, f"{METAINFO_FILENAME}.json"), "r", encoding="utf-8") as m:
         metainfo = json.load(m)
     metainfo["folder_paths"] = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
 
@@ -647,11 +644,11 @@ def create_ops_folder(ops_name: str) -> None:
         return result
 
     for key, sub_structure in folder_structure.items():
-        main_dir = os.path.join(cwd, OPS_FOLDER, ops_name, f"{ops_name}_{key}")
+        main_dir = os.path.join(CWD, OPS_FOLDER, ops_name, f"{ops_name}_{key}")
         os.makedirs(main_dir, exist_ok=True) #Creating main directories and respective subfolder structure
         metainfo["folder_paths"][key] = create_nested_folders(main_dir, sub_structure)
 
-    with open(os.path.join(cwd, OPS_FOLDER, ops_name, f"{METAINFO_FILENAME}.json"), "w", encoding="utf-8") as m:
+    with open(os.path.join(CWD, OPS_FOLDER, ops_name, f"{METAINFO_FILENAME}.json"), "w", encoding="utf-8") as m:
         json.dump(metainfo, m, indent=4)
 
     return None
