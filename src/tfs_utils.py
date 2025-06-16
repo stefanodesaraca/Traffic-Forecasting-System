@@ -1,10 +1,8 @@
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Literal, Generator
-from pathlib import Path
 import os
 import json
-import pprint
 import sys
 import traceback
 import logging
@@ -14,10 +12,8 @@ from functools import lru_cache
 import pandas as pd
 import dask.dataframe as dd
 from cleantext import clean
-import geopandas as gpd
 import geojson
 from dateutil.relativedelta import relativedelta
-from geopandas import GeoDataFrame
 from pydantic.types import PositiveInt
 from async_lru import alru_cache
 from dask import delayed
@@ -29,17 +25,21 @@ from tfs_exceptions import *
 
 pd.set_option("display.max_columns", None)
 
-#TODO BRING ALL OF THESE INTO A SEPARATE CONFIG FILE IN THE FUTURE
+#TODO ---- BRING ALL OF THESE INTO A SEPARATE CONFIG FILE IN THE FUTURE ----
+
 cwd = os.getcwd()
-ops_folder = "ops"
-dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
-dt_format = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
+OPS_FOLDER = "ops"
+METAINFO_FILENAME = "metainfo"
+ACTIVE_OPS_FILENAME = "active_ops"
+
+DT_ISO = "%Y-%m-%dT%H:%M:%S.%fZ"
+DT_FORMAT = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
 # In this case we'll only ask for the hour value since, for now, it's the maximum granularity for the predictions we're going to make
-metainfo_filename = "metainfo"
+
+DEFAULT_MAX_FORECASTING_WINDOW_SIZE = 14
+
 target_data = {"V": "traffic_volumes", "AS": "average_speeds"} #TODO (IN THE FUTURE) CONVERT AS TO "MS" AND "mean_speed" AND FIND A BETTER WAY TO HANDLE TARGET VARIABLES AND PROCESSES THAT WERE PREVIOUSLY HANDLED WITH THIS DICTIONARY
-default_max_forecasting_window_size = 14
-active_ops_filename = "active_ops"
-metainfo_lock = asyncio.Lock()
+metainfo_lock = asyncio.Lock() #TODO USE release()
 metadata_lock = asyncio.Lock()
 
 
@@ -202,7 +202,7 @@ async def update_trp_metadata_async(trp_id: str, value: Any, metadata_keys_map: 
 # ------------ Metainfo File ------------
 
 def write_metainfo(ops_name: str) -> None:
-    target_folder = f"{ops_folder}/{ops_name}/"
+    target_folder = f"{OPS_FOLDER}/{ops_name}/"
     assert os.path.isdir(target_folder), f"{target_folder} folder not found. Have you created the operation first?"
 
     metainfo = {
@@ -216,7 +216,7 @@ def write_metainfo(ops_name: str) -> None:
             "raw_average_speeds_size": None,
             "clean_average_speeds_size": None,
             "has_clean_data": {},
-            "traffic_registration_points_file": f"{cwd}/{ops_folder}/{ops_name}/{ops_name}_data/traffic_registration_points.json"
+            "traffic_registration_points_file": f"{cwd}/{OPS_FOLDER}/{ops_name}/{ops_name}_data/traffic_registration_points.json"
         },
         "traffic_volumes": {
             "n_days": None,  # The total number of days which we have data about
@@ -245,19 +245,19 @@ def write_metainfo(ops_name: str) -> None:
         "trps": {} # For each TRP we'll have {"id": metadata_filename}
     }
 
-    with open(target_folder + metainfo_filename + ".json", "w", encoding="utf-8") as tf:
+    with open(os.path.join(target_folder, METAINFO_FILENAME, ".json"), "w", encoding="utf-8") as tf:
             json.dump(metainfo, tf, indent=4)
 
     return None
 
 
 def check_metainfo() -> bool:
-    return os.path.isfile(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json")  # Either True (if file exists) or False (in case the file doesn't exist)
+    return os.path.isfile(f"{cwd}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json")  # Either True (if file exists) or False (in case the file doesn't exist)
 
 
 async def check_metainfo_async() -> bool:
     # This should check for the existence of the file asynchronously
-    return os.path.isfile(f"{cwd}/{ops_folder}/{await get_active_ops_async()}/metainfo.json")
+    return os.path.isfile(f"{cwd}/{OPS_FOLDER}/{await get_active_ops_async()}/metainfo.json")
 
 
 def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
@@ -270,7 +270,7 @@ def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
                   The elements in the list must be ordered in which the keys are located in the metainfo dictionary
         mode: the mode which we intend to use for a specific operation on the metainfo file. For example: we may want to set a value for a specific key, or we may want to append another value to a list (which is the value of a specific key-value pair)
     """
-    metainfo_filepath = f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
+    metainfo_filepath = f"{cwd}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json"
     modes = ["equals", "append"]
 
     if check_metainfo() is True:
@@ -313,7 +313,7 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
                   The elements in the list must be ordered in which the keys are located in the metainfo dictionary
         mode: the mode which we intend to use for a specific operation on the metainfo file. For example: we may want to set a value for a specific key, or we may want to append another value to a list (which is the value of a specific key-value pair)
     """
-    metainfo_filepath = f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json"
+    metainfo_filepath = f"{cwd}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json"
     modes = ["equals", "append"]
 
     async with metainfo_lock:
@@ -351,7 +351,7 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
 @lru_cache
 def load_metainfo_payload() -> dict:
     if check_metainfo():
-        with open(f"{cwd}/{ops_folder}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
+        with open(f"{cwd}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
             return json.load(m)
     else:
         raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
@@ -360,7 +360,7 @@ def load_metainfo_payload() -> dict:
 @alru_cache()
 async def load_metainfo_payload_async() -> dict:
     if await check_metainfo_async():
-        async with aiofiles.open(f"{cwd}/{ops_folder}/{await get_active_ops_async()}/metainfo.json", mode='r', encoding='utf-8') as m:
+        async with aiofiles.open(f"{cwd}/{OPS_FOLDER}/{await get_active_ops_async()}/metainfo.json", mode='r', encoding='utf-8') as m:
             return json.loads(await m.read())
     else:
         raise FileNotFoundError(f'Metainfo file for "{await get_active_ops_async()}" operation not found')
@@ -414,7 +414,7 @@ def get_models_parameters_folder_path(target: Literal["traffic_volumes", "averag
 
 # ==================== Forecasting Settings Utilities ====================
 
-def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = default_max_forecasting_window_size) -> None:
+def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = DEFAULT_MAX_FORECASTING_WINDOW_SIZE) -> None:
     """
     Parameters:
         forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24.
@@ -425,7 +425,7 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
         None
     """
 
-    max_forecasting_window_size = max(default_max_forecasting_window_size, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
+    max_forecasting_window_size = max(DEFAULT_MAX_FORECASTING_WINDOW_SIZE, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
     option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")
     print("Maximum number of days to forecast: ", max_forecasting_window_size)
@@ -438,28 +438,28 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
             logging.error(traceback.format_exc())
             raise Exception("End date not found in metainfo file. Run download first or set it first")
 
-        last_available_data_dt = datetime.strptime(last_available_data_dt, "%Y-%m-%d %H:%M:%S").strftime(dt_iso)
+        last_available_data_dt = datetime.strptime(last_available_data_dt, "%Y-%m-%d %H:%M:%S").strftime(DT_ISO)
 
     else:
         print("\033[91mWrong data option, try again\033[0m")
         sys.exit(1)
 
-    print("Latest data available: ", datetime.strptime(last_available_data_dt, dt_iso))
-    print("Maximum settable date: ", relativedelta(datetime.strptime(last_available_data_dt, dt_iso), days=14))
+    print("Latest data available: ", datetime.strptime(last_available_data_dt, DT_ISO))
+    print("Maximum settable date: ", relativedelta(datetime.strptime(last_available_data_dt, DT_ISO), days=14))
 
     dt = input("Insert Target Datetime (YYYY-MM-DDTHH): ") # The month number must be zero-padded, for example: 01, 02, etc.
 
-    assert datetime.strptime(dt, dt_format) > datetime.strptime(last_available_data_dt, dt_iso), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
-    assert (datetime.strptime(dt, dt_format) - datetime.strptime(last_available_data_dt, dt_iso)).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
+    assert datetime.strptime(dt, DT_FORMAT) > datetime.strptime(last_available_data_dt, DT_ISO), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
+    assert (datetime.strptime(dt, DT_FORMAT) - datetime.strptime(last_available_data_dt, DT_ISO)).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
             # The number of days to forecast
     # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
-    if check_datetime(dt) and option in target_data.keys():
+    if check_datetime_format(dt) and option in target_data.keys():
         update_metainfo(value=dt, keys_map=["forecasting", "target_datetimes", option], mode="equals")
         print("Target datetime set to: ", dt, "\n\n")
         return None
     else:
-        if check_datetime(dt) is False:
+        if check_datetime_format(dt) is False:
             print("\033[91mWrong datetime format, try again\033[0m")
             sys.exit(1)
         elif option not in list(target_data.keys()):
@@ -469,7 +469,7 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = def
 
 def read_forecasting_target_datetime(target: str) -> datetime:
     try:
-        return datetime.strptime(read_metainfo_key(keys_map=["forecasting", "target_datetimes", target]), dt_format)
+        return datetime.strptime(read_metainfo_key(keys_map=["forecasting", "target_datetimes", target]), DT_FORMAT)
     except TypeError:
         print(f"\033[91mTarget datetime for {target} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
         sys.exit(1)
@@ -481,7 +481,7 @@ def read_forecasting_target_datetime(target: str) -> datetime:
 def reset_forecasting_target_datetime() -> None:
     try:
         print("For which data kind do you want to remove the forecasting target datetime?")
-        update_metainfo(None, ["forecasting", "target_datetimes", input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds:")], mode="equals")
+        update_metainfo(None, ["forecasting", "target_datetimes", input("Press V to reset forecasting target datetime for traffic volumes or AS for average speeds:")], mode="equals")
         print("Target datetime reset successfully\n\n")
         return None
     except KeyError:
@@ -515,10 +515,10 @@ def get_speeds_dates(trp_ids: list[str] | Generator[str, None, None]) -> tuple[s
 
 
 # The user sets the current operation
-def write_active_ops_file(ops_name: str) -> None:
+def set_active_ops(ops_name: str) -> None:
     ops_name = clean_text(ops_name)
-    assert os.path.isdir(f"{ops_folder}/{ops_name}"), f"{ops_name} operation folder not found. Create an operation with that name first."
-    with open(f"{active_ops_filename}.txt", "w", encoding="utf-8") as ops_file:
+    assert os.path.isdir(f"{OPS_FOLDER}/{ops_name}"), f"{ops_name} operation folder not found. Create an operation with that name first."
+    with open(f"{ACTIVE_OPS_FILENAME}.txt", "w", encoding="utf-8") as ops_file:
         ops_file.write(ops_name)
     return None
 
@@ -527,7 +527,7 @@ def write_active_ops_file(ops_name: str) -> None:
 @lru_cache()
 def get_active_ops() -> str:
     try:
-        with open(f"{active_ops_filename}.txt", "r", encoding="utf-8") as ops_file:
+        with open(f"{ACTIVE_OPS_FILENAME}.txt", "r", encoding="utf-8") as ops_file:
             return ops_file.read().strip()
     except FileNotFoundError:
         print("\033[91mOperations file not found\033[0m")
@@ -537,7 +537,7 @@ def get_active_ops() -> str:
 @alru_cache()
 async def get_active_ops_async() -> str:
     try:
-        async with aiofiles.open(f"{active_ops_filename}.txt", mode="r", encoding="utf-8") as ops_file:
+        async with aiofiles.open(f"{ACTIVE_OPS_FILENAME}.txt", mode="r", encoding="utf-8") as ops_file:
             return (await ops_file.read()).strip()
     except FileNotFoundError:
         print("\033[91mOperations file not found\033[0m")
@@ -545,9 +545,10 @@ async def get_active_ops_async() -> str:
 
 
 # TODO TO IMPLEMENT
-def del_active_ops_file() -> None:
+def del_active_ops() -> None:
     try:
-        os.remove(f"{active_ops_filename}.txt")
+        os.remove(f"{ACTIVE_OPS_FILENAME}.txt")
+        print("")
     except FileNotFoundError:
         print("\033[91mCurrent Operation File Not Found\033[0m")
     return None
@@ -556,7 +557,7 @@ def del_active_ops_file() -> None:
 # If the user wants to create a new operation, this function will be called
 def create_ops_folder(ops_name: str) -> None:
     ops_name = clean_text(ops_name)
-    os.makedirs(f"{ops_folder}/{ops_name}", exist_ok=True)
+    os.makedirs(f"{OPS_FOLDER}/{ops_name}", exist_ok=True)
     rcs = ["E", "R", "F", "K", "P"] #TODO DEFINE UNIQUELY IN CONFIG FILE IN THE FUTURE
 
     write_metainfo(ops_name)
@@ -626,7 +627,7 @@ def create_ops_folder(ops_name: str) -> None:
         }
     }
 
-    with open(os.path.join(cwd, ops_folder, ops_name, f"{metainfo_filename}.json"), "r", encoding="utf-8") as m:
+    with open(os.path.join(cwd, OPS_FOLDER, ops_name, f"{METAINFO_FILENAME}.json"), "r", encoding="utf-8") as m:
         metainfo = json.load(m)
     metainfo["folder_paths"] = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
 
@@ -646,11 +647,11 @@ def create_ops_folder(ops_name: str) -> None:
         return result
 
     for key, sub_structure in folder_structure.items():
-        main_dir = os.path.join(cwd, ops_folder, ops_name, f"{ops_name}_{key}")
+        main_dir = os.path.join(cwd, OPS_FOLDER, ops_name, f"{ops_name}_{key}")
         os.makedirs(main_dir, exist_ok=True) #Creating main directories and respective subfolder structure
         metainfo["folder_paths"][key] = create_nested_folders(main_dir, sub_structure)
 
-    with open(os.path.join(cwd, ops_folder, ops_name, f"{metainfo_filename}.json"), "w", encoding="utf-8") as m:
+    with open(os.path.join(cwd, OPS_FOLDER, ops_name, f"{METAINFO_FILENAME}.json"), "w", encoding="utf-8") as m:
         json.dump(metainfo, m, indent=4)
 
     return None
@@ -722,14 +723,14 @@ def split_data(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd
         raise WrongSplittingMode("Wrong splitting mode imputed")
 
 
-def merge(trp_filepaths: list[str]) -> dd.DataFrame:
+def merge(filepaths: list[str]) -> dd.DataFrame:
     """
     Data merger function for traffic volumes or average speed data
     Parameters:
-        trp_filepaths: a list of files to read data from
+        filepaths: a list of files to read data from
     """
     try:
-        merged_data = dd.concat([dd.read_csv(trp) for trp in trp_filepaths], axis=0)
+        merged_data = dd.concat([dd.read_csv(trp) for trp in filepaths], axis=0)
         merged_data = merged_data.repartition(partition_size="512MB")
         merged_data = merged_data.sort_values(["date"], ascending=True)  # Sorting records by date
         return merged_data.persist()
@@ -738,9 +739,9 @@ def merge(trp_filepaths: list[str]) -> dd.DataFrame:
         sys.exit(1)
 
 
-def check_datetime(dt: str) -> bool:
+def check_datetime_format(dt: str) -> bool:
     try:
-        datetime.strptime(dt, dt_format)
+        datetime.strptime(dt, DT_FORMAT)
         return True
     except ValueError:
         return False

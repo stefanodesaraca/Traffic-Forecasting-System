@@ -26,10 +26,13 @@ def manage_ops(functionality: str) -> None:
 
     elif functionality == "1.2":
         ops_name = input("Insert the operation to set as active: ")
-        write_active_ops_file(ops_name)
+        set_active_ops(ops_name)
 
     elif functionality == "1.3":
         print("Active operation: ", get_active_ops(), "\n\n")
+
+    elif functionality == "1.4":
+        del_active_ops()
 
     else:
         print("\033[91mFunctionality not found, try again with a correct one\033[0m")
@@ -53,7 +56,7 @@ async def download_volumes(functionality: str) -> None:
         time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
         time_end = input("Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
 
-        if check_datetime(time_start) is True and check_datetime(time_end) is True:
+        if check_datetime_format(time_start) is True and check_datetime_format(time_end) is True:
             pass
         else:
             print("\033[91mWrong datetime format, try again with a correct one\033[0m")
@@ -66,8 +69,8 @@ async def download_volumes(functionality: str) -> None:
         await update_metainfo_async(time_start, ["traffic_volumes", "start_date_iso"], mode="equals")
         await update_metainfo_async(time_end, ["traffic_volumes", "end_date_iso"], mode="equals")
 
-        relative_delta = relativedelta(datetime.datetime.strptime(time_end, dt_iso).date(), datetime.datetime.strptime(time_start, dt_iso).date(), )
-        days_delta = (datetime.datetime.strptime(time_end, dt_iso).date() - datetime.datetime.strptime(time_start, dt_iso).date()).days
+        relative_delta = relativedelta(datetime.datetime.strptime(time_end, DT_ISO).date(), datetime.datetime.strptime(time_start, DT_ISO).date(), )
+        days_delta = (datetime.datetime.strptime(time_end, DT_ISO).date() - datetime.datetime.strptime(time_start, DT_ISO).date()).days
         years_delta = relative_delta.years or 0
         months_delta = relative_delta.months + (years_delta * 12)
         weeks_delta = days_delta // 7

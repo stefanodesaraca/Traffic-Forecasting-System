@@ -761,7 +761,8 @@ class OnePointForecaster:
                 return dd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", self._target, "subfolders", "clean", "path"]) + self._trp_id + "_volumes_C.csv")
         elif training_mode == 1:
             if limit is not None:
-                return dd.from_delayed(delayed(merge(get_trp_ids_by_road_category(target=self._target)[road_category]).tail(limit).persist()))
+                return dd.from_delayed(delayed(
+                    merge(get_trp_ids_by_road_category(target=self._target)[road_category]).tail(limit).persist()))
             else:
                 return merge(get_trp_ids_by_road_category(target=self._target)[road_category])
         else:
@@ -808,7 +809,7 @@ class OnePointForecaster:
                     break
                 yield batch
 
-        last_available_data_dt = datetime.strptime(read_metainfo_key(keys_map=[self._target, "end_date_iso"]), dt_iso)
+        last_available_data_dt = datetime.strptime(read_metainfo_key(keys_map=[self._target, "end_date_iso"]), DT_ISO)
         rows_to_predict = dd.from_delayed([delayed(pd.DataFrame)(batch) for batch in get_batches(
             ({
                 **attr,
@@ -820,7 +821,7 @@ class OnePointForecaster:
                 "week": dt.strftime("%V"),
                 "date": dt.strftime("%Y-%m-%d"),
                 "trp_id": self._trp_id
-            } for dt in pd.date_range(start=last_available_data_dt.strftime(dt_format), end=target_datetime.strftime(dt_format), freq="1h")), batch_size=max(1, math.ceil((target_datetime - last_available_data_dt).days * 0.20)))]).repartition(partition_size="512MB").persist()
+            } for dt in pd.date_range(start=last_available_data_dt.strftime(DT_FORMAT), end=target_datetime.strftime(DT_FORMAT), freq="1h")), batch_size=max(1, math.ceil((target_datetime - last_available_data_dt).days * 0.20)))]).repartition(partition_size="512MB").persist()
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
         rows_to_predict["day"] = rows_to_predict["day"].astype("int")
@@ -873,7 +874,7 @@ class OnePointForecaster:
 
 
 class TFSReporter:
-
+    ...
 
 
 
