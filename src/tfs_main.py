@@ -191,8 +191,11 @@ def execute_forecast_warmup(functionality: str) -> None:
             X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
             for model in models:
 
-                with open(read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", target, "subfolders", road_category, "path"]) + get_active_ops() + "_" + road_category + "_" + model.__name__ + "_parameters.json", "r", encoding="utf-8") as params_reader:
-                    params = json.load(params_reader)[model.__name__] if function.__name__ != "execute_gridsearch" else model_definitions["auxiliary_parameters"].get(model.__name__, {})
+                if function.__name__ != "execute_gridsearch":
+                    with open(read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", target, "subfolders", road_category, "path"]) + get_active_ops() + "_" + road_category + "_" + model.__name__ + "_parameters.json", "r", encoding="utf-8") as params_reader:
+                        params = json.load(params_reader)[model.__name__]
+                else:
+                    params = model_definitions["auxiliary_parameters"].get(model.__name__, {})
 
                 learner = TFSLearner(model=model(**params), road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)
                 function(X_train if function.__name__ in ["execute_gridsearch", "execute_training"] else X_test,
