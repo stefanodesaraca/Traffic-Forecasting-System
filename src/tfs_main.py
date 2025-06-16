@@ -32,8 +32,7 @@ def manage_ops(functionality: str) -> None:
         print("Active operation: ", get_active_ops(), "\n\n")
 
     elif functionality == "1.4":
-        del_active_ops()
-        print("Active operation reset successfully")
+        reset_active_ops()
 
     else:
         print("\033[91mFunctionality not found, try again with a correct one\033[0m")
@@ -242,7 +241,6 @@ def execute_forecasting(functionality: str) -> None:
     if functionality == "3.3.1":
 
         with dask_cluster_client(processes=False) as client:
-
             trp_ids = get_trp_ids()
             print("TRP IDs: ", trp_ids)
             trp_id = input("Insert TRP ID for forecasting: ")
@@ -262,7 +260,7 @@ def execute_forecasting(functionality: str) -> None:
             future_records = forecaster.get_future_records(target_datetime=read_forecasting_target_datetime(target=target_data)) #Already preprocessed
 
             #TODO TEST training_mode = BOTH 0 AND 1
-            model_training_dataset = forecaster.get_training_records(training_mode=0, road_category=trp_road_category, limit=future_records.shape[0].compute() * 24)
+            model_training_dataset = forecaster.get_training_records(training_mode=0, limit=future_records.shape[0].compute() * 24)
             X, y = split_data(model_training_dataset, target=target_data, mode=1)
 
             for name, model in model_definitions["class_instances"].items():

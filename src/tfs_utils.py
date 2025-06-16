@@ -60,14 +60,13 @@ async def import_TRPs_data_async():
     Asynchronously returns json data about all TRPs (downloaded previously)
     """
     f = read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])
-    assert os.path.isfile(f), "Traffic registration points file missing"
     async with aiofiles.open(f, "r", encoding="utf-8") as TRPs:
         return json.loads(await TRPs.read())
 
 
 def get_trp_ids() -> list[str]:
     assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points first"
-    with open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]), "r") as f:
+    with open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]), "r", encoding="utf-8") as f:
         return list(json.load(f).keys())
 
 
@@ -214,7 +213,8 @@ def write_metainfo(ops_name: str) -> None:
             "raw_average_speeds_size": None,
             "clean_average_speeds_size": None,
             "has_clean_data": {},
-            "traffic_registration_points_file": f"{CWD}/{OPS_FOLDER}/{ops_name}/{ops_name}_data/traffic_registration_points.json"
+            "traffic_registration_points_file": f"{CWD}/{OPS_FOLDER}/{ops_name}/{ops_name}_data/traffic_registration_points.json",
+            "active_operation": None #None by default
         },
         "traffic_volumes": {
             "n_days": None,  # The total number of days which we have data about
@@ -243,7 +243,7 @@ def write_metainfo(ops_name: str) -> None:
         "trps": {} # For each TRP we'll have {"id": metadata_filename}
     }
 
-    with open(os.path.join(target_folder, METAINFO_FILENAME, ".json"), "w", encoding="utf-8") as tf:
+    with open(os.path.join(target_folder, METAINFO_FILENAME + ".json"), "w", encoding="utf-8") as tf:
             json.dump(metainfo, tf, indent=4)
 
     return None
@@ -251,11 +251,6 @@ def write_metainfo(ops_name: str) -> None:
 
 def check_metainfo() -> bool:
     return os.path.isfile(f"{CWD}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json")  # Either True (if file exists) or False (in case the file doesn't exist)
-
-
-async def check_metainfo_async() -> bool:
-    # This should check for the existence of the file asynchronously
-    return os.path.isfile(f"{CWD}/{OPS_FOLDER}/{await get_active_ops_async()}/metainfo.json")
 
 
 def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
@@ -315,11 +310,11 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
     modes = ["equals", "append"]
 
     async with metainfo_lock:
-        if check_metainfo():
-            async with aiofiles.open(metainfo_filepath, "r") as m:
-                payload = json.loads(await m.read())
-        else:
+        if not check_metainfo():
             raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
+
+        async with aiofiles.open(metainfo_filepath, "r") as m:
+                payload = json.loads(await m.read())
 
         # metainfo = payload has a specific reason to exist
         # This is how we preserve the whole original dictionary (loaded from the JSON file), but at the same time iterate over its keys and updating them
@@ -348,20 +343,16 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
 #This function needs to be cached since it will be called exactly as many times as read_metainfo_key()
 @lru_cache
 def load_metainfo_payload() -> dict:
-    if check_metainfo():
-        with open(f"{CWD}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
-            return json.load(m)
-    else:
+    if not check_metainfo():
         raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
+    with open(f"{CWD}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
+        return json.load(m)
 
 
 @alru_cache()
 async def load_metainfo_payload_async() -> dict:
-    if await check_metainfo_async():
-        async with aiofiles.open(f"{CWD}/{OPS_FOLDER}/{await get_active_ops_async()}/metainfo.json", mode='r', encoding='utf-8') as m:
-            return json.loads(await m.read())
-    else:
-        raise FileNotFoundError(f'Metainfo file for "{await get_active_ops_async()}" operation not found')
+    async with aiofiles.open(f"{CWD}/{OPS_FOLDER}/{await get_active_ops_async()}/metainfo.json", mode='r', encoding='utf-8') as m:
+        return json.loads(await m.read())
 
 
 def read_metainfo_key(keys_map: list[str]) -> Any:
@@ -456,7 +447,7 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = DEF
         print("Target datetime set to: ", dt, "\n\n")
         return None
     else:
-        if check_datetime_format(dt) is False:
+        if not check_datetime_format(dt):
             print("\033[91mWrong datetime format, try again\033[0m")
             sys.exit(1)
         elif option not in list(target_data.keys()):
@@ -513,48 +504,38 @@ def get_speeds_dates(trp_ids: list[str] | Generator[str, None, None]) -> tuple[s
 
 # The user sets the current operation
 def set_active_ops(ops_name: str) -> None:
-    ops_name = clean_text(ops_name)
-    assert os.path.isdir(f"{OPS_FOLDER}/{ops_name}"), f"{ops_name} operation folder not found. Create an operation with that name first."
-    with open(f"{ACTIVE_OPS_FILENAME}.txt", "w", encoding="utf-8") as ops_file:
-        ops_file.write(ops_name)
+    update_metainfo(value=clean_text(ops_name), keys_map=["common", "active_operation"], mode="equals")
     return None
 
 
 # Reading operations file, it indicates which road network we're taking into consideration
 @lru_cache()
-def get_active_ops() -> str:
-    try:
-        with open(f"{ACTIVE_OPS_FILENAME}.txt", "r", encoding="utf-8") as ops_file:
-            return ops_file.read().strip()
-    except FileNotFoundError:
-        print("\033[91mOperations file not found\033[0m")
+def get_active_ops() -> str | None:
+    active_ops = read_metainfo_key(keys_map=["common", "active_operation"])
+    if not active_ops:
+        print("\033[91mActive operation not set\033[0m")
         sys.exit(1)
+    return active_ops
 
 
 @alru_cache()
 async def get_active_ops_async() -> str:
-    try:
-        async with aiofiles.open(f"{ACTIVE_OPS_FILENAME}.txt", mode="r", encoding="utf-8") as ops_file:
-            return (await ops_file.read()).strip()
-    except FileNotFoundError:
-        print("\033[91mOperations file not found\033[0m")
+    active_ops = await read_metainfo_key_async(keys_map=["common", "active_operation"])
+    if not active_ops:
+        print("\033[91mActive operation not set\033[0m")
         sys.exit(1)
+    return active_ops
 
 
-# TODO TO IMPLEMENT
-def del_active_ops() -> None:
-    try:
-        os.remove(f"{ACTIVE_OPS_FILENAME}.txt")
-        print("")
-    except FileNotFoundError:
-        print("\033[91mCurrent Operation File Not Found\033[0m")
+def reset_active_ops() -> None:
+    update_metainfo(value=None, keys_map=["common", "active_operation"], mode="equals")
     return None
 
 
 # If the user wants to create a new operation, this function will be called
 def create_ops_folder(ops_name: str) -> None:
     ops_name = clean_text(ops_name)
-    os.makedirs(f"{OPS_FOLDER}/{ops_name}", exist_ok=True)
+    os.makedirs(os.path.join(OPS_FOLDER, ops_name), exist_ok=True)
     rcs = ["E", "R", "F", "K", "P"] #TODO DEFINE UNIQUELY IN CONFIG FILE IN THE FUTURE
 
     write_metainfo(ops_name)

@@ -740,13 +740,12 @@ class OnePointForecaster:
         self._client: Client = client
 
 
-    def get_training_records(self, training_mode: Literal[0, 1], road_category: str, limit: int | None = None) -> dd.DataFrame:
+    def get_training_records(self, training_mode: Literal[0, 1], limit: int | None = None) -> dd.DataFrame:
         """
         Parameters:
             training_mode: the training mode we want to use.
                 0 - Stands for single-point training, so only the data from the TRP we want to predict future records for is used
                 1 - Stands for multi-point training, where data from all TRPs of the same road category as the one we want to predict future records for is used
-            road_category: the road category of the TRP which we want to predict data for
             limit: the maximum amount of records to return. The practice adopted is: latest records first. So we'll collect records starting from the latest one to the oldest one.
                    If None, we'll just return all records available.
                    Example: if we had a limit of 2000, we'll only collect the latest 2000 records.
@@ -759,9 +758,9 @@ class OnePointForecaster:
         elif training_mode == 1:
             if limit is not None:
                 return dd.from_delayed(delayed(
-                    merge(get_trp_ids_by_road_category(target=self._target)[road_category]).tail(limit).persist()))
+                    merge(get_trp_ids_by_road_category(target=self._target)[self._road_category]).tail(limit).persist()))
             else:
-                return merge(get_trp_ids_by_road_category(target=self._target)[road_category])
+                return merge(get_trp_ids_by_road_category(target=self._target)[self._road_category])
         else:
             raise WrongTrainRecordsRetrievalMode("training_mode parameter value is not valid")
 
