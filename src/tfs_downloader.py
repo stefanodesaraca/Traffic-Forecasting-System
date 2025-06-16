@@ -13,9 +13,6 @@ from tfs_utils import *
 
 simplefilter("ignore")
 
-ops_folder = "ops"
-cwd = os.getcwd()
-
 
 # --------------------------------- GraphQL Client Start ---------------------------------
 
