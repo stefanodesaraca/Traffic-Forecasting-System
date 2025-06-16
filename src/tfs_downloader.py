@@ -19,12 +19,6 @@ cwd = os.getcwd()
 
 # --------------------------------- GraphQL Client Start ---------------------------------
 
-
-# This client is only designed to run synchronously for fast-to-download stuff without needing to complicate simple functions like fetch_traffic_registration_points(), fetch_road_categories(), etc.
-def start_client() -> Client:
-    return Client(transport=AIOHTTPTransport(url="https://trafikkdata-api.atlas.vegvesen.no/"), fetch_schema_from_transport=True)
-
-
 # This client is specifically thought for asynchronous data downloading
 async def start_client_async() -> Client:
     return Client(transport=AIOHTTPTransport(url="https://trafikkdata-api.atlas.vegvesen.no/"), fetch_schema_from_transport=True)

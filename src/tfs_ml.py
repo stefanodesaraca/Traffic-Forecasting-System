@@ -734,15 +734,7 @@ class TFSLearner:
 
 
 
-
-
-
-
-
 class OnePointForecaster:
-    """
-    self.trp_road_category: to find the right model to predict the data
-    """
 
     def __init__(self, trp_id: str, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client):
         self._trp_id: str = trp_id
@@ -877,6 +869,18 @@ class OnePointForecaster:
         except Exception as e:
             print(f"Couldn't export data to {predictions_filepath}, error {e}")
         return None
+
+
+
+class TFSReporter:
+
+
+
+
+
+
+
+
 
 
 
