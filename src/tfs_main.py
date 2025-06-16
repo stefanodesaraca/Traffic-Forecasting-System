@@ -33,6 +33,7 @@ def manage_ops(functionality: str) -> None:
 
     elif functionality == "1.4":
         del_active_ops()
+        print("Active operation reset successfully")
 
     else:
         print("\033[91mFunctionality not found, try again with a correct one\033[0m")
@@ -293,6 +294,7 @@ def main():
         "1.1": manage_ops,
         "1.2": manage_ops,
         "1.3": manage_ops,
+        "1.4": manage_ops,
         "2.1": download_volumes,
         "2.2": download_volumes,
         "2.3": download_volumes,
@@ -320,6 +322,7 @@ def main():
     1.1 Create an operation
     1.2 Set an operation as active (current one)
     1.3 Check the active operation name
+    1.4 Reset active operation
 2. Download data (Trafikkdata API)
     2.1 Traffic registration points information
     2.2 Traffic volumes for every registration point
