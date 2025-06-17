@@ -1,6 +1,8 @@
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Literal, Generator
+from enum import Enum
+from pathlib import Path
 import os
 import json
 import sys
@@ -12,6 +14,7 @@ import dask.dataframe as dd
 from cleantext import clean
 import geojson
 from dateutil.relativedelta import relativedelta
+from pydantic import BaseModel
 from pydantic.types import PositiveInt
 from async_lru import alru_cache
 from dask import delayed
@@ -23,13 +26,6 @@ from tfs_exceptions import *
 
 pd.set_option("display.max_columns", None)
 
-#TODO ---- BRING ALL OF THESE INTO A SEPARATE CONFIG FILE IN THE FUTURE ----
-
-CWD = os.getcwd()
-OPS_FOLDER = "ops"
-METAINFO_FILENAME = "metainfo"
-ACTIVE_OPS_FILENAME = "active_ops"
-
 DT_ISO = "%Y-%m-%dT%H:%M:%S.%fZ"
 DT_FORMAT = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
 # In this case we'll only ask for the hour value since, for now, it's the maximum granularity for the predictions we're going to make
@@ -39,6 +35,66 @@ DEFAULT_MAX_FORECASTING_WINDOW_SIZE = 14
 target_data = {"V": "traffic_volumes", "AS": "average_speeds"} #TODO (IN THE FUTURE) CONVERT AS TO "MS" AND "mean_speed" AND FIND A BETTER WAY TO HANDLE TARGET VARIABLES AND PROCESSES THAT WERE PREVIOUSLY HANDLED WITH THIS DICTIONARY
 metainfo_lock = asyncio.Lock() #TODO USE release()
 metadata_lock = asyncio.Lock()
+
+
+
+class GlobalProjectDefinitions(Enum):
+    CWD: str = os.getcwd()
+    PROJECTS_FOLDER: str = "projects"
+    GLOBAL_PROJECTS_METADATA: str = "projects_metadata"
+
+
+
+class PathManagerMixin:
+
+    def set_current_project(self, name: str) -> bool:
+        ...
+
+
+    def get_current_project(self) -> str:
+        ...
+
+
+    def reset_current_project(self) -> bool:
+        ...
+
+
+
+class FolderDispatcher(PathManagerMixin, BaseModel):
+    INDIVIDUAL_PROJECT_METADATA: str
+
+
+    @property
+    def projects_base_path(self) -> Path:
+        return Path(self.CWD) / self.OPS_FOLDER
+
+    @property
+    def global_projects_metadata_path(self) -> Path:
+        return self.projects_base_path / f"{GlobalProjectDefinitions.GLOBAL_PROJECTS_METADATA.value}.json"
+
+    @property
+    def current_project_path(self) -> Path:
+        return self.projects_base_path / self.get_current_project()
+
+    @property
+    def current_project_metadata_path(self) -> Path:
+        return self.projects_base_path / self.get_current_project() / f"{self.INDIVIDUAL_PROJECT_METADATA}.json"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # ==================== TRP Utilities ====================
@@ -59,8 +115,7 @@ async def import_TRPs_data_async():
     """
     Asynchronously returns json data about all TRPs (downloaded previously)
     """
-    f = read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])
-    async with aiofiles.open(f, "r", encoding="utf-8") as TRPs:
+    async with aiofiles.open(await read_metainfo_key_async(keys_map=["common", "traffic_registration_points_file"]), "r", encoding="utf-8") as TRPs:
         return json.loads(await TRPs.read())
 
 
@@ -214,7 +269,6 @@ def write_metainfo(ops_name: str) -> None:
             "clean_average_speeds_size": None,
             "has_clean_data": {},
             "traffic_registration_points_file": f"{CWD}/{OPS_FOLDER}/{ops_name}/{ops_name}_data/traffic_registration_points.json",
-            "active_operation": None #None by default
         },
         "traffic_volumes": {
             "n_days": None,  # The total number of days which we have data about
@@ -776,6 +830,4 @@ def retrieve_edges() -> dict:
 def retrieve_arches() -> dict:
     with open(f"{read_metainfo_key(['folder_paths', 'rn_graph', f'{get_active_ops()}_arches', 'path'])}/traffic_links_2024_2025-02-27.geojson", "r", encoding="utf-8") as a:
         return geojson.load(a)["features"]
-
-
 
