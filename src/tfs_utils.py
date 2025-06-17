@@ -40,8 +40,16 @@ metadata_lock = asyncio.Lock()
 
 class GlobalProjectDefinitions(Enum):
     CWD: str = os.getcwd()
-    PROJECTS_FOLDER: str = "projects"
-    GLOBAL_PROJECTS_METADATA: str = "projects_metadata"
+    GLOBAL_PROJECTS_DIR: str = "projects"
+    GLOBAL_PROJECTS_METADATA: str = "projects_metadata.json" #File
+
+    DATA_DIR: str = "data"
+    EDA_DIR: str = "eda"
+    ML_DIR: str = "ml"
+    RN_DIR: str = "rn_graph"
+
+    TRAFFIC_REGISTRATION_POINTS_FILE: str = "traffic_registration_points.json"
+
 
 
 
@@ -61,8 +69,12 @@ class PathManagerMixin:
 
 
 class FolderDispatcher(PathManagerMixin, BaseModel):
-    INDIVIDUAL_PROJECT_METADATA: str
+    individual_project_dir: str
+    individual_project_metadata: str #File
 
+    @property
+    def cwd(self) -> Path:
+        return Path(self.CWD)
 
     @property
     def projects_base_path(self) -> Path:
@@ -70,7 +82,7 @@ class FolderDispatcher(PathManagerMixin, BaseModel):
 
     @property
     def global_projects_metadata_path(self) -> Path:
-        return self.projects_base_path / f"{GlobalProjectDefinitions.GLOBAL_PROJECTS_METADATA.value}.json"
+        return self.projects_base_path / f"{GlobalProjectDefinitions.GLOBAL_PROJECTS_METADATA.value}"
 
     @property
     def current_project_path(self) -> Path:
@@ -78,7 +90,11 @@ class FolderDispatcher(PathManagerMixin, BaseModel):
 
     @property
     def current_project_metadata_path(self) -> Path:
-        return self.projects_base_path / self.get_current_project() / f"{self.INDIVIDUAL_PROJECT_METADATA}.json"
+        return self.projects_base_path / self.get_current_project() / f"{self.individual_project_metadata}.json"
+
+    @property
+    def traffic_registration_points_file_path(self) -> Path:
+        return self.projects_base_path / self.get_current_project() / GlobalProjectDefinitions.DATA_DIR.value / GlobalProjectDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
 
 
 
@@ -257,18 +273,9 @@ def write_metainfo(ops_name: str) -> None:
     target_folder = f"{OPS_FOLDER}/{ops_name}/"
     assert os.path.isdir(target_folder), f"{target_folder} folder not found. Have you created the operation first?"
 
-    metainfo = {
+    metadata = {
         "common": {
-            "n_raw_traffic_volumes": None,
-            "n_clean_traffic_volumes": None,
-            "n_raw_average_speeds": None,
-            "n_clean_average_speeds": None,
-            "raw_volumes_size": None,
-            "clean_volumes_size": None,
-            "raw_average_speeds_size": None,
-            "clean_average_speeds_size": None,
-            "has_clean_data": {},
-            "traffic_registration_points_file": f"{CWD}/{OPS_FOLDER}/{ops_name}/{ops_name}_data/traffic_registration_points.json",
+            "traffic_registration_points_file": "//////////////////",
         },
         "traffic_volumes": {
             "n_days": None,  # The total number of days which we have data about
