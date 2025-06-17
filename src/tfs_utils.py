@@ -42,6 +42,7 @@ class GlobalProjectDefinitions(Enum):
     CWD: str = os.getcwd()
     GLOBAL_PROJECTS_DIR: str = "projects"
     GLOBAL_PROJECTS_METADATA: str = "projects_metadata.json" #File
+    PROJECT_METADATA: str = "metadata.json"
 
     DATA_DIR: str = "data"
     EDA_DIR: str = "eda"
@@ -53,7 +54,7 @@ class GlobalProjectDefinitions(Enum):
 
 
 
-class PathManagerMixin:
+class FolderDispatcherProjectMixin:
 
     def set_current_project(self, name: str) -> bool:
         ...
@@ -68,9 +69,9 @@ class PathManagerMixin:
 
 
 
-class FolderDispatcher(PathManagerMixin, BaseModel):
-    individual_project_dir: str
-    individual_project_metadata: str #File
+class BaseFolderDispatcher(BaseModel):
+    project_dir: str
+    project_metadata: str #File
 
     @property
     def cwd(self) -> Path:
@@ -90,7 +91,7 @@ class FolderDispatcher(PathManagerMixin, BaseModel):
 
     @property
     def current_project_metadata_path(self) -> Path:
-        return self.projects_base_path / self.get_current_project() / f"{self.individual_project_metadata}.json"
+        return self.projects_base_path / self.get_current_project() / f"{self.project_metadata}.json"
 
     @property
     def traffic_registration_points_file_path(self) -> Path:
@@ -98,10 +99,41 @@ class FolderDispatcher(PathManagerMixin, BaseModel):
 
 
 
+class DirectoryManager(FolderDispatcherProjectMixin, BaseFolderDispatcher, BaseModel):
+    def create_project(self, name: str):
+        with open(Path(self.projects_base_path / self.current_project_path / GlobalProjectDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
+            json.dump({
+            "common": {
+                "traffic_registration_points_file": str(Path(self.projects_base_path / self.current_project_path / GlobalProjectDefinitions.DATA_DIR.value / GlobalProjectDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
+            },
+            "traffic_volumes": {
+                "n_days": None,  # The total number of days which we have data about
+                "n_months": None,  # The total number of months which we have data about
+                "n_years:": None,  # The total number of years which we have data about
+                "n_weeks": None,  # The total number of weeks which we have data about
+                "raw_filenames": [],  # The list of raw traffic volumes file names
+                "clean_filenames": [],  # The list of clean traffic volumes file names
+                "n_rows": [],  # The total number of records downloaded (clean volumes)
+                "start_date_iso": None,
+                "end_date_iso": None
+            },
+            "average_speeds": {
+                "n_days": None,  # The total number of days which we have data about
+                "n_months": None,  # The total number of months which we have data about
+                "n_years": None,  # The total number of years which we have data about
+                "n_weeks": None,  # The total number of weeks which we have data about
+                "raw_filenames": [],  # The list of raw average speed file names
+                "clean_filenames": [],  # The list of clean average speed file names
+                "n_rows": [],  # The total number of records downloaded (clean average speeds)
+                "start_date_iso": None,
+                "end_date_iso": None
+            },
+            "folder_paths": {},
+            "forecasting": {"target_datetimes": {"V": None, "AS": None}},
+            "trps": {}  # For each TRP we'll have {"id": metadata_filename}
+        }, tf, indent=4)
 
-
-
-
+        return None
 
 
 
@@ -273,41 +305,7 @@ def write_metainfo(ops_name: str) -> None:
     target_folder = f"{OPS_FOLDER}/{ops_name}/"
     assert os.path.isdir(target_folder), f"{target_folder} folder not found. Have you created the operation first?"
 
-    metadata = {
-        "common": {
-            "traffic_registration_points_file": "//////////////////",
-        },
-        "traffic_volumes": {
-            "n_days": None,  # The total number of days which we have data about
-            "n_months": None,  # The total number of months which we have data about
-            "n_years:": None,  # The total number of years which we have data about
-            "n_weeks": None,  # The total number of weeks which we have data about
-            "raw_filenames": [],  # The list of raw traffic volumes file names
-            "clean_filenames": [],  # The list of clean traffic volumes file names
-            "n_rows": [],  # The total number of records downloaded (clean volumes)
-            "start_date_iso": None,
-            "end_date_iso": None
-        },
-        "average_speeds": {
-            "n_days": None,  # The total number of days which we have data about
-            "n_months": None,  # The total number of months which we have data about
-            "n_years": None,  # The total number of years which we have data about
-            "n_weeks": None,  # The total number of weeks which we have data about
-            "raw_filenames": [],  # The list of raw average speed file names
-            "clean_filenames": [],  # The list of clean average speed file names
-            "n_rows": [],  # The total number of records downloaded (clean average speeds)
-            "start_date_iso": None,
-            "end_date_iso": None
-        },
-        "folder_paths": {},
-        "forecasting": {"target_datetimes": {"V": None, "AS": None}},
-        "trps": {} # For each TRP we'll have {"id": metadata_filename}
-    }
 
-    with open(os.path.join(target_folder, METAINFO_FILENAME + ".json"), "w", encoding="utf-8") as tf:
-            json.dump(metainfo, tf, indent=4)
-
-    return None
 
 
 def check_metainfo() -> bool:
