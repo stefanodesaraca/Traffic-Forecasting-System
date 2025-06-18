@@ -100,7 +100,7 @@ class MetadataManager:
         return key.split('.') if isinstance(key, str) else key
 
 
-    def get(self, key, default=None):
+    def get(self, key: str, default: Any | None = None):
         keys = self._resolve_nested(key)
         data = self.data
         for k in keys:
@@ -111,7 +111,7 @@ class MetadataManager:
         return data
 
 
-    def has(self, key):
+    def has(self, key: str):
         """Check if a nested key exists."""
         keys = self._resolve_nested(key)
         data = self.data
@@ -123,7 +123,7 @@ class MetadataManager:
         return True
 
 
-    def set(self, key, value):
+    def set(self, key: str, value: Any):
         keys = self._resolve_nested(key)
         data = self.data
         for k in keys[:-1]:
@@ -135,7 +135,7 @@ class MetadataManager:
             self.save()
 
 
-    def delete(self, key):
+    def delete(self, key: str):
         keys = self._resolve_nested(key)
         data = self.data
         for k in keys[:-1]:
