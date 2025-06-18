@@ -95,7 +95,7 @@ class MetadataManager:
             json.dump(self.data, f, indent=4)
 
 
-    def _resolve_nested(self, key):
+    def _resolve_nested(self, key: str):
         """Split a dotted key path into a list of keys."""
         return key.split('.') if isinstance(key, str) else key
 
