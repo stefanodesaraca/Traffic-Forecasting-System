@@ -21,12 +21,12 @@ from tfs_ml_configs import *
 
 def manage_ops(functionality: str) -> None:
     if functionality == "1.1":
-        ops_name = input("Insert new operation name: ")
-        create_ops_dir(ops_name)
+        project_name = input("Insert new project name: ")
+        create_ops_dir(project_name)
 
     elif functionality == "1.2":
-        ops_name = input("Insert the operation to set as active: ")
-        set_active_ops(ops_name)
+        project_name = input("Insert the operation to set as active: ")
+        set_active_ops(project_name)
 
     elif functionality == "1.3":
         print("Active operation: ", get_active_ops(), "\n\n")
@@ -35,8 +35,8 @@ def manage_ops(functionality: str) -> None:
         reset_active_ops()
 
     elif functionality == "1.5":
-        ops_name = input("Insert the name of the operation to delete: ")
-        del_ops_dir(ops_name)
+        project_name = input("Insert the name of the operation to delete: ")
+        del_ops_dir(project_name)
     else:
         print("\033[91mFunctionality not found, try again with a correct one\033[0m")
         print("\033[91mReturning to the main menu...\033[0m\n\n")
