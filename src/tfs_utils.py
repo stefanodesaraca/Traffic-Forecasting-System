@@ -23,6 +23,7 @@ import dask.distributed
 from dask.distributed import Client, LocalCluster
 
 from tfs_exceptions import *
+from _utils import definitions
 
 
 pd.set_option("display.max_columns", None)
@@ -173,34 +174,38 @@ class ProjectMetadataManager(BaseMetadataManager):
 
 class DirectoryManager(BaseModel):
     project_dir: str | Path
-    global_metadata_manager: GlobalMetadataManager = GlobalMetadataManager()
-    project_metadata_manager: ProjectMetadataManager = ProjectMetadataManager()
+    global_metadata_manager: GlobalMetadataManager
+    project_metadata_manager: ProjectMetadataManager
 
+
+    # ============ PATHS SECTION ============
 
     @property
     def cwd(self) -> Path:
         return Path.cwd()
 
     @property
-    def projects_base_path(self) -> Path:
+    def global_projects_path(self) -> Path:
         return Path(self.cwd) / self.project_dir
 
     @property
     def global_metadata_path(self) -> Path:
-        return self.projects_base_path / GlobalProjectDefinitions.GLOBAL_PROJECTS_METADATA.value
+        return self.global_projects_path / GlobalProjectDefinitions.GLOBAL_PROJECTS_METADATA.value
 
     @property
     def current_project_path(self) -> Path:
-        return self.projects_base_path / self.get_current_project()
+        return self.global_projects_path / self.get_current_project()
 
     @property
     def current_project_metadata_path(self) -> Path:
-        return self.projects_base_path / self.get_current_project() / GlobalProjectDefinitions.PROJECT_METADATA.value
+        return self.global_projects_path / self.get_current_project() / GlobalProjectDefinitions.PROJECT_METADATA.value
 
     @property
     def traffic_registration_points_file_path(self) -> Path:
-        return self.projects_base_path / self.get_current_project() / GlobalProjectDefinitions.DATA_DIR.value / GlobalProjectDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
+        return self.global_projects_path / self.get_current_project() / GlobalProjectDefinitions.DATA_DIR.value / GlobalProjectDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
 
+
+    # ============ CURRENT PROJECT SECTION ============
 
     def set_current_project(self, name: str) -> None:
         self.global_metadata_manager.set(value=clean_text(name), key="common.current_project", mode="e")
@@ -220,56 +225,29 @@ class DirectoryManager(BaseModel):
         return None
 
 
+    # ============ GLOBAL PROJECTS DIRECTORY SECTION ============
+
     def create_global_projects_dir(self) -> None:
+        os.makedirs(self.cwd / GlobalProjectDefinitions.GLOBAL_PROJECTS_DIR.value, exist_ok=True)
 
         #TODO CREATE GLOBAL METADATA FILE
 
-        os.makedirs(self.cwd / GlobalProjectDefinitions.GLOBAL_PROJECTS_DIR.value, exist_ok=True)
         return None
 
 
-    def _create_project_metadata(self, project_dir_name: str) -> None:
-        with open(Path(self.projects_base_path / clean_text(project_dir_name) / GlobalProjectDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
-            json.dump({
-            "common": {
-                "traffic_registration_points_file": str(Path(self.projects_base_path / clean_text(project_dir_name) / GlobalProjectDefinitions.DATA_DIR.value / GlobalProjectDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
-            },
-            "traffic_volumes": {
-                "n_days": None,  # The total number of days which we have data about
-                "n_months": None,  # The total number of months which we have data about
-                "n_years:": None,  # The total number of years which we have data about
-                "n_weeks": None,  # The total number of weeks which we have data about
-                "raw_filenames": [],  # The list of raw traffic volumes file names
-                "clean_filenames": [],  # The list of clean traffic volumes file names
-                "n_rows": [],  # The total number of records downloaded (clean volumes)
-                "start_date_iso": None,
-                "end_date_iso": None
-            },
-            "average_speeds": {
-                "n_days": None,  # The total number of days which we have data about
-                "n_months": None,  # The total number of months which we have data about
-                "n_years": None,  # The total number of years which we have data about
-                "n_weeks": None,  # The total number of weeks which we have data about
-                "raw_filenames": [],  # The list of raw average speed file names
-                "clean_filenames": [],  # The list of clean average speed file names
-                "n_rows": [],  # The total number of records downloaded (clean average speeds)
-                "start_date_iso": None,
-                "end_date_iso": None
-            },
-            "folder_paths": {},
-            "forecasting": {"target_datetimes": {"V": None, "AS": None}},
-            "trps": {}  # For each TRP we'll have {"id": metadata_filename}
-        }, tf, indent=4)
+    def delete_global_projects_dir(self) -> None:
+        os.rmdir(self.cwd / GlobalProjectDefinitions.GLOBAL_PROJECTS_DIR.value)
         return None
 
 
+    # ============ INDIVIDUAL PROJECT SECTION ============
 
     def create_project(self, name: str):
 
         #Creating the project's directory
-        os.makedirs(self.projects_base_path / clean_text(name), exist_ok=True)
+        os.makedirs(self.global_projects_path / clean_text(name), exist_ok=True)
 
-        self._create_project_metadata(project_dir_name=name)
+        self._create_project_metadata(project_dir_name=name) #Creating the project's metadata file
 
         folder_structure = {
             "data": {
@@ -365,6 +343,55 @@ class DirectoryManager(BaseModel):
         return None
 
 
+    def _create_project_metadata(self, project_dir_name: str) -> None:
+        with open(Path(self.global_projects_path / clean_text(project_dir_name) / GlobalProjectDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
+            json.dump({
+            "common": {
+                "traffic_registration_points_file": str(Path(self.global_projects_path / clean_text(project_dir_name) / GlobalProjectDefinitions.DATA_DIR.value / GlobalProjectDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
+            },
+            "traffic_volumes": {
+                "n_days": None,  # The total number of days which we have data about
+                "n_months": None,  # The total number of months which we have data about
+                "n_years:": None,  # The total number of years which we have data about
+                "n_weeks": None,  # The total number of weeks which we have data about
+                "raw_filenames": [],  # The list of raw traffic volumes file names
+                "clean_filenames": [],  # The list of clean traffic volumes file names
+                "n_rows": [],  # The total number of records downloaded (clean volumes)
+                "start_date_iso": None,
+                "end_date_iso": None
+            },
+            "average_speeds": {
+                "n_days": None,  # The total number of days which we have data about
+                "n_months": None,  # The total number of months which we have data about
+                "n_years": None,  # The total number of years which we have data about
+                "n_weeks": None,  # The total number of weeks which we have data about
+                "raw_filenames": [],  # The list of raw average speed file names
+                "clean_filenames": [],  # The list of clean average speed file names
+                "n_rows": [],  # The total number of records downloaded (clean average speeds)
+                "start_date_iso": None,
+                "end_date_iso": None
+            },
+            "folder_paths": {},
+            "forecasting": {"target_datetimes": {"V": None, "AS": None}},
+            "trps": {}  # For each TRP we'll have {"id": metadata_filename}
+        }, tf, indent=4)
+        return None
+
+
+
+class RoadNetworkToolbox(BaseModel):
+    global_metadata_manager: GlobalMetadataManager
+    project_metadata_manager: ProjectMetadataManager
+
+
+    def retrieve_edges(self) -> dict:
+        with open(f"{self.project_metadata_manager.get('folder_paths.rn_graph.edges.path')}/traffic-nodes-2024_2025-02-28.geojson", "r", encoding="utf-8") as e:
+            return geojson.load(e)["features"]
+
+
+    def retrieve_arches(self) -> dict:
+        with open(f"{self.project_metadata_manager.get('folder_paths.rn_graph.arches.path')}/traffic_links_2024_2025-02-27.geojson", "r", encoding="utf-8") as a:
+            return geojson.load(a)["features"]
 
 
 
@@ -382,37 +409,6 @@ async def get_active_ops_async() -> str:
 
 
 
-# If the user wants to create a new operation, this function will be called
-def create_ops_dir(ops_name: str) -> None:
-
-
-
-    return None
-
-
-def del_ops_dir(ops_name: str) -> None:
-    try:
-        os.rmdir(ops_name)
-        print(f"{ops_name} Operation Folder Deleted")
-    except FileNotFoundError:
-        print("\033[91mOperation Folder Not Found\033[0m")
-    return None
-
-
-
-
-
-def read_metainfo_key(keys_map: list[str]) -> Any:
-    """
-    This function reads data from a specific key-value pair in the metainfo.json file of the active operation.
-
-    Parameters:
-        keys_map: a list which includes all the keys which bring to the key-value pair to read (the one to read included)
-    """
-    payload = load_metainfo_payload()
-    for key in keys_map[:-1]:
-        payload = payload[key]
-    return payload[keys_map[-1]]  # Returning the metainfo key-value pair
 
 # ==================== TRP Utilities ====================
 
@@ -570,54 +566,7 @@ async def update_trp_metadata_async(trp_id: str, value: Any, metadata_keys_map: 
 
 # ------------ Metainfo File ------------
 
-def write_metainfo(ops_name: str) -> None:
-    target_folder = f"{OPS_FOLDER}/{ops_name}/"
-    assert os.path.isdir(target_folder), f"{target_folder} folder not found. Have you created the operation first?"
 
-
-
-
-def update_metainfo(value: Any, keys_map: list, mode: str) -> None:
-    """
-    This function inserts data into a specific right key-value pair in the metainfo.json file of the active operation.
-
-    Parameters:
-        value: the value which we want to insert or append for a specific key-value pair
-        keys_map: the list which includes all the keys which bring to the key-value pair to update or to append another value to (the last key value pair has to be included).
-                  The elements in the list must be ordered in which the keys are located in the metainfo dictionary
-        mode: the mode which we intend to use for a specific operation on the metainfo file. For example: we may want to set a value for a specific key, or we may want to append another value to a list (which is the value of a specific key-value pair)
-    """
-    metainfo_filepath = f"{CWD}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json"
-    modes = ["equals", "append"]
-
-    if check_metainfo() is True:
-        with open(metainfo_filepath, "r", encoding="utf-8") as m:
-            payload = json.load(m)
-    else:
-        raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
-
-    # metainfo = payload has a specific reason to exist
-    # This is how we preserve the whole original dictionary (loaded from the JSON file), but at the same time iterate over its keys and updating them
-    # By doing to we'll assign the value (obtained from the value parameter of this method) to the right key, but preserving the rest of the dictionary
-    metainfo = payload
-
-    if mode == "equals":
-        for key in keys_map[:-1]:
-            metainfo = metainfo[key]
-        metainfo[keys_map[-1]] = value  # Updating the metainfo file key-value pair
-        with open(metainfo_filepath, "w", encoding="utf-8") as m:
-            json.dump(payload, m, indent=4)
-    elif mode == "append":
-        for key in keys_map[:-1]:
-            metainfo = metainfo[key]
-        metainfo[keys_map[-1]].append(value)  # Appending a new value to the list (which is the value of this key-value pair)
-        with open(metainfo_filepath, "w", encoding="utf-8") as m:
-            json.dump(payload, m, indent=4)
-    elif mode not in modes:
-        print("\033[91mWrong mode\033[0m")
-        sys.exit(1)
-
-    return None
 
 
 async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
@@ -813,29 +762,8 @@ def get_speeds_dates(trp_ids: list[str] | Generator[str, None, None]) -> tuple[s
     return min(dt_start), max(dt_end)
 
 
-# ==================== Operations' Settings Utilities ====================
-
-
-
 
 # ==================== Auxiliary Utilities ====================
-
-
-def get_trp_ids_by_road_category(target: str) -> dict[str, list[str]] | None:
-
-    road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
-
-    clean_data_folder = read_metainfo_key(keys_map=["folder_paths", "data", target, "subfolders", "clean", "path"])
-
-    check = "has_volumes" if target == "traffic_volumes" else "has_speeds"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
-    data = "_volumes_C.csv" if target == "traffic_volumes" else "_speeds_C.csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
-
-    return {k: d for k, d in {
-        category: [clean_data_folder + trp_id + data for trp_id in
-                   filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"][check], get_trp_ids())]
-        for category in road_categories
-    }.items() if len(d) >= 2}
-    # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
 
 
 def split_data(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
@@ -884,7 +812,7 @@ def merge(filepaths: list[str]) -> dd.DataFrame:
         merged_data = merged_data.sort_values(["date"], ascending=True)  # Sorting records by date
         return merged_data.persist()
     except ValueError as e:
-        print(f"\033[91mNo data to concatenate. Error: {e}")
+        print(f"\033[91mNo data to concatenate. Error: {e}\033[0m")
         sys.exit(1)
 
 
@@ -932,20 +860,31 @@ def dask_cluster_client(processes=False):
 
 
 
+
+
+
+def get_trp_ids_by_road_category(target: str) -> dict[str, list[str]] | None:
+
+    road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
+
+    clean_data_folder = read_metainfo_key(keys_map=["folder_paths", "data", target, "subfolders", "clean", "path"])
+
+    check = "has_volumes" if target == "traffic_volumes" else "has_speeds"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
+    data = "_volumes_C.csv" if target == "traffic_volumes" else "_speeds_C.csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
+
+    return {k: d for k, d in {
+        category: [clean_data_folder + trp_id + data for trp_id in
+                   filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"][check], get_trp_ids())]
+        for category in road_categories
+    }.items() if len(d) >= 2}
+    # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
+
+
+
+
+
+
 # ==================== *** Road Network Utilities *** ====================
 
-# ==================== Edges Utilities ====================
 
-
-def retrieve_edges() -> dict:
-    with open(f"{read_metainfo_key(['folder_paths', 'rn_graph', f'{get_active_ops()}_edges', 'path'])}/traffic-nodes-2024_2025-02-28.geojson", "r", encoding="utf-8") as e:
-        return geojson.load(e)["features"]
-
-
-# ==================== Links Utilities ====================
-
-
-def retrieve_arches() -> dict:
-    with open(f"{read_metainfo_key(['folder_paths', 'rn_graph', f'{get_active_ops()}_arches', 'path'])}/traffic_links_2024_2025-02-27.geojson", "r", encoding="utf-8") as a:
-        return geojson.load(a)["features"]
 
