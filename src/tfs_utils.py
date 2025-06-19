@@ -55,22 +55,31 @@ class GlobalProjectDefinitions(Enum):
     ROAD_CATEGORIES: list[str] = ["E", "R", "F", "K", "P"]
 
 
+
 class BaseMetadataManager:
-    _instance = None
-    _lock = threading.Lock()
+    _instances = {} #The class (or subclass) name is the key and the value is the class instance.
+    _locks = {} #The class (or subclass) name is the key and the value is the class instance.
     auto_save = True
+    """By using a dictionary of instances, a dictionary of locks and the logic in the __new__ dunder method we make any subclass
+       a singleton as well, but with a separated instance that doesn't belong to the father class (BaseMetadataManager) one"""
 
+    def __new__(cls, path: str | Path, *args, **kwargs):
+        if cls in cls._instances:
+            return cls._instances[cls]
 
-    #Implementing double-checked locking to optimize metadata management. More on double-checked locking: https://en.wikipedia.org/wiki/Double-checked_locking
-    def __new__(cls, path: str | Path):
-        #Checking if a class instance already exists
-        if cls._instance is None:
-            with cls._lock:
-                # Second check
-                if cls._instance is None:
-                    cls._instance = super(BaseMetadataManager, cls).__new__(cls) #Create a new class instance
-                    cls._instance._init(path) #Initialize the instance
-        return cls._instance
+        if cls not in cls._locks:
+            # Use a class-level lock for each subclass (safely initialize one)
+            with threading.Lock():
+                if cls not in cls._locks:
+                    cls._locks[cls] = threading.Lock()
+
+        # Double-checked locking
+        if cls not in cls._instances:
+            with cls._locks[cls]:
+                if cls not in cls._instances:
+                    cls._instances[cls] = super().__new__(cls)
+
+        return cls._instances[cls]
 
 
     def _init(self, path: str | Path) -> None:
@@ -168,6 +177,11 @@ class GlobalMetadataManager(BaseMetadataManager):
 
 
 class ProjectMetadataManager(BaseMetadataManager):
+    ...
+
+
+
+class TRPMetadataManager(BaseMetadataManager):
     ...
 
 
@@ -376,6 +390,12 @@ class DirectoryManager(BaseModel):
             "trps": {}  # For each TRP we'll have {"id": metadata_filename}
         }, tf, indent=4)
         return None
+
+
+
+class TRPToolbox(BaseModel):
+
+
 
 
 
