@@ -72,35 +72,41 @@ class BaseMetadataManager:
         return cls._instance
 
 
-    def _init(self, path: str | Path):
+    def _init(self, path: str | Path) -> None:
         self.path = path #Set the metadata path
         self._load() #Load metadata if exists, else set it to a default value (which at the moment is {}, see in _load())
+        return None
 
 
-    def _load(self):
+    def _load(self) -> None:
         try:
             with open(self.path, 'r') as f:
                 self.data = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             self.data = {}
+        return None
 
 
-    def reload(self):
+
+    def reload(self) -> None:
         """Reload metadata from disk."""
         self._load()
+        return None
 
 
-    def save(self):
+    def save(self) -> None:
         with open(self.path, 'w') as f:
             json.dump(self.data, f, indent=4)
+        return None
 
 
-    def _resolve_nested(self, key: str):
+    @staticmethod
+    def _resolve_nested(key: str) -> list[str]:
         """Split a dotted key path into a list of keys."""
         return key.split('.') if isinstance(key, str) else key
 
 
-    def get(self, key: str, default: Any | None = None):
+    def get(self, key: str, default: Any | None = None) -> Any | None:
         keys = self._resolve_nested(key)
         data = self.data
         for k in keys:
@@ -111,7 +117,7 @@ class BaseMetadataManager:
         return data
 
 
-    def has(self, key: str):
+    def has(self, key: str) -> bool:
         """Check if a nested key exists."""
         keys = self._resolve_nested(key)
         data = self.data
@@ -123,13 +129,11 @@ class BaseMetadataManager:
         return True
 
 
-    def set(self, key: str, value: Any, mode: Literal["e", "a"]):
+    def set(self, key: str, value: Any, mode: Literal["e", "a"]) -> None:
         keys = self._resolve_nested(key)
         data = self.data
         if mode == "e":
             for k in keys[:-1]:
-                if k not in data or not isinstance(data[k], dict):
-                    data[k] = {}
                 data = data[k]
             data[keys[-1]] = value
             if self.auto_save:
@@ -140,18 +144,20 @@ class BaseMetadataManager:
             data[keys[-1]].append(value)
             if self.auto_save:
                 self.save()
+        return None
 
 
-    def delete(self, key: str):
+    def delete(self, key: str) -> None:
         keys = self._resolve_nested(key)
         data = self.data
         for k in keys[:-1]:
             if k not in data or not isinstance(data[k], dict):
-                return  # Path doesn't exist, nothing to delete
+                return None# Path doesn't exist, nothing to delete
             data = data[k]
         data.pop(keys[-1], None)
         if self.auto_save:
             self.save()
+        return None
 
 
 
@@ -360,8 +366,8 @@ def create_ops_dir(ops_name: str) -> None:
         }
     }
 
-    project_metadata = self.project_metadata_manager.get()
-    project_metadata["folder_paths"] = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
+    project_metadata = self.project_metadata_manager.get(key="folder_paths")
+    project_metadata = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
 
     def create_nested_folders(base_path: str, structure: dict[str, dict | None]) -> dict[str, Any]:
         result = {}
@@ -383,8 +389,7 @@ def create_ops_dir(ops_name: str) -> None:
         os.makedirs(main_dir, exist_ok=True)
         project_metadata["folder_paths"][key] = create_nested_folders(main_dir, sub_structure)
 
-    with open(os.path.join(CWD, OPS_FOLDER, ops_name, f"{METAINFO_FILENAME}.json"), "w", encoding="utf-8") as m:
-        json.dump(metainfo, m, indent=4)
+    self.project_metadata_manager.set(project_metadata)
 
     return None
 
