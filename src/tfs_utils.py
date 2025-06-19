@@ -51,7 +51,7 @@ class GlobalProjectDefinitions(Enum):
     RN_DIR: str = "rn_graph"
 
     TRAFFIC_REGISTRATION_POINTS_FILE: str = "traffic_registration_points.json"
-
+    ROAD_CATEGORIES: list[str] = ["E", "R", "F", "K", "P"]
 
 
 class BaseMetadataManager:
@@ -264,9 +264,6 @@ class DirectoryManager(BaseModel):
 
 
 
-
-
-
     def create_project(self, name: str):
 
         #Creating the project's directory
@@ -274,7 +271,96 @@ class DirectoryManager(BaseModel):
 
         self._create_project_metadata(project_dir_name=name)
 
+        folder_structure = {
+            "data": {
+                "traffic_volumes": {
+                    "raw": {},
+                    "clean": {}
+                },
+                "average_speed": {
+                    "raw": {},
+                    "clean": {}
+                },
+                "travel_times": {
+                    "raw": {},
+                    "clean": {}
+                },
+                "trp_metadata": {}  # No subfolders
+            },
+            "eda": {
+                f"shapiro_wilk_test": {},
+                f"plots": {
+                    "traffic_volumes": {},
+                    "avg_speeds": {}
+                }
+            },
+            "rn_graph": {
+                f"edges": {},
+                f"arches": {},
+                f"graph_analysis": {},
+                f"shortest_paths": {}
+            },
+            "ml": {
+                "models_parameters": {
+                    "traffic_volumes": {
+                        rc: {} for rc in GlobalProjectDefinitions.ROAD_CATEGORIES.value
+                    },
+                    "average_speed": {
+                        rc: {} for rc in GlobalProjectDefinitions.ROAD_CATEGORIES.value
+                    }
+                },
+                "models": {
+                    "traffic_volumes": {
+                        rc: {} for rc in GlobalProjectDefinitions.ROAD_CATEGORIES.value
+                    },
+                    "average_speed": {
+                        rc: {} for rc in GlobalProjectDefinitions.ROAD_CATEGORIES.value
+                    }
+                },
+                "models_performance": {
+                    "traffic_volumes": {
+                        rc: {} for rc in GlobalProjectDefinitions.ROAD_CATEGORIES.value
+                    },
+                    "average_speed": {
+                        rc: {} for rc in GlobalProjectDefinitions.ROAD_CATEGORIES.value
+                    }
+                },
+                "ml_reports": {
+                    "traffic_volumes": {
+                        rc: {} for rc in GlobalProjectDefinitions.ROAD_CATEGORIES.value
+                    },
+                    "average_speed": {
+                        rc: {} for rc in GlobalProjectDefinitions.ROAD_CATEGORIES.value
+                    }
+                }
+            }
+        }
 
+        metadata_folder_structure = self.project_metadata_manager.get(key="folder_paths")
+        metadata_folder_structure = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
+
+        def create_nested_folders(base_path: str, structure: dict[str, dict | None]) -> dict[str, Any]:
+            result = {}
+            for folder, subfolders in structure.items():
+                folder_path = os.path.join(base_path, folder)
+                os.makedirs(folder_path, exist_ok=True)
+                if isinstance(subfolders, dict) and subfolders:
+                    result[folder] = {
+                        "path": folder_path,
+                        "subfolders": create_nested_folders(folder_path, subfolders)
+                    }
+                else:
+                    result[folder] = {"path": folder_path,
+                                      "subfolders": {}}
+            return result
+
+        # Creating main directories and respective subdirectories structure
+        for key, sub_structure in folder_structure.items():
+            main_dir = self.current_project_metadata_path / key
+            os.makedirs(main_dir, exist_ok=True)
+            metadata_folder_structure[key] = create_nested_folders(main_dir, sub_structure)
+
+        self.project_metadata_manager.set(value=metadata_folder_structure, key="folder_paths", mode="e")
 
         return None
 
@@ -299,97 +385,7 @@ async def get_active_ops_async() -> str:
 # If the user wants to create a new operation, this function will be called
 def create_ops_dir(ops_name: str) -> None:
 
-    rcs = ["E", "R", "F", "K", "P"] #TODO DEFINE UNIQUELY IN CONFIG FILE IN THE FUTURE
 
-    folder_structure = {
-        "data": {
-            "traffic_volumes": {
-                "raw": {},
-                "clean": {}
-            },
-            "average_speed": {
-                "raw": {},
-                "clean": {}
-            },
-            "travel_times": {
-                "raw": {},
-                "clean": {}
-            },
-            "trp_metadata": {}  # No subfolders
-        },
-        "eda": {
-            f"shapiro_wilk_test": {},
-            f"plots": {
-                "traffic_volumes": {},
-                "avg_speeds": {}
-            }
-        },
-        "rn_graph": {
-            f"edges": {},
-            f"arches": {},
-            f"graph_analysis": {},
-            f"shortest_paths": {}
-        },
-        "ml": {
-            "models_parameters": {
-                "traffic_volumes": {
-                    rc: {} for rc in rcs
-                },
-                "average_speed": {
-                    rc: {} for rc in rcs
-                }
-            },
-            "models": {
-                "traffic_volumes": {
-                    rc: {} for rc in rcs
-                },
-                "average_speed": {
-                    rc: {} for rc in rcs
-                }
-            },
-            "models_performance": {
-                "traffic_volumes": {
-                    rc: {} for rc in rcs
-                },
-                "average_speed": {
-                    rc: {} for rc in rcs
-                }
-            },
-            "ml_reports": {
-                "traffic_volumes": {
-                    rc: {} for rc in rcs
-                },
-                "average_speed": {
-                    rc: {} for rc in rcs
-                }
-            }
-        }
-    }
-
-    project_metadata = self.project_metadata_manager.get(key="folder_paths")
-    project_metadata = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
-
-    def create_nested_folders(base_path: str, structure: dict[str, dict | None]) -> dict[str, Any]:
-        result = {}
-        for folder, subfolders in structure.items():
-            folder_path = os.path.join(base_path, folder)
-            os.makedirs(folder_path, exist_ok=True)
-            if isinstance(subfolders, dict) and subfolders:
-                result[folder] = {
-                    "path": folder_path,
-                    "subfolders": create_nested_folders(folder_path, subfolders)
-                }
-            else:
-                result[folder] = {"path": folder_path,
-                                  "subfolders": {}}
-        return result
-    # Creating main directories and respective subdirectories structure
-    for key, sub_structure in folder_structure.items():
-        main_dir = self.current_project_metadata_path / key
-        os.makedirs(main_dir, exist_ok=True)
-        project_metadata["folder_paths"][key] = create_nested_folders(main_dir, sub_structure)
-
-    self.project_metadata_manager.set(project_metadata)
 
     return None
 
