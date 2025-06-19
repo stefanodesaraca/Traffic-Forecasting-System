@@ -54,20 +54,20 @@ class GlobalProjectDefinitions(Enum):
 
 
 
-class MetadataManager:
+class BaseMetadataManager:
     _instance = None
     _lock = threading.Lock()
     auto_save = True
 
 
     #Implementing double-checked locking to optimize metadata management. More on double-checked locking: https://en.wikipedia.org/wiki/Double-checked_locking
-    def __new__(cls, path=GlobalProjectDefinitions.PROJECT_METADATA.value):
+    def __new__(cls, path: str | Path):
         #Checking if a class instance already exists
         if cls._instance is None:
             with cls._lock:
                 # Second check
                 if cls._instance is None:
-                    cls._instance = super(MetadataManager, cls).__new__(cls) #Create a new class instance
+                    cls._instance = super(BaseMetadataManager, cls).__new__(cls) #Create a new class instance
                     cls._instance._init(path) #Initialize the instance
         return cls._instance
 
@@ -123,16 +123,23 @@ class MetadataManager:
         return True
 
 
-    def set(self, key: str, value: Any):
+    def set(self, key: str, value: Any, mode: Literal["e", "a"]):
         keys = self._resolve_nested(key)
         data = self.data
-        for k in keys[:-1]:
-            if k not in data or not isinstance(data[k], dict):
-                data[k] = {}
-            data = data[k]
-        data[keys[-1]] = value
-        if self.auto_save:
-            self.save()
+        if mode == "e":
+            for k in keys[:-1]:
+                if k not in data or not isinstance(data[k], dict):
+                    data[k] = {}
+                data = data[k]
+            data[keys[-1]] = value
+            if self.auto_save:
+                self.save()
+        elif mode == "a":
+            for k in keys[:-1]:
+                data = data[k]
+            data[keys[-1]].append(value)
+            if self.auto_save:
+                self.save()
 
 
     def delete(self, key: str):
@@ -148,20 +155,32 @@ class MetadataManager:
 
 
 
+class GlobalMetadataManager(BaseMetadataManager):
+    ...
 
-class BaseFolderDispatcher(BaseModel):
-    project_dir: str
+
+
+class ProjectMetadataManager(BaseMetadataManager):
+    ...
+
+
+
+class DirectoryManager(BaseModel):
+    project_dir: str | Path
+    global_metadata_manager: GlobalMetadataManager = GlobalMetadataManager()
+    project_metadata_manager: ProjectMetadataManager = ProjectMetadataManager()
+
 
     @property
     def cwd(self) -> Path:
-        return Path(self.CWD)
+        return Path.cwd()
 
     @property
     def projects_base_path(self) -> Path:
-        return Path(self.CWD) / self.OPS_FOLDER
+        return Path(self.cwd) / self.project_dir
 
     @property
-    def global_projects_metadata_path(self) -> Path:
+    def global_metadata_path(self) -> Path:
         return self.projects_base_path / GlobalProjectDefinitions.GLOBAL_PROJECTS_METADATA.value
 
     @property
@@ -177,10 +196,31 @@ class BaseFolderDispatcher(BaseModel):
         return self.projects_base_path / self.get_current_project() / GlobalProjectDefinitions.DATA_DIR.value / GlobalProjectDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
 
 
+    def set_current_project(self, name: str) -> None:
+        self.global_metadata_manager.set(value=clean_text(name), key="common.current_project", mode="e")
+        return None
 
-class DirectoryManager(BaseFolderDispatcher, BaseModel):
 
-    # ========================= Metadata Utilities =========================
+    @lru_cache()
+    def get_current_project(self) -> str | None:
+        current_project = self.global_metadata_manager.get(key="common.current_project")
+        if not current_project:
+            raise ValueError("Current project not set")
+        return current_project
+
+
+    def reset_current_project(self) -> None:
+        self.global_metadata_manager.set(value=None, key="common.current_project", mode="e")
+        return None
+
+
+    def create_global_projects_dir(self) -> None:
+
+        #TODO CREATE GLOBAL METADATA FILE
+
+        os.makedirs(self.cwd / GlobalProjectDefinitions.GLOBAL_PROJECTS_DIR.value, exist_ok=True)
+        return None
+
 
     def _create_project_metadata(self, project_dir_name: str) -> None:
         with open(Path(self.projects_base_path / clean_text(project_dir_name) / GlobalProjectDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
@@ -217,62 +257,14 @@ class DirectoryManager(BaseFolderDispatcher, BaseModel):
         return None
 
 
-    def update_metadata(self, value: Any, keys_map: list, mode: Literal["equals", "append"]) -> None:
-        """
-        This function inserts data into a specific right key-value pair in the metadata.json file of the active project.
 
-        Parameters:
-            value: the value which we want to insert or append for a specific key-value pair
-            keys_map: the list which includes all the keys which bring to the key-value pair to update or to append another value to (the last key value pair has to be included).
-                      The elements in the list must be ordered in which the keys are located in the metainfo dictionary
-            mode: the mode which we intend to use for a specific operation on the metadata file. For example: we may want to set a value for a specific key, or we may want to append another value to a list (which is the value of a specific key-value pair)
-        """
-        project_metadata_filepath = self.current_project_metadata_path / GlobalProjectDefinitions.PROJECT_METADATA.value
-        with open(project_metadata_filepath, "r", encoding="utf-8") as m:
-            payload = json.load(m)
-
-        # metainfo = payload has a specific reason to exist
-        # This is how we preserve the whole original dictionary (loaded from the JSON file), but at the same time iterate over its keys and updating them
-        # By doing to we'll assign the value (obtained from the value parameter of this method) to the right key, but preserving the rest of the dictionary
-        metainfo = payload
-
-        if mode == "equals":
-            for key in keys_map[:-1]:
-                metainfo = metainfo[key]
-            metainfo[keys_map[-1]] = value  # Updating the metainfo file key-value pair
-            with open(project_metadata_filepath, "w", encoding="utf-8") as m:
-                json.dump(payload, m, indent=4)
-        elif mode == "append":
-            for key in keys_map[:-1]:
-                metainfo = metainfo[key]
-            metainfo[keys_map[-1]].append(
-                value)  # Appending a new value to the list (which is the value of this key-value pair)
-            with open(project_metadata_filepath, "w", encoding="utf-8") as m:
-                json.dump(payload, m, indent=4)
-
-        return None
-
-
-    def set_current_project(self, name: str) -> None:
-        self.update_metadata(value=clean_text(name), keys_map=["common", "active_operation"], mode="equals")
-        return None
-
-
-    @lru_cache()
-    def get_current_project(self) -> str | None:
-        ...
-
-
-    def reset_current_project(self) -> None:
-        self.update_metadata(value=None, keys_map=["common", "active_operation"], mode="equals")
-        return None
 
 
 
     def create_project(self, name: str):
 
-        #TODO INCLUDE HERE THE CREATE OPS PART OF THE CODE
-
+        #Creating the project's directory
+        os.makedirs(self.projects_base_path / clean_text(name), exist_ok=True)
 
         self._create_project_metadata(project_dir_name=name)
 
@@ -285,27 +277,7 @@ class DirectoryManager(BaseFolderDispatcher, BaseModel):
 
 
 
-def read_metainfo_key(keys_map: list[str]) -> Any:
-    """
-    This function reads data from a specific key-value pair in the metadata.json file of the active operation.
 
-    Parameters:
-        keys_map: a list which includes all the keys which bring to the key-value pair to read (the one to read included)
-    """
-    payload = load_metainfo_payload()
-    for key in keys_map[:-1]:
-        payload = payload[key]
-    return payload[keys_map[-1]]  # Returning the metainfo key-value pair
-
-
-# Reading operations file, it indicates which road network we're taking into consideration
-@lru_cache()
-def get_active_ops() -> str | None:
-    active_ops = read_metainfo_key(keys_map=["common", "active_operation"])
-    if not active_ops:
-        print("\033[91mActive operation not set\033[0m")
-        sys.exit(1)
-    return active_ops
 
 
 @alru_cache()
@@ -320,11 +292,8 @@ async def get_active_ops_async() -> str:
 
 # If the user wants to create a new operation, this function will be called
 def create_ops_dir(ops_name: str) -> None:
-    ops_name = clean_text(ops_name)
-    os.makedirs(os.path.join(OPS_FOLDER, ops_name), exist_ok=True)
-    rcs = ["E", "R", "F", "K", "P"] #TODO DEFINE UNIQUELY IN CONFIG FILE IN THE FUTURE
 
-    write_metainfo(ops_name)
+    rcs = ["E", "R", "F", "K", "P"] #TODO DEFINE UNIQUELY IN CONFIG FILE IN THE FUTURE
 
     folder_structure = {
         "data": {
@@ -343,17 +312,17 @@ def create_ops_dir(ops_name: str) -> None:
             "trp_metadata": {}  # No subfolders
         },
         "eda": {
-            f"{ops_name}_shapiro_wilk_test": {},
-            f"{ops_name}_plots": {
+            f"shapiro_wilk_test": {},
+            f"plots": {
                 "traffic_volumes": {},
                 "avg_speeds": {}
             }
         },
         "rn_graph": {
-            f"{ops_name}_edges": {},
-            f"{ops_name}_arches": {},
-            f"{ops_name}_graph_analysis": {},
-            f"{ops_name}_shortest_paths": {}
+            f"edges": {},
+            f"arches": {},
+            f"graph_analysis": {},
+            f"shortest_paths": {}
         },
         "ml": {
             "models_parameters": {
@@ -391,9 +360,8 @@ def create_ops_dir(ops_name: str) -> None:
         }
     }
 
-    with open(os.path.join(CWD, OPS_FOLDER, ops_name, f"{METAINFO_FILENAME}.json"), "r", encoding="utf-8") as m:
-        metainfo = json.load(m)
-    metainfo["folder_paths"] = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
+    project_metadata = self.project_metadata_manager.get()
+    project_metadata["folder_paths"] = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
 
     def create_nested_folders(base_path: str, structure: dict[str, dict | None]) -> dict[str, Any]:
         result = {}
@@ -409,11 +377,11 @@ def create_ops_dir(ops_name: str) -> None:
                 result[folder] = {"path": folder_path,
                                   "subfolders": {}}
         return result
-
+    # Creating main directories and respective subdirectories structure
     for key, sub_structure in folder_structure.items():
-        main_dir = os.path.join(CWD, OPS_FOLDER, ops_name, f"{ops_name}_{key}")
-        os.makedirs(main_dir, exist_ok=True) #Creating main directories and respective subfolder structure
-        metainfo["folder_paths"][key] = create_nested_folders(main_dir, sub_structure)
+        main_dir = self.current_project_metadata_path / key
+        os.makedirs(main_dir, exist_ok=True)
+        project_metadata["folder_paths"][key] = create_nested_folders(main_dir, sub_structure)
 
     with open(os.path.join(CWD, OPS_FOLDER, ops_name, f"{METAINFO_FILENAME}.json"), "w", encoding="utf-8") as m:
         json.dump(metainfo, m, indent=4)
