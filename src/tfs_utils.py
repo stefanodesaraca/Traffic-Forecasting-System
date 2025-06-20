@@ -61,7 +61,7 @@ class GlobalDefinitions(Enum):
     ML_DIR: str = "ml"
     RN_DIR: str = "rn_graph"
 
-    TARGET_DATA = {"V": "volume", "MS": "mean_speed"}
+    TARGET_DATA: dict[str, str] = {"V": "volume", "MS": "mean_speed"}
 
     TRAFFIC_REGISTRATION_POINTS_FILE: str = "traffic_registration_points.json"
     ROAD_CATEGORIES: list[str] = ["E", "R", "F", "K", "P"]
@@ -69,6 +69,11 @@ class GlobalDefinitions(Enum):
 
     DT_ISO: str = "%Y-%m-%dT%H:%M:%S.%fZ"
     DT_FORMAT: str = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
+
+
+class MLDefinitions(BaseModel):
+    TARGET_DATA: dict[str, str] = {"V": "volume", "MS": "mean_speed"}
+
 
 
 
@@ -573,8 +578,7 @@ class TRPToolbox(BaseModel):
 
 
     def get_trp_ids_by_road_category(self, target: str) -> dict[str, list[str]] | None:
-        road_categories = set(
-            trp["location"]["roadReference"]["roadCategory"]["id"] for trp in self.get_global_trp_data().values())
+        road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in self.get_global_trp_data().values())
 
         clean_data_folder = self.trp_metadata_manager.get(key="folder_paths.data." + target + ".subfolders.clean.path")
 
@@ -584,8 +588,7 @@ class TRPToolbox(BaseModel):
         return {k: d for k, d in {
             category: [clean_data_folder + trp_id + data for trp_id in
                        filter(lambda trp_id:
-                              get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"][
-                                  "id"] == category and get_trp_metadata(trp_id)["checks"][check], self.get_trp_ids())]
+                              get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"][check], self.get_trp_ids())]
             for category in road_categories
         }.items() if len(d) >= 2}
         # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
@@ -608,9 +611,59 @@ class RoadNetworkToolbox(BaseModel):
 
 
 
+class ForecastingToolbox(BaseModel):
+    toolbox: GeneralPurposeToolbox
+    global_metadata_manager: GlobalMetadataManager
 
+    def set_forecasting_target_datetime(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
+        """
+        Parameters:
+            forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24.
+                This parameter is needed since the predictions' confidence varies with how much in the future we want to predict, we'll set a limit on the number of days in future that the user may want to forecast
+                This limit is set by default as 14 days, but can be overridden with this parameter
 
+        Returns:
+            None
+        """
+        max_forecasting_window_size = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
+        option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")
+        print("Maximum number of days to forecast: ", max_forecasting_window_size)
+
+        if option == GlobalDefinitions.TARGET_DATA.value["V"]:
+            last_available_data_dt = self.global_metadata_manager.get(key="traffic_volumes.end_date_iso")
+        elif option == GlobalDefinitions.TARGET_DATA.value["MS"]:
+            _, last_available_data_dt = get_speeds_dates(self.get_global_trp_data())
+            if last_available_data_dt is None:
+                raise Exception("End date not found in metainfo file. Run download first or set it first")
+
+            last_available_data_dt = datetime.strptime(last_available_data_dt, "%Y-%m-%d %H:%M:%S").strftime(GlobalDefinitions.DT_ISO.value)
+
+        else:
+            print("\033[91mWrong data option, try again\033[0m")
+            sys.exit(1)
+
+        print("Latest data available: ", datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value))
+        print("Maximum settable date: ",
+              relativedelta(datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value), days=14))
+
+        dt = input(
+            "Insert Target Datetime (YYYY-MM-DDTHH): ")  # The month number must be zero-padded, for example: 01, 02, etc.
+
+        assert datetime.strptime(dt, GlobalDefinitions.DT_FORMAT.value) > datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
+        assert (datetime.strptime(dt, GlobalDefinitions.DT_FORMAT.value) - datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value)).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
+        # The number of days to forecast
+        # Checking if the target datetime isn't ahead of the maximum number of days to forecast
+
+        if self.toolbox.check_datetime_format(dt) and option in target_data.keys():
+            self.global_metadata_manager.set(value=dt, key="forecasting.target_datetimes" + option, mode="e")
+            print("Target datetime set to: ", dt, "\n\n")
+            return None
+        else:
+            if not self.toolbox.check_datetime_format(dt):
+                raise ValueError("\033[91mWrong datetime format, try again\033[0m")
+            elif option not in list(target_data.keys()):
+                raise ValueError("\033[91mWrong data option, try again\033[0m")
 
 
 
@@ -627,8 +680,6 @@ class RoadNetworkToolbox(BaseModel):
 def update_trp_metadata(trp_id: str, value: Any, metadata_keys_map: list[str], mode: str) -> None:
     modes = ["equals", "append"]
     metadata_filepath = read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]) + trp_id + "_metadata.json"
-
-
     return None
 
 
@@ -795,55 +846,6 @@ def get_models_parameters_folder_path(target: Literal["traffic_volumes", "averag
 
 # ==================== Forecasting Settings Utilities ====================
 
-def set_forecasting_target_datetime(forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
-    """
-    Parameters:
-        forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24.
-            This parameter is needed since the predictions' confidence varies with how much in the future we want to predict, we'll set a limit on the number of days in future that the user may want to forecast
-            This limit is set by default as 14 days, but can be overridden with this parameter
-
-    Returns:
-        None
-    """
-    max_forecasting_window_size = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
-
-    option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")
-    print("Maximum number of days to forecast: ", max_forecasting_window_size)
-
-    if option == "V":
-        last_available_data_dt = read_metainfo_key(keys_map=["traffic_volumes", "end_date_iso"])
-    elif option == "AS":
-        _, last_available_data_dt = get_speeds_dates(import_TRPs_data())
-        if last_available_data_dt is None:
-            raise Exception("End date not found in metainfo file. Run download first or set it first")
-
-        last_available_data_dt = datetime.strptime(last_available_data_dt, "%Y-%m-%d %H:%M:%S").strftime(GlobalDefinitions.DT_ISO.value)
-
-    else:
-        print("\033[91mWrong data option, try again\033[0m")
-        sys.exit(1)
-
-    print("Latest data available: ", datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value))
-    print("Maximum settable date: ", relativedelta(datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value), days=14))
-
-    dt = input("Insert Target Datetime (YYYY-MM-DDTHH): ") # The month number must be zero-padded, for example: 01, 02, etc.
-
-    assert datetime.strptime(dt, GlobalDefinitions.DT_FORMAT.value) > datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
-    assert (datetime.strptime(dt, GlobalDefinitions.DT_FORMAT.value) - datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value)).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
-            # The number of days to forecast
-    # Checking if the target datetime isn't ahead of the maximum number of days to forecast
-
-    if check_datetime_format(dt) and option in target_data.keys():
-        update_metainfo(value=dt, keys_map=["forecasting", "target_datetimes", option], mode="equals")
-        print("Target datetime set to: ", dt, "\n\n")
-        return None
-    else:
-        if not check_datetime_format(dt):
-            print("\033[91mWrong datetime format, try again\033[0m")
-            sys.exit(1)
-        elif option not in list(target_data.keys()):
-            print("\033[91mWrong data option, try again\033[0m")
-            sys.exit(1)
 
 
 def read_forecasting_target_datetime(target: str) -> datetime:
@@ -888,11 +890,6 @@ def get_speeds_dates(trp_ids: list[str] | Generator[str, None, None]) -> tuple[s
         if (data := get_trp_metadata(trp_id=trp_id))["checks"]["has_speeds"]
     ), strict=True)
     return min(dt_start), max(dt_end)
-
-
-
-# ==================== Auxiliary Utilities ====================
-
 
 
 
