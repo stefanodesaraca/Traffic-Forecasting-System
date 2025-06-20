@@ -554,6 +554,7 @@ class DirectoryManager(BaseModel):
 
 
 class TRPToolbox(BaseModel):
+    trp_metadata_manager: TRPMetadataManager
 
 
     @lru_cache
@@ -575,7 +576,7 @@ class TRPToolbox(BaseModel):
         road_categories = set(
             trp["location"]["roadReference"]["roadCategory"]["id"] for trp in self.get_global_trp_data().values())
 
-        clean_data_folder = read_metainfo_key(keys_map=["folder_paths", "data", target, "subfolders", "clean", "path"])
+        clean_data_folder = self.trp_metadata_manager.get(key="folder_paths.data." + target + ".subfolders.clean.path")
 
         check = "has_volumes" if target == "traffic_volumes" else "has_speeds"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
         data = "_volumes_C.csv" if target == "traffic_volumes" else "_speeds_C.csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
@@ -588,6 +589,7 @@ class TRPToolbox(BaseModel):
             for category in road_categories
         }.items() if len(d) >= 2}
         # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
+
 
 
 class RoadNetworkToolbox(BaseModel):
