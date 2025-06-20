@@ -640,15 +640,12 @@ class ForecastingToolbox(BaseModel):
             last_available_data_dt = datetime.strptime(last_available_data_dt, "%Y-%m-%d %H:%M:%S").strftime(GlobalDefinitions.DT_ISO.value)
 
         else:
-            print("\033[91mWrong data option, try again\033[0m")
-            sys.exit(1)
+            raise ValueError("Wrong data option, try again")
 
         print("Latest data available: ", datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value))
-        print("Maximum settable date: ",
-              relativedelta(datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value), days=14))
+        print("Maximum settable date: ", relativedelta(datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value), days=14))
 
-        dt = input(
-            "Insert Target Datetime (YYYY-MM-DDTHH): ")  # The month number must be zero-padded, for example: 01, 02, etc.
+        dt = input("Insert Target Datetime (YYYY-MM-DDTHH): ")  # The month number must be zero-padded, for example: 01, 02, etc.
 
         assert datetime.strptime(dt, GlobalDefinitions.DT_FORMAT.value) > datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
         assert (datetime.strptime(dt, GlobalDefinitions.DT_FORMAT.value) - datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value)).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
@@ -661,9 +658,9 @@ class ForecastingToolbox(BaseModel):
             return None
         else:
             if not self.toolbox.check_datetime_format(dt):
-                raise ValueError("\033[91mWrong datetime format, try again\033[0m")
+                raise ValueError("Wrong datetime format, try again")
             elif option not in list(target_data.keys()):
-                raise ValueError("\033[91mWrong data option, try again\033[0m")
+                raise ValueError("Wrong data option, try again")
 
 
 
