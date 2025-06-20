@@ -32,11 +32,29 @@ target_data = {"V": "traffic_volumes", "AS": "average_speeds"} #TODO (IN THE FUT
 
 
 
+@contextmanager
+def dask_cluster_client(processes=False):
+    """
+    - Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
+    - Check localhost:8787 to watch real-time processing
+    - By default, the number of workers is obtained by dask using the standard os.cpu_count()
+    - More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
+    """
+    cluster = LocalCluster(processes=processes)
+    client = Client(cluster)
+    try:
+        yield client
+    finally:
+        client.close()
+        cluster.close()
+
+
+
 class GlobalDefinitions(Enum):
     CWD: str = os.getcwd()
     GLOBAL_PROJECTS_DIR: str = "projects"
-    GLOBAL_PROJECTS_METADATA: str = "projects_metadata.json" # File
-    PROJECT_METADATA: str = "metadata.json"
+    GLOBAL_PROJECTS_METADATA: str = "global_metadata.json" # File
+    PROJECT_METADATA: str = "project_metadata.json"
 
     DATA_DIR: str = "data"
     EDA_DIR: str = "eda"
@@ -271,6 +289,7 @@ class ProjectMetadataManager(BaseMetadataManager):
 
 
 class TRPMetadataManager(BaseMetadataManager):
+
 
     def write_trp_metadata(self, trp_id: str, **kwargs: Any) -> None:
         """
@@ -536,10 +555,39 @@ class DirectoryManager(BaseModel):
 
 class TRPToolbox(BaseModel):
 
+
+    @lru_cache
+    def get_global_trp_data(self):
+        """
+        This function returns json data about all TRPs (downloaded previously)
+        """
+        with open(self.get(key="common") + GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value, "r", encoding="utf-8") as TRPs:
+            return json.load(TRPs)
+
+
+    #TODO EVALUATE A POSSIBLE CHACHING OF THESE AS WELL. BUT KEEP IN MIND POTENTIAL CHANGES DUE TO RE-DOWNLOAD OF TRPS DURING THE SAME EXECUTION OF THE CODE
     def get_trp_ids(self) -> list[str]:
         with open(self.get(key="common" + GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value), "r", encoding="utf-8") as f:
             return list(json.load(f).keys())
 
+
+    def get_trp_ids_by_road_category(self, target: str) -> dict[str, list[str]] | None:
+        road_categories = set(
+            trp["location"]["roadReference"]["roadCategory"]["id"] for trp in self.get_global_trp_data().values())
+
+        clean_data_folder = read_metainfo_key(keys_map=["folder_paths", "data", target, "subfolders", "clean", "path"])
+
+        check = "has_volumes" if target == "traffic_volumes" else "has_speeds"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
+        data = "_volumes_C.csv" if target == "traffic_volumes" else "_speeds_C.csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
+
+        return {k: d for k, d in {
+            category: [clean_data_folder + trp_id + data for trp_id in
+                       filter(lambda trp_id:
+                              get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"][
+                                  "id"] == category and get_trp_metadata(trp_id)["checks"][check], self.get_trp_ids())]
+            for category in road_categories
+        }.items() if len(d) >= 2}
+        # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
 
 
 class RoadNetworkToolbox(BaseModel):
@@ -652,13 +700,6 @@ async def get_active_ops_async() -> str:
 
 # ==================== TRP Utilities ====================
 
-@lru_cache
-def import_TRPs_data():
-    """
-    This function returns json data about all TRPs (downloaded previously)
-    """
-    with open(self.get(key="common") + GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value, "r", encoding="utf-8") as TRPs:
-        return json.load(TRPs)
 
 
 @alru_cache()
@@ -668,16 +709,6 @@ async def import_TRPs_data_async():
     """
     async with aiofiles.open(await read_metainfo_key_async(keys_map=["common", "traffic_registration_points_file"]), "r", encoding="utf-8") as TRPs:
         return json.loads(await TRPs.read())
-
-
-
-
-
-# ------------ TRP Metadata ------------
-
-
-# ------------ Metainfo File ------------
-
 
 
 
@@ -723,22 +754,6 @@ async def update_metainfo_async(value: Any, keys_map: list, mode: str) -> None:
             sys.exit(1)
 
     return None
-
-
-#This function needs to be cached since it will be called exactly as many times as read_metainfo_key()
-@lru_cache
-def load_metainfo_payload() -> dict:
-    if not check_metainfo():
-        raise FileNotFoundError(f'Metainfo file for "{get_active_ops()}" operation not found')
-    with open(f"{CWD}/{OPS_FOLDER}/{get_active_ops()}/metainfo.json", "r", encoding="utf-8") as m:
-        return json.load(m)
-
-
-@alru_cache()
-async def load_metainfo_payload_async() -> dict:
-    async with aiofiles.open(f"{CWD}/{OPS_FOLDER}/{await get_active_ops_async()}/metainfo.json", mode='r', encoding='utf-8') as m:
-        return json.loads(await m.read())
-
 
 
 
@@ -877,49 +892,8 @@ def get_speeds_dates(trp_ids: list[str] | Generator[str, None, None]) -> tuple[s
 # ==================== Auxiliary Utilities ====================
 
 
-@contextmanager
-def dask_cluster_client(processes=False):
-    """
-    - Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
-    - Check localhost:8787 to watch real-time processing
-    - By default, the number of workers is obtained by dask using the standard os.cpu_count()
-    - More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
-    """
-    cluster = LocalCluster(processes=processes)
-    client = Client(cluster)
-    try:
-        yield client
-    finally:
-        client.close()
-        cluster.close()
 
 
-
-
-
-
-def get_trp_ids_by_road_category(target: str) -> dict[str, list[str]] | None:
-
-    road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in import_TRPs_data().values())
-
-    clean_data_folder = read_metainfo_key(keys_map=["folder_paths", "data", target, "subfolders", "clean", "path"])
-
-    check = "has_volumes" if target == "traffic_volumes" else "has_speeds"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
-    data = "_volumes_C.csv" if target == "traffic_volumes" else "_speeds_C.csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
-
-    return {k: d for k, d in {
-        category: [clean_data_folder + trp_id + data for trp_id in
-                   filter(lambda trp_id: get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"][check], get_trp_ids())]
-        for category in road_categories
-    }.items() if len(d) >= 2}
-    # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
-
-
-
-
-
-
-# ==================== *** Road Network Utilities *** ====================
 
 
 
