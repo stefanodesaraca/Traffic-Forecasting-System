@@ -111,7 +111,7 @@ async def clean_data(functionality: str) -> None:
 
 def set_forecasting_options(functionality: str) -> None:
     if functionality == "3.1.1":
-        write_forecasting_target_datetime()
+        set_forecasting_target_datetime()
 
     elif functionality == "3.1.2":
         option = input("Press V to read forecasting target datetime for traffic volumes or AS for average speeds: ")

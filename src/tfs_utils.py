@@ -32,10 +32,10 @@ target_data = {"V": "traffic_volumes", "AS": "average_speeds"} #TODO (IN THE FUT
 
 
 
-class GlobalProjectDefinitions(Enum):
+class GlobalDefinitions(Enum):
     CWD: str = os.getcwd()
     GLOBAL_PROJECTS_DIR: str = "projects"
-    GLOBAL_PROJECTS_METADATA: str = "projects_metadata.json" #File
+    GLOBAL_PROJECTS_METADATA: str = "projects_metadata.json" # File
     PROJECT_METADATA: str = "metadata.json"
 
     DATA_DIR: str = "data"
@@ -43,13 +43,103 @@ class GlobalProjectDefinitions(Enum):
     ML_DIR: str = "ml"
     RN_DIR: str = "rn_graph"
 
+    TARGET_DATA = {"V": "volume", "MS": "mean_speed"}
+
     TRAFFIC_REGISTRATION_POINTS_FILE: str = "traffic_registration_points.json"
     ROAD_CATEGORIES: list[str] = ["E", "R", "F", "K", "P"]
-    DEFAULT_MAX_FORECASTING_WINDOW_SIZE = 14
+    DEFAULT_MAX_FORECASTING_WINDOW_SIZE: int = 14
 
-    DT_ISO = "%Y-%m-%dT%H:%M:%S.%fZ"
-    DT_FORMAT = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
-    # In this case we'll only ask for the hour value since, for now, it's the maximum granularity for the predictions we're going to make
+    DT_ISO: str = "%Y-%m-%dT%H:%M:%S.%fZ"
+    DT_FORMAT: str = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
+
+
+
+class GeneralPurposeToolbox(BaseModel):
+
+    @staticmethod
+    def split_data(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
+        """
+        Splits the Dask DataFrame into training and testing sets based on the target column and mode.
+
+        Parameters:
+            data: dd.DataFrame
+            target: str ("volume" or "mean_speed")
+            mode: the mode which indicates the kind of split it's intended to execute.
+                    0 - Stands for the classic 4 section train-test-split (X_train, X_test, y_train, y_test)
+                    1 - Indicates a forecasted specific train-test-split (X, y)
+
+        Returns:
+            X_train, X_test, y_train, y_test
+        """
+
+        # TODO TEMPORARY SOLUTION:
+        if target == target_data["V"]: target = "volume"
+
+        if target not in ("volume", "mean_speed"):
+            raise TargetVariableNotFoundError(
+                "Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
+
+        X = data.drop(columns=[target])
+        y = data[[target]]
+
+        if mode == 1:
+            return X.persist(), y.persist()
+        elif mode == 0:
+            n_rows = data.shape[0].compute()
+            p_70 = int(n_rows * 0.70)
+            return dd.from_delayed(delayed(X.head(p_70))), dd.from_delayed(
+                delayed(X.tail(n_rows - p_70))), dd.from_delayed(delayed(y.head(p_70))), dd.from_delayed(
+                delayed(y.tail(n_rows - p_70)))
+        else:
+            raise WrongSplittingMode("Wrong splitting mode imputed")
+
+
+    @staticmethod
+    def merge(filepaths: list[str]) -> dd.DataFrame:
+        """
+        Data merger function for traffic volumes or average speed data
+        Parameters:
+            filepaths: a list of files to read data from
+        """
+        try:
+            merged_data = dd.concat([dd.read_csv(trp) for trp in filepaths], axis=0)
+            merged_data = merged_data.repartition(partition_size="512MB")
+            merged_data = merged_data.sort_values(["date"], ascending=True)  # Sorting records by date
+            return merged_data.persist()
+        except ValueError as e:
+            print(f"\033[91mNo data to concatenate. Error: {e}\033[0m")
+            sys.exit(1)
+
+
+    @staticmethod
+    def check_datetime_format(dt: str) -> bool:
+        try:
+            datetime.strptime(dt, GlobalDefinitions.DT_FORMAT.value)
+            return True
+        except ValueError:
+            return False
+
+
+    @staticmethod
+    def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
+        df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
+        return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
+
+
+    @staticmethod
+    def clean_text(text: str) -> str:
+        return clean(text, no_emoji=True, no_currency_symbols=True).replace(" ", "_").lower()
+
+
+    @property
+    def covid_years(self) -> list[int]:
+        return [2020, 2021, 2022]
+
+
+    @property
+    def ml_cpus(self) -> int:
+        return int(os.cpu_count() * 0.75)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
+        # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
 
 
 
@@ -114,6 +204,9 @@ class BaseMetadataManager:
 
     def get(self, key: str, default: Any | None = None) -> Any | None:
         keys = self._resolve_nested(key)
+        # data = self.data has a specific reason to exist
+        # This is how we preserve the whole original dictionary, but at the same time iterate over its keys and updating them
+        # By doing to we'll assign the value (obtained from the value parameter of this method) to the right key, but preserving the rest of the dictionary
         data = self.data
         for k in keys:
             if isinstance(data, dict) and k in data:
@@ -235,6 +328,7 @@ class TRPMetadataManager(BaseMetadataManager):
 
 class DirectoryManager(BaseModel):
     project_dir: str | Path
+    toolbox: GeneralPurposeToolbox
     global_metadata_manager: GlobalMetadataManager
     project_metadata_manager: ProjectMetadataManager
 
@@ -251,7 +345,7 @@ class DirectoryManager(BaseModel):
 
     @property
     def global_metadata_path(self) -> Path:
-        return self.global_projects_path / GlobalProjectDefinitions.GLOBAL_PROJECTS_METADATA.value
+        return self.global_projects_path / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value
 
     @property
     def current_project_path(self) -> Path:
@@ -259,17 +353,17 @@ class DirectoryManager(BaseModel):
 
     @property
     def current_project_metadata_path(self) -> Path:
-        return self.global_projects_path / self.get_current_project() / GlobalProjectDefinitions.PROJECT_METADATA.value
+        return self.global_projects_path / self.get_current_project() / GlobalDefinitions.PROJECT_METADATA.value
 
     @property
     def traffic_registration_points_file_path(self) -> Path:
-        return self.global_projects_path / self.get_current_project() / GlobalProjectDefinitions.DATA_DIR.value / GlobalProjectDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
+        return self.global_projects_path / self.get_current_project() / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
 
 
     # ============ CURRENT PROJECT SECTION ============
 
     def set_current_project(self, name: str) -> None:
-        self.global_metadata_manager.set(value=clean_text(name), key="common.current_project", mode="e")
+        self.global_metadata_manager.set(value=self.toolbox.clean_text(name), key="common.current_project", mode="e")
         return None
 
 
@@ -289,7 +383,7 @@ class DirectoryManager(BaseModel):
     # ============ GLOBAL PROJECTS DIRECTORY SECTION ============
 
     def create_global_projects_dir(self) -> None:
-        os.makedirs(self.cwd / GlobalProjectDefinitions.GLOBAL_PROJECTS_DIR.value, exist_ok=True)
+        os.makedirs(self.cwd / GlobalDefinitions.GLOBAL_PROJECTS_DIR.value, exist_ok=True)
 
         #TODO CREATE GLOBAL METADATA FILE
 
@@ -297,7 +391,7 @@ class DirectoryManager(BaseModel):
 
 
     def delete_global_projects_dir(self) -> None:
-        os.rmdir(self.cwd / GlobalProjectDefinitions.GLOBAL_PROJECTS_DIR.value)
+        os.rmdir(self.cwd / GlobalDefinitions.GLOBAL_PROJECTS_DIR.value)
         return None
 
 
@@ -306,9 +400,9 @@ class DirectoryManager(BaseModel):
     def create_project(self, name: str):
 
         #Creating the project's directory
-        os.makedirs(self.global_projects_path / clean_text(name), exist_ok=True)
+        os.makedirs(self.global_projects_path / self.toolbox.clean_text(name), exist_ok=True)
 
-        self._create_project_metadata(project_dir_name=name) #Creating the project's metadata file
+        self._write_project_metadata(project_dir_name=name)  #Creating the project's metadata file
 
         folder_structure = {
             "data": {
@@ -342,34 +436,34 @@ class DirectoryManager(BaseModel):
             "ml": {
                 "models_parameters": {
                     "traffic_volumes": {
-                        rc: {} for rc in GlobalProjectDefinitions.ROAD_CATEGORIES.value
+                        rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
                     },
                     "average_speed": {
-                        rc: {} for rc in GlobalProjectDefinitions.ROAD_CATEGORIES.value
+                        rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
                     }
                 },
                 "models": {
                     "traffic_volumes": {
-                        rc: {} for rc in GlobalProjectDefinitions.ROAD_CATEGORIES.value
+                        rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
                     },
                     "average_speed": {
-                        rc: {} for rc in GlobalProjectDefinitions.ROAD_CATEGORIES.value
+                        rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
                     }
                 },
                 "models_performance": {
                     "traffic_volumes": {
-                        rc: {} for rc in GlobalProjectDefinitions.ROAD_CATEGORIES.value
+                        rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
                     },
                     "average_speed": {
-                        rc: {} for rc in GlobalProjectDefinitions.ROAD_CATEGORIES.value
+                        rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
                     }
                 },
                 "ml_reports": {
                     "traffic_volumes": {
-                        rc: {} for rc in GlobalProjectDefinitions.ROAD_CATEGORIES.value
+                        rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
                     },
                     "average_speed": {
-                        rc: {} for rc in GlobalProjectDefinitions.ROAD_CATEGORIES.value
+                        rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
                     }
                 }
             }
@@ -397,18 +491,18 @@ class DirectoryManager(BaseModel):
         for key, sub_structure in folder_structure.items():
             main_dir = self.current_project_metadata_path / key
             os.makedirs(main_dir, exist_ok=True)
-            metadata_folder_structure[key] = create_nested_folders(main_dir, sub_structure)
+            metadata_folder_structure[key] = create_nested_folders(str(main_dir), sub_structure)
 
         self.project_metadata_manager.set(value=metadata_folder_structure, key="folder_paths", mode="e")
 
         return None
 
 
-    def _create_project_metadata(self, project_dir_name: str) -> None:
-        with open(Path(self.global_projects_path / clean_text(project_dir_name) / GlobalProjectDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
+    def _write_project_metadata(self, project_dir_name: str) -> None:
+        with open(Path(self.global_projects_path / self.toolbox.clean_text(project_dir_name) / GlobalDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
             json.dump({
             "common": {
-                "traffic_registration_points_file": str(Path(self.global_projects_path / clean_text(project_dir_name) / GlobalProjectDefinitions.DATA_DIR.value / GlobalProjectDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
+                "traffic_registration_points_file": str(Path(self.global_projects_path / self.toolbox.clean_text(project_dir_name) / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
             },
             "traffic_volumes": {
                 "n_days": None,  # The total number of days which we have data about
@@ -441,8 +535,10 @@ class DirectoryManager(BaseModel):
 
 
 class TRPToolbox(BaseModel):
-    pass #TODO TO COMPLETE
 
+    def get_trp_ids(self) -> list[str]:
+        with open(self.get(key="common" + GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value), "r", encoding="utf-8") as f:
+            return list(json.load(f).keys())
 
 
 
@@ -475,32 +571,13 @@ class RoadNetworkToolbox(BaseModel):
 
 
 
+
+
+
 def update_trp_metadata(trp_id: str, value: Any, metadata_keys_map: list[str], mode: str) -> None:
     modes = ["equals", "append"]
     metadata_filepath = read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]) + trp_id + "_metadata.json"
-    with open(metadata_filepath, "r", encoding="utf-8") as f:
-        payload = json.load(f)
 
-    # metadata = payload has a specific reason to exist
-    # This is how we preserve the whole original dictionary (loaded from the JSON file), but at the same time iterate over its keys and updating them
-    # By doing to we'll assign the value (obtained from the value parameter of this method) to the right key, but preserving the rest of the dictionary
-    metadata = payload
-
-    if mode == "equals":
-        for key in metadata_keys_map[:-1]:
-            metadata = metadata[key]
-        metadata[metadata_keys_map[-1]] = value  # Updating the metainfo file key-value pair
-        with open(metadata_filepath, "w", encoding="utf-8") as m:
-            json.dump(payload, m, indent=4)
-    elif mode == "append":
-        for key in metadata_keys_map[:-1]:
-            metadata = metadata[key]
-        metadata[metadata_keys_map[-1]].append(value)  # Appending a new value to the list (which is the value of this key-value pair)
-        with open(metadata_filepath, "w", encoding="utf-8") as m:
-            json.dump(payload, m, indent=4)
-    elif mode not in modes:
-        print("\033[91mWrong mode\033[0m")
-        sys.exit(1)
 
     return None
 
@@ -580,9 +657,7 @@ def import_TRPs_data():
     """
     This function returns json data about all TRPs (downloaded previously)
     """
-    f = read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])
-    assert os.path.isfile(f), "Traffic registration points file missing"
-    with open(f, "r", encoding="utf-8") as TRPs:
+    with open(self.get(key="common") + GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value, "r", encoding="utf-8") as TRPs:
         return json.load(TRPs)
 
 
@@ -595,10 +670,7 @@ async def import_TRPs_data_async():
         return json.loads(await TRPs.read())
 
 
-def get_trp_ids() -> list[str]:
-    assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points first"
-    with open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]), "r", encoding="utf-8") as f:
-        return list(json.load(f).keys())
+
 
 
 # ------------ TRP Metadata ------------
@@ -706,7 +778,7 @@ def get_models_parameters_folder_path(target: Literal["traffic_volumes", "averag
 
 # ==================== Forecasting Settings Utilities ====================
 
-def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = DEFAULT_MAX_FORECASTING_WINDOW_SIZE) -> None:
+def set_forecasting_target_datetime(forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
     """
     Parameters:
         forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24.
@@ -716,8 +788,7 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = DEF
     Returns:
         None
     """
-
-    max_forecasting_window_size = max(DEFAULT_MAX_FORECASTING_WINDOW_SIZE, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
+    max_forecasting_window_size = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
     option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")
     print("Maximum number of days to forecast: ", max_forecasting_window_size)
@@ -729,19 +800,19 @@ def write_forecasting_target_datetime(forecasting_window_size: PositiveInt = DEF
         if last_available_data_dt is None:
             raise Exception("End date not found in metainfo file. Run download first or set it first")
 
-        last_available_data_dt = datetime.strptime(last_available_data_dt, "%Y-%m-%d %H:%M:%S").strftime(DT_ISO)
+        last_available_data_dt = datetime.strptime(last_available_data_dt, "%Y-%m-%d %H:%M:%S").strftime(GlobalDefinitions.DT_ISO.value)
 
     else:
         print("\033[91mWrong data option, try again\033[0m")
         sys.exit(1)
 
-    print("Latest data available: ", datetime.strptime(last_available_data_dt, DT_ISO))
-    print("Maximum settable date: ", relativedelta(datetime.strptime(last_available_data_dt, DT_ISO), days=14))
+    print("Latest data available: ", datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value))
+    print("Maximum settable date: ", relativedelta(datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value), days=14))
 
     dt = input("Insert Target Datetime (YYYY-MM-DDTHH): ") # The month number must be zero-padded, for example: 01, 02, etc.
 
-    assert datetime.strptime(dt, DT_FORMAT) > datetime.strptime(last_available_data_dt, DT_ISO), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
-    assert (datetime.strptime(dt, DT_FORMAT) - datetime.strptime(last_available_data_dt, DT_ISO)).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
+    assert datetime.strptime(dt, GlobalDefinitions.DT_FORMAT.value) > datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
+    assert (datetime.strptime(dt, GlobalDefinitions.DT_FORMAT.value) - datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value)).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
             # The number of days to forecast
     # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
@@ -804,82 +875,6 @@ def get_speeds_dates(trp_ids: list[str] | Generator[str, None, None]) -> tuple[s
 
 
 # ==================== Auxiliary Utilities ====================
-
-
-def split_data(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
-    """
-    Splits the Dask DataFrame into training and testing sets based on the target column and mode.
-
-    Parameters:
-        data: dd.DataFrame
-        target: str ("volume" or "mean_speed")
-        mode: the mode which indicates the kind of split it's intended to execute.
-                0 - Stands for the classic 4 section train-test-split (X_train, X_test, y_train, y_test)
-                1 - Indicates a forecasted specific train-test-split (X, y)
-
-    Returns:
-        X_train, X_test, y_train, y_test
-    """
-
-    #TODO TEMPORARY SOLUTION:
-    if target == target_data["V"]: target = "volume"
-
-    if target not in ("volume", "mean_speed"):
-        raise TargetVariableNotFoundError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
-
-    X = data.drop(columns=[target])
-    y = data[[target]]
-
-    if mode == 1:
-        return X.persist(), y.persist()
-    elif mode == 0:
-        n_rows = data.shape[0].compute()
-        p_70 = int(n_rows * 0.70)
-        return dd.from_delayed(delayed(X.head(p_70))), dd.from_delayed(delayed(X.tail(n_rows - p_70))), dd.from_delayed(delayed(y.head(p_70))), dd.from_delayed(delayed(y.tail(n_rows - p_70)))
-    else:
-        raise WrongSplittingMode("Wrong splitting mode imputed")
-
-
-def merge(filepaths: list[str]) -> dd.DataFrame:
-    """
-    Data merger function for traffic volumes or average speed data
-    Parameters:
-        filepaths: a list of files to read data from
-    """
-    try:
-        merged_data = dd.concat([dd.read_csv(trp) for trp in filepaths], axis=0)
-        merged_data = merged_data.repartition(partition_size="512MB")
-        merged_data = merged_data.sort_values(["date"], ascending=True)  # Sorting records by date
-        return merged_data.persist()
-    except ValueError as e:
-        print(f"\033[91mNo data to concatenate. Error: {e}\033[0m")
-        sys.exit(1)
-
-
-def check_datetime_format(dt: str) -> bool:
-    try:
-        datetime.strptime(dt, DT_FORMAT)
-        return True
-    except ValueError:
-        return False
-
-
-def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
-    df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
-    return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
-
-
-def get_covid_years() -> list[int]:
-    return [2020, 2021, 2022]
-
-
-def clean_text(text: str) -> str:
-    return clean(text, no_emoji=True, no_currency_symbols=True).replace(" ", "_").lower()
-
-
-def get_ml_cpus() -> int:
-    return int(os.cpu_count() * 0.75) # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
-    # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
 
 
 @contextmanager
