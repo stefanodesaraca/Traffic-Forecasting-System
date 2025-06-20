@@ -28,15 +28,7 @@ from _utils import definitions
 
 pd.set_option("display.max_columns", None)
 
-DT_ISO = "%Y-%m-%dT%H:%M:%S.%fZ"
-DT_FORMAT = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
-# In this case we'll only ask for the hour value since, for now, it's the maximum granularity for the predictions we're going to make
-
-DEFAULT_MAX_FORECASTING_WINDOW_SIZE = 14
-
 target_data = {"V": "traffic_volumes", "AS": "average_speeds"} #TODO (IN THE FUTURE) CONVERT AS TO "MS" AND "mean_speed" AND FIND A BETTER WAY TO HANDLE TARGET VARIABLES AND PROCESSES THAT WERE PREVIOUSLY HANDLED WITH THIS DICTIONARY
-metainfo_lock = asyncio.Lock() #TODO USE release()
-metadata_lock = asyncio.Lock()
 
 
 
@@ -53,6 +45,11 @@ class GlobalProjectDefinitions(Enum):
 
     TRAFFIC_REGISTRATION_POINTS_FILE: str = "traffic_registration_points.json"
     ROAD_CATEGORIES: list[str] = ["E", "R", "F", "K", "P"]
+    DEFAULT_MAX_FORECASTING_WINDOW_SIZE = 14
+
+    DT_ISO = "%Y-%m-%dT%H:%M:%S.%fZ"
+    DT_FORMAT = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
+    # In this case we'll only ask for the hour value since, for now, it's the maximum granularity for the predictions we're going to make
 
 
 
@@ -95,7 +92,6 @@ class BaseMetadataManager:
         except (FileNotFoundError, json.JSONDecodeError):
             self.data = {}
         return None
-
 
 
     def reload(self) -> None:
@@ -182,7 +178,58 @@ class ProjectMetadataManager(BaseMetadataManager):
 
 
 class TRPMetadataManager(BaseMetadataManager):
-    ...
+
+    def write_trp_metadata(self, trp_id: str, **kwargs: Any) -> None:
+        """
+        Writes metadata for a single TRP (Traffic Registration Point).
+
+        Parameters:
+            trp_id: an alphanumeric string identifier of the TRP
+            **kwargs: parameters which can be added directly into the metadata at write time
+
+        Returns:
+             None
+        """
+        default_settings = {"raw_volumes_file": None, "has_volumes": False, "has_speeds": False, "trp_data": None}
+        tracking = {**default_settings, **kwargs}  # Overriding default settings with kwargs
+        metadata = {
+            "id": trp_id,
+            "trp_data": tracking["trp_data"],
+            "files": {
+                "volumes": {
+                    "raw": tracking["raw_volumes_file"],
+                    "clean": None
+                },
+                "speeds": {
+                    "raw": None,
+                    "clean": None
+                }
+            },
+            "checks": {
+                "has_volumes": tracking["has_volumes"],
+                "has_speeds": tracking["has_speeds"]
+            },
+            "data_info": {
+                "volumes": {
+                    "start_date": None,
+                    "end_date": None
+                },
+                "speeds": {
+                    "start_date": None,
+                    "end_date": None
+                }
+            }
+        }
+
+        with open(self.get(key="folder_paths.data.trp_metadata.path" + trp_id + "_metadata.json"), "w", encoding="utf-8") as metadata_writer:
+            json.dump(metadata, metadata_writer, indent=4)
+
+        return None
+
+
+    def get_trp_metadata(self, trp_id: str) -> dict[Any, Any]:
+        with open(self.get(key="folder_paths.data.trp_metadata.path") + f"{trp_id}_metadata.json", "r", encoding="utf-8") as trp_metadata:
+            return json.load(trp_metadata)
 
 
 
@@ -394,7 +441,7 @@ class DirectoryManager(BaseModel):
 
 
 class TRPToolbox(BaseModel):
-
+    pass #TODO TO COMPLETE
 
 
 
@@ -419,98 +466,13 @@ class RoadNetworkToolbox(BaseModel):
 
 
 
-@alru_cache()
-async def get_active_ops_async() -> str:
-    active_ops = await read_metainfo_key_async(keys_map=["common", "active_operation"])
-    if not active_ops:
-        print("\033[91mActive operation not set\033[0m")
-        sys.exit(1)
-    return active_ops
 
 
 
 
-# ==================== TRP Utilities ====================
-
-@lru_cache
-def import_TRPs_data():
-    """
-    This function returns json data about all TRPs (downloaded previously)
-    """
-    f = read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])
-    assert os.path.isfile(f), "Traffic registration points file missing"
-    with open(f, "r", encoding="utf-8") as TRPs:
-        return json.load(TRPs)
 
 
-@alru_cache()
-async def import_TRPs_data_async():
-    """
-    Asynchronously returns json data about all TRPs (downloaded previously)
-    """
-    async with aiofiles.open(await read_metainfo_key_async(keys_map=["common", "traffic_registration_points_file"]), "r", encoding="utf-8") as TRPs:
-        return json.loads(await TRPs.read())
 
-
-def get_trp_ids() -> list[str]:
-    assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points first"
-    with open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]), "r", encoding="utf-8") as f:
-        return list(json.load(f).keys())
-
-
-# ------------ TRP Metadata ------------
-
-def get_trp_metadata(trp_id: str) -> dict[Any, Any]:
-    with open(read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]) + f"{trp_id}_metadata.json", "r", encoding="utf-8") as json_trp_metadata:
-        return json.load(json_trp_metadata)
-
-
-def write_trp_metadata(trp_id: str, **kwargs: Any) -> None:
-    """
-    Writes metadata for a single TRP (Traffic Registration Point).
-
-    Parameters:
-        trp_id: an alphanumeric string identifier of the TRP
-        **kwargs: parameters which can be added directly into the metadata at write time
-
-    Returns:
-         None
-    """
-    default_settings = {"raw_volumes_file": None, "has_volumes": False, "has_speeds": False, "trp_data": None}
-    tracking = {**default_settings, **kwargs} # Overriding default settings with kwargs
-    metadata = {
-        "id": trp_id,
-        "trp_data": tracking["trp_data"],
-        "files": {
-            "volumes": {
-                "raw": tracking["raw_volumes_file"],
-                "clean": None
-            },
-            "speeds": {
-                "raw": None,
-                "clean": None
-            }
-        },
-        "checks": {
-            "has_volumes": tracking["has_volumes"],
-            "has_speeds": tracking["has_speeds"]
-        },
-        "data_info": {
-            "volumes": {
-                "start_date": None,
-                "end_date": None
-            },
-            "speeds": {
-                "start_date": None,
-                "end_date": None
-            }
-        }
-    }
-
-    with open(read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]) + trp_id + "_metadata.json", "w", encoding="utf-8") as metadata_writer:
-        json.dump(metadata, metadata_writer, indent=4)
-
-    return None
 
 
 def update_trp_metadata(trp_id: str, value: Any, metadata_keys_map: list[str], mode: str) -> None:
@@ -582,6 +544,64 @@ async def update_trp_metadata_async(trp_id: str, value: Any, metadata_keys_map: 
             sys.exit(1)
 
     return None
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@alru_cache()
+async def get_active_ops_async() -> str:
+    active_ops = await read_metainfo_key_async(keys_map=["common", "active_operation"])
+    if not active_ops:
+        print("\033[91mActive operation not set\033[0m")
+        sys.exit(1)
+    return active_ops
+
+
+
+
+# ==================== TRP Utilities ====================
+
+@lru_cache
+def import_TRPs_data():
+    """
+    This function returns json data about all TRPs (downloaded previously)
+    """
+    f = read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])
+    assert os.path.isfile(f), "Traffic registration points file missing"
+    with open(f, "r", encoding="utf-8") as TRPs:
+        return json.load(TRPs)
+
+
+@alru_cache()
+async def import_TRPs_data_async():
+    """
+    Asynchronously returns json data about all TRPs (downloaded previously)
+    """
+    async with aiofiles.open(await read_metainfo_key_async(keys_map=["common", "traffic_registration_points_file"]), "r", encoding="utf-8") as TRPs:
+        return json.loads(await TRPs.read())
+
+
+def get_trp_ids() -> list[str]:
+    assert os.path.isfile(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"])), "Download traffic registration points first"
+    with open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]), "r", encoding="utf-8") as f:
+        return list(json.load(f).keys())
+
+
+# ------------ TRP Metadata ------------
 
 
 # ------------ Metainfo File ------------
