@@ -354,7 +354,7 @@ class BaseModel(PydanticBaseModel):
 
 class ModelWrapper(BaseModel):
     model_obj: Any
-    target: Literal["traffic_volumes", "average_speed"]
+    target: Literal["V", "MS"]
 
 
     @field_validator("model_obj", mode="after")
@@ -591,7 +591,7 @@ class TFSLearner:
         A Dask distributed client used to parallelize computation.
     """
 
-    def __init__(self, model: callable, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client | None):
+    def __init__(self, model: callable, road_category: str, target: Literal["V", "MS"], client: Client | None):
         self._scorer: dict[str, make_scorer] = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
@@ -600,7 +600,7 @@ class TFSLearner:
         }
         self._client: Client = client
         self._road_category: str = road_category
-        self._target: Literal["traffic_volumes", "average_speed"] = target
+        self._target: Literal["V", "MS"] = target
         self._model: ModelWrapper = ModelWrapper(model_obj=model, target=self._target)
 
 
@@ -805,7 +805,7 @@ class OnePointForecaster:
                     break
                 yield batch
 
-        last_available_data_dt = datetime.strptime(read_metainfo_key(keys_map=[self._target, "end_date_iso"]), DT_ISO)
+        last_available_data_dt = datetime.strptime(read_metainfo_key(keys_map=[self._target, "end_date_iso"]), GlobalDefinitions.DT_ISO.value)
         rows_to_predict = dd.from_delayed([delayed(pd.DataFrame)(batch) for batch in get_batches(
             ({
                 **attr,
@@ -817,7 +817,7 @@ class OnePointForecaster:
                 "week": dt.strftime("%V"),
                 "date": dt.strftime("%Y-%m-%d"),
                 "trp_id": self._trp_id
-            } for dt in pd.date_range(start=last_available_data_dt.strftime(DT_FORMAT), end=target_datetime.strftime(DT_FORMAT), freq="1h")), batch_size=max(1, math.ceil((target_datetime - last_available_data_dt).days * 0.20)))]).repartition(partition_size="512MB").persist()
+            } for dt in pd.date_range(start=last_available_data_dt.strftime(GlobalDefinitions.DT_FORMAT.value), end=target_datetime.strftime(GlobalDefinitions.DT_FORMAT.value), freq="1h")), batch_size=max(1, math.ceil((target_datetime - last_available_data_dt).days * 0.20)))]).repartition(partition_size="512MB").persist()
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
         rows_to_predict["day"] = rows_to_predict["day"].astype("int")
@@ -826,9 +826,9 @@ class OnePointForecaster:
         rows_to_predict["hour"] = rows_to_predict["hour"].astype("int")
         rows_to_predict["week"] = rows_to_predict["week"].astype("int")
 
-        if self._target == "traffic_volumes":
+        if self._target == GlobalDefinitions.TARGET_DATA.value["V"]:
             return TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=self._client).preprocess_volumes(z_score=False)
-        elif self._target == "average_speed":
+        elif self._target == GlobalDefinitions.TARGET_DATA.value["MS"]:
             return TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=self._client).preprocess_speeds(z_score=False)
         else:
             raise TargetVariableNotFoundError("Wrong target variable")

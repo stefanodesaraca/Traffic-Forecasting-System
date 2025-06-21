@@ -4,12 +4,14 @@ from sklearn.ensemble import (
     HistGradientBoostingRegressor,
 )
 
-from tfs_ml import get_ml_cpus
+from src.tfs_utils import GlobalDefinitions
+from tfs_ml import GeneralPurposeToolbox
 
-#TODO IN THE FUTURE THIS WOULD BE IMPLEMENTED THROUGH ENUMS
+general_purpose_toolbox = GeneralPurposeToolbox()
+
 #Be aware that too low parameters could bring some models to stall while training, so don't go too low with the grid search parameters
 grids = {
-    "traffic_volumes": {
+    GlobalDefinitions.TARGET_DATA.value["V"]: {
         "RandomForestRegressor": {
             "n_estimators": [200, 400],
             "max_depth": [
@@ -34,7 +36,7 @@ grids = {
             "l2_regularization": [0.001, 0.0001],
         },
     },
-    "average_speed": {
+    GlobalDefinitions.TARGET_DATA.value["MS"]: {
         "RandomForestRegressor": {
             "n_estimators": [100, 300],
             "max_depth": [
@@ -71,7 +73,7 @@ model_definitions = {
         "DecisionTreeRegressor": DecisionTreeRegressor,
     },
     "auxiliary_parameters": {
-        "RandomForestRegressor": {"n_jobs": get_ml_cpus(), "random_state": 100},
+        "RandomForestRegressor": {"n_jobs": general_purpose_toolbox.ml_cpus, "random_state": 100},
         "HistGradientBoostingRegressor": {
             "random_state": 100,
             "categorical_features": None,

@@ -49,24 +49,24 @@ def dask_cluster_client(processes=False):
 
 
 class GlobalDefinitions(Enum):
-    CWD: str = os.getcwd()
-    GLOBAL_PROJECTS_DIR: str = "projects"
-    GLOBAL_PROJECTS_METADATA: str = "global_metadata.json" # File
-    PROJECT_METADATA: str = "project_metadata.json"
+    CWD = os.getcwd()
+    GLOBAL_PROJECTS_DIR = "projects"
+    GLOBAL_PROJECTS_METADATA = "global_metadata.json" # File
+    PROJECT_METADATA = "project_metadata.json"
 
-    DATA_DIR: str = "data"
-    EDA_DIR: str = "eda"
-    ML_DIR: str = "ml"
-    RN_DIR: str = "rn_graph"
+    DATA_DIR = "data"
+    EDA_DIR = "eda"
+    ML_DIR = "ml"
+    RN_DIR = "rn_graph"
 
-    TARGET_DATA: dict[str, str] = {"V": "volume", "MS": "mean_speed"}
+    TARGET_DATA = {"V": "volume", "MS": "mean_speed"}
 
-    TRAFFIC_REGISTRATION_POINTS_FILE: str = "traffic_registration_points.json"
-    ROAD_CATEGORIES: list[str] = ["E", "R", "F", "K", "P"]
-    DEFAULT_MAX_FORECASTING_WINDOW_SIZE: int = 14
+    TRAFFIC_REGISTRATION_POINTS_FILE = "traffic_registration_points.json"
+    ROAD_CATEGORIES = ["E", "R", "F", "K", "P"]
+    DEFAULT_MAX_FORECASTING_WINDOW_SIZE = 14
 
-    DT_ISO: str = "%Y-%m-%dT%H:%M:%S.%fZ"
-    DT_FORMAT: str = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
+    DT_ISO = "%Y-%m-%dT%H:%M:%S.%fZ"
+    DT_FORMAT = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
 
 
 
@@ -372,6 +372,20 @@ class DirectoryManager(BaseModel):
     def traffic_registration_points_file_path(self) -> Path:
         return self.global_projects_path / self.get_current_project() / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
 
+    #TODO IMPROVE AND TRY GENERALIZE
+    def get_models_folder_path(self, target: Literal["volume", "mean_speed"], road_category: str) -> str:
+        return {
+            GlobalDefinitions.TARGET_DATA.value["V"]: self.project_metadata_manager.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders" + road_category + "path"),
+            GlobalDefinitions.TARGET_DATA.value["MS"]: self.project_metadata_manager.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders" + road_category + "path")
+        }[target]
+
+    #TODO IMPROVE AND TRY GENERALIZE
+    def get_models_parameters_folder_path(self, target: Literal["volume", "mean_speed"], road_category: str) -> str:
+        return {
+            GlobalDefinitions.TARGET_DATA.value["V"]: self.project_metadata_manager.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders" + road_category + "path"),
+            GlobalDefinitions.TARGET_DATA.value["MS"]: self.project_metadata_manager.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders" + road_category + "path"),
+        }[target]
+
 
     # ============ CURRENT PROJECT SECTION ============
 
@@ -488,7 +502,7 @@ class DirectoryManager(BaseModel):
             "common": {
                 "traffic_registration_points_file": str(Path(self.global_projects_path / self.toolbox.clean_text(project_dir_name) / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
             },
-            "volumes": {
+            "volume": {
                 "n_days": None,  # The total number of days which we have data about
                 "n_months": None,  # The total number of months which we have data about
                 "n_years:": None,  # The total number of years which we have data about
@@ -612,7 +626,7 @@ class ForecastingToolbox(BaseModel):
         print("Maximum number of days to forecast: ", max_forecasting_window_size)
 
         if option == GlobalDefinitions.TARGET_DATA.value["V"]:
-            last_available_data_dt = self.global_metadata_manager.get(key="traffic_volumes.end_date_iso")
+            last_available_data_dt = self.global_metadata_manager.get(key="volume.end_date_iso")
         elif option == GlobalDefinitions.TARGET_DATA.value["MS"]:
             _, last_available_data_dt = self._get_speeds_dates(self.get_global_trp_data())
             if last_available_data_dt is None:
@@ -803,17 +817,9 @@ async def read_metainfo_key_async(keys_map: list) -> Any:
 # ==================== ML Related Utilities ====================
 
 
-def get_models_folder_path(target: Literal["traffic_volumes", "average_speed"], road_category: str) -> str:
-    return {
-        "traffic_volumes": read_metainfo_key(keys_map=["folder_paths", "ml", "models", "subfolders", "traffic_volumes", "subfolders", road_category, "path"]),
-        "average_speed": read_metainfo_key(keys_map=["folder_paths", "ml", "models", "subfolders", "average_speed", "subfolders", road_category, "path"])
-    }[target]
 
 
-def get_models_parameters_folder_path(target: Literal["traffic_volumes", "average_speed"], road_category: str) -> str:
-    return {
-        "traffic_volumes": read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", "traffic_volumes", "subfolders", road_category, "path"]),
-        "average_speed": read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", "average_speed", "subfolders", road_category, "path"])
-    }[target]
+
+
 
 
