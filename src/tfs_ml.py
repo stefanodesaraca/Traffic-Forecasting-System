@@ -759,9 +759,9 @@ class OnePointForecaster:
         """
         if training_mode == 0:
             if limit is not None:
-                return dd.from_delayed(delayed(dd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", self._target, "subfolders", "clean", "path"]) + self._trp_id + "_volumes_C.csv").tail(limit).persist()))
+                return dd.from_delayed(delayed(dd.read_csv(project_metadata_manager.get(key="folder_paths.data." + self._target + ".subfolders.clean.path") + self._trp_id + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv").tail(limit).persist()))
             else:
-                return dd.read_csv(read_metainfo_key(keys_map=["folder_paths", "data", self._target, "subfolders", "clean", "path"]) + self._trp_id + "_volumes_C.csv")
+                return dd.read_csv(project_metadata_manager.get(key="folder_paths.data." + self._target + ".subfolders.clean.path") + self._trp_id + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv")
         elif training_mode == 1:
             if limit is not None:
                 return dd.from_delayed(delayed(
@@ -812,7 +812,7 @@ class OnePointForecaster:
                     break
                 yield batch
 
-        last_available_data_dt = datetime.strptime(read_metainfo_key(keys_map=[self._target, "end_date_iso"]), GlobalDefinitions.DT_ISO.value)
+        last_available_data_dt = datetime.strptime(project_metadata_manager.get(key=self._target + ".end_date_iso"), GlobalDefinitions.DT_ISO.value)
         rows_to_predict = dd.from_delayed([delayed(pd.DataFrame)(batch) for batch in get_batches(
             ({
                 **attr,
