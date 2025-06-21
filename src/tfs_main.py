@@ -24,8 +24,10 @@ trp_metadata_manager = TRPMetadataManager()
 
 gp_toolbox = GeneralPurposeToolbox()
 trp_toolbox = TRPToolbox(trp_metadata_manager=trp_metadata_manager)
+forecasting_toolbox = ForecastingToolbox(gp_toolbox=gp_toolbox, global_metadata_manager=global_metadata_manager, trp_metadata_manager=trp_metadata_manager)
 
-dm = DirectoryManager(project_dir=, global_metadata_manager=global_metadata_manager, project_metadata_manager=project_metadata_manager, toolbox=gp_toolbox)
+
+dm = DirectoryManager(project_dir=, global_metadata_manager=global_metadata_manager, project_metadata_manager=project_metadata_manager, gp_toolbox=gp_toolbox)
 
 
 def manage_ops(functionality: str) -> None:
@@ -120,14 +122,15 @@ async def clean_data(functionality: str) -> None:
 
 def set_forecasting_options(functionality: str) -> None:
     if functionality == "3.1.1":
-        set_forecasting_target_datetime()
+        forecasting_toolbox.set_forecasting_target_datetime()
 
     elif functionality == "3.1.2":
-        option = input("Press V to read forecasting target datetime for traffic volumes or AS for average speeds: ")
-        print("Target datetime: ", read_forecasting_target_datetime(target=option), "\n\n", )
+        target = input("Press V to read forecasting target datetime for traffic volumes or MS for average speeds: ")
+        print("Target datetime: ", forecasting_toolbox.get_forecasting_target_datetime(target=target), "\n\n")
 
     elif functionality == "3.1.3":
-        reset_forecasting_target_datetime()
+        target = input("Press V to reset forecasting target datetime for traffic volumes or MS for average speeds: ")
+        forecasting_toolbox.reset_forecasting_target_datetime(target=target)
 
     return None
 

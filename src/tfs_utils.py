@@ -343,7 +343,7 @@ class TRPMetadataManager(BaseMetadataManager):
 
 class DirectoryManager(BaseModel):
     project_dir: str | Path
-    toolbox: GeneralPurposeToolbox
+    gp_toolbox: GeneralPurposeToolbox
     global_metadata_manager: GlobalMetadataManager
     project_metadata_manager: ProjectMetadataManager
 
@@ -392,7 +392,7 @@ class DirectoryManager(BaseModel):
     # ============ CURRENT PROJECT SECTION ============
 
     def set_current_project(self, name: str) -> None:
-        self.global_metadata_manager.set(value=self.toolbox.clean_text(name), key="common.current_project", mode="e")
+        self.global_metadata_manager.set(value=self.gp_toolbox.clean_text(name), key="common.current_project", mode="e")
         return None
 
 
@@ -429,7 +429,7 @@ class DirectoryManager(BaseModel):
     def create_project(self, name: str):
 
         #Creating the project's directory
-        os.makedirs(self.global_projects_path / self.toolbox.clean_text(name), exist_ok=True)
+        os.makedirs(self.global_projects_path / self.gp_toolbox.clean_text(name), exist_ok=True)
 
         self._write_project_metadata(project_dir_name=name)  #Creating the project's metadata file
 
@@ -499,10 +499,10 @@ class DirectoryManager(BaseModel):
 
 
     def _write_project_metadata(self, project_dir_name: str) -> None:
-        with open(Path(self.global_projects_path / self.toolbox.clean_text(project_dir_name) / GlobalDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
+        with open(Path(self.global_projects_path / self.gp_toolbox.clean_text(project_dir_name) / GlobalDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
             json.dump({
             "common": {
-                "traffic_registration_points_file": str(Path(self.global_projects_path / self.toolbox.clean_text(project_dir_name) / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
+                "traffic_registration_points_file": str(Path(self.global_projects_path / self.gp_toolbox.clean_text(project_dir_name) / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
             },
             "volume": {
                 "n_days": None,  # The total number of days which we have data about
@@ -588,7 +588,7 @@ class RoadNetworkToolbox(BaseModel):
 
 
 class ForecastingToolbox(BaseModel):
-    toolbox: GeneralPurposeToolbox
+    gp_toolbox: GeneralPurposeToolbox
     global_metadata_manager: GlobalMetadataManager
     trp_metadata_manager: TRPMetadataManager
 
@@ -649,12 +649,12 @@ class ForecastingToolbox(BaseModel):
         # The number of days to forecast
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
-        if self.toolbox.check_datetime_format(dt) and option in GlobalDefinitions.TARGET_DATA.value.keys():
+        if self.gp_toolbox.check_datetime_format(dt) and option in GlobalDefinitions.TARGET_DATA.value.keys():
             self.global_metadata_manager.set(value=dt, key="forecasting.target_datetimes" + option, mode="e")
             print("Target datetime set to: ", dt, "\n\n")
             return None
         else:
-            if not self.toolbox.check_datetime_format(dt):
+            if not self.gp_toolbox.check_datetime_format(dt):
                 raise ValueError("Wrong datetime format, try again")
             elif option not in list(GlobalDefinitions.TARGET_DATA.value.keys()):
                 raise ValueError("Wrong target data option, try again")
@@ -667,9 +667,9 @@ class ForecastingToolbox(BaseModel):
             raise Exception(f"\033[91mTarget datetime for {target} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
 
 
-    def reset_forecasting_target_datetime(self) -> None:
+    def reset_forecasting_target_datetime(self, target: str) -> None:
         try:
-            self.project_metadata_manager.set(value=None, key="forecasting.target_datetimes" + input("Press V to reset forecasting target datetime for traffic volumes or MS for average speeds:"), mode="e")
+            self.project_metadata_manager.set(value=None, key="forecasting.target_datetimes" + target, mode="e")
             print("Target datetime reset successfully\n\n")
             return None
         except KeyError:
