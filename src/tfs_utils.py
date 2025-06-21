@@ -296,31 +296,31 @@ class TRPMetadataManager(BaseMetadataManager):
         Returns:
              None
         """
-        default_settings = {"raw_volumes_file": None, "has_volumes": False, "has_speeds": False, "trp_data": None}
+        default_settings = {"raw_volumes_file": None, "has_volume": False, "has_mean_speed": False, "trp_data": None}
         tracking = {**default_settings, **kwargs}  # Overriding default settings with kwargs
         metadata = {
             "id": trp_id,
             "trp_data": tracking["trp_data"],
             "files": {
-                "volumes": {
+                "volume": {
                     "raw": tracking["raw_volumes_file"],
                     "clean": None
                 },
-                "speeds": {
+                "mean_speed": {
                     "raw": None,
                     "clean": None
                 }
             },
             "checks": {
-                "has_volumes": tracking["has_volumes"],
-                "has_speeds": tracking["has_speeds"]
+                "has_volume": tracking["has_volume"],
+                "has_mean_speed": tracking["has_mean_speed"]
             },
             "data_info": {
-                "volumes": {
+                "volume": {
                     "start_date": None,
                     "end_date": None
                 },
-                "speeds": {
+                "mean_speed": {
                     "start_date": None,
                     "end_date": None
                 }
@@ -334,8 +334,10 @@ class TRPMetadataManager(BaseMetadataManager):
 
 
     def get_trp_metadata(self, trp_id: str) -> dict[Any, Any]:
-        with open(self.get(key="folder_paths.data.trp_metadata.path") + f"{trp_id}_metadata.json", "r", encoding="utf-8") as trp_metadata:
+        with open(self.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json", "r", encoding="utf-8") as trp_metadata:
             return json.load(trp_metadata)
+
+    #To update a single TRP's data just the set() method from the BaseMetadataManager father class and set the Path to the TRP's metadata file
 
 
 
@@ -551,18 +553,18 @@ class TRPToolbox(BaseModel):
             return list(json.load(f).keys())
 
 
-    def get_trp_ids_by_road_category(self, target: str) -> dict[str, list[str]] | None:
+    def get_trp_ids_by_road_category(self, target: Literal["volume", "mean_speed"]) -> dict[str, list[str]] | None:
         road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in self.get_global_trp_data().values())
 
         clean_data_folder = self.trp_metadata_manager.get(key="folder_paths.data." + target + ".subfolders.clean.path")
 
-        check = "has_volumes" if target == "traffic_volumes" else "has_speeds"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
-        data = "_volumes_C.csv" if target == "traffic_volumes" else "_speeds_C.csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
+        check = "has_" + target
+        data = "_volumes_C.csv" if target == GlobalDefinitions.TARGET_DATA.value["V"] else "_speeds_C.csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
 
         return {k: d for k, d in {
             category: [clean_data_folder + trp_id + data for trp_id in
                        filter(lambda trp_id:
-                              self.trp_metadata_manager.get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"][check], self.get_trp_ids())]
+                              self.trp_metadata_manager.get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and self.trp_metadata_manager.get_trp_metadata(trp_id)["checks"][check], self.get_trp_ids())]
             for category in road_categories
         }.items() if len(d) >= 2}
         # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
@@ -680,9 +682,7 @@ class ForecastingToolbox(BaseModel):
 
 
 
-def update_trp_metadata(trp_id: str, value: Any, mode: Literal["e", "a"]) -> None:
-    metadata_filepath = self.trp_metadata_manager.set(value=value, key="folder_paths.data.trp_metadata.path" + trp_id + "_metadata.json", mode=mode)
-    return None
+
 
 
 async def update_trp_metadata_async(trp_id: str, value: Any, metadata_keys_map: list[str], mode: str) -> None:
@@ -731,8 +731,7 @@ async def update_trp_metadata_async(trp_id: str, value: Any, metadata_keys_map: 
 async def get_active_ops_async() -> str:
     active_ops = await read_metainfo_key_async(keys_map=["common", "active_operation"])
     if not active_ops:
-        print("\033[91mActive operation not set\033[0m")
-        sys.exit(1)
+        raise KeyError("Active operation not set")
     return active_ops
 
 
@@ -812,9 +811,6 @@ async def read_metainfo_key_async(keys_map: list) -> Any:
     for key in keys_map[:-1]:
         payload = payload[key]
     return payload[keys_map[-1]]
-
-
-# ==================== ML Related Utilities ====================
 
 
 

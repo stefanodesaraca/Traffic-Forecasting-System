@@ -4,7 +4,7 @@ from sklearn.ensemble import (
     HistGradientBoostingRegressor,
 )
 
-from src.tfs_utils import GlobalDefinitions
+from tfs_utils import GlobalDefinitions
 from tfs_ml import GeneralPurposeToolbox
 
 general_purpose_toolbox = GeneralPurposeToolbox()
