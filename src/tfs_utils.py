@@ -387,17 +387,17 @@ class DirectoryManager(BaseModel):
         return self.global_projects_path / self.get_current_project() / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
 
     #TODO IMPROVE AND TRY GENERALIZE
-    def get_models_folder_path(self, target: Literal["volume", "mean_speed"], road_category: str) -> str:
+    def get_models_folder_path(self, target: str, road_category: str) -> str:
         return {
-            GlobalDefinitions.TARGET_DATA.value["V"]: self.project_metadata_manager.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders" + road_category + "path"),
-            GlobalDefinitions.TARGET_DATA.value["MS"]: self.project_metadata_manager.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders" + road_category + "path")
+            GlobalDefinitions.VOLUME.value: self.project_metadata_manager.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders" + road_category + "path"),
+            GlobalDefinitions.MEAN_SPEED.value: self.project_metadata_manager.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders" + road_category + "path")
         }[target]
 
     #TODO IMPROVE AND TRY GENERALIZE
-    def get_models_parameters_folder_path(self, target: Literal["volume", "mean_speed"], road_category: str) -> str:
+    def get_models_parameters_folder_path(self, target: str, road_category: str) -> str:
         return {
-            GlobalDefinitions.TARGET_DATA.value["V"]: self.project_metadata_manager.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders" + road_category + "path"),
-            GlobalDefinitions.TARGET_DATA.value["MS"]: self.project_metadata_manager.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders" + road_category + "path"),
+            GlobalDefinitions.VOLUME.value: self.project_metadata_manager.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders" + road_category + "path"),
+            GlobalDefinitions.MEAN_SPEED.value: self.project_metadata_manager.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders" + road_category + "path"),
         }[target]
 
 

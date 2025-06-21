@@ -53,6 +53,15 @@ dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
 dt_format = "%Y-%m-%dT%H"
 
 
+global_metadata_manager = GlobalMetadataManager()
+project_metadata_manager = ProjectMetadataManager()
+trp_metadata_manager = TRPMetadataManager()
+
+gp_toolbox = GeneralPurposeToolbox()
+trp_toolbox = TRPToolbox(trp_metadata_manager=trp_metadata_manager)
+
+dm = DirectoryManager(project_dir=, gp_toolbox=gp_toolbox, global_metadata_manager=global_metadata_manager, project_metadata_manager=project_metadata_manager)
+
 
 class TFSPreprocessor:
 
@@ -193,7 +202,7 @@ class TFSPreprocessor:
         # ------------------ Outliers filtering with Z-Score ------------------
 
         if z_score:
-            self._data = ZScore(self._data, "volume")
+            self._data = gp_toolbox.ZScore(self._data, "volume")
 
         self._data = self._data.sort_values(by=["date"], ascending=True)
 
@@ -227,7 +236,7 @@ class TFSPreprocessor:
 
         # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
 
-        self._data["is_covid_year"] = (self._data["year"].isin(get_covid_years())).astype("int")  # Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
+        self._data["is_covid_year"] = (self._data["year"].isin(gp_toolbox.covid_years)).astype("int")  # Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
@@ -289,7 +298,7 @@ class TFSPreprocessor:
         # ------------------ Outliers filtering with Z-Score ------------------
 
         if z_score:
-            self._data = ZScore(self._data, "mean_speed")
+            self._data = gp_toolbox.ZScore(self._data, "mean_speed")
 
         self._data = self._data.sort_values(by=["date"], ascending=True)
 
@@ -330,7 +339,7 @@ class TFSPreprocessor:
 
         # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
 
-        self._data["is_covid_year"] = self._data["year"].isin(get_covid_years()).astype("int")  # Creating a dummy variable which indicates if the average speed for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
+        self._data["is_covid_year"] = self._data["year"].isin(gp_toolbox.covid_years).astype("int")  # Creating a dummy variable which indicates if the average speed for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
@@ -354,7 +363,7 @@ class BaseModel(PydanticBaseModel):
 
 class ModelWrapper(BaseModel):
     model_obj: Any
-    target: Literal["V", "MS"]
+    target: str
 
 
     @field_validator("model_obj", mode="after")
@@ -591,8 +600,8 @@ class TFSLearner:
         A Dask distributed client used to parallelize computation.
     """
 
-    def __init__(self, model: callable, road_category: str, target: Literal["V", "MS"], client: Client | None):
-        self._scorer: dict[str, make_scorer] = {
+    def __init__(self, model: callable, road_category: str, target: str, client: Client | None):
+        self._scorer: dict[str, Any] = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
             "root_mean_squared_error": make_scorer(root_mean_squared_error),
@@ -600,7 +609,7 @@ class TFSLearner:
         }
         self._client: Client = client
         self._road_category: str = road_category
-        self._target: Literal["V", "MS"] = target
+        self._target: str = target
         self._model: ModelWrapper = ModelWrapper(model_obj=model, target=self._target)
 
 
@@ -608,7 +617,7 @@ class TFSLearner:
         return self._model
 
 
-    def get_scorer(self) -> dict[str, make_scorer]:
+    def get_scorer(self) -> dict[str, Any]:
         return self._scorer
 
 
@@ -621,7 +630,7 @@ class TFSLearner:
         Any
             The model object.
         """
-        return joblib.load(get_models_folder_path(self._target, self._road_category) + get_active_ops() + "_" + self._road_category + "_" + self._model.name + ".joblib")
+        return joblib.load(dm.get_models_folder_path(self._target, self._road_category) + dm.get_current_project() + "_" + self._road_category + "_" + self._model.name + ".joblib")
 
 
     def export_gridsearch_results(self, results: pd.DataFrame) -> None:
@@ -642,7 +651,7 @@ class TFSLearner:
         true_best_params["best_GridSearchCV_model_scores"] = results.loc[best_params[self._target][self._model.name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
         #TODO FIND A WAY TO LET THE FILE PATH BE CUSTOMIZABLE
-        with open(get_models_parameters_folder_path(cast(Literal["traffic_volumes", "average_speed"], self._target), self._road_category) + get_active_ops() + "_" + self._road_category + "_" + self._model.name + "_parameters.json", "w", encoding="utf-8") as params_file:
+        with open(dm.get_models_parameters_folder_path(self._target, self._road_category) + dm.get_current_project() + "_" + self._road_category + "_" + self._model.name + "_parameters.json", "w", encoding="utf-8") as params_file:
             json.dump(true_best_params, params_file, indent=4)
 
         #TODO TESTING:
@@ -680,7 +689,7 @@ class TFSLearner:
         'mean_absolute_error'.
         """
 
-        if self._target not in target_data.values():
+        if self._target not in GlobalDefinitions.TARGET_DATA.value.values():
             raise TargetVariableNotFoundError("Wrong target variable in GridSearchCV executor function")
 
         grid = self._model.grid
@@ -695,7 +704,7 @@ class TFSLearner:
             scoring=self._scorer,
             refit="mean_absolute_error",
             return_train_score=True,
-            n_jobs=get_ml_cpus(),
+            n_jobs=gp_toolbox.ml_cpus,
             scheduler=self._client,
             cv=TimeSeriesSplit(n_splits=5)  # A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
         )  # The models_gridsearch_parameters is obtained from the tfs_models file
@@ -758,9 +767,9 @@ class OnePointForecaster:
         elif training_mode == 1:
             if limit is not None:
                 return dd.from_delayed(delayed(
-                    merge(get_trp_ids_by_road_category(target=self._target)[self._road_category]).tail(limit).persist()))
+                    gp_toolbox.merge(trp_toolbox.get_trp_ids_by_road_category(target=self._target)[self._road_category]).tail(limit).persist()))
             else:
-                return merge(get_trp_ids_by_road_category(target=self._target)[self._road_category])
+                return gp_toolbox.merge(trp_toolbox.get_trp_ids_by_road_category(target=self._target)[self._road_category])
         else:
             raise WrongTrainRecordsRetrievalMode("training_mode parameter value is not valid")
 
