@@ -18,24 +18,33 @@ from tfs_road_network import *
 from tfs_ml_configs import *
 
 
+global_metadata_manager = GlobalMetadataManager()
+project_metadata_manager = ProjectMetadataManager()
+trp_metadata_manager = TRPMetadataManager()
+
+gp_toolbox = GeneralPurposeToolbox()
+trp_toolbox = TRPToolbox(trp_metadata_manager=trp_metadata_manager)
+
+dm = DirectoryManager(project_dir=, global_metadata_manager=global_metadata_manager, project_metadata_manager=project_metadata_manager, toolbox=gp_toolbox)
+
 
 def manage_ops(functionality: str) -> None:
     if functionality == "1.1":
         project_name = input("Insert new project name: ")
-        create_ops_dir(project_name)
+        dm.create_project(project_name)
 
     elif functionality == "1.2":
         project_name = input("Insert the operation to set as active: ")
-        set_active_ops(project_name)
+        dm.set_current_project(project_name)
 
     elif functionality == "1.3":
-        print("Active operation: ", get_active_ops(), "\n\n")
+        print("Current project: ", dm.get_current_project(), "\n\n")
 
     elif functionality == "1.4":
-        reset_active_ops()
+        dm.reset_current_project()
 
     elif functionality == "1.5":
-        project_name = input("Insert the name of the operation to delete: ")
+        project_name = input("Insert the name of the project to delete: ")
         del_ops_dir(project_name)
     else:
         print("\033[91mFunctionality not found, try again with a correct one\033[0m")
@@ -59,7 +68,7 @@ async def download_volumes(functionality: str) -> None:
         time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
         time_end = input("Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
 
-        if not check_datetime_format(time_start) and not check_datetime_format(time_end):
+        if not gp_toolbox.check_datetime_format(time_start) and not gp_toolbox.check_datetime_format(time_end):
             print("\033[91mWrong datetime format, try again with a correct one\033[0m")
             print("Returning to the main menu...\n\n")
             main()
@@ -70,8 +79,8 @@ async def download_volumes(functionality: str) -> None:
         await update_metainfo_async(time_start, ["traffic_volumes", "start_date_iso"], mode="equals")
         await update_metainfo_async(time_end, ["traffic_volumes", "end_date_iso"], mode="equals")
 
-        relative_delta = relativedelta(datetime.datetime.strptime(time_end, DT_ISO).date(), datetime.datetime.strptime(time_start, DT_ISO).date(), )
-        days_delta = (datetime.datetime.strptime(time_end, DT_ISO).date() - datetime.datetime.strptime(time_start, DT_ISO).date()).days
+        relative_delta = relativedelta(datetime.datetime.strptime(time_end, GlobalDefinitions.DT_ISO.value).date(), datetime.datetime.strptime(time_start, GlobalDefinitions.DT_ISO.value).date())
+        days_delta = (datetime.datetime.strptime(time_end, GlobalDefinitions.DT_ISO.value).date() - datetime.datetime.strptime(time_start, GlobalDefinitions.DT_ISO.value).date()).days
         years_delta = relative_delta.years or 0
         months_delta = relative_delta.months + (years_delta * 12)
         weeks_delta = days_delta // 7
@@ -86,8 +95,8 @@ async def download_volumes(functionality: str) -> None:
 
     elif functionality == "2.3":
         if len(os.listdir(read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]))) == 0:
-            for trp_id in tqdm(import_TRPs_data().keys()):
-                write_trp_metadata(trp_id, **{"trp_data": import_TRPs_data()[trp_id]})
+            for trp_id in tqdm(trp_toolbox.get_global_trp_data().keys()):
+                trp_metadata_manager.write_trp_metadata(trp_id, **{"trp_data": trp_toolbox.get_global_trp_data()[trp_id]})
         else:
             print("Metadata had already been computed.")
 
@@ -102,9 +111,9 @@ async def clean_data(functionality: str) -> None:
             await cleaner.clean_async(trp_id, export=export)
 
     if functionality == "5.6.1":
-        await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=TrafficVolumesCleaner(), export=True) for trp_id in get_trp_ids())) # The star (*) in necessary since gather() requires the coroutines to fed as positional arguments of the function. So we can unpack the list with *
+        await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=TrafficVolumesCleaner(), export=True) for trp_id in trp_toolbox.get_trp_ids())) # The star (*) in necessary since gather() requires the coroutines to fed as positional arguments of the function. So we can unpack the list with *
     elif functionality == "5.6.2":
-        await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=AverageSpeedCleaner(), export=True) for trp_id in get_trp_ids()))
+        await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=AverageSpeedCleaner(), export=True) for trp_id in trp_toolbox.get_trp_ids()))
 
     return None
 
