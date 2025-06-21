@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Literal, Generator
+from typing import Any, Literal, Generator, TypedDict
 from enum import Enum
 from pathlib import Path
 import threading
@@ -27,8 +27,6 @@ from _utils import definitions
 
 
 pd.set_option("display.max_columns", None)
-
-target_data = {"V": "traffic_volumes", "AS": "average_speeds"} #TODO (IN THE FUTURE) CONVERT AS TO "MS" AND "mean_speed" AND FIND A BETTER WAY TO HANDLE TARGET VARIABLES AND PROCESSES THAT WERE PREVIOUSLY HANDLED WITH THIS DICTIONARY
 
 
 
@@ -71,11 +69,6 @@ class GlobalDefinitions(Enum):
     DT_FORMAT: str = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
 
 
-class MLDefinitions(BaseModel):
-    TARGET_DATA: dict[str, str] = {"V": "volume", "MS": "mean_speed"}
-
-
-
 
 class GeneralPurposeToolbox(BaseModel):
 
@@ -95,12 +88,8 @@ class GeneralPurposeToolbox(BaseModel):
             X_train, X_test, y_train, y_test
         """
 
-        # TODO TEMPORARY SOLUTION:
-        if target == target_data["V"]: target = "volume"
-
-        if target not in ("volume", "mean_speed"):
-            raise TargetVariableNotFoundError(
-                "Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
+        if target not in GlobalDefinitions.TARGET_DATA.value.values():
+            raise TargetVariableNotFoundError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
 
         X = data.drop(columns=[target])
         y = data[[target]]
@@ -528,7 +517,7 @@ class DirectoryManager(BaseModel):
             "common": {
                 "traffic_registration_points_file": str(Path(self.global_projects_path / self.toolbox.clean_text(project_dir_name) / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
             },
-            "traffic_volumes": {
+            "volumes": {
                 "n_days": None,  # The total number of days which we have data about
                 "n_months": None,  # The total number of months which we have data about
                 "n_years:": None,  # The total number of years which we have data about
@@ -539,7 +528,7 @@ class DirectoryManager(BaseModel):
                 "start_date_iso": None,
                 "end_date_iso": None
             },
-            "average_speeds": {
+            "mean_speed": {
                 "n_days": None,  # The total number of days which we have data about
                 "n_months": None,  # The total number of months which we have data about
                 "n_years": None,  # The total number of years which we have data about
@@ -588,7 +577,7 @@ class TRPToolbox(BaseModel):
         return {k: d for k, d in {
             category: [clean_data_folder + trp_id + data for trp_id in
                        filter(lambda trp_id:
-                              get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"][check], self.get_trp_ids())]
+                              self.trp_metadata_manager.get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and get_trp_metadata(trp_id)["checks"][check], self.get_trp_ids())]
             for category in road_categories
         }.items() if len(d) >= 2}
         # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
@@ -614,6 +603,27 @@ class RoadNetworkToolbox(BaseModel):
 class ForecastingToolbox(BaseModel):
     toolbox: GeneralPurposeToolbox
     global_metadata_manager: GlobalMetadataManager
+    trp_metadata_manager: TRPMetadataManager
+
+
+    def _get_speeds_dates(self, trp_ids: list[str] | Generator[str, None, None]) -> tuple[str, str]:
+        """
+        Extracts and returns the date of the first and last data available from all average speed files.
+        Uses a generator of tuples internally so a generator of TRP IDs would be better to maximize performances.
+
+        Parameters:
+            trp_ids: a list or a generator of strings which represent IDs of each traffic registration point available
+
+        Returns:
+            tuple[str, str] <- The date of the first data available in first position and the one of the latest data available in second position
+        """
+        dt_start, dt_end = zip(*(
+            (data["data_info"]["speeds"]["start_date"], data["data_info"]["speeds"]["end_date"])
+            for trp_id in trp_ids
+            if (data := self.trp_metadata_manager.get_trp_metadata(trp_id=trp_id))["checks"]["has_speeds"]
+        ), strict=True)
+        return min(dt_start), max(dt_end)
+
 
     def set_forecasting_target_datetime(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
         """
@@ -625,7 +635,7 @@ class ForecastingToolbox(BaseModel):
         Returns:
             None
         """
-        max_forecasting_window_size = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
+        max_forecasting_window_size: int = max(int(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value), forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
         option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")
         print("Maximum number of days to forecast: ", max_forecasting_window_size)
@@ -633,7 +643,7 @@ class ForecastingToolbox(BaseModel):
         if option == GlobalDefinitions.TARGET_DATA.value["V"]:
             last_available_data_dt = self.global_metadata_manager.get(key="traffic_volumes.end_date_iso")
         elif option == GlobalDefinitions.TARGET_DATA.value["MS"]:
-            _, last_available_data_dt = get_speeds_dates(self.get_global_trp_data())
+            _, last_available_data_dt = self._get_speeds_dates(self.get_global_trp_data())
             if last_available_data_dt is None:
                 raise Exception("End date not found in metainfo file. Run download first or set it first")
 
@@ -652,15 +662,15 @@ class ForecastingToolbox(BaseModel):
         # The number of days to forecast
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
-        if self.toolbox.check_datetime_format(dt) and option in target_data.keys():
+        if self.toolbox.check_datetime_format(dt) and option in GlobalDefinitions.TARGET_DATA.value.keys():
             self.global_metadata_manager.set(value=dt, key="forecasting.target_datetimes" + option, mode="e")
             print("Target datetime set to: ", dt, "\n\n")
             return None
         else:
             if not self.toolbox.check_datetime_format(dt):
                 raise ValueError("Wrong datetime format, try again")
-            elif option not in list(target_data.keys()):
-                raise ValueError("Wrong data option, try again")
+            elif option not in list(GlobalDefinitions.TARGET_DATA.value.keys()):
+                raise ValueError("Wrong target data option, try again")
 
 
 
@@ -719,21 +729,6 @@ async def update_trp_metadata_async(trp_id: str, value: Any, metadata_keys_map: 
             sys.exit(1)
 
     return None
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -847,13 +842,9 @@ def get_models_parameters_folder_path(target: Literal["traffic_volumes", "averag
 
 def read_forecasting_target_datetime(target: str) -> datetime:
     try:
-        return datetime.strptime(read_metainfo_key(keys_map=["forecasting", "target_datetimes", target]), DT_FORMAT)
+        return datetime.strptime(read_metainfo_key(key="forecasting.target_datetimes" + target), GlobalDefinitions.DT_FORMAT.value)
     except TypeError:
-        print(f"\033[91mTarget datetime for {target} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
-        sys.exit(1)
-    except FileNotFoundError:
-        print("\033[91mTarget Datetime File Not Found\033[0m")
-        sys.exit(1)
+        raise Exception(f"\033[91mTarget datetime for {target} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
 
 
 def reset_forecasting_target_datetime() -> None:
