@@ -278,12 +278,12 @@ class RoadNetwork(BaseModel):
         Returns:
             None
         """
-        if verbose is True:
+        if verbose:
             print("Loading vertices...")
         for v in tqdm(self._vertices):
             self._network.add_node((v.vertex_id, v.get_vertex_data()))
 
-        if verbose is True:
+        if verbose:
             print("Loading arches...")
         for a in tqdm(self._arches):
             self._network.add_edge(a.start_traffic_node_id, a.end_traffic_node_id, **a.get_arch_data())
@@ -359,7 +359,7 @@ class RoadNetwork(BaseModel):
         Loads a previously exported graph into the RoadNetwork instance.
         Only accepting graphs exported in pickle format.
         """
-        assert filepath.endswith(".pickle") is True or filepath.endswith(".pkl") is True, "File extension missing or not pickle"
+        assert filepath.endswith(".pickle") or filepath.endswith(".pkl"), "File extension missing or not pickle"
         with open(filepath, "rb") as g_loader:
             self._network = pickle.load(g_loader)
         return None
@@ -369,7 +369,7 @@ class RoadNetwork(BaseModel):
         """
         Loads a graph from a json file into the self._network attribute.
         """
-        assert filepath.endswith(".json") is True, "File extension missing or not json"
+        assert filepath.endswith(".json"), "File extension missing or not json"
         with open(filepath, "r", encoding="utf-8") as g_loader:
             self._network = nx.from_dict_of_dicts(json.load(g_loader))
         return None

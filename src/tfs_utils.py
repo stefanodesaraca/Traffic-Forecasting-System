@@ -68,6 +68,9 @@ class GlobalDefinitions(Enum):
     DT_ISO = "%Y-%m-%dT%H:%M:%S.%fZ"
     DT_FORMAT = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
 
+    RAW_VOLUME_FILENAME_ENDING = "_volume"
+    RAW_MEAN_SPEED_FILENAME_ENDING = "_mean_speed"
+
     CLEAN_VOLUME_FILENAME_ENDING= "_volume_C"
     CLEAN_MEAN_SPEED_FILENAME_ENDING= "_mean_speed_C"
 
