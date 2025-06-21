@@ -13,6 +13,8 @@ from tfs_utils import *
 
 simplefilter("ignore")
 
+
+project_metadata_manager = ProjectMetadataManager()
 trp_metadata_manager = TRPMetadataManager()
 trp_toolbox = TRPToolbox(trp_metadata_manager=trp_metadata_manager)
 
@@ -247,12 +249,12 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
         return volumes
 
     async def process_trp(trp_id):
-
-        async with aiofiles.open(await asyncio.to_thread(read_metainfo_key, ["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"]) + f"{trp_id}_volumes.json", "w") as f:
+        
+        async with aiofiles.open(await asyncio.to_thread(project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path") + f"{trp_id}_volumes.json", "w")) as f:
             await f.write(json.dumps(await download_trp_data(trp_id), indent=4))
 
         trp_metadata_manager.write_trp_metadata(trp_id=trp_id, **{"raw_volumes_file":f"{trp_id}_volumes.json"}) # Writing TRP's empty metadata file
-        await update_trp_metadata_async(trp_id=trp_id, value=(await import_TRPs_data_async())[trp_id], metadata_keys_map=["trp_data"], mode="equals")
+        await update_trp_metadata_async(trp_id=trp_id, value=(await trp_toolbox.get_global_trp_data_async())[trp_id], metadata_keys_map=["trp_data"], mode="equals")
 
     async def limited_task(trp_id):
         async with semaphore:

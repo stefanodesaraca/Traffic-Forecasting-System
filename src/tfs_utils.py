@@ -446,7 +446,15 @@ class DirectoryManager(BaseModel):
 
 
     @lru_cache()
-    def get_current_project(self) -> str | None:
+    def get_current_project(self) -> str:
+        current_project = self.global_metadata_manager.get(key="common.current_project")
+        if not current_project:
+            raise ValueError("Current project not set")
+        return current_project
+
+
+    @alru_cache()
+    async def get_current_project_async(self) -> str:
         current_project = self.global_metadata_manager.get(key="common.current_project")
         if not current_project:
             raise ValueError("Current project not set")
@@ -791,12 +799,7 @@ async def update_trp_metadata_async(trp_id: str, value: Any, metadata_keys_map: 
 
 
 
-@alru_cache()
-async def get_active_ops_async() -> str:
-    active_ops = await read_metainfo_key_async(keys_map=["common", "active_operation"])
-    if not active_ops:
-        raise KeyError("Active operation not set")
-    return active_ops
+
 
 
 
