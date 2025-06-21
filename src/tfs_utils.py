@@ -386,14 +386,14 @@ class DirectoryManager(BaseModel):
     def traffic_registration_points_file_path(self) -> Path:
         return self.global_projects_path / self.get_current_project() / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
 
-    #TODO IMPROVE AND TRY GENERALIZE
+    #TODO IMPROVE AND TRY GENERALIZE OR TO REPLACE ENTIRELY
     def get_models_folder_path(self, target: str, road_category: str) -> str:
         return {
             GlobalDefinitions.VOLUME.value: self.project_metadata_manager.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders" + road_category + "path"),
             GlobalDefinitions.MEAN_SPEED.value: self.project_metadata_manager.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders" + road_category + "path")
         }[target]
 
-    #TODO IMPROVE AND TRY GENERALIZE
+    #TODO IMPROVE AND TRY GENERALIZE OR TO REPLACE ENTIRELY
     def get_models_parameters_folder_path(self, target: str, road_category: str) -> str:
         return {
             GlobalDefinitions.VOLUME.value: self.project_metadata_manager.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders" + road_category + "path"),
@@ -542,6 +542,11 @@ class DirectoryManager(BaseModel):
             "forecasting": {"target_datetimes": {"V": None, "AS": None}},
             "trps": {}  # For each TRP we'll have {"id": metadata_filename}
         }, tf, indent=4)
+        return None
+
+
+    def del_project(self, name: str) -> None:
+        os.remove(self.global_projects_path / name)
         return None
 
 

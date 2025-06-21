@@ -3,13 +3,11 @@ import time
 import math
 import gc
 import sys
-import inspect
 import pickle
 import warnings
 from warnings import simplefilter
 from scipy import stats
 from datetime import datetime
-from enum import Enum
 from typing import Any, Literal, Generator, Protocol, cast, runtime_checkable
 from pydantic import BaseModel as PydanticBaseModel, field_validator
 from pydantic.types import PositiveFloat
@@ -789,7 +787,7 @@ class OnePointForecaster:
             A dask dataframe of empty records for future predictions.
         """
 
-        attr = {"volume": np.nan} if self._target == "traffic_volumes" else {"mean_speed": np.nan, "percentile_85": np.nan}
+        attr = {"volume": np.nan} if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else {"mean_speed": np.nan, "percentile_85": np.nan}
 
         def get_batches(iterable: list[dict[str, Any]] | Generator[dict[str, Any], None, None], batch_size: int) -> Generator[list[dict[str, Any]], Any, None, None]:
             """

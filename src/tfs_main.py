@@ -46,8 +46,9 @@ def manage_ops(functionality: str) -> None:
         dm.reset_current_project()
 
     elif functionality == "1.5":
-        project_name = input("Insert the name of the project to delete: ")
-        del_ops_dir(project_name)
+        project_name = (input("Insert the name of the project to delete: "))
+        dm.del_project(project_name)
+
     else:
         print("\033[91mFunctionality not found, try again with a correct one\033[0m")
         print("\033[91mReturning to the main menu...\033[0m\n\n")
@@ -63,8 +64,7 @@ async def download_volumes(functionality: str) -> None:
             await traffic_registration_points_to_json()
             print("Traffic registration points information downloaded successfully\n\n")
         except Exception as e:
-            print(f"\033[91mCouldn't download traffic registration points information for the active operation. Error: {e}\033[0m")
-            sys.exit(1)
+            raise Exception(f"\033[91mCouldn't download traffic registration points information for the active operation. Error: {e}\033[0m")
 
     elif functionality == "2.2":
         time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
@@ -78,8 +78,8 @@ async def download_volumes(functionality: str) -> None:
         time_start += ":00:00.000Z"
         time_end += ":00:00.000Z"
 
-        await update_metainfo_async(time_start, ["traffic_volumes", "start_date_iso"], mode="equals")
-        await update_metainfo_async(time_end, ["traffic_volumes", "end_date_iso"], mode="equals")
+        await update_metainfo_async(time_start, [GlobalDefinitions.VOLUME.value, "start_date_iso"], mode="equals")
+        await update_metainfo_async(time_end, [GlobalDefinitions.MEAN_SPEED.value, "end_date_iso"], mode="equals")
 
         relative_delta = relativedelta(datetime.datetime.strptime(time_end, GlobalDefinitions.DT_ISO.value).date(), datetime.datetime.strptime(time_start, GlobalDefinitions.DT_ISO.value).date())
         days_delta = (datetime.datetime.strptime(time_end, GlobalDefinitions.DT_ISO.value).date() - datetime.datetime.strptime(time_start, GlobalDefinitions.DT_ISO.value).date()).days
@@ -96,7 +96,7 @@ async def download_volumes(functionality: str) -> None:
         await traffic_volumes_data_to_json(time_start=time_start, time_end=time_end)
 
     elif functionality == "2.3":
-        if len(os.listdir(read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]))) == 0:
+        if len(os.listdir(global_metadata_manager.get(key="folder_paths.data.trp_metadata.path"))) == 0:
             for trp_id in tqdm(trp_toolbox.get_global_trp_data().keys()):
                 trp_metadata_manager.write_trp_metadata(trp_id, **{"trp_data": trp_toolbox.get_global_trp_data()[trp_id]})
         else:
@@ -137,15 +137,15 @@ def set_forecasting_options(functionality: str) -> None:
 
 def execute_eda() -> None:
     trp_data = trp_toolbox.get_global_trp_data()
-    clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
-    clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
+    clean_volumes_folder = dm.project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.clean.path")
+    clean_speeds_folder = dm.project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path")
 
-    for v in (trp_id for trp_id in trp_data.keys() if trp_metadata_manager.get_trp_metadata(trp_id=trp_id)["checks", "has_volumes"]):
+    for v in (trp_id for trp_id in trp_data.keys() if trp_metadata_manager.get_trp_metadata(trp_id=trp_id)["checks", GlobalDefinitions.HAS_VOLUME_CHECK.value]):
         volumes = pd.read_csv(clean_volumes_folder + v + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv")
         analyze_volumes(volumes)
         volumes_data_multicollinearity_test(volumes)
 
-    for s in (trp_id for trp_id in trp_data.keys() if trp_metadata_manager.get_trp_metadata(trp_id=trp_id)["checks", "has_speeds"]):
+    for s in (trp_id for trp_id in trp_data.keys() if trp_metadata_manager.get_trp_metadata(trp_id=trp_id)["checks", GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]):
         speeds = pd.read_csv(clean_speeds_folder + s + GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv")
         analyze_avg_speeds(speeds)
         avg_speeds_data_multicollinearity_test(speeds)
@@ -188,10 +188,10 @@ def execute_forecast_warmup(functionality: str) -> None:
         return None
 
 
-    def execute_training(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable):
+    def execute_training(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
         learner.get_model().fit(X_train, y_train).export()
         print("Fitting phase ended")
-        return
+        return None
 
 
     def execute_testing(X_test: dd.DataFrame, y_test: dd.DataFrame, learner: callable):
@@ -207,7 +207,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             for model in models:
 
                 if function.__name__ != "execute_gridsearch":
-                    with open(read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", target, "subfolders", road_category, "path"]) + get_active_ops() + "_" + road_category + "_" + model.__name__ + "_parameters.json", "r", encoding="utf-8") as params_reader:
+                    with open(project_metadata_manager.get(key="folder_paths.ml.models_parameters.subfolders." + target + ".subfolders." + road_category + ".path") + dm.get_current_project() + "_" + road_category + "_" + model.__name__ + "_parameters.json", "r", encoding="utf-8") as params_reader:
                         params = json.load(params_reader)[model.__name__]
                 else:
                     params = model_definitions["auxiliary_parameters"].get(model.__name__, {})
@@ -267,18 +267,18 @@ def execute_forecasting(functionality: str) -> None:
             print("\nTRP road category: ", trp_road_category)
 
             forecaster = OnePointForecaster(trp_id=trp_id, road_category=trp_road_category, target=GlobalDefinitions.TARGET_DATA.value[option], client=client)
-            future_records = forecaster.get_future_records(target_datetime=forecasting_toolbox.get_forecasting_target_datetime(target=target_data)) #Already preprocessed
+            future_records = forecaster.get_future_records(target_datetime=forecasting_toolbox.get_forecasting_target_datetime(target=GlobalDefinitions.TARGET_DATA.value[option])) #Already preprocessed
 
             #TODO TEST training_mode = BOTH 0 AND 1
             model_training_dataset = forecaster.get_training_records(training_mode=0, limit=future_records.shape[0].compute() * 24)
-            X, y = gp_toolbox.split_data(model_training_dataset, target=target_data, mode=1)
+            X, y = gp_toolbox.split_data(model_training_dataset, target=GlobalDefinitions.TARGET_DATA.value[option], mode=1)
 
             for name, model in model_definitions["class_instances"].items():
 
-                with open(dm.get_models_parameters_folder_path(target_data[option], trp_road_category) + dm.get_current_project() + "_" + trp_road_category + "_" + name + "_parameters.json", "r") as params_reader:
+                with open(dm.get_models_parameters_folder_path(GlobalDefinitions.TARGET_DATA.value[option], trp_road_category) + dm.get_current_project() + "_" + trp_road_category + "_" + name + "_parameters.json", "r") as params_reader:
                     best_params = json.load(params_reader)[name] # Attributes which aren't included in the gridsearch grid are already included in best_params since they were first gathered together and then exported
 
-                learner = TFSLearner(model=model(**best_params), road_category=trp_road_category, target=target_data[option], client=client)
+                learner = TFSLearner(model=model(**best_params), road_category=trp_road_category, target=GlobalDefinitions.TARGET_DATA.value[option], client=client)
                 model = learner.get_model().fit(X, y)
                 predictions = model.predict(future_records)
                 print(predictions)
