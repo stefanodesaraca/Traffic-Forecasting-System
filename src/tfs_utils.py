@@ -419,66 +419,37 @@ class DirectoryManager(BaseModel):
 
         folder_structure = {
             "data": {
-                "traffic_volumes": {
-                    "raw": {},
-                    "clean": {}
+                **{sub: {
+                        "raw": {},
+                        "clean": {}
+                    } for sub in ("volume", "mean_speed", "travel_times")
                 },
-                "average_speed": {
-                    "raw": {},
-                    "clean": {}
-                },
-                "travel_times": {
-                    "raw": {},
-                    "clean": {}
-                },
-                "trp_metadata": {}  # No subfolders
+                "trp_metadata": {}
+                # No subfolders
             },
             "eda": {
-                f"shapiro_wilk_test": {},
-                f"plots": {
-                    "traffic_volumes": {},
+                "shapiro_wilk_test": {},
+                "plots": {
+                    "volume": {},
                     "avg_speeds": {}
                 }
             },
             "rn_graph": {
-                f"edges": {},
-                f"arches": {},
-                f"graph_analysis": {},
-                f"shortest_paths": {}
+                "edges": {},
+                "arches": {},
+                "graph_analysis": {},
+                "shortest_paths": {}
             },
             "ml": {
                 "models_parameters": {
-                    "traffic_volumes": {
-                        rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
+                    **{
+                        sub: {target:
+                               {
+                                   rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
+                               } for target in GlobalDefinitions.TARGET_DATA.value.values()}
+                        for sub in ("models_parameters", "models", "models_performance", "ml_reports")
                     },
-                    "average_speed": {
-                        rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
-                    }
                 },
-                "models": {
-                    "traffic_volumes": {
-                        rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
-                    },
-                    "average_speed": {
-                        rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
-                    }
-                },
-                "models_performance": {
-                    "traffic_volumes": {
-                        rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
-                    },
-                    "average_speed": {
-                        rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
-                    }
-                },
-                "ml_reports": {
-                    "traffic_volumes": {
-                        rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
-                    },
-                    "average_speed": {
-                        rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
-                    }
-                }
             }
         }
 
