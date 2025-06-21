@@ -761,24 +761,6 @@ class ForecastingToolbox(BaseModel):
 
 
 
-async def read_metainfo_key_async(keys_map: list) -> Any:
-    """
-    Reads a value from the metainfo file asynchronously
-
-    Parameters:
-        keys_map: a list of keys to navigate the JSON structure
-
-    Returns:
-        The value at the specified location in the JSON structure
-    """
-    payload = await load_metainfo_payload_async()
-    for key in keys_map[:-1]:
-        payload = payload[key]
-    return payload[keys_map[-1]]
-
-
-
-
 
 
 
