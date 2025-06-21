@@ -168,9 +168,9 @@ class GeneralPurposeToolbox(BaseModel):
 
 
 class BaseMetadataManager:
-    _instances = {} #The class (or subclass) name is the key and the value is the class instance.
-    _locks = {} #The class (or subclass) name is the key and the value is the class instance.
-    auto_save = True
+    _instances: dict = {} #The class (or subclass) name is the key and the value is the class instance.
+    _locks: dict = {} #The class (or subclass) name is the key and the value is the class instance.
+    auto_save: bool = True
     """By using a dictionary of instances, a dictionary of locks and the logic in the __new__ dunder method we make any subclass
        a singleton as well, but with a separated instance that doesn't belong to the father class (BaseMetadataManager) one"""
 
@@ -292,6 +292,24 @@ class BaseMetadataManager:
             data[keys[-1]].append(value)
             if self.auto_save:
                 self.save()
+        return None
+
+
+    async def set_async(self, key: str, value: Any, mode: Literal["e", "a"]) -> None:
+        keys = self._resolve_nested(key)
+        data = self.data
+        if mode == "e":
+            for k in keys[:-1]:
+                data = data[k]
+            data[keys[-1]] = value
+            if self.auto_save:
+                await self.save_async()
+        elif mode == "a":
+            for k in keys[:-1]:
+                data = data[k]
+            data[keys[-1]].append(value)
+            if self.save_async:
+                await self.save_async()
         return None
 
 
@@ -447,14 +465,6 @@ class DirectoryManager(BaseModel):
 
     @lru_cache()
     def get_current_project(self) -> str:
-        current_project = self.global_metadata_manager.get(key="common.current_project")
-        if not current_project:
-            raise ValueError("Current project not set")
-        return current_project
-
-
-    @alru_cache()
-    async def get_current_project_async(self) -> str:
         current_project = self.global_metadata_manager.get(key="common.current_project")
         if not current_project:
             raise ValueError("Current project not set")
@@ -796,18 +806,6 @@ async def update_trp_metadata_async(trp_id: str, value: Any, metadata_keys_map: 
             sys.exit(1)
 
     return None
-
-
-
-
-
-
-
-
-# ==================== TRP Utilities ====================
-
-
-
 
 
 

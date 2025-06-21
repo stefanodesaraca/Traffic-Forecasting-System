@@ -78,8 +78,8 @@ async def download_volumes(functionality: str) -> None:
         time_start += ":00:00.000Z"
         time_end += ":00:00.000Z"
 
-        await update_metainfo_async(time_start, [GlobalDefinitions.VOLUME.value, "start_date_iso"], mode="equals")
-        await update_metainfo_async(time_end, [GlobalDefinitions.MEAN_SPEED.value, "end_date_iso"], mode="equals")
+        await project_metadata_manager.set_async(value=time_start, key=GlobalDefinitions.VOLUME.value + "start_date_iso", mode="e")
+        await project_metadata_manager.set_async(value=time_end, key=GlobalDefinitions.MEAN_SPEED.value + "end_date_iso", mode="e")
 
         relative_delta = relativedelta(datetime.datetime.strptime(time_end, GlobalDefinitions.DT_ISO.value).date(), datetime.datetime.strptime(time_start, GlobalDefinitions.DT_ISO.value).date())
         days_delta = (datetime.datetime.strptime(time_end, GlobalDefinitions.DT_ISO.value).date() - datetime.datetime.strptime(time_start, GlobalDefinitions.DT_ISO.value).date()).days
@@ -87,10 +87,10 @@ async def download_volumes(functionality: str) -> None:
         months_delta = relative_delta.months + (years_delta * 12)
         weeks_delta = days_delta // 7
 
-        await update_metainfo_async(days_delta, ["traffic_volumes", "n_days"], mode="equals")
-        await update_metainfo_async(months_delta, ["traffic_volumes", "n_months"], mode="equals")
-        await update_metainfo_async(years_delta, ["traffic_volumes", "n_years"], mode="equals") #TODO THIS CREATES A SECOND n_years. WHY DOESN'T IT OVERWRITE THE OLD n_years: null?
-        await update_metainfo_async(weeks_delta, ["traffic_volumes", "n_weeks"], mode="equals")
+        await project_metadata_manager.set_async(value=days_delta, key=GlobalDefinitions.VOLUME.value + ".n_days", mode="e")
+        await project_metadata_manager.set_async(value=months_delta, key=GlobalDefinitions.VOLUME.value + ".n_months", mode="e")
+        await project_metadata_manager.set_async(value=years_delta, key=GlobalDefinitions.VOLUME.value + ".n_years", mode="e") #TODO THIS CREATES A SECOND n_years. WHY DOESN'T IT OVERWRITE .OLD n_years: null?
+        await project_metadata_manager.set_async(value=weeks_delta, key=GlobalDefinitions.VOLUME.value + ".n_weeks", mode="e")
 
         print("Downloading traffic volumes data for every registration point for the active operation...")
         await traffic_volumes_data_to_json(time_start=time_start, time_end=time_end)
