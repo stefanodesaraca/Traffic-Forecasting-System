@@ -515,7 +515,7 @@ class AverageSpeedCleaner(BaseCleaner):
                 return None
 
             else:
-                return await self._parse_speeds_async(await asyncio.to_thread(pd.read_csv, read_metainfo_key(keys_map=["folder_paths", "data", GlobalDefinitions.MEAN_SPEED.value, "subfolders", "raw", "path"]) + trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING + ".csv", sep=";", **{"engine":"c"}))
+                return await self._parse_speeds_async(await asyncio.to_thread(pd.read_csv, project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING + ".csv", sep=";", **{"engine":"c"}))
 
         except FileNotFoundError or IndexError as e:
             print(f"\033[91mNo average speed data for TRP: {trp_id}. Error: {e}\033[0m\n")

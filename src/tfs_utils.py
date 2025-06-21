@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Literal, Generator, TypedDict
+from typing import Any, Literal, Generator
 from enum import Enum
 from pathlib import Path
 import threading
@@ -199,6 +199,12 @@ class BaseMetadataManager:
         return None
 
 
+    async def _init_async(self, path: str | Path) -> None:
+        self.path = path
+        await self._load_async()
+        return None
+
+
     def _load(self) -> None:
         try:
             with open(self.path, 'r') as f:
@@ -208,9 +214,23 @@ class BaseMetadataManager:
         return None
 
 
+    async def _load_async(self) -> None:
+        try:
+            async with aiofiles.open(self.path, 'r') as f:
+                self.data = json.loads(await f.read())
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.data = {}
+
+
     def reload(self) -> None:
         """Reload metadata from disk."""
         self._load()
+        return None
+
+
+    async def reload_async(self) -> None:
+        """Reload metadata from disk."""
+        await self._load_async()
         return None
 
 
@@ -218,6 +238,11 @@ class BaseMetadataManager:
         with open(self.path, 'w') as f:
             json.dump(self.data, f, indent=4)
         return None
+
+
+    async def save_async(self) -> None:
+        async with aiofiles.open(self.path, 'w', encoding="utf-8") as f:
+            await f.write(json.dumps(self.data, indent=4))
 
 
     @staticmethod
@@ -281,6 +306,18 @@ class BaseMetadataManager:
         if self.auto_save:
             self.save()
         return None
+
+
+    async def delete_async(self, key: str) -> None:
+        keys = self._resolve_nested(key)
+        data = self.data
+        for k in keys[:-1]:
+            if k not in data or not isinstance(data[k], dict):
+                return
+            data = data[k]
+        data.pop(keys[-1], None)
+        if self.auto_save:
+            await self.save_async()
 
 
 
@@ -564,6 +601,15 @@ class TRPToolbox(BaseModel):
             return json.load(TRPs)
 
 
+    @alru_cache()
+    async def get_global_trp_data_async(self):
+        """
+        Asynchronously returns json data about all TRPs (downloaded previously)
+        """
+        async with aiofiles.open(self.trp_metadata_manager.get(key="common.traffic_registration_points_file"),"r", encoding="utf-8") as TRPs:
+            return json.loads(await TRPs.read())
+
+
     #TODO EVALUATE A POSSIBLE CACHING OF THESE AS WELL. BUT KEEP IN MIND POTENTIAL CHANGES DUE TO RE-DOWNLOAD OF TRPS DURING THE SAME EXECUTION OF THE CODE
     def get_trp_ids(self) -> list[str]:
         with open(self.get(key="common" + GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value), "r", encoding="utf-8") as f:
@@ -759,13 +805,7 @@ async def get_active_ops_async() -> str:
 
 
 
-@alru_cache()
-async def import_TRPs_data_async():
-    """
-    Asynchronously returns json data about all TRPs (downloaded previously)
-    """
-    async with aiofiles.open(await read_metainfo_key_async(keys_map=["common", "traffic_registration_points_file"]), "r", encoding="utf-8") as TRPs:
-        return json.loads(await TRPs.read())
+
 
 
 
