@@ -68,6 +68,9 @@ class GlobalDefinitions(Enum):
     DT_ISO = "%Y-%m-%dT%H:%M:%S.%fZ"
     DT_FORMAT = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
 
+    CLEAN_VOLUME_FILENAME_ENDING= "_volume_C"
+    CLEAN_MEAN_SPEED_FILENAME_ENDING= "_mean_speed_C"
+
 
 
 class GeneralPurposeToolbox(BaseModel):
@@ -553,11 +556,12 @@ class TRPToolbox(BaseModel):
             return list(json.load(f).keys())
 
 
-    def get_trp_ids_by_road_category(self, target: Literal["volume", "mean_speed"]) -> dict[str, list[str]] | None:
+    def get_trp_ids_by_road_category(self, target: str) -> dict[str, list[str]] | None:
+
+        #TODO ADD check_target() HERE
+
         road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in self.get_global_trp_data().values())
-
         clean_data_folder = self.trp_metadata_manager.get(key="folder_paths.data." + target + ".subfolders.clean.path")
-
         check = "has_" + target
         data = "_volumes_C.csv" if target == GlobalDefinitions.TARGET_DATA.value["V"] else "_speeds_C.csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
 

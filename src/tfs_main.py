@@ -136,21 +136,21 @@ def set_forecasting_options(functionality: str) -> None:
 
 
 def execute_eda() -> None:
-    trp_data = import_TRPs_data()
+    trp_data = trp_toolbox.get_global_trp_data()
     clean_volumes_folder = read_metainfo_key(keys_map=["folder_paths", "data", "traffic_volumes", "subfolders", "clean", "path"])
     clean_speeds_folder = read_metainfo_key(keys_map=["folder_paths", "data", "average_speed", "subfolders", "clean", "path"])
 
-    for v in (trp_id for trp_id in trp_data.keys() if get_trp_metadata(trp_id=trp_id)["checks", "has_volumes"]):
-        volumes = pd.read_csv(clean_volumes_folder + v + "_volumes_C.csv")
+    for v in (trp_id for trp_id in trp_data.keys() if trp_metadata_manager.get_trp_metadata(trp_id=trp_id)["checks", "has_volumes"]):
+        volumes = pd.read_csv(clean_volumes_folder + v + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv")
         analyze_volumes(volumes)
         volumes_data_multicollinearity_test(volumes)
 
-    for s in (trp_id for trp_id in trp_data.keys() if get_trp_metadata(trp_id=trp_id)["checks", "has_speeds"]):
-        speeds = pd.read_csv(clean_speeds_folder + s + "_speeds_C.csv")
+    for s in (trp_id for trp_id in trp_data.keys() if trp_metadata_manager.get_trp_metadata(trp_id=trp_id)["checks", "has_speeds"]):
+        speeds = pd.read_csv(clean_speeds_folder + s + GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv")
         analyze_avg_speeds(speeds)
         avg_speeds_data_multicollinearity_test(speeds)
 
-    volumes_speeds = (vs for vs in (trp_id for trp_id in trp_data.keys() if trp_data[trp_id]["checks"]["has_volumes"] and trp_data[trp_id]["checks"]["has_speeds"]))
+    volumes_speeds = (vs for vs in (trp_id for trp_id in trp_data.keys() if trp_data[trp_id]["checks"]["has_" + GlobalDefinitions.TARGET_DATA.value["V"]] and trp_data[trp_id]["checks"]["has_" + GlobalDefinitions.TARGET_DATA.value["MS"]]))
     # Determining the TRPs which have both traffic volumes and speed data
 
     print("\n\n")
@@ -167,13 +167,13 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 
-        preprocessor = TFSPreprocessor(data=merge(files), road_category=road_category, client=client)
+        preprocessor = TFSPreprocessor(data=gp_toolbox.merge(files), road_category=road_category, client=client)
         print(f"Shape of the merged data for road category {road_category}: ", preprocessor.shape)
 
-        if target == target_data["V"]:
-            return split_data(preprocessor.preprocess_volumes(), target=target, mode=0)
-        elif target == target_data["AS"]:
-            return split_data(preprocessor.preprocess_speeds(), target=target, mode=0)
+        if target == GlobalDefinitions.TARGET_DATA.value["V"]:
+            return gp_toolbox.split_data(preprocessor.preprocess_volumes(), target=target, mode=0)
+        elif target == GlobalDefinitions.TARGET_DATA.value["MS"]:
+            return gp_toolbox.split_data(preprocessor.preprocess_speeds(), target=target, mode=0)
         else:
             raise TargetVariableNotFoundError("Wrong target variable imputed")
 
@@ -202,7 +202,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
 
     def process_functionality(target: str, function: callable) -> None:
-        for road_category, files in get_trp_ids_by_road_category(target=target).items():
+        for road_category, files in trp_toolbox.get_trp_ids_by_road_category(target=target).items():
             X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
             for model in models:
 
@@ -212,7 +212,7 @@ def execute_forecast_warmup(functionality: str) -> None:
                 else:
                     params = model_definitions["auxiliary_parameters"].get(model.__name__, {})
 
-                learner = TFSLearner(model=model(**params), road_category=road_category, target=cast(Literal["traffic_volumes", "average_speed"], target), client=client)
+                learner = TFSLearner(model=model(**params), road_category=road_category, target=cast(Literal["V", "MS"], target), client=client)
                 function(X_train if function.__name__ in ["execute_gridsearch", "execute_training"] else X_test,
                          y_train if function.__name__ in ["execute_gridsearch", "execute_training"] else y_test,
                          learner)
