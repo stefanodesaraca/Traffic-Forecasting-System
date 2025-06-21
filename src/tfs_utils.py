@@ -531,7 +531,7 @@ class TRPToolbox(BaseModel):
             return json.load(TRPs)
 
 
-    #TODO EVALUATE A POSSIBLE CHACHING OF THESE AS WELL. BUT KEEP IN MIND POTENTIAL CHANGES DUE TO RE-DOWNLOAD OF TRPS DURING THE SAME EXECUTION OF THE CODE
+    #TODO EVALUATE A POSSIBLE CACHING OF THESE AS WELL. BUT KEEP IN MIND POTENTIAL CHANGES DUE TO RE-DOWNLOAD OF TRPS DURING THE SAME EXECUTION OF THE CODE
     def get_trp_ids(self) -> list[str]:
         with open(self.get(key="common" + GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value), "r", encoding="utf-8") as f:
             return list(json.load(f).keys())
@@ -644,6 +644,20 @@ class ForecastingToolbox(BaseModel):
                 raise ValueError("Wrong target data option, try again")
 
 
+    def get_forecasting_target_datetime(self, target: str) -> datetime:
+        try:
+            return datetime.strptime(self.project_metadata_manager.get(key="forecasting.target_datetimes" + target), GlobalDefinitions.DT_FORMAT.value)
+        except TypeError:
+            raise Exception(f"\033[91mTarget datetime for {target} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
+
+
+    def reset_forecasting_target_datetime(self) -> None:
+        try:
+            self.project_metadata_manager.set(value=None, key="forecasting.target_datetimes" + input("Press V to reset forecasting target datetime for traffic volumes or MS for average speeds:"), mode="e")
+            print("Target datetime reset successfully\n\n")
+            return None
+        except KeyError:
+            raise KeyError("Target datetime not found")
 
 
 
@@ -652,12 +666,8 @@ class ForecastingToolbox(BaseModel):
 
 
 
-
-
-
-def update_trp_metadata(trp_id: str, value: Any, metadata_keys_map: list[str], mode: str) -> None:
-    modes = ["equals", "append"]
-    metadata_filepath = read_metainfo_key(keys_map=["folder_paths", "data", "trp_metadata", "path"]) + trp_id + "_metadata.json"
+def update_trp_metadata(trp_id: str, value: Any, mode: Literal["e", "a"]) -> None:
+    metadata_filepath = self.trp_metadata_manager.set(value=value, key="folder_paths.data.trp_metadata.path" + trp_id + "_metadata.json", mode=mode)
     return None
 
 
@@ -805,53 +815,5 @@ def get_models_parameters_folder_path(target: Literal["traffic_volumes", "averag
         "traffic_volumes": read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", "traffic_volumes", "subfolders", road_category, "path"]),
         "average_speed": read_metainfo_key(keys_map=["folder_paths", "ml", "models_parameters", "subfolders", "average_speed", "subfolders", road_category, "path"])
     }[target]
-
-
-# ==================== Forecasting Settings Utilities ====================
-
-
-
-def read_forecasting_target_datetime(target: str) -> datetime:
-    try:
-        return datetime.strptime(read_metainfo_key(key="forecasting.target_datetimes" + target), GlobalDefinitions.DT_FORMAT.value)
-    except TypeError:
-        raise Exception(f"\033[91mTarget datetime for {target} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
-
-
-def reset_forecasting_target_datetime() -> None:
-    try:
-        print("For which data kind do you want to remove the forecasting target datetime?")
-        update_metainfo(None, ["forecasting", "target_datetimes", input("Press V to reset forecasting target datetime for traffic volumes or AS for average speeds:")], mode="equals")
-        print("Target datetime reset successfully\n\n")
-        return None
-    except KeyError:
-        print("\033[91mTarget datetime not found\033[0m")
-        sys.exit(1)
-
-
-# ==================== Average Speeds Settings Utilities ====================
-
-
-def get_speeds_dates(trp_ids: list[str] | Generator[str, None, None]) -> tuple[str, str]:
-    """
-    Extracts and returns the date of the first and last data available from all average speed files.
-    Uses a generator of tuples internally so a generator of TRP IDs would be better to maximize performances.
-
-    Parameters:
-        trp_ids: a list or a generator of strings which represent IDs of each traffic registration point available
-
-    Returns:
-        tuple[str, str] <- The date of the first data available in first position and the one of the latest data available in second position
-    """
-    dt_start, dt_end = zip(*(
-        (data["data_info"]["speeds"]["start_date"], data["data_info"]["speeds"]["end_date"])
-        for trp_id in trp_ids
-        if (data := get_trp_metadata(trp_id=trp_id))["checks"]["has_speeds"]
-    ), strict=True)
-    return min(dt_start), max(dt_end)
-
-
-
-
 
 
