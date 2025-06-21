@@ -71,6 +71,9 @@ class GlobalDefinitions(Enum):
     CLEAN_VOLUME_FILENAME_ENDING= "_volume_C"
     CLEAN_MEAN_SPEED_FILENAME_ENDING= "_mean_speed_C"
 
+    HAS_VOLUME_CHECK = "has_volume"
+    HAS_MEAN_SPEED_CHECK = "has_mean_speed"
+
 
 
 class GeneralPurposeToolbox(BaseModel):
@@ -299,7 +302,7 @@ class TRPMetadataManager(BaseMetadataManager):
         Returns:
              None
         """
-        default_settings = {"raw_volumes_file": None, "has_volume": False, "has_mean_speed": False, "trp_data": None}
+        default_settings = {"raw_volumes_file": None, GlobalDefinitions.HAS_VOLUME_CHECK.value: False, GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value: False, "trp_data": None}
         tracking = {**default_settings, **kwargs}  # Overriding default settings with kwargs
         metadata = {
             "id": trp_id,
@@ -315,8 +318,8 @@ class TRPMetadataManager(BaseMetadataManager):
                 }
             },
             "checks": {
-                "has_volume": tracking["has_volume"],
-                "has_mean_speed": tracking["has_mean_speed"]
+                GlobalDefinitions.HAS_VOLUME_CHECK.value: tracking[GlobalDefinitions.HAS_VOLUME_CHECK.value],
+                GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value: tracking[GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]
             },
             "data_info": {
                 "volume": {
@@ -563,7 +566,7 @@ class TRPToolbox(BaseModel):
         road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in self.get_global_trp_data().values())
         clean_data_folder = self.trp_metadata_manager.get(key="folder_paths.data." + target + ".subfolders.clean.path")
         check = "has_" + target
-        data = "_volumes_C.csv" if target == GlobalDefinitions.TARGET_DATA.value["V"] else "_speeds_C.csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
+        data = GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv" if target == GlobalDefinitions.TARGET_DATA.value["V"] else GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
 
         return {k: d for k, d in {
             category: [clean_data_folder + trp_id + data for trp_id in
@@ -611,7 +614,7 @@ class ForecastingToolbox(BaseModel):
         dt_start, dt_end = zip(*(
             (data["data_info"]["speeds"]["start_date"], data["data_info"]["speeds"]["end_date"])
             for trp_id in trp_ids
-            if (data := self.trp_metadata_manager.get_trp_metadata(trp_id=trp_id))["checks"]["has_speeds"]
+            if (data := self.trp_metadata_manager.get_trp_metadata(trp_id=trp_id))["checks"][GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]
         ), strict=True)
         return min(dt_start), max(dt_end)
 

@@ -240,44 +240,42 @@ def execute_forecast_warmup(functionality: str) -> None:
 
 
 def execute_forecasting(functionality: str) -> None:
-    check_metainfo()
 
     print("Which kind of data would you like to forecast?")
     print("V: Volumes | AS: Average Speeds")
     option = input("Choice: ").upper()
 
-    if option not in ["V", "AS"]:
-        print("Invalid option, returning to main menu")
-        return
+    if option not in GlobalDefinitions.TARGET_DATA.value.keys():
+        raise TargetDataNotAvailableError("Invalid target variable")
 
     if functionality == "3.3.1":
 
         with dask_cluster_client(processes=False) as client:
-            trp_ids = get_trp_ids()
+            trp_ids = trp_toolbox.get_trp_ids()
             print("TRP IDs: ", trp_ids)
             trp_id = input("Insert TRP ID for forecasting: ")
 
             if trp_id not in trp_ids:
                 raise TRPNotFoundError("TRP ID not in available TRP IDs list")
 
-            trp_metadata = get_trp_metadata(trp_id)
+            trp_metadata = trp_metadata_manager.get_trp_metadata(trp_id)
 
-            if not trp_metadata["checks"]["has_volumes" if option == "V" else "has_speeds"]:
+            if not trp_metadata["checks"][GlobalDefinitions.HAS_VOLUME_CHECK.value if option == "V" else GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]:
                 raise TargetDataNotAvailableError(f"Target data not available for TRP: {trp_id}")
 
             trp_road_category = trp_metadata["trp_data"]["location"]["roadReference"]["roadCategory"]["id"]
             print("\nTRP road category: ", trp_road_category)
 
-            forecaster = OnePointForecaster(trp_id=trp_id, road_category=trp_road_category, target=target_data[option], client=client)
-            future_records = forecaster.get_future_records(target_datetime=read_forecasting_target_datetime(target=target_data)) #Already preprocessed
+            forecaster = OnePointForecaster(trp_id=trp_id, road_category=trp_road_category, target=GlobalDefinitions.TARGET_DATA.value[option], client=client)
+            future_records = forecaster.get_future_records(target_datetime=forecasting_toolbox.get_forecasting_target_datetime(target=target_data)) #Already preprocessed
 
             #TODO TEST training_mode = BOTH 0 AND 1
             model_training_dataset = forecaster.get_training_records(training_mode=0, limit=future_records.shape[0].compute() * 24)
-            X, y = split_data(model_training_dataset, target=target_data, mode=1)
+            X, y = gp_toolbox.split_data(model_training_dataset, target=target_data, mode=1)
 
             for name, model in model_definitions["class_instances"].items():
 
-                with open(get_models_parameters_folder_path(target_data[option], trp_road_category) + get_active_ops() + "_" + trp_road_category + "_" + name + "_parameters.json", "r") as params_reader:
+                with open(dm.get_models_parameters_folder_path(target_data[option], trp_road_category) + dm.get_current_project() + "_" + trp_road_category + "_" + name + "_parameters.json", "r") as params_reader:
                     best_params = json.load(params_reader)[name] # Attributes which aren't included in the gridsearch grid are already included in best_params since they were first gathered together and then exported
 
                 learner = TFSLearner(model=model(**best_params), road_category=trp_road_category, target=target_data[option], client=client)
@@ -290,11 +288,10 @@ def execute_forecasting(functionality: str) -> None:
 
 def manage_road_network(functionality: str) -> None:
     if functionality == "4.1":
-        pass  # TODO TO DEVELOP
+        ...
 
-    elif functionality == "4.2":  # TODO TESTING FOR NOW
-        retrieve_edges()
-        retrieve_arches()
+    elif functionality == "4.2":
+        ...
 
     return None
 
