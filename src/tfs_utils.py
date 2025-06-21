@@ -23,7 +23,7 @@ import dask.distributed
 from dask.distributed import Client, LocalCluster
 
 from tfs_exceptions import *
-from _utils import definitions
+from utils import definitions
 
 
 pd.set_option("display.max_columns", None)
@@ -73,6 +73,9 @@ class GlobalDefinitions(Enum):
 
     HAS_VOLUME_CHECK = "has_volume"
     HAS_MEAN_SPEED_CHECK = "has_mean_speed"
+
+    VOLUME = "volume"
+    MEAN_SPEED = "mean_speed"
 
 
 
@@ -444,7 +447,7 @@ class DirectoryManager(BaseModel):
                 **{sub: {
                         "raw": {},
                         "clean": {}
-                    } for sub in ("volume", "mean_speed", "travel_times")
+                    } for sub in (GlobalDefinitions.VOLUME.value, GlobalDefinitions.MEAN_SPEED.value, "travel_times")
                 },
                 "trp_metadata": {}
                 # No subfolders
@@ -452,8 +455,8 @@ class DirectoryManager(BaseModel):
             "eda": {
                 "shapiro_wilk_test": {},
                 "plots": {
-                    "volume": {},
-                    "avg_speeds": {}
+                    GlobalDefinitions.VOLUME.value: {},
+                    GlobalDefinitions.MEAN_SPEED.value: {}
                 }
             },
             "rn_graph": {

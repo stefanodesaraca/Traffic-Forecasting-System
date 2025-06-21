@@ -1,6 +1,5 @@
 import pandas as pd
 import dask.dataframe as dd
-import tfs_cleaning
 import numpy as np
 from numpy.linalg import eigvals
 import json
@@ -19,6 +18,14 @@ from typing import Any
 from tfs_cleaning import *
 
 tab10 = sns.color_palette("tab10")
+
+
+global_metadata_manager = GlobalMetadataManager()
+project_metadata_manager = ProjectMetadataManager()
+
+gp_toolbox = GeneralPurposeToolbox()
+
+dm = DirectoryManager(project_dir=, gp_toolbox=gp_toolbox, global_metadata_manager=global_metadata_manager, project_metadata_manager=project_metadata_manager)
 
 
 def savePlots(plotFunction):
@@ -169,7 +176,7 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
             year_data = volumes[volumes["year"] == y].groupby("date", as_index=False)["volume"].sum().sort_values(by="date", ascending=True)
             # print(year_data)
             plt.plot(range(0, len(year_data)), "volume", data=year_data, marker="o")  # To make the plots overlap they must have the same exact data on the x axis.
-            # In this case for example they must have the same days number on the x axis so that matplotlib know where to plot the data and thus, this can overlap too if if has the same x axis value
+            # In this case for example they must have the same days number on the x-axis so that matplotlib know where to plot the data and thus, this can overlap too if if has the same x axis value
 
         plt.grid()
         plt.ylabel("Volume")
@@ -177,7 +184,7 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
         plt.title(f"Traffic volumes aggregated (sum) by day for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_volume_trend_grouped_by_years", plt, read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "subfolders", "traffic_volumes", "path"])
+        return f"{trp_id}_volume_trend_grouped_by_years", plt, read_metainfo_key(keys_map=["folder_paths", "eda", "plots", "subfolders", GlobalDefinitions.VOLUME.value, "path"])
 
     @savePlots
     def volume_trend_by_week():
@@ -195,7 +202,7 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
         plt.title(f"Traffic volumes aggregated (median) by week for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_volume_trend_by_hour_day", plt, read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "subfolders", "traffic_volumes", "path"])
+        return f"{trp_id}_volume_trend_by_hour_day", plt, read_metainfo_key(keys_map=["folder_paths", "eda", "plots", "subfolders", GlobalDefinitions.VOLUME.value, "path"])
 
     @savePlots
     def volumes_distribution_by_week_and_year():
@@ -215,13 +222,13 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
 
         plt.subplots_adjust(hspace=0.5)
 
-        return f"{trp_id}_volumes_distribution_by_week_and_year", plt, read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "subfolders", "traffic_volumes", "path"])
+        return f"{trp_id}_volumes_distribution_by_week_and_year", plt, read_metainfo_key(keys_map=["folder_paths", "eda", "plots", "subfolders", GlobalDefinitions.VOLUME.value, "path"])
 
     @savePlots
     def correlation_heatmap():
         return (f"{trp_id}_volumes_corr_heatmap",
                 sns.heatmap(volumes.corr(numeric_only=True), annot=True, fmt=".2f").set_title(f"Traffic volumes - TRP: {trp_id} - Correlation heatmap"),
-                read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "traffic_volumes_eda_plots", "path"]))
+                read_metainfo_key(keys_map=["folder_paths", "eda", "plots", "eda_plots", GlobalDefinitions.VOLUME.value, "path"]))
 
     all((i(), plt.clf()) for i in (volume_trend_grouped_by_years, volume_trend_by_week, volumes_distribution_by_week_and_year, correlation_heatmap))
 
@@ -322,7 +329,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
         plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
         plt.title(f"Average speeds aggregated by day for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_avg_speeds_trend_grouped_by_years", plt, read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "subfolders", "avg_speeds", "path"])
+        return f"{trp_id}_avg_speeds_trend_grouped_by_years", plt, read_metainfo_key(keys_map=["folder_paths", "eda", "plots", "subfolders", GlobalDefinitions.MEAN_SPEED.value, "path"])
 
     @savePlots
     def speeds_trend_by_week():
@@ -339,7 +346,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
         plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
         plt.title(f"Median of the average speeds by week for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_avg_speed_trend_by_hour_day", plt, read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "subfolders", "avg_speeds", "path"])
+        return f"{trp_id}_avg_speed_trend_by_hour_day", plt, read_metainfo_key(keys_map=["folder_paths", "eda", "plots", "subfolders", GlobalDefinitions.MEAN_SPEED.value, "path"])
 
     @savePlots
     def speeds_distribution_by_week_and_year():
@@ -359,13 +366,13 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
 
         plt.subplots_adjust(hspace=0.5)
 
-        return f"{trp_id}_avg_speed_distribution_by_week_and_year", plt, read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "subfolders", "avg_speeds", "path"])
+        return f"{trp_id}_avg_speed_distribution_by_week_and_year", plt, read_metainfo_key(keys_map=["folder_paths", "eda", "plots", "subfolders", GlobalDefinitions.MEAN_SPEED.value, "path"])
 
     @savePlots
     def correlation_heatmap():
         return (f"{trp_id}_avg_speed_corr_heatmap",
                 sns.heatmap(speeds.corr(numeric_only=True), annot=True, fmt=".2f").set_title(f"Traffic volumes - TRP: {trp_id} - Correlation heatmap"),
-                read_metainfo_key(keys_map=["folder_paths", "eda", f"{get_active_ops()}_plots", "avg_speeds_eda_plots"]))
+                read_metainfo_key(keys_map=["folder_paths", "eda", "plots", "eda_plots", GlobalDefinitions.MEAN_SPEED.value, "path"]))
 
     all((i(), plt.clf()) for i in (speeds_trend_grouped_by_years, speeds_trend_by_week, speeds_distribution_by_week_and_year, correlation_heatmap))
 

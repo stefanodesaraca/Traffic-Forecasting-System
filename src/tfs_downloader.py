@@ -13,6 +13,8 @@ from tfs_utils import *
 
 simplefilter("ignore")
 
+trp_metadata_manager = TRPMetadataManager()
+trp_toolbox = TRPToolbox(trp_metadata_manager=trp_metadata_manager)
 
 # --------------------------------- GraphQL Client Start ---------------------------------
 
@@ -249,7 +251,7 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
         async with aiofiles.open(await asyncio.to_thread(read_metainfo_key, ["folder_paths", "data", "traffic_volumes", "subfolders", "raw", "path"]) + f"{trp_id}_volumes.json", "w") as f:
             await f.write(json.dumps(await download_trp_data(trp_id), indent=4))
 
-        write_trp_metadata(trp_id=trp_id, **{"raw_volumes_file":f"{trp_id}_volumes.json"}) # Writing TRP's empty metadata file
+        trp_metadata_manager.write_trp_metadata(trp_id=trp_id, **{"raw_volumes_file":f"{trp_id}_volumes.json"}) # Writing TRP's empty metadata file
         await update_trp_metadata_async(trp_id=trp_id, value=(await import_TRPs_data_async())[trp_id], metadata_keys_map=["trp_data"], mode="equals")
 
     async def limited_task(trp_id):
@@ -257,7 +259,7 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
             return await process_trp(trp_id)
 
     # Run all downloads in parallel with a maximum of 5 processes at the same time
-    await asyncio.gather(*(limited_task(trp_id) for trp_id in import_TRPs_data().keys())) # import_TRPs_data().keys() collects all TRP IDs from the traffic_registration_points.json file
+    await asyncio.gather(*(limited_task(trp_id) for trp_id in trp_toolbox.get_global_trp_data().keys())) # import_TRPs_data().keys() collects all TRP IDs from the traffic_registration_points.json file
 
     print("\n\n")
 
