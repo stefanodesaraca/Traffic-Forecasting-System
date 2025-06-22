@@ -687,7 +687,7 @@ class TFSLearner:
         'mean_absolute_error'.
         """
 
-        if self._target not in GlobalDefinitions.TARGET_DATA.value.values():
+        if not gp_toolbox.check_target(self._target):
             raise TargetVariableNotFoundError("Wrong target variable in GridSearchCV executor function")
 
         grid = self._model.grid
@@ -740,10 +740,10 @@ class TFSLearner:
 
 class OnePointForecaster:
 
-    def __init__(self, trp_id: str, road_category: str, target: Literal["traffic_volumes", "average_speed"], client: Client):
+    def __init__(self, trp_id: str, road_category: str, target: str, client: Client):
         self._trp_id: str = trp_id
         self._road_category: str = road_category
-        self._target: Literal["traffic_volumes", "average_speed"] = target
+        self._target: str = target
         self._client: Client = client
 
 

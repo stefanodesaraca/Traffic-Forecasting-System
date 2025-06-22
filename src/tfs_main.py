@@ -245,7 +245,7 @@ def execute_forecasting(functionality: str) -> None:
     print("V: Volumes | AS: Average Speeds")
     option = input("Choice: ").upper()
 
-    if option not in GlobalDefinitions.TARGET_DATA.value.keys():
+    if not gp_toolbox.check_target(option):
         raise TargetDataNotAvailableError("Invalid target variable")
 
     if functionality == "3.3.1":

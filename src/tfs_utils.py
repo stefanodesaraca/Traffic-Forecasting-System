@@ -155,6 +155,13 @@ class GeneralPurposeToolbox(BaseModel):
         return clean(text, no_emoji=True, no_currency_symbols=True).replace(" ", "_").lower()
 
 
+    @staticmethod
+    def check_target(target: str) -> bool:
+        if not target in [GlobalDefinitions.TARGET_DATA.value.keys(), GlobalDefinitions.TARGET_DATA.value.values()]:
+            return False
+        return True
+
+
     @property
     def covid_years(self) -> list[int]:
         return [2020, 2021, 2022]
