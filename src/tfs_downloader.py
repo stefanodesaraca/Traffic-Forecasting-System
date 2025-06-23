@@ -202,7 +202,7 @@ async def traffic_registration_points_to_json() -> None:
     client = await start_client_async()
     TRPs = await fetch_traffic_registration_points(client)
 
-    async with aiofiles.open(read_metainfo_key(keys_map=["common", "traffic_registration_points_file"]), "w") as trps_w:
+    async with aiofiles.open(project_metadata_manager.get(key="common.traffic_registration_points_file"), "w") as trps_w:
         await trps_w.write(json.dumps({data["id"]: data for data in TRPs["trafficRegistrationPoints"]}, indent=4))
     return None
 

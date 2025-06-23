@@ -27,7 +27,7 @@ trp_toolbox = TRPToolbox(trp_metadata_manager=trp_metadata_manager)
 forecasting_toolbox = ForecastingToolbox(gp_toolbox=gp_toolbox, global_metadata_manager=global_metadata_manager, trp_metadata_manager=trp_metadata_manager)
 
 
-dm = DirectoryManager(project_dir=, global_metadata_manager=global_metadata_manager, project_metadata_manager=project_metadata_manager, gp_toolbox=gp_toolbox)
+dm = DirectoryManager(global_projects_dir_name=GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value, global_metadata_manager=global_metadata_manager, project_metadata_manager=project_metadata_manager, gp_toolbox=gp_toolbox)
 
 
 def manage_ops(functionality: str) -> None:

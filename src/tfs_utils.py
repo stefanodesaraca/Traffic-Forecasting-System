@@ -50,7 +50,7 @@ def dask_cluster_client(processes=False):
 
 class GlobalDefinitions(Enum):
     CWD = os.getcwd()
-    GLOBAL_PROJECTS_DIR = "projects"
+    GLOBAL_PROJECTS_DIR_NAME = "projects"
     GLOBAL_PROJECTS_METADATA = "global_metadata.json" # File
     PROJECT_METADATA = "project_metadata.json"
 
@@ -416,7 +416,7 @@ class TRPMetadataManager(BaseMetadataManager):
 
 
 class DirectoryManager(BaseModel):
-    project_dir: str | Path
+    global_projects_dir_name: str
     gp_toolbox: GeneralPurposeToolbox
     global_metadata_manager: GlobalMetadataManager
     project_metadata_manager: ProjectMetadataManager
@@ -430,7 +430,7 @@ class DirectoryManager(BaseModel):
 
     @property
     def global_projects_path(self) -> Path:
-        return Path(self.cwd) / self.project_dir
+        return Path(self.cwd) / self.global_projects_dir_name
 
     @property
     def global_metadata_path(self) -> Path:
@@ -486,15 +486,15 @@ class DirectoryManager(BaseModel):
     # ============ GLOBAL PROJECTS DIRECTORY SECTION ============
 
     def create_global_projects_dir(self) -> None:
-        os.makedirs(self.cwd / GlobalDefinitions.GLOBAL_PROJECTS_DIR.value, exist_ok=True)
+        os.makedirs(self.cwd / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value, exist_ok=True)
 
-        #TODO CREATE GLOBAL METADATA FILE
+        # TODO CREATE GLOBAL METADATA FILE
 
         return None
 
 
     def delete_global_projects_dir(self) -> None:
-        os.rmdir(self.cwd / GlobalDefinitions.GLOBAL_PROJECTS_DIR.value)
+        os.rmdir(self.cwd / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value)
         return None
 
 
@@ -747,6 +747,8 @@ class ForecastingToolbox(BaseModel):
                 raise ValueError("Wrong datetime format, try again")
             elif option not in list(GlobalDefinitions.TARGET_DATA.value.keys()):
                 raise ValueError("Wrong target data option, try again")
+
+        return None
 
 
     def get_forecasting_target_datetime(self, target: str) -> datetime:
