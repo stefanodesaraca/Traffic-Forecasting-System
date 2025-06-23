@@ -181,7 +181,7 @@ class BaseMetadataManager:
     """By using a dictionary of instances, a dictionary of locks and the logic in the __new__ dunder method we make any subclass
        a singleton as well, but with a separated instance that doesn't belong to the father class (BaseMetadataManager) one"""
 
-    def __new__(cls, path: str | Path, *args, **kwargs):
+    def __new__(cls, path: str | Path | None = None, *args, **kwargs):
         if cls in cls._instances:
             return cls._instances[cls]
 
@@ -415,7 +415,38 @@ class TRPMetadataManager(BaseMetadataManager):
 
 
 
-class DirectoryManager(BaseModel):
+class GlobalDirectoryManager(BaseModel):
+
+
+    @property
+    def global_metadata_filepath(self) -> Path:
+        return Path(self.global_projects_path / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value)
+
+
+    # ============ GLOBAL PROJECTS DIRECTORY SECTION ============
+
+    def create_global_projects_dir(self) -> None:
+        os.makedirs(self.cwd / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value, exist_ok=True)
+        self._write_global_projects_metadata()
+        return None
+
+
+    def delete_global_projects_dir(self) -> None:
+        os.rmdir(self.cwd / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value)
+        return None
+
+
+    def _write_global_projects_metadata(self) -> None:
+        with open(Path(self.global_projects_path / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value), "w", encoding="utf-8") as gm:
+            json.dump({
+                "current_project": None,
+                "lang": "en"
+            }, gm, indent=4)
+        return None
+
+
+
+class ProjectDirectoryManager(BaseModel):
     global_projects_dir_name: str
     gp_toolbox: GeneralPurposeToolbox
     global_metadata_manager: GlobalMetadataManager
@@ -480,21 +511,6 @@ class DirectoryManager(BaseModel):
 
     def reset_current_project(self) -> None:
         self.global_metadata_manager.set(value=None, key="common.current_project", mode="e")
-        return None
-
-
-    # ============ GLOBAL PROJECTS DIRECTORY SECTION ============
-
-    def create_global_projects_dir(self) -> None:
-        os.makedirs(self.cwd / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value, exist_ok=True)
-
-        # TODO CREATE GLOBAL METADATA FILE
-
-        return None
-
-
-    def delete_global_projects_dir(self) -> None:
-        os.rmdir(self.cwd / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value)
         return None
 
 

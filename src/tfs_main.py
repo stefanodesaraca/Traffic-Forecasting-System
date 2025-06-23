@@ -18,36 +18,39 @@ from tfs_road_network import *
 from tfs_ml_configs import *
 
 
-global_metadata_manager = GlobalMetadataManager()
-project_metadata_manager = ProjectMetadataManager()
-trp_metadata_manager = TRPMetadataManager()
+gdm = GlobalDirectoryManager()
+
+
+global_metadata_manager = GlobalMetadataManager(path=gdm.global_metadata_filepath)
+project_metadata_manager = ProjectMetadataManager(path=)
+trp_metadata_manager = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManager
 
 gp_toolbox = GeneralPurposeToolbox()
 trp_toolbox = TRPToolbox(trp_metadata_manager=trp_metadata_manager)
 forecasting_toolbox = ForecastingToolbox(gp_toolbox=gp_toolbox, global_metadata_manager=global_metadata_manager, trp_metadata_manager=trp_metadata_manager)
 
 
-dm = DirectoryManager(global_projects_dir_name=GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value, global_metadata_manager=global_metadata_manager, project_metadata_manager=project_metadata_manager, gp_toolbox=gp_toolbox)
+pdm = ProjectDirectoryManager(global_projects_dir_name=GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value, global_metadata_manager=global_metadata_manager, project_metadata_manager=project_metadata_manager, gp_toolbox=gp_toolbox)
 
 
 def manage_ops(functionality: str) -> None:
     if functionality == "1.1":
         project_name = input("Insert new project name: ")
-        dm.create_project(project_name)
+        pdm.create_project(project_name)
 
     elif functionality == "1.2":
         project_name = input("Insert the operation to set as active: ")
-        dm.set_current_project(project_name)
+        pdm.set_current_project(project_name)
 
     elif functionality == "1.3":
-        print("Current project: ", dm.get_current_project(), "\n\n")
+        print("Current project: ", pdm.get_current_project(), "\n\n")
 
     elif functionality == "1.4":
-        dm.reset_current_project()
+        pdm.reset_current_project()
 
     elif functionality == "1.5":
         project_name = (input("Insert the name of the project to delete: "))
-        dm.del_project(project_name)
+        pdm.del_project(project_name)
 
     else:
         print("\033[91mFunctionality not found, try again with a correct one\033[0m")
@@ -137,8 +140,8 @@ def set_forecasting_options(functionality: str) -> None:
 
 def execute_eda() -> None:
     trp_data = trp_toolbox.get_global_trp_data()
-    clean_volumes_folder = dm.project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.clean.path")
-    clean_speeds_folder = dm.project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path")
+    clean_volumes_folder = pdm.project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.clean.path")
+    clean_speeds_folder = pdm.project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path")
 
     for v in (trp_id for trp_id in trp_data.keys() if trp_metadata_manager.get_trp_metadata(trp_id=trp_id)["checks", GlobalDefinitions.HAS_VOLUME_CHECK.value]):
         volumes = pd.read_csv(clean_volumes_folder + v + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv")
@@ -207,7 +210,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             for model in models:
 
                 if function.__name__ != "execute_gridsearch":
-                    with open(project_metadata_manager.get(key="folder_paths.ml.models_parameters.subfolders." + target + ".subfolders." + road_category + ".path") + dm.get_current_project() + "_" + road_category + "_" + model.__name__ + "_parameters.json", "r", encoding="utf-8") as params_reader:
+                    with open(project_metadata_manager.get(key="folder_paths.ml.models_parameters.subfolders." + target + ".subfolders." + road_category + ".path") + pdm.get_current_project() + "_" + road_category + "_" + model.__name__ + "_parameters.json", "r", encoding="utf-8") as params_reader:
                         params = json.load(params_reader)[model.__name__]
                 else:
                     params = model_definitions["auxiliary_parameters"].get(model.__name__, {})
@@ -275,7 +278,7 @@ def execute_forecasting(functionality: str) -> None:
 
             for name, model in model_definitions["class_instances"].items():
 
-                with open(dm.get_models_parameters_folder_path(GlobalDefinitions.TARGET_DATA.value[option], trp_road_category) + dm.get_current_project() + "_" + trp_road_category + "_" + name + "_parameters.json", "r") as params_reader:
+                with open(pdm.get_models_parameters_folder_path(GlobalDefinitions.TARGET_DATA.value[option], trp_road_category) + pdm.get_current_project() + "_" + trp_road_category + "_" + name + "_parameters.json", "r") as params_reader:
                     best_params = json.load(params_reader)[name] # Attributes which aren't included in the gridsearch grid are already included in best_params since they were first gathered together and then exported
 
                 learner = TFSLearner(model=model(**best_params), road_category=trp_road_category, target=GlobalDefinitions.TARGET_DATA.value[option], client=client)
