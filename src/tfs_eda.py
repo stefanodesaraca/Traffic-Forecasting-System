@@ -20,7 +20,7 @@ from tfs_cleaning import *
 tab10 = sns.color_palette("tab10")
 
 
-global_metadata_manager = GlobalMetadataManager()
+global_metadata_manager = ProjectHubMetadataManager()
 project_metadata_manager = ProjectMetadataManager()
 
 gp_toolbox = GeneralPurposeToolbox()

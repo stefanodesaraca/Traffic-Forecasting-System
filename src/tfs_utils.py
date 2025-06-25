@@ -254,28 +254,7 @@ class BaseMetadataManager:
 
 
 
-class GlobalMetadataManager(BaseMetadataManager):
-
-
-    def set_current_project(self, name: str) -> None:
-        self.set(value=name, key="current_project", mode="e")
-        return None
-
-
-    @lru_cache()
-    def get_current_project(self, errors: bool = True) -> str | None:
-        current_project = self.get(key="current_project")
-        if errors and not current_project:
-            raise ValueError("Current project not set")
-        elif not errors and not current_project:
-            print("\033[91mCurrent project not set\033[0m")
-            return None
-        return current_project
-
-
-    def reset_current_project(self) -> None:
-        self.set(value=None, key="current_project", mode="e")
-        return None
+class ProjectHubMetadataManager(BaseMetadataManager):
 
 
 
@@ -300,7 +279,9 @@ class TRPMetadataManager(BaseMetadataManager):
         """
         default_settings = {"raw_volumes_file": None, GlobalDefinitions.HAS_VOLUME_CHECK.value: False, GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value: False, "trp_data": None}
         tracking = {**default_settings, **kwargs}  # Overriding default settings with kwargs
-        metadata = {
+
+        with open(self.get(key="folder_paths.data.trp_metadata.path" + trp_id + "_metadata.json"), "w", encoding="utf-8") as metadata_writer:
+            json.dump({
             "id": trp_id,
             "trp_data": tracking["trp_data"],
             "files": {
@@ -327,10 +308,7 @@ class TRPMetadataManager(BaseMetadataManager):
                     "end_date": None
                 }
             }
-        }
-
-        with open(self.get(key="folder_paths.data.trp_metadata.path" + trp_id + "_metadata.json"), "w", encoding="utf-8") as metadata_writer:
-            json.dump(metadata, metadata_writer, indent=4)
+        }, metadata_writer, indent=4)
 
         return None
 
@@ -349,9 +327,15 @@ class ProjectHub(BaseModel):
     def hub(self) -> Path:
         return Path.cwd() / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value
 
+
+    @property
+    def _metadata_manager(self):
+        return ProjectHubMetadataManager(self.hub / "metadata.json")
+
+
     @property
     def metadata(self) -> dict["str", Any]:
-        with open(self.hub / "metadata,json", "r", encoding="utf-8") as m:
+        with open(self._metadata_manager.get(key="metadata"), "r", encoding="utf-8") as m:
             return json.load(m)
 
 
@@ -369,21 +353,44 @@ class ProjectHub(BaseModel):
     def _write_hub_metadata(self) -> None:
         with open(self.hub / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value, "w", encoding="utf-8") as gm:
             json.dump({
-                "current_project": None,
-                "lang": "en"
+                "metadata": {
+                    "current_project": None,
+                    "lang": "en"
+                }
             }, gm, indent=4)
+        return None
+
+
+    def set_current_project(self, name: str) -> None:
+        self._metadata_manager.set(value=name, key="current_project", mode="e")
+        return None
+
+
+    @lru_cache()
+    def get_current_project(self, errors: bool = True) -> str | None:
+        current_project = self._metadata_manager.get(key="metadata.current_project")
+        if errors and not current_project:
+            raise ValueError("Current project not set")
+        elif not errors and not current_project:
+            print("\033[91mCurrent project not set\033[0m")
+            return None
+        return current_project
+
+
+    def reset_current_project(self) -> None:
+        self._metadata_manager.set(value=None, key="current_project", mode="e")
         return None
 
 
 
 class ProjectManager(BaseModel):
-    gdm: ProjectHub
+    hub: ProjectHub
     pmm: ProjectMetadataManager
 
 
     @property
     def traffic_registration_points_file_path(self) -> Path:
-        return self.gdm.current_project_dir / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
+        return self.hub.current_project_dir / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
 
 
     #TODO IMPROVE AND TRY GENERALIZE OR TO REPLACE ENTIRELY
@@ -402,10 +409,10 @@ class ProjectManager(BaseModel):
         }[target]
 
 
-    def create_project(self, name: str):
+    def create(self, name: str):
 
         #Creating the project's directory
-        os.makedirs(self.global_projects_path / name, exist_ok=True)
+        os.makedirs(self.hub.hub / name, exist_ok=True)
 
         self._write_project_metadata(project_dir_name=name)  #Creating the project's metadata file
 
@@ -474,10 +481,10 @@ class ProjectManager(BaseModel):
 
 
     def _write_project_metadata(self, project_dir_name: str) -> None:
-        with open(Path(self.gdm.hub / project_dir_name / GlobalDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
+        with open(Path(self.hub.hub / project_dir_name / GlobalDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
             json.dump({
             "common": {
-                "traffic_registration_points_file": str(Path(self.gdm.hub / project_dir_name / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
+                "traffic_registration_points_file": str(Path(self.hub.hub / project_dir_name / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
             },
             "volume": {
                 "n_days": None,  # The total number of days which we have data about
@@ -508,8 +515,8 @@ class ProjectManager(BaseModel):
         return None
 
 
-    def del_project(self, name: str) -> None:
-        os.remove(self.gdm.hub / name)
+    def delete(self, name: str) -> None:
+        os.remove(self.hub.hub / name)
         return None
 
 

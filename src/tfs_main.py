@@ -21,19 +21,19 @@ from tfs_ml_configs import *
 gp_toolbox = GeneralPurposeToolbox()
 gdm = ProjectHub()
 
-gmm = GlobalMetadataManager(path=gdm.hub)
+gmm = ProjectHubMetadataManager(path=gdm.hub)
 pmm = ProjectMetadataManager(path=)
 tmm = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManager
 
 trp_toolbox = TRPToolbox(tmm=tmm)
 forecasting_toolbox = ForecastingToolbox(gp_toolbox=gp_toolbox, tmm=tmm, pmm=pmm)
 
-pdm = ProjectManager(gdm=gdm, pmm=pmm)
+pdm = ProjectManager(hub=gdm, pmm=pmm)
 
 
 def manage_ops(functionality: str) -> None:
     if functionality == "1.1":
-        pdm.create_project(gp_toolbox.clean_text(input("Insert new project name: ")))
+        pdm.create(gp_toolbox.clean_text(input("Insert new project name: ")))
 
     elif functionality == "1.2":
         gmm.set_current_project(gp_toolbox.clean_text(input("Insert the operation to set as active: ")))
@@ -45,7 +45,7 @@ def manage_ops(functionality: str) -> None:
         gmm.reset_current_project()
 
     elif functionality == "1.5":
-        pdm.del_project(gp_toolbox.clean_text(input("Insert the name of the project to delete: ")))
+        pdm.delete(gp_toolbox.clean_text(input("Insert the name of the project to delete: ")))
 
     else:
         print("\033[91mFunctionality not found, try again with a correct one\033[0m")

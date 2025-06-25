@@ -23,7 +23,7 @@ pd.set_option("display.max_rows", None)
 pd.set_option("display.max_columns", None)
 
 
-global_metadata_manager = GlobalMetadataManager()
+global_metadata_manager = ProjectHubMetadataManager()
 project_metadata_manager = ProjectMetadataManager()
 trp_metadata_manager = TRPMetadataManager()
 
