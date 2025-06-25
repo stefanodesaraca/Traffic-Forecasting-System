@@ -29,7 +29,7 @@ trp_metadata_manager = TRPMetadataManager()
 
 gp_toolbox = GeneralPurposeToolbox()
 
-dm = ProjectDirectoryManager(global_metadata_manager=global_metadata_manager, pmm=project_metadata_manager)
+dm = ProjectDirectoryManager(pmm=project_metadata_manager)
 
 
 class BaseCleaner:

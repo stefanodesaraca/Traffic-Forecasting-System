@@ -7,7 +7,7 @@ from sklearn.ensemble import (
 from tfs_utils import GlobalDefinitions
 from tfs_ml import GeneralPurposeToolbox
 
-general_purpose_toolbox = GeneralPurposeToolbox()
+gp_toolbox = GeneralPurposeToolbox()
 
 #Be aware that too low parameters could bring some models to stall while training, so don't go too low with the grid search parameters
 grids = {
@@ -73,7 +73,7 @@ model_definitions = {
         "DecisionTreeRegressor": DecisionTreeRegressor,
     },
     "auxiliary_parameters": {
-        "RandomForestRegressor": {"n_jobs": general_purpose_toolbox.ml_cpus, "random_state": 100},
+        "RandomForestRegressor": {"n_jobs": gp_toolbox.ml_cpus, "random_state": 100},
         "HistGradientBoostingRegressor": {
             "random_state": 100,
             "categorical_features": None,

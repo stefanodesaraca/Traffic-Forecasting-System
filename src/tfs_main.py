@@ -26,7 +26,7 @@ pmm = ProjectMetadataManager(path=)
 tmm = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManager
 
 trp_toolbox = TRPToolbox(trp_metadata_manager=tmm)
-forecasting_toolbox = ForecastingToolbox(gp_toolbox=gp_toolbox, trp_metadata_manager=tmm, pmm=pmm)
+forecasting_toolbox = ForecastingToolbox(gp_toolbox=gp_toolbox, tmm=tmm, pmm=pmm)
 
 pdm = ProjectDirectoryManager(gdm=gdm, pmm=pmm)
 

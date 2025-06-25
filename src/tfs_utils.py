@@ -81,99 +81,6 @@ class GlobalDefinitions(Enum):
     MEAN_SPEED = "mean_speed"
 
 
-
-class GeneralPurposeToolbox(BaseModel):
-
-    @staticmethod
-    def split_data(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
-        """
-        Splits the Dask DataFrame into training and testing sets based on the target column and mode.
-
-        Parameters:
-            data: dd.DataFrame
-            target: str ("volume" or "mean_speed")
-            mode: the mode which indicates the kind of split it's intended to execute.
-                    0 - Stands for the classic 4 section train-test-split (X_train, X_test, y_train, y_test)
-                    1 - Indicates a forecasted specific train-test-split (X, y)
-
-        Returns:
-            X_train, X_test, y_train, y_test
-        """
-
-        if target not in GlobalDefinitions.TARGET_DATA.value.values():
-            raise TargetVariableNotFoundError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
-
-        X = data.drop(columns=[target])
-        y = data[[target]]
-
-        if mode == 1:
-            return X.persist(), y.persist()
-        elif mode == 0:
-            n_rows = data.shape[0].compute()
-            p_70 = int(n_rows * 0.70)
-            return dd.from_delayed(delayed(X.head(p_70))), dd.from_delayed(
-                delayed(X.tail(n_rows - p_70))), dd.from_delayed(delayed(y.head(p_70))), dd.from_delayed(
-                delayed(y.tail(n_rows - p_70)))
-        else:
-            raise WrongSplittingMode("Wrong splitting mode imputed")
-
-
-    @staticmethod
-    def merge(filepaths: list[str]) -> dd.DataFrame:
-        """
-        Data merger function for traffic volumes or average speed data
-        Parameters:
-            filepaths: a list of files to read data from
-        """
-        try:
-            merged_data = dd.concat([dd.read_csv(trp) for trp in filepaths], axis=0)
-            merged_data = merged_data.repartition(partition_size="512MB")
-            merged_data = merged_data.sort_values(["date"], ascending=True)  # Sorting records by date
-            return merged_data.persist()
-        except ValueError as e:
-            print(f"\033[91mNo data to concatenate. Error: {e}\033[0m")
-            sys.exit(1)
-
-
-    @staticmethod
-    def check_datetime_format(dt: str) -> bool:
-        try:
-            datetime.strptime(dt, GlobalDefinitions.DT_FORMAT.value)
-            return True
-        except ValueError:
-            return False
-
-
-    @staticmethod
-    def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
-        df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
-        return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
-
-
-    @staticmethod
-    def clean_text(text: str) -> str:
-        return clean(text, no_emoji=True, no_currency_symbols=True).replace(" ", "_").lower()
-
-
-    @staticmethod
-    def check_target(target: str) -> bool:
-        if not target in [GlobalDefinitions.TARGET_DATA.value.keys(), GlobalDefinitions.TARGET_DATA.value.values()]:
-            return False
-        return True
-
-
-    @property
-    def covid_years(self) -> list[int]:
-        return [2020, 2021, 2022]
-
-
-    @property
-    def ml_cpus(self) -> int:
-        return int(os.cpu_count() * 0.75)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
-        # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
-
-
-
 class BaseMetadataManager:
     _instances: dict = {} #The class (or subclass) name is the key and the value is the class instance.
     _locks: dict = {} #The class (or subclass) name is the key and the value is the class instance.
@@ -476,6 +383,22 @@ class GlobalDirectoryManager(BaseModel):
         return None
 
 
+    def set_default_project(self):
+        pass
+
+
+    def get_default_project(self):
+        pass
+
+
+    def del_default_project(self):
+        pass
+
+
+    def check_default_project(self):
+        pass
+
+
 
 class ProjectDirectoryManager(BaseModel):
     gdm: GlobalDirectoryManager
@@ -621,6 +544,98 @@ class ProjectDirectoryManager(BaseModel):
 
 
 
+class GeneralPurposeToolbox(BaseModel):
+
+    @staticmethod
+    def split_data(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
+        """
+        Splits the Dask DataFrame into training and testing sets based on the target column and mode.
+
+        Parameters:
+            data: dd.DataFrame
+            target: str ("volume" or "mean_speed")
+            mode: the mode which indicates the kind of split it's intended to execute.
+                    0 - Stands for the classic 4 section train-test-split (X_train, X_test, y_train, y_test)
+                    1 - Indicates a forecasted specific train-test-split (X, y)
+
+        Returns:
+            X_train, X_test, y_train, y_test
+        """
+
+        if target not in GlobalDefinitions.TARGET_DATA.value.values():
+            raise TargetVariableNotFoundError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
+
+        X = data.drop(columns=[target])
+        y = data[[target]]
+
+        if mode == 1:
+            return X.persist(), y.persist()
+        elif mode == 0:
+            n_rows = data.shape[0].compute()
+            p_70 = int(n_rows * 0.70)
+            return dd.from_delayed(delayed(X.head(p_70))), dd.from_delayed(
+                delayed(X.tail(n_rows - p_70))), dd.from_delayed(delayed(y.head(p_70))), dd.from_delayed(
+                delayed(y.tail(n_rows - p_70)))
+        else:
+            raise WrongSplittingMode("Wrong splitting mode imputed")
+
+
+    @staticmethod
+    def merge(filepaths: list[str]) -> dd.DataFrame:
+        """
+        Data merger function for traffic volumes or average speed data
+        Parameters:
+            filepaths: a list of files to read data from
+        """
+        try:
+            merged_data = dd.concat([dd.read_csv(trp) for trp in filepaths], axis=0)
+            merged_data = merged_data.repartition(partition_size="512MB")
+            merged_data = merged_data.sort_values(["date"], ascending=True)  # Sorting records by date
+            return merged_data.persist()
+        except ValueError as e:
+            print(f"\033[91mNo data to concatenate. Error: {e}\033[0m")
+            sys.exit(1)
+
+
+    @staticmethod
+    def check_datetime_format(dt: str) -> bool:
+        try:
+            datetime.strptime(dt, GlobalDefinitions.DT_FORMAT.value)
+            return True
+        except ValueError:
+            return False
+
+
+    @staticmethod
+    def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
+        df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
+        return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
+
+
+    @staticmethod
+    def clean_text(text: str) -> str:
+        return clean(text, no_emoji=True, no_currency_symbols=True).replace(" ", "_").lower()
+
+
+    @staticmethod
+    def check_target(target: str) -> bool:
+        if not target in [GlobalDefinitions.TARGET_DATA.value.keys(), GlobalDefinitions.TARGET_DATA.value.values()]:
+            return False
+        return True
+
+
+    @property
+    def covid_years(self) -> list[int]:
+        return [2020, 2021, 2022]
+
+
+    @property
+    def ml_cpus(self) -> int:
+        return int(os.cpu_count() * 0.75)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
+        # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
+
+
+
 class TRPToolbox(BaseModel):
     trp_metadata_manager: TRPMetadataManager
 
@@ -686,7 +701,7 @@ class RoadNetworkToolbox(BaseModel):
 class ForecastingToolbox(BaseModel):
     gp_toolbox: GeneralPurposeToolbox
     pmm: ProjectMetadataManager
-    trp_metadata_manager: TRPMetadataManager
+    tmm: TRPMetadataManager
 
 
     def _get_speeds_dates(self, trp_ids: list[str] | Generator[str, None, None]) -> tuple[str, str]:
@@ -703,7 +718,7 @@ class ForecastingToolbox(BaseModel):
         dt_start, dt_end = zip(*(
             (data["data_info"]["speeds"]["start_date"], data["data_info"]["speeds"]["end_date"])
             for trp_id in trp_ids
-            if (data := self.trp_metadata_manager.get_trp_metadata(trp_id=trp_id))["checks"][GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]
+            if (data := self.tmm.get_trp_metadata(trp_id=trp_id))["checks"][GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]
         ), strict=True)
         return min(dt_start), max(dt_end)
 
