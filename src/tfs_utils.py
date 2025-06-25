@@ -254,8 +254,8 @@ class BaseMetadataManager:
 
 
 
-class ProjectHubMetadataManager(BaseMetadataManager):
-
+class ProjectsHubMetadataManager(BaseMetadataManager):
+    ...
 
 
 class ProjectMetadataManager(BaseMetadataManager):
@@ -321,7 +321,7 @@ class TRPMetadataManager(BaseMetadataManager):
 
 
 
-class ProjectHub(BaseModel):
+class ProjectsHub(BaseModel):
 
     @property
     def hub(self) -> Path:
@@ -330,7 +330,7 @@ class ProjectHub(BaseModel):
 
     @property
     def _metadata_manager(self):
-        return ProjectHubMetadataManager(self.hub / "metadata.json")
+        return ProjectsHubMetadataManager(self.hub / "metadata.json")
 
 
     @property
@@ -378,19 +378,19 @@ class ProjectHub(BaseModel):
 
 
     def reset_current_project(self) -> None:
-        self._metadata_manager.set(value=None, key="current_project", mode="e")
+        self._metadata_manager.set(value=None, key="metadata.current_project", mode="e")
         return None
 
 
 
 class ProjectManager(BaseModel):
-    hub: ProjectHub
+    hub: ProjectsHub
     pmm: ProjectMetadataManager
 
 
     @property
-    def traffic_registration_points_file_path(self) -> Path:
-        return self.hub.current_project_dir / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
+    def trps_fp(self) -> Path:
+        return Path(self.hub.get_current_project(), GlobalDefinitions.DATA_DIR.value, GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)
 
 
     #TODO IMPROVE AND TRY GENERALIZE OR TO REPLACE ENTIRELY
@@ -484,7 +484,7 @@ class ProjectManager(BaseModel):
         with open(Path(self.hub.hub / project_dir_name / GlobalDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
             json.dump({
             "common": {
-                "traffic_registration_points_file": str(Path(self.hub.hub / project_dir_name / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
+                "traffic_registration_points_file": str(self.trps_fp),
             },
             "volume": {
                 "n_days": None,  # The total number of days which we have data about

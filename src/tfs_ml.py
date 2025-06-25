@@ -51,7 +51,7 @@ dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
 dt_format = "%Y-%m-%dT%H"
 
 
-global_metadata_manager = ProjectHubMetadataManager()
+global_metadata_manager = ProjectsHubMetadataManager()
 project_metadata_manager = ProjectMetadataManager()
 trp_metadata_manager = TRPMetadataManager()
 

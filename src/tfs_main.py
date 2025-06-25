@@ -19,9 +19,9 @@ from tfs_ml_configs import *
 
 
 gp_toolbox = GeneralPurposeToolbox()
-gdm = ProjectHub()
+gdm = ProjectsHub()
 
-gmm = ProjectHubMetadataManager(path=gdm.hub)
+gmm = ProjectsHubMetadataManager(path=gdm.hub)
 pmm = ProjectMetadataManager(path=)
 tmm = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManager
 
