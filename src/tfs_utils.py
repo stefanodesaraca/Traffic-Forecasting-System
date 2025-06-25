@@ -81,6 +81,7 @@ class GlobalDefinitions(Enum):
     MEAN_SPEED = "mean_speed"
 
 
+
 class BaseMetadataManager:
     _instances: dict = {} #The class (or subclass) name is the key and the value is the class instance.
     _locks: dict = {} #The class (or subclass) name is the key and the value is the class instance.
@@ -371,32 +372,18 @@ class GlobalDirectoryManager(BaseModel):
 
 
     @lru_cache()
-    def get_current_project(self) -> str:
+    def get_current_project(self, errors: bool = True) -> str:
         current_project = self.global_metadata_manager.get(key="current_project")
-        if not current_project:
+        if errors and not current_project:
             raise ValueError("Current project not set")
+        elif errors and not current_project:
+            print("\033[91mCurrent project not set\033[0m")
         return current_project
 
 
     def reset_current_project(self) -> None:
         self.global_metadata_manager.set(value=None, key="current_project", mode="e")
         return None
-
-
-    def set_default_project(self):
-        pass
-
-
-    def get_default_project(self):
-        pass
-
-
-    def del_default_project(self):
-        pass
-
-
-    def check_default_project(self):
-        pass
 
 
 
@@ -735,7 +722,7 @@ class ForecastingToolbox(BaseModel):
         """
         max_forecasting_window_size: int = max(int(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value), forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
-        option = input("Press V to set forecasting target datetime for traffic volumes or AS for average speeds: ")
+        option = input("V = Volumes | MS = Mean Speed")
         print("Maximum number of days to forecast: ", max_forecasting_window_size)
 
         if option == GlobalDefinitions.TARGET_DATA.value["V"]:

@@ -33,12 +33,10 @@ pdm = ProjectDirectoryManager(gdm=gdm, pmm=pmm)
 
 def manage_ops(functionality: str) -> None:
     if functionality == "1.1":
-        project_name = input("Insert new project name: ")
-        pdm.create_project(gp_toolbox.clean_text(project_name))
+        pdm.create_project(gp_toolbox.clean_text(input("Insert new project name: ")))
 
     elif functionality == "1.2":
-        project_name = input("Insert the operation to set as active: ")
-        pdm.set_current_project(gp_toolbox.clean_text(project_name))
+        pdm.set_current_project(gp_toolbox.clean_text(input("Insert the operation to set as active: ")))
 
     elif functionality == "1.3":
         print("Current project: ", pdm.get_current_project(), "\n\n")
@@ -47,8 +45,7 @@ def manage_ops(functionality: str) -> None:
         pdm.reset_current_project()
 
     elif functionality == "1.5":
-        project_name = (input("Insert the name of the project to delete: "))
-        pdm.del_project(gp_toolbox.clean_text(project_name))
+        pdm.del_project(gp_toolbox.clean_text(input("Insert the name of the project to delete: ")))
 
     else:
         print("\033[91mFunctionality not found, try again with a correct one\033[0m")
@@ -65,7 +62,7 @@ async def download_volumes(functionality: str) -> None:
             await traffic_registration_points_to_json()
             print("Traffic registration points information downloaded successfully\n\n")
         except Exception as e:
-            raise Exception(f"\033[91mCouldn't download traffic registration points information for the active operation. Error: {e}\033[0m")
+            raise Exception(f"Couldn't download traffic registration points information for the active operation. Error: {e}")
 
     elif functionality == "2.2":
         time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
@@ -123,14 +120,17 @@ async def clean_data(functionality: str) -> None:
 
 def set_forecasting_options(functionality: str) -> None:
     if functionality == "3.1.1":
+        print("-- Forecasting horizon setter --")
         forecasting_toolbox.set_forecasting_horizon()
 
     elif functionality == "3.1.2":
-        target = input("Press V to read forecasting target datetime for traffic volumes or MS for average speeds: ")
+        print("-- Forecasting horizon reader --")
+        target = input("V = Volumes | MS = Mean Speed")
         print("Target datetime: ", forecasting_toolbox.get_forecasting_target_datetime(target=target), "\n\n")
 
     elif functionality == "3.1.3":
-        target = input("Press V to reset forecasting target datetime for traffic volumes or MS for average speeds: ")
+        print("-- Forecasting horizon reset --")
+        target = input("V = Volumes | MS = Mean Speed")
         forecasting_toolbox.reset_forecasting_target_datetime(target=target)
 
     return None
@@ -141,12 +141,12 @@ def execute_eda() -> None:
     clean_volumes_folder = pdm.pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.clean.path")
     clean_speeds_folder = pdm.pmm.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path")
 
-    for v in (trp_id for trp_id in trp_data.keys() if tmm.get_trp_metadata(trp_id=trp_id)["checks", GlobalDefinitions.HAS_VOLUME_CHECK.value]):
+    for v in (trp_id for trp_id in trp_data.keys() if tmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_VOLUME_CHECK.value)):
         volumes = pd.read_csv(clean_volumes_folder + v + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv")
         analyze_volumes(volumes)
         volumes_data_multicollinearity_test(volumes)
 
-    for s in (trp_id for trp_id in trp_data.keys() if tmm.get_trp_metadata(trp_id=trp_id)["checks", GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]):
+    for s in (trp_id for trp_id in trp_data.keys() if tmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value)):
         speeds = pd.read_csv(clean_speeds_folder + s + GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv")
         analyze_avg_speeds(speeds)
         avg_speeds_data_multicollinearity_test(speeds)
@@ -220,12 +220,12 @@ def execute_forecast_warmup(functionality: str) -> None:
 
     with dask_cluster_client(processes=False) as client:
         functionality_mapping = {
-            "3.2.1": ("traffic_volumes", execute_gridsearch),
-            "3.2.2": ("average_speed", execute_gridsearch),
-            "3.2.3": ("traffic_volumes", execute_training),
-            "3.2.4": ("average_speed", execute_training),
-            "3.2.5": ("traffic_volumes", execute_testing),
-            "3.2.6": ("average_speed", execute_testing)
+            "3.2.1": (GlobalDefinitions.TARGET_DATA.value["V"], execute_gridsearch),
+            "3.2.2": (GlobalDefinitions.TARGET_DATA.value["MS"], execute_gridsearch),
+            "3.2.3": (GlobalDefinitions.TARGET_DATA.value["V"], execute_training),
+            "3.2.4": (GlobalDefinitions.TARGET_DATA.value["MS"], execute_training),
+            "3.2.5": (GlobalDefinitions.TARGET_DATA.value["V"], execute_testing),
+            "3.2.6": (GlobalDefinitions.TARGET_DATA.value["MS"], execute_testing)
         }
 
         if functionality in functionality_mapping:
@@ -243,7 +243,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 def execute_forecasting(functionality: str) -> None:
 
     print("Which kind of data would you like to forecast?")
-    print("V: Volumes | AS: Average Speeds")
+    print("V: Volumes | MS: Mean Speed")
     option = input("Choice: ").upper()
 
     if not gp_toolbox.check_target(option):
@@ -261,7 +261,7 @@ def execute_forecasting(functionality: str) -> None:
 
             trp_metadata = tmm.get_trp_metadata(trp_id)
 
-            if not trp_metadata["checks"][GlobalDefinitions.HAS_VOLUME_CHECK.value if option == "V" else GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]:
+            if not trp_metadata["checks"][GlobalDefinitions.HAS_VOLUME_CHECK.value if option == GlobalDefinitions.TARGET_DATA.value["V"] else GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]:
                 raise TargetDataNotAvailableError(f"Target data not available for TRP: {trp_id}")
 
             trp_road_category = trp_metadata["trp_data"]["location"]["roadReference"]["roadCategory"]["id"]
