@@ -21,14 +21,14 @@ from tfs_ml_configs import *
 gp_toolbox = GeneralPurposeToolbox()
 gdm = GlobalDirectoryManager()
 
-global_metadata_manager = GlobalMetadataManager(path=gdm.global_metadata_filepath)
+global_metadata_manager = GlobalMetadataManager(path=gdm.global_metadata_fp)
 project_metadata_manager = ProjectMetadataManager(path=)
 trp_metadata_manager = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManager
 
 trp_toolbox = TRPToolbox(trp_metadata_manager=trp_metadata_manager)
-forecasting_toolbox = ForecastingToolbox(gp_toolbox=gp_toolbox, global_metadata_manager=global_metadata_manager, trp_metadata_manager=trp_metadata_manager)
+forecasting_toolbox = ForecastingToolbox(gp_toolbox=gp_toolbox, pmm=global_metadata_manager, trp_metadata_manager=trp_metadata_manager)
 
-pdm = ProjectDirectoryManager(global_projects_dir_name=GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value, global_metadata_manager=global_metadata_manager, project_metadata_manager=project_metadata_manager)
+pdm = ProjectDirectoryManager(gdm=gdm, pmm=project_metadata_manager)
 
 
 def manage_ops(functionality: str) -> None:
@@ -123,7 +123,7 @@ async def clean_data(functionality: str) -> None:
 
 def set_forecasting_options(functionality: str) -> None:
     if functionality == "3.1.1":
-        forecasting_toolbox.set_forecasting_target_datetime()
+        forecasting_toolbox.set_forecasting_horizon()
 
     elif functionality == "3.1.2":
         target = input("Press V to read forecasting target datetime for traffic volumes or MS for average speeds: ")
@@ -138,8 +138,8 @@ def set_forecasting_options(functionality: str) -> None:
 
 def execute_eda() -> None:
     trp_data = trp_toolbox.get_global_trp_data()
-    clean_volumes_folder = pdm.project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.clean.path")
-    clean_speeds_folder = pdm.project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path")
+    clean_volumes_folder = pdm.pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.clean.path")
+    clean_speeds_folder = pdm.pmm.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path")
 
     for v in (trp_id for trp_id in trp_data.keys() if trp_metadata_manager.get_trp_metadata(trp_id=trp_id)["checks", GlobalDefinitions.HAS_VOLUME_CHECK.value]):
         volumes = pd.read_csv(clean_volumes_folder + v + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv")

@@ -418,45 +418,40 @@ class TRPMetadataManager(BaseMetadataManager):
 class GlobalDirectoryManager(BaseModel):
 
     @property
-    def global_projects_path(self) -> Path:
+    def global_projects_dir(self) -> Path:
         return Path.cwd() / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value
 
 
     @property
-    def global_metadata_path(self) -> Path:
-        return self.global_projects_path / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value
+    def global_metadata_fp(self) -> Path:
+        return self.global_projects_dir / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value
 
 
     @property
-    def current_project_path(self) -> Path:
-        return self.global_projects_path / self.get_current_project()
+    def current_project_dir(self) -> Path:
+        return self.global_projects_dir / self.get_current_project()
 
 
     @property
-    def current_project_metadata_path(self) -> Path:
-        return self.global_projects_path / self.get_current_project() / GlobalDefinitions.PROJECT_METADATA.value
-
-
-    @property
-    def global_metadata_filepath(self) -> Path:
-        return Path(self.global_projects_path / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value)
+    def current_project_metadata_fp(self) -> Path:
+        return self.global_projects_dir / self.get_current_project() / GlobalDefinitions.PROJECT_METADATA.value
 
 
     # ============ GLOBAL PROJECTS DIRECTORY SECTION ============
 
     def create_global_projects_dir(self) -> None:
-        os.makedirs(Path.cwd() / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value, exist_ok=True)
+        os.makedirs(self.global_projects_dir, exist_ok=True)
         self._write_global_projects_metadata()
         return None
 
 
     def delete_global_projects_dir(self) -> None:
-        os.rmdir(Path.cwd() / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value)
+        os.rmdir(self.global_projects_dir)
         return None
 
 
     def _write_global_projects_metadata(self) -> None:
-        with open(Path(self.global_projects_path / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value), "w", encoding="utf-8") as gm:
+        with open(self.global_projects_dir / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value, "w", encoding="utf-8") as gm:
             json.dump({
                 "current_project": None,
                 "lang": "en"
@@ -470,6 +465,7 @@ class GlobalDirectoryManager(BaseModel):
         self.global_metadata_manager.set(value=name, key="current_project", mode="e")
         return None
 
+
     @lru_cache()
     def get_current_project(self) -> str:
         current_project = self.global_metadata_manager.get(key="current_project")
@@ -477,15 +473,16 @@ class GlobalDirectoryManager(BaseModel):
             raise ValueError("Current project not set")
         return current_project
 
+
     def reset_current_project(self) -> None:
-        self.global_metadata_manager.set(value=None, key="common.current_project", mode="e")
+        self.global_metadata_manager.set(value=None, key="current_project", mode="e")
         return None
 
 
 
 class ProjectDirectoryManager(BaseModel):
-    global_metadata_manager: GlobalMetadataManager
-    project_metadata_manager: ProjectMetadataManager
+    gdm: GlobalDirectoryManager
+    pmm: ProjectMetadataManager
 
 
     # ============ PATHS SECTION ============
@@ -496,20 +493,20 @@ class ProjectDirectoryManager(BaseModel):
 
     @property
     def traffic_registration_points_file_path(self) -> Path:
-        return self.global_projects_path / self.get_current_project() / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
+        return self.gdm.global_projects_dir / self.gdm.get_current_project() / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
 
     #TODO IMPROVE AND TRY GENERALIZE OR TO REPLACE ENTIRELY
     def get_models_folder_path(self, target: str, road_category: str) -> str:
         return {
-            GlobalDefinitions.VOLUME.value: self.project_metadata_manager.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders" + road_category + "path"),
-            GlobalDefinitions.MEAN_SPEED.value: self.project_metadata_manager.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders" + road_category + "path")
+            GlobalDefinitions.VOLUME.value: self.pmm.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders" + road_category + "path"),
+            GlobalDefinitions.MEAN_SPEED.value: self.pmm.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders" + road_category + "path")
         }[target]
 
     #TODO IMPROVE AND TRY GENERALIZE OR TO REPLACE ENTIRELY
     def get_models_parameters_folder_path(self, target: str, road_category: str) -> str:
         return {
-            GlobalDefinitions.VOLUME.value: self.project_metadata_manager.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders" + road_category + "path"),
-            GlobalDefinitions.MEAN_SPEED.value: self.project_metadata_manager.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders" + road_category + "path"),
+            GlobalDefinitions.VOLUME.value: self.pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders" + road_category + "path"),
+            GlobalDefinitions.MEAN_SPEED.value: self.pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders" + road_category + "path"),
         }[target]
 
 
@@ -558,7 +555,7 @@ class ProjectDirectoryManager(BaseModel):
             }
         }
 
-        metadata_folder_structure = self.project_metadata_manager.get(key="folder_paths")
+        metadata_folder_structure = self.pmm.get(key="folder_paths")
         metadata_folder_structure = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
 
         def create_nested_folders(base_path: str, structure: dict[str, dict | None]) -> dict[str, Any]:
@@ -582,16 +579,16 @@ class ProjectDirectoryManager(BaseModel):
             os.makedirs(main_dir, exist_ok=True)
             metadata_folder_structure[key] = create_nested_folders(str(main_dir), sub_structure)
 
-        self.project_metadata_manager.set(value=metadata_folder_structure, key="folder_paths", mode="e")
+        self.pmm.set(value=metadata_folder_structure, key="folder_paths", mode="e")
 
         return None
 
 
     def _write_project_metadata(self, project_dir_name: str) -> None:
-        with open(Path(self.global_projects_path / project_dir_name / GlobalDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
+        with open(Path(self.gdm.global_projects_dir / project_dir_name / GlobalDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
             json.dump({
             "common": {
-                "traffic_registration_points_file": str(Path(self.global_projects_path / project_dir_name / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
+                "traffic_registration_points_file": str(Path(self.gdm.global_projects_dir / project_dir_name / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
             },
             "volume": {
                 "n_days": None,  # The total number of days which we have data about
@@ -623,7 +620,7 @@ class ProjectDirectoryManager(BaseModel):
 
 
     def del_project(self, name: str) -> None:
-        os.remove(self.global_projects_path / name)
+        os.remove(self.gdm.global_projects_dir / name)
         return None
 
 
@@ -693,7 +690,7 @@ class RoadNetworkToolbox(BaseModel):
 
 class ForecastingToolbox(BaseModel):
     gp_toolbox: GeneralPurposeToolbox
-    global_metadata_manager: GlobalMetadataManager
+    pmm: ProjectMetadataManager
     trp_metadata_manager: TRPMetadataManager
 
 
@@ -716,7 +713,7 @@ class ForecastingToolbox(BaseModel):
         return min(dt_start), max(dt_end)
 
 
-    def set_forecasting_target_datetime(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
+    def set_forecasting_horizon(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
         """
         Parameters:
             forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24.
@@ -732,7 +729,7 @@ class ForecastingToolbox(BaseModel):
         print("Maximum number of days to forecast: ", max_forecasting_window_size)
 
         if option == GlobalDefinitions.TARGET_DATA.value["V"]:
-            last_available_data_dt = self.global_metadata_manager.get(key="volume.end_date_iso")
+            last_available_data_dt = self.pmm.get(key=GlobalDefinitions.VOLUME.value + ".end_date_iso")
         elif option == GlobalDefinitions.TARGET_DATA.value["MS"]:
             _, last_available_data_dt = self._get_speeds_dates(self.get_global_trp_data())
             if last_available_data_dt is None:
@@ -754,7 +751,7 @@ class ForecastingToolbox(BaseModel):
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
         if self.gp_toolbox.check_datetime_format(dt) and option in GlobalDefinitions.TARGET_DATA.value.keys():
-            self.global_metadata_manager.set(value=dt, key="forecasting.target_datetimes" + option, mode="e")
+            self.pmm.set(value=dt, key="forecasting.target_datetimes" + option, mode="e")
             print("Target datetime set to: ", dt, "\n\n")
             return None
         else:
