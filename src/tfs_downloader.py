@@ -16,7 +16,7 @@ simplefilter("ignore")
 
 project_metadata_manager = ProjectMetadataManager()
 trp_metadata_manager = TRPMetadataManager()
-trp_toolbox = TRPToolbox(trp_metadata_manager=trp_metadata_manager)
+trp_toolbox = TRPToolbox(tmm=trp_metadata_manager)
 
 # --------------------------------- GraphQL Client Start ---------------------------------
 

@@ -25,7 +25,7 @@ gmm = GlobalMetadataManager(path=gdm.global_projects_dir)
 pmm = ProjectMetadataManager(path=)
 tmm = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManager
 
-trp_toolbox = TRPToolbox(trp_metadata_manager=tmm)
+trp_toolbox = TRPToolbox(tmm=tmm)
 forecasting_toolbox = ForecastingToolbox(gp_toolbox=gp_toolbox, tmm=tmm, pmm=pmm)
 
 pdm = ProjectDirectoryManager(gdm=gdm, pmm=pmm)
@@ -36,13 +36,13 @@ def manage_ops(functionality: str) -> None:
         pdm.create_project(gp_toolbox.clean_text(input("Insert new project name: ")))
 
     elif functionality == "1.2":
-        gdm.set_current_project(gp_toolbox.clean_text(input("Insert the operation to set as active: ")))
+        gmm.set_current_project(gp_toolbox.clean_text(input("Insert the operation to set as active: ")))
 
     elif functionality == "1.3":
-        print("Current project: ", gdm.get_current_project(), "\n\n")
+        print("Current project: ", gmm.get_current_project(), "\n\n")
 
     elif functionality == "1.4":
-        gdm.reset_current_project()
+        gmm.reset_current_project()
 
     elif functionality == "1.5":
         pdm.del_project(gp_toolbox.clean_text(input("Insert the name of the project to delete: ")))

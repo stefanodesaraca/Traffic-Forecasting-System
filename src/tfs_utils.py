@@ -261,6 +261,27 @@ class GlobalMetadataManager(BaseMetadataManager):
         return self.path / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value
 
 
+    def set_current_project(self, name: str) -> None:
+        self.set(value=name, key="current_project", mode="e")
+        return None
+
+
+    @lru_cache()
+    def get_current_project(self, errors: bool = True) -> str | None:
+        current_project = self.get(key="current_project")
+        if errors and not current_project:
+            raise ValueError("Current project not set")
+        elif not errors and not current_project:
+            print("\033[91mCurrent project not set\033[0m")
+            return None
+        return current_project
+
+
+    def reset_current_project(self) -> None:
+        self.set(value=None, key="current_project", mode="e")
+        return None
+
+
 
 class ProjectMetadataManager(BaseMetadataManager):
     ...
@@ -361,27 +382,6 @@ class GlobalDirectoryManager(BaseModel):
                 "current_project": None,
                 "lang": "en"
             }, gm, indent=4)
-        return None
-
-
-    def set_current_project(self, name: str) -> None:
-        self.global_metadata_manager.set(value=name, key="current_project", mode="e")
-        return None
-
-
-    @lru_cache()
-    def get_current_project(self, errors: bool = True) -> str | None:
-        current_project = self.global_metadata_manager.get(key="current_project")
-        if errors and not current_project:
-            raise ValueError("Current project not set")
-        elif not errors and not current_project:
-            print("\033[91mCurrent project not set\033[0m")
-            return None
-        return current_project
-
-
-    def reset_current_project(self) -> None:
-        self.global_metadata_manager.set(value=None, key="current_project", mode="e")
         return None
 
 
@@ -622,7 +622,7 @@ class GeneralPurposeToolbox(BaseModel):
 
 
 class TRPToolbox(BaseModel):
-    trp_metadata_manager: TRPMetadataManager
+    tmm: TRPMetadataManager
 
 
     @lru_cache
@@ -639,7 +639,7 @@ class TRPToolbox(BaseModel):
         """
         Asynchronously returns json data about all TRPs (downloaded previously)
         """
-        async with aiofiles.open(self.trp_metadata_manager.get(key="common.traffic_registration_points_file"),"r", encoding="utf-8") as TRPs:
+        async with aiofiles.open(self.tmm.get(key="common.traffic_registration_points_file"), "r", encoding="utf-8") as TRPs:
             return json.loads(await TRPs.read())
 
 
@@ -654,14 +654,14 @@ class TRPToolbox(BaseModel):
         #TODO ADD check_target() HERE
 
         road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in self.get_global_trp_data().values())
-        clean_data_folder = self.trp_metadata_manager.get(key="folder_paths.data." + target + ".subfolders.clean.path")
+        clean_data_folder = self.tmm.get(key="folder_paths.data." + target + ".subfolders.clean.path")
         check = "has_" + target
         data = GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv" if target == GlobalDefinitions.TARGET_DATA.value["V"] else GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
 
         return {k: d for k, d in {
             category: [clean_data_folder + trp_id + data for trp_id in
                        filter(lambda trp_id:
-                              self.trp_metadata_manager.get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and self.trp_metadata_manager.get_trp_metadata(trp_id)["checks"][check], self.get_trp_ids())]
+                              self.tmm.get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and self.tmm.get_trp_metadata(trp_id)["checks"][check], self.get_trp_ids())]
             for category in road_categories
         }.items() if len(d) >= 2}
         # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
