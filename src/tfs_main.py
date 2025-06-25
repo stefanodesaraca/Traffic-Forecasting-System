@@ -21,7 +21,7 @@ from tfs_ml_configs import *
 gp_toolbox = GeneralPurposeToolbox()
 gdm = GlobalDirectoryManager()
 
-gmm = GlobalMetadataManager(path=gdm.global_metadata_fp)
+gmm = GlobalMetadataManager(path=gdm.global_projects_dir)
 pmm = ProjectMetadataManager(path=)
 tmm = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManager
 
@@ -36,13 +36,13 @@ def manage_ops(functionality: str) -> None:
         pdm.create_project(gp_toolbox.clean_text(input("Insert new project name: ")))
 
     elif functionality == "1.2":
-        pdm.set_current_project(gp_toolbox.clean_text(input("Insert the operation to set as active: ")))
+        gdm.set_current_project(gp_toolbox.clean_text(input("Insert the operation to set as active: ")))
 
     elif functionality == "1.3":
-        print("Current project: ", pdm.get_current_project(), "\n\n")
+        print("Current project: ", gdm.get_current_project(), "\n\n")
 
     elif functionality == "1.4":
-        pdm.reset_current_project()
+        gdm.reset_current_project()
 
     elif functionality == "1.5":
         pdm.del_project(gp_toolbox.clean_text(input("Insert the name of the project to delete: ")))

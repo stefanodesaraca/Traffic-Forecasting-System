@@ -255,7 +255,10 @@ class BaseMetadataManager:
 
 
 class GlobalMetadataManager(BaseMetadataManager):
-    ...
+
+    @property
+    def global_metadata_fp(self) -> Path:
+        return self.path / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value
 
 
 
@@ -332,11 +335,6 @@ class GlobalDirectoryManager(BaseModel):
 
 
     @property
-    def global_metadata_fp(self) -> Path:
-        return self.global_projects_dir / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value
-
-
-    @property
     def current_project_dir(self) -> Path:
         return self.global_projects_dir / self.get_current_project()
 
@@ -372,12 +370,13 @@ class GlobalDirectoryManager(BaseModel):
 
 
     @lru_cache()
-    def get_current_project(self, errors: bool = True) -> str:
+    def get_current_project(self, errors: bool = True) -> str | None:
         current_project = self.global_metadata_manager.get(key="current_project")
         if errors and not current_project:
             raise ValueError("Current project not set")
-        elif errors and not current_project:
+        elif not errors and not current_project:
             print("\033[91mCurrent project not set\033[0m")
+            return None
         return current_project
 
 
@@ -461,7 +460,6 @@ class ProjectDirectoryManager(BaseModel):
             }
         }
 
-        metadata_folder_structure = self.pmm.get(key="folder_paths")
         metadata_folder_structure = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
 
         def create_nested_folders(base_path: str, structure: dict[str, dict | None]) -> dict[str, Any]:
