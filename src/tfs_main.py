@@ -21,14 +21,14 @@ from tfs_ml_configs import *
 gp_toolbox = GeneralPurposeToolbox()
 gdm = GlobalDirectoryManager()
 
-global_metadata_manager = GlobalMetadataManager(path=gdm.global_metadata_fp)
-project_metadata_manager = ProjectMetadataManager(path=)
-trp_metadata_manager = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManager
+gmm = GlobalMetadataManager(path=gdm.global_metadata_fp)
+pmm = ProjectMetadataManager(path=)
+tmm = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManager
 
-trp_toolbox = TRPToolbox(trp_metadata_manager=trp_metadata_manager)
-forecasting_toolbox = ForecastingToolbox(gp_toolbox=gp_toolbox, pmm=global_metadata_manager, trp_metadata_manager=trp_metadata_manager)
+trp_toolbox = TRPToolbox(trp_metadata_manager=tmm)
+forecasting_toolbox = ForecastingToolbox(gp_toolbox=gp_toolbox, trp_metadata_manager=tmm, pmm=pmm)
 
-pdm = ProjectDirectoryManager(gdm=gdm, pmm=project_metadata_manager)
+pdm = ProjectDirectoryManager(gdm=gdm, pmm=pmm)
 
 
 def manage_ops(functionality: str) -> None:
@@ -79,8 +79,8 @@ async def download_volumes(functionality: str) -> None:
         time_start += ":00:00.000Z"
         time_end += ":00:00.000Z"
 
-        await project_metadata_manager.set_async(value=time_start, key=GlobalDefinitions.VOLUME.value + "start_date_iso", mode="e")
-        await project_metadata_manager.set_async(value=time_end, key=GlobalDefinitions.MEAN_SPEED.value + "end_date_iso", mode="e")
+        await pmm.set_async(value=time_start, key=GlobalDefinitions.VOLUME.value + "start_date_iso", mode="e")
+        await pmm.set_async(value=time_end, key=GlobalDefinitions.MEAN_SPEED.value + "end_date_iso", mode="e")
 
         relative_delta = relativedelta(datetime.datetime.strptime(time_end, GlobalDefinitions.DT_ISO.value).date(), datetime.datetime.strptime(time_start, GlobalDefinitions.DT_ISO.value).date())
         days_delta = (datetime.datetime.strptime(time_end, GlobalDefinitions.DT_ISO.value).date() - datetime.datetime.strptime(time_start, GlobalDefinitions.DT_ISO.value).date()).days
@@ -88,18 +88,18 @@ async def download_volumes(functionality: str) -> None:
         months_delta = relative_delta.months + (years_delta * 12)
         weeks_delta = days_delta // 7
 
-        await project_metadata_manager.set_async(value=days_delta, key=GlobalDefinitions.VOLUME.value + ".n_days", mode="e")
-        await project_metadata_manager.set_async(value=months_delta, key=GlobalDefinitions.VOLUME.value + ".n_months", mode="e")
-        await project_metadata_manager.set_async(value=years_delta, key=GlobalDefinitions.VOLUME.value + ".n_years", mode="e") #TODO THIS CREATES A SECOND n_years. WHY DOESN'T IT OVERWRITE .OLD n_years: null?
-        await project_metadata_manager.set_async(value=weeks_delta, key=GlobalDefinitions.VOLUME.value + ".n_weeks", mode="e")
+        await pmm.set_async(value=days_delta, key=GlobalDefinitions.VOLUME.value + ".n_days", mode="e")
+        await pmm.set_async(value=months_delta, key=GlobalDefinitions.VOLUME.value + ".n_months", mode="e")
+        await pmm.set_async(value=years_delta, key=GlobalDefinitions.VOLUME.value + ".n_years", mode="e") #TODO THIS CREATES A SECOND n_years. WHY DOESN'T IT OVERWRITE .OLD n_years: null?
+        await pmm.set_async(value=weeks_delta, key=GlobalDefinitions.VOLUME.value + ".n_weeks", mode="e")
 
         print("Downloading traffic volumes data for every registration point for the active operation...")
         await traffic_volumes_data_to_json(time_start=time_start, time_end=time_end)
 
     elif functionality == "2.3":
-        if len(os.listdir(global_metadata_manager.get(key="folder_paths.data.trp_metadata.path"))) == 0:
+        if len(os.listdir(gmm.get(key="folder_paths.data.trp_metadata.path"))) == 0:
             for trp_id in tqdm(trp_toolbox.get_global_trp_data().keys()):
-                trp_metadata_manager.write_trp_metadata(trp_id, **{"trp_data": trp_toolbox.get_global_trp_data()[trp_id]})
+                tmm.write_trp_metadata(trp_id, **{"trp_data": trp_toolbox.get_global_trp_data()[trp_id]})
         else:
             print("Metadata had already been computed.")
 
@@ -141,12 +141,12 @@ def execute_eda() -> None:
     clean_volumes_folder = pdm.pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.clean.path")
     clean_speeds_folder = pdm.pmm.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path")
 
-    for v in (trp_id for trp_id in trp_data.keys() if trp_metadata_manager.get_trp_metadata(trp_id=trp_id)["checks", GlobalDefinitions.HAS_VOLUME_CHECK.value]):
+    for v in (trp_id for trp_id in trp_data.keys() if tmm.get_trp_metadata(trp_id=trp_id)["checks", GlobalDefinitions.HAS_VOLUME_CHECK.value]):
         volumes = pd.read_csv(clean_volumes_folder + v + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv")
         analyze_volumes(volumes)
         volumes_data_multicollinearity_test(volumes)
 
-    for s in (trp_id for trp_id in trp_data.keys() if trp_metadata_manager.get_trp_metadata(trp_id=trp_id)["checks", GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]):
+    for s in (trp_id for trp_id in trp_data.keys() if tmm.get_trp_metadata(trp_id=trp_id)["checks", GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]):
         speeds = pd.read_csv(clean_speeds_folder + s + GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv")
         analyze_avg_speeds(speeds)
         avg_speeds_data_multicollinearity_test(speeds)
@@ -208,7 +208,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             for model in models:
 
                 if function.__name__ != "execute_gridsearch":
-                    with open(project_metadata_manager.get(key="folder_paths.ml.models_parameters.subfolders." + target + ".subfolders." + road_category + ".path") + pdm.get_current_project() + "_" + road_category + "_" + model.__name__ + "_parameters.json", "r", encoding="utf-8") as params_reader:
+                    with open(pmm.get(key="folder_paths.ml.models_parameters.subfolders." + target + ".subfolders." + road_category + ".path") + pdm.get_current_project() + "_" + road_category + "_" + model.__name__ + "_parameters.json", "r", encoding="utf-8") as params_reader:
                         params = json.load(params_reader)[model.__name__]
                 else:
                     params = model_definitions["auxiliary_parameters"].get(model.__name__, {})
@@ -259,7 +259,7 @@ def execute_forecasting(functionality: str) -> None:
             if trp_id not in trp_ids:
                 raise TRPNotFoundError("TRP ID not in available TRP IDs list")
 
-            trp_metadata = trp_metadata_manager.get_trp_metadata(trp_id)
+            trp_metadata = tmm.get_trp_metadata(trp_id)
 
             if not trp_metadata["checks"][GlobalDefinitions.HAS_VOLUME_CHECK.value if option == "V" else GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]:
                 raise TargetDataNotAvailableError(f"Target data not available for TRP: {trp_id}")

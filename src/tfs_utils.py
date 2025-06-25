@@ -417,6 +417,7 @@ class TRPMetadataManager(BaseMetadataManager):
 
 class GlobalDirectoryManager(BaseModel):
 
+
     @property
     def global_projects_dir(self) -> Path:
         return Path.cwd() / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value
@@ -434,7 +435,7 @@ class GlobalDirectoryManager(BaseModel):
 
     @property
     def current_project_metadata_fp(self) -> Path:
-        return self.global_projects_dir / self.get_current_project() / GlobalDefinitions.PROJECT_METADATA.value
+        return self.current_project_dir / GlobalDefinitions.PROJECT_METADATA.value
 
 
     def create_global_projects_dir(self) -> None:
@@ -481,28 +482,29 @@ class ProjectDirectoryManager(BaseModel):
     pmm: ProjectMetadataManager
 
 
-    # ============ PATHS SECTION ============
-
     @property
     def cwd(self) -> Path:
         return Path.cwd()
+
 
     @property
     def traffic_registration_points_file_path(self) -> Path:
         return self.gdm.current_project_dir / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
 
+
     #TODO IMPROVE AND TRY GENERALIZE OR TO REPLACE ENTIRELY
     def get_models_folder_path(self, target: str, road_category: str) -> str:
         return {
-            GlobalDefinitions.VOLUME.value: self.pmm.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders" + road_category + "path"),
-            GlobalDefinitions.MEAN_SPEED.value: self.pmm.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders" + road_category + "path")
+            GlobalDefinitions.VOLUME.value: self.pmm.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders." + road_category + ".path"),
+            GlobalDefinitions.MEAN_SPEED.value: self.pmm.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders." + road_category + ".path")
         }[target]
+
 
     #TODO IMPROVE AND TRY GENERALIZE OR TO REPLACE ENTIRELY
     def get_models_parameters_folder_path(self, target: str, road_category: str) -> str:
         return {
-            GlobalDefinitions.VOLUME.value: self.pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders" + road_category + "path"),
-            GlobalDefinitions.MEAN_SPEED.value: self.pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders" + road_category + "path"),
+            GlobalDefinitions.VOLUME.value: self.pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders." + road_category + ".path"),
+            GlobalDefinitions.MEAN_SPEED.value: self.pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders." + road_category + ".path"),
         }[target]
 
 

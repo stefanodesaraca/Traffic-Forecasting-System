@@ -362,7 +362,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
     async def clean_async(self, trp_id: str, export: bool = True) -> None:
 
-        # TODO SET PATH USING trp_metadata_manager.set_path(trp_id)
+        # TODO SET PATH USING tmm.set_path(trp_id)
         #  THE set_path() method will be a method of the BaseMetadataManager CLASS
 
         async with aiofiles.open(
@@ -420,7 +420,7 @@ class AverageSpeedCleaner(BaseCleaner):
 
         trp_id = str(speeds["trp_id"].unique()[0])
 
-        # TODO SET PATH USING trp_metadata_manager.set_path(trp_id)
+        # TODO SET PATH USING tmm.set_path(trp_id)
 
         await trp_metadata_manager.set_async(value=trp_id + GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv", key="files." + GlobalDefinitions.MEAN_SPEED.value + ".raw", mode="e")
 
