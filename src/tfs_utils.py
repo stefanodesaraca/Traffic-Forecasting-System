@@ -437,8 +437,6 @@ class GlobalDirectoryManager(BaseModel):
         return self.global_projects_dir / self.get_current_project() / GlobalDefinitions.PROJECT_METADATA.value
 
 
-    # ============ GLOBAL PROJECTS DIRECTORY SECTION ============
-
     def create_global_projects_dir(self) -> None:
         os.makedirs(self.global_projects_dir, exist_ok=True)
         self._write_global_projects_metadata()
@@ -458,8 +456,6 @@ class GlobalDirectoryManager(BaseModel):
             }, gm, indent=4)
         return None
 
-
-    # ============ CURRENT PROJECT SECTION ============
 
     def set_current_project(self, name: str) -> None:
         self.global_metadata_manager.set(value=name, key="current_project", mode="e")
@@ -493,7 +489,7 @@ class ProjectDirectoryManager(BaseModel):
 
     @property
     def traffic_registration_points_file_path(self) -> Path:
-        return self.gdm.global_projects_dir / self.gdm.get_current_project() / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
+        return self.gdm.current_project_dir / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value
 
     #TODO IMPROVE AND TRY GENERALIZE OR TO REPLACE ENTIRELY
     def get_models_folder_path(self, target: str, road_category: str) -> str:
@@ -509,8 +505,6 @@ class ProjectDirectoryManager(BaseModel):
             GlobalDefinitions.MEAN_SPEED.value: self.pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders" + road_category + "path"),
         }[target]
 
-
-    # ============ INDIVIDUAL PROJECT SECTION ============
 
     def create_project(self, name: str):
 
@@ -673,7 +667,6 @@ class TRPToolbox(BaseModel):
 
 
 class RoadNetworkToolbox(BaseModel):
-    global_metadata_manager: GlobalMetadataManager
     project_metadata_manager: ProjectMetadataManager
 
 
