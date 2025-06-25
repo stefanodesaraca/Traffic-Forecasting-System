@@ -25,7 +25,7 @@ project_metadata_manager = ProjectMetadataManager()
 
 gp_toolbox = GeneralPurposeToolbox()
 
-dm = ProjectDirectoryManager(pmm=project_metadata_manager)
+dm = ProjectManager(pmm=project_metadata_manager)
 
 
 def savePlots(plotFunction):

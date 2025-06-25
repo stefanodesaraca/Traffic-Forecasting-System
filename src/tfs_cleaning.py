@@ -29,12 +29,12 @@ trp_metadata_manager = TRPMetadataManager()
 
 gp_toolbox = GeneralPurposeToolbox()
 
-dm = ProjectDirectoryManager(pmm=project_metadata_manager)
+dm = ProjectManager(pmm=project_metadata_manager)
 
 
 class BaseCleaner:
     def __init__(self):
-        self._cwd: str | Path = dm.cwd
+        self._cwd: str | Path = GlobalDefinitions.CWD.value
         self._ops_folder: str = "ops"
         self._ops_name: str | None = dm.get_current_project()
         self._regressor_types: list = ["lasso", "gamma", "quantile"]

@@ -58,7 +58,7 @@ trp_metadata_manager = TRPMetadataManager()
 gp_toolbox = GeneralPurposeToolbox()
 trp_toolbox = TRPToolbox(tmm=trp_metadata_manager)
 
-dm = ProjectDirectoryManager(pmm=project_metadata_manager)
+dm = ProjectManager(pmm=project_metadata_manager)
 
 
 class TFSPreprocessor:

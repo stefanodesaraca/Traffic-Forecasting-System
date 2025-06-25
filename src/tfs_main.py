@@ -19,16 +19,16 @@ from tfs_ml_configs import *
 
 
 gp_toolbox = GeneralPurposeToolbox()
-gdm = GlobalDirectoryManager()
+gdm = ProjectHub()
 
-gmm = GlobalMetadataManager(path=gdm.global_projects_dir)
+gmm = GlobalMetadataManager(path=gdm.hub)
 pmm = ProjectMetadataManager(path=)
 tmm = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManager
 
 trp_toolbox = TRPToolbox(tmm=tmm)
 forecasting_toolbox = ForecastingToolbox(gp_toolbox=gp_toolbox, tmm=tmm, pmm=pmm)
 
-pdm = ProjectDirectoryManager(gdm=gdm, pmm=pmm)
+pdm = ProjectManager(gdm=gdm, pmm=pmm)
 
 
 def manage_ops(functionality: str) -> None:

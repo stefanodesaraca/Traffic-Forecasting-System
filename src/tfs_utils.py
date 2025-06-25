@@ -256,10 +256,6 @@ class BaseMetadataManager:
 
 class GlobalMetadataManager(BaseMetadataManager):
 
-    @property
-    def global_metadata_fp(self) -> Path:
-        return self.path / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value
-
 
     def set_current_project(self, name: str) -> None:
         self.set(value=name, key="current_project", mode="e")
@@ -347,37 +343,31 @@ class TRPMetadataManager(BaseMetadataManager):
 
 
 
-class GlobalDirectoryManager(BaseModel):
-
+class ProjectHub(BaseModel):
 
     @property
-    def global_projects_dir(self) -> Path:
+    def hub(self) -> Path:
         return Path.cwd() / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value
 
-
     @property
-    def current_project_dir(self) -> Path:
-        return self.global_projects_dir / self.get_current_project()
+    def metadata(self) -> dict["str", Any]:
+        with open(self.hub / "metadata,json", "r", encoding="utf-8") as m:
+            return json.load(m)
 
 
-    @property
-    def current_project_metadata_fp(self) -> Path:
-        return self.current_project_dir / GlobalDefinitions.PROJECT_METADATA.value
-
-
-    def create_global_projects_dir(self) -> None:
-        os.makedirs(self.global_projects_dir, exist_ok=True)
-        self._write_global_projects_metadata()
+    def create(self) -> None:
+        os.makedirs(self.hub, exist_ok=True)
+        self._write_hub_metadata()
         return None
 
 
-    def delete_global_projects_dir(self) -> None:
-        os.rmdir(self.global_projects_dir)
+    def delete(self) -> None:
+        os.rmdir(self.hub)
         return None
 
 
-    def _write_global_projects_metadata(self) -> None:
-        with open(self.global_projects_dir / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value, "w", encoding="utf-8") as gm:
+    def _write_hub_metadata(self) -> None:
+        with open(self.hub / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value, "w", encoding="utf-8") as gm:
             json.dump({
                 "current_project": None,
                 "lang": "en"
@@ -386,14 +376,9 @@ class GlobalDirectoryManager(BaseModel):
 
 
 
-class ProjectDirectoryManager(BaseModel):
-    gdm: GlobalDirectoryManager
+class ProjectManager(BaseModel):
+    gdm: ProjectHub
     pmm: ProjectMetadataManager
-
-
-    @property
-    def cwd(self) -> Path:
-        return Path.cwd()
 
 
     @property
@@ -489,10 +474,10 @@ class ProjectDirectoryManager(BaseModel):
 
 
     def _write_project_metadata(self, project_dir_name: str) -> None:
-        with open(Path(self.gdm.global_projects_dir / project_dir_name / GlobalDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
+        with open(Path(self.gdm.hub / project_dir_name / GlobalDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
             json.dump({
             "common": {
-                "traffic_registration_points_file": str(Path(self.gdm.global_projects_dir / project_dir_name / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
+                "traffic_registration_points_file": str(Path(self.gdm.hub / project_dir_name / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
             },
             "volume": {
                 "n_days": None,  # The total number of days which we have data about
@@ -524,7 +509,7 @@ class ProjectDirectoryManager(BaseModel):
 
 
     def del_project(self, name: str) -> None:
-        os.remove(self.gdm.global_projects_dir / name)
+        os.remove(self.gdm.hub / name)
         return None
 
 
