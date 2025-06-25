@@ -18,29 +18,27 @@ from tfs_road_network import *
 from tfs_ml_configs import *
 
 
+gp_toolbox = GeneralPurposeToolbox()
 gdm = GlobalDirectoryManager()
-
 
 global_metadata_manager = GlobalMetadataManager(path=gdm.global_metadata_filepath)
 project_metadata_manager = ProjectMetadataManager(path=)
 trp_metadata_manager = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManager
 
-gp_toolbox = GeneralPurposeToolbox()
 trp_toolbox = TRPToolbox(trp_metadata_manager=trp_metadata_manager)
 forecasting_toolbox = ForecastingToolbox(gp_toolbox=gp_toolbox, global_metadata_manager=global_metadata_manager, trp_metadata_manager=trp_metadata_manager)
 
-
-pdm = ProjectDirectoryManager(global_projects_dir_name=GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value, global_metadata_manager=global_metadata_manager, project_metadata_manager=project_metadata_manager, gp_toolbox=gp_toolbox)
+pdm = ProjectDirectoryManager(global_projects_dir_name=GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value, global_metadata_manager=global_metadata_manager, project_metadata_manager=project_metadata_manager)
 
 
 def manage_ops(functionality: str) -> None:
     if functionality == "1.1":
         project_name = input("Insert new project name: ")
-        pdm.create_project(project_name)
+        pdm.create_project(gp_toolbox.clean_text(project_name))
 
     elif functionality == "1.2":
         project_name = input("Insert the operation to set as active: ")
-        pdm.set_current_project(project_name)
+        pdm.set_current_project(gp_toolbox.clean_text(project_name))
 
     elif functionality == "1.3":
         print("Current project: ", pdm.get_current_project(), "\n\n")
@@ -50,7 +48,7 @@ def manage_ops(functionality: str) -> None:
 
     elif functionality == "1.5":
         project_name = (input("Insert the name of the project to delete: "))
-        pdm.del_project(project_name)
+        pdm.del_project(gp_toolbox.clean_text(project_name))
 
     else:
         print("\033[91mFunctionality not found, try again with a correct one\033[0m")

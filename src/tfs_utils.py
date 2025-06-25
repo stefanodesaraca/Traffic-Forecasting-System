@@ -417,6 +417,25 @@ class TRPMetadataManager(BaseMetadataManager):
 
 class GlobalDirectoryManager(BaseModel):
 
+    @property
+    def global_projects_path(self) -> Path:
+        return Path.cwd() / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value
+
+
+    @property
+    def global_metadata_path(self) -> Path:
+        return self.global_projects_path / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value
+
+
+    @property
+    def current_project_path(self) -> Path:
+        return self.global_projects_path / self.get_current_project()
+
+
+    @property
+    def current_project_metadata_path(self) -> Path:
+        return self.global_projects_path / self.get_current_project() / GlobalDefinitions.PROJECT_METADATA.value
+
 
     @property
     def global_metadata_filepath(self) -> Path:
@@ -426,13 +445,13 @@ class GlobalDirectoryManager(BaseModel):
     # ============ GLOBAL PROJECTS DIRECTORY SECTION ============
 
     def create_global_projects_dir(self) -> None:
-        os.makedirs(self.cwd / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value, exist_ok=True)
+        os.makedirs(Path.cwd() / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value, exist_ok=True)
         self._write_global_projects_metadata()
         return None
 
 
     def delete_global_projects_dir(self) -> None:
-        os.rmdir(self.cwd / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value)
+        os.rmdir(Path.cwd() / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value)
         return None
 
 
@@ -445,10 +464,26 @@ class GlobalDirectoryManager(BaseModel):
         return None
 
 
+    # ============ CURRENT PROJECT SECTION ============
+
+    def set_current_project(self, name: str) -> None:
+        self.global_metadata_manager.set(value=name, key="current_project", mode="e")
+        return None
+
+    @lru_cache()
+    def get_current_project(self) -> str:
+        current_project = self.global_metadata_manager.get(key="current_project")
+        if not current_project:
+            raise ValueError("Current project not set")
+        return current_project
+
+    def reset_current_project(self) -> None:
+        self.global_metadata_manager.set(value=None, key="common.current_project", mode="e")
+        return None
+
+
 
 class ProjectDirectoryManager(BaseModel):
-    global_projects_dir_name: str
-    gp_toolbox: GeneralPurposeToolbox
     global_metadata_manager: GlobalMetadataManager
     project_metadata_manager: ProjectMetadataManager
 
@@ -458,22 +493,6 @@ class ProjectDirectoryManager(BaseModel):
     @property
     def cwd(self) -> Path:
         return Path.cwd()
-
-    @property
-    def global_projects_path(self) -> Path:
-        return Path(self.cwd) / self.global_projects_dir_name
-
-    @property
-    def global_metadata_path(self) -> Path:
-        return self.global_projects_path / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value
-
-    @property
-    def current_project_path(self) -> Path:
-        return self.global_projects_path / self.get_current_project()
-
-    @property
-    def current_project_metadata_path(self) -> Path:
-        return self.global_projects_path / self.get_current_project() / GlobalDefinitions.PROJECT_METADATA.value
 
     @property
     def traffic_registration_points_file_path(self) -> Path:
@@ -494,32 +513,12 @@ class ProjectDirectoryManager(BaseModel):
         }[target]
 
 
-    # ============ CURRENT PROJECT SECTION ============
-
-    def set_current_project(self, name: str) -> None:
-        self.global_metadata_manager.set(value=self.gp_toolbox.clean_text(name), key="common.current_project", mode="e")
-        return None
-
-
-    @lru_cache()
-    def get_current_project(self) -> str:
-        current_project = self.global_metadata_manager.get(key="common.current_project")
-        if not current_project:
-            raise ValueError("Current project not set")
-        return current_project
-
-
-    def reset_current_project(self) -> None:
-        self.global_metadata_manager.set(value=None, key="common.current_project", mode="e")
-        return None
-
-
     # ============ INDIVIDUAL PROJECT SECTION ============
 
     def create_project(self, name: str):
 
         #Creating the project's directory
-        os.makedirs(self.global_projects_path / self.gp_toolbox.clean_text(name), exist_ok=True)
+        os.makedirs(self.global_projects_path / name, exist_ok=True)
 
         self._write_project_metadata(project_dir_name=name)  #Creating the project's metadata file
 
@@ -589,10 +588,10 @@ class ProjectDirectoryManager(BaseModel):
 
 
     def _write_project_metadata(self, project_dir_name: str) -> None:
-        with open(Path(self.global_projects_path / self.gp_toolbox.clean_text(project_dir_name) / GlobalDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
+        with open(Path(self.global_projects_path / project_dir_name / GlobalDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
             json.dump({
             "common": {
-                "traffic_registration_points_file": str(Path(self.global_projects_path / self.gp_toolbox.clean_text(project_dir_name) / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
+                "traffic_registration_points_file": str(Path(self.global_projects_path / project_dir_name / GlobalDefinitions.DATA_DIR.value / GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
             },
             "volume": {
                 "n_days": None,  # The total number of days which we have data about
