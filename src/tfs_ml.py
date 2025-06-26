@@ -867,7 +867,7 @@ class OnePointForecaster:
         gracefully by printing error messages if export fails.
         """
         try:
-            with open(metadata_filepath, "w") as m:
+            with open(metadata_filepath, "w", encoding="utf-8") as m:
                 json.dump(predictions_metadata, m, indent=4)
             dd.to_csv(y_preds, predictions_filepath, single_file=True, encoding="utf-8", **{"index": False})
         except Exception as e:

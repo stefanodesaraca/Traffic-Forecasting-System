@@ -15,7 +15,7 @@ import dask.dataframe as dd
 from cleantext import clean
 import geojson
 from dateutil.relativedelta import relativedelta
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from pydantic.types import PositiveInt
 from async_lru import alru_cache
 from dask import delayed
@@ -258,6 +258,7 @@ class ProjectsHubMetadataManager(BaseMetadataManager):
     ...
 
 
+
 class ProjectMetadataManager(BaseMetadataManager):
     ...
 
@@ -322,6 +323,14 @@ class TRPMetadataManager(BaseMetadataManager):
 
 
 class ProjectsHub(BaseModel):
+    _instance = None
+
+    #Making this class a singleton
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(ProjectsHub, cls).__new__(cls)
+        return cls._instance
+
 
     @property
     def hub(self) -> Path:
@@ -384,13 +393,37 @@ class ProjectsHub(BaseModel):
 
 
 class ProjectManager(BaseModel):
+    _instance = None
+    metadata_fp: str | None = None
     hub: ProjectsHub
-    pmm: ProjectMetadataManager
+
+    # Making this class a singleton
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(ProjectManager, cls).__new__(cls)
+        return cls._instance
+
+
+    @model_validator(mode="after")
+    def _initialize_project_manager(self) -> None:
+        current_project = self.hub.metadata.get("current_project")
+        if current_project:
+            self.metadata_fp = self.hub.hub / current_project / "metadata.json"
+            setattr(self, "pmm", ProjectMetadataManager(self.metadata_fp))
+        else:
+            print("")
+        return None
 
 
     @property
     def trps_fp(self) -> Path:
         return Path(self.hub.get_current_project(), GlobalDefinitions.DATA_DIR.value, GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)
+
+
+    @property
+    def project_metadata_manager(self):
+        return ProjectMetadataManager(self.)
+
 
 
     #TODO IMPROVE AND TRY GENERALIZE OR TO REPLACE ENTIRELY
@@ -407,6 +440,14 @@ class ProjectManager(BaseModel):
             GlobalDefinitions.VOLUME.value: self.pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders." + road_category + ".path"),
             GlobalDefinitions.MEAN_SPEED.value: self.pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders." + road_category + ".path"),
         }[target]
+
+
+    #TODO QUESTI SOPRA VANNO MESSI IN UN'ALTRA CLASSE
+
+
+
+
+    #TODO QUESTI SOTTO VANNO TENUTI SICURO
 
 
     def create(self, name: str):
