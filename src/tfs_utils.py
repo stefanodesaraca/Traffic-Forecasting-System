@@ -500,40 +500,9 @@ class ProjectsHub(BaseModel):
         return None
 
 
-
-class ProjectManager(BaseModel):
-    _instance = None
-    metadata_fp: str | None = None
-    hub: ProjectsHub
-
-    # Making this class a singleton
-    def __new__(cls, *args, **kwargs):
-        if cls._instance is None:
-            cls._instance = super(ProjectManager, cls).__new__(cls)
-        return cls._instance
-
-
-    @model_validator(mode="after")
-    def _initialize_project_manager(self) -> None:
-        current_project = self.hub.metadata.get("current_project")
-        if current_project:
-            self.metadata_fp = self.hub.hub / current_project / "metadata.json"
-            setattr(self, "pmm", ProjectMetadataManager(self.metadata_fp))
-        else:
-            print("Set current project")
-        return None
-
-
     @property
     def trps_fp(self) -> Path:
-        return Path(self.hub.get_current_project(), GlobalDefinitions.DATA_DIR.value, GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)
-
-
-    @property
-    def project_metadata_manager(self):
-        if not hasattr(self, "pmm"):
-            raise AttributeError("Project metadata manager not set. Set a current project to automatically instantiate a project metadata manager.")
-        return ProjectMetadataManager(self.pmm)
+        return Path(self.get_current_project(), GlobalDefinitions.DATA_DIR.value, GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)
 
 
 
