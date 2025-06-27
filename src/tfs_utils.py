@@ -348,13 +348,13 @@ class ProjectsHub(BaseModel):
             return json.load(m)
 
 
-    def create(self) -> None:
+    def create_hub(self) -> None:
         os.makedirs(self.hub, exist_ok=True)
         self._write_hub_metadata()
         return None
 
 
-    def delete(self) -> None:
+    def delete_hub(self) -> None:
         os.rmdir(self.hub)
         return None
 
@@ -391,71 +391,10 @@ class ProjectsHub(BaseModel):
         return None
 
 
-
-class ProjectManager(BaseModel):
-    _instance = None
-    metadata_fp: str | None = None
-    hub: ProjectsHub
-
-    # Making this class a singleton
-    def __new__(cls, *args, **kwargs):
-        if cls._instance is None:
-            cls._instance = super(ProjectManager, cls).__new__(cls)
-        return cls._instance
-
-
-    @model_validator(mode="after")
-    def _initialize_project_manager(self) -> None:
-        current_project = self.hub.metadata.get("current_project")
-        if current_project:
-            self.metadata_fp = self.hub.hub / current_project / "metadata.json"
-            setattr(self, "pmm", ProjectMetadataManager(self.metadata_fp))
-        else:
-            print("")
-        return None
-
-
-    @property
-    def trps_fp(self) -> Path:
-        return Path(self.hub.get_current_project(), GlobalDefinitions.DATA_DIR.value, GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)
-
-
-    @property
-    def project_metadata_manager(self):
-        return ProjectMetadataManager(self.)
-
-
-
-    #TODO IMPROVE AND TRY GENERALIZE OR TO REPLACE ENTIRELY
-    def get_models_folder_path(self, target: str, road_category: str) -> str:
-        return {
-            GlobalDefinitions.VOLUME.value: self.pmm.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders." + road_category + ".path"),
-            GlobalDefinitions.MEAN_SPEED.value: self.pmm.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders." + road_category + ".path")
-        }[target]
-
-
-    #TODO IMPROVE AND TRY GENERALIZE OR TO REPLACE ENTIRELY
-    def get_models_parameters_folder_path(self, target: str, road_category: str) -> str:
-        return {
-            GlobalDefinitions.VOLUME.value: self.pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders." + road_category + ".path"),
-            GlobalDefinitions.MEAN_SPEED.value: self.pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders." + road_category + ".path"),
-        }[target]
-
-
-    #TODO QUESTI SOPRA VANNO MESSI IN UN'ALTRA CLASSE
-
-
-
-
-    #TODO QUESTI SOTTO VANNO TENUTI SICURO
-
-
-    def create(self, name: str):
+    def create_project(self, name: str):
 
         #Creating the project's directory
-        os.makedirs(self.hub.hub / name, exist_ok=True)
-
-        self._write_project_metadata(project_dir_name=name)  #Creating the project's metadata file
+        os.makedirs(self.hub / name, exist_ok=True)
 
         folder_structure = {
             "data": {
@@ -512,17 +451,17 @@ class ProjectManager(BaseModel):
 
         # Creating main directories and respective subdirectories structure
         for key, sub_structure in folder_structure.items():
-            main_dir = self.current_project_metadata_path / key
+            main_dir = self.hub / self.get_current_project() / key
             os.makedirs(main_dir, exist_ok=True)
             metadata_folder_structure[key] = create_nested_folders(str(main_dir), sub_structure)
 
-        self.pmm.set(value=metadata_folder_structure, key="folder_paths", mode="e")
+        self._write_project_metadata(dir_name=name, **{metadata_folder_structure: metadata_folder_structure})  #Creating the project's metadata file
 
         return None
 
 
-    def _write_project_metadata(self, project_dir_name: str) -> None:
-        with open(Path(self.hub.hub / project_dir_name / GlobalDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
+    def _write_project_metadata(self, dir_name: str, **kwargs: Any) -> None:
+        with open(Path(self.hub / dir_name / GlobalDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
             json.dump({
             "common": {
                 "traffic_registration_points_file": str(self.trps_fp),
@@ -549,16 +488,71 @@ class ProjectManager(BaseModel):
                 "start_date_iso": None,
                 "end_date_iso": None
             },
-            "folder_paths": {},
+            "folder_paths": kwargs.get("metadata_folder_structure", {}),
             "forecasting": {"target_datetimes": {"V": None, "AS": None}},
             "trps": {}  # For each TRP we'll have {"id": metadata_filename}
         }, tf, indent=4)
         return None
 
 
-    def delete(self, name: str) -> None:
-        os.remove(self.hub.hub / name)
+    def delete_project(self, name: str) -> None:
+        os.remove(self.hub / name)
         return None
+
+
+
+class ProjectManager(BaseModel):
+    _instance = None
+    metadata_fp: str | None = None
+    hub: ProjectsHub
+
+    # Making this class a singleton
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(ProjectManager, cls).__new__(cls)
+        return cls._instance
+
+
+    @model_validator(mode="after")
+    def _initialize_project_manager(self) -> None:
+        current_project = self.hub.metadata.get("current_project")
+        if current_project:
+            self.metadata_fp = self.hub.hub / current_project / "metadata.json"
+            setattr(self, "pmm", ProjectMetadataManager(self.metadata_fp))
+        else:
+            print("Set current project")
+        return None
+
+
+    @property
+    def trps_fp(self) -> Path:
+        return Path(self.hub.get_current_project(), GlobalDefinitions.DATA_DIR.value, GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)
+
+
+    @property
+    def project_metadata_manager(self):
+        if not hasattr(self, "pmm"):
+            raise AttributeError("Project metadata manager not set. Set a current project to automatically instantiate a project metadata manager.")
+        return ProjectMetadataManager(self.pmm)
+
+
+    #TODO IMPROVE AND TRY GENERALIZE OR TO REPLACE ENTIRELY
+    def get_models_folder_path(self, target: str, road_category: str) -> str:
+        return {
+            GlobalDefinitions.VOLUME.value: self.pmm.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders." + road_category + ".path"),
+            GlobalDefinitions.MEAN_SPEED.value: self.pmm.get(key="folder_paths.ml.models.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders." + road_category + ".path")
+        }[target]
+
+
+    #TODO IMPROVE AND TRY GENERALIZE OR TO REPLACE ENTIRELY
+    def get_models_parameters_folder_path(self, target: str, road_category: str) -> str:
+        return {
+            GlobalDefinitions.VOLUME.value: self.pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders." + road_category + ".path"),
+            GlobalDefinitions.MEAN_SPEED.value: self.pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders." + road_category + ".path"),
+        }[target]
+
+
+
 
 
 
