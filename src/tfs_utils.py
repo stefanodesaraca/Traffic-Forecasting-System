@@ -334,8 +334,12 @@ class ProjectsHub(BaseModel):
 
     @model_validator(mode="after")
     def _validate_hub(self) -> "ProjectsHub":
-        #TODO IF PROJECT EXISTS LOAD IT, OTHERWISE START BY CREATING A NEW PROJECT CALLING self.create_project()
-
+        if self.get_current_project(errors=False) is None:
+            print("\033[91mCurrent project not set\033[0m")
+            print("Available projects: \n", self.projects)
+            print("Set a current project: ")
+            self.set_current_project(name=clean(input("Name of the project to set as current: "), no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True))
+        return self
 
 
     @property
@@ -352,6 +356,12 @@ class ProjectsHub(BaseModel):
     def metadata(self) -> dict["str", Any]:
         with open(self._metadata_manager.get(key="metadata"), "r", encoding="utf-8") as m:
             return json.load(m)
+
+
+    @property
+    def projects(self):
+        with open(self._metadata_manager.get(key="projects"), "r", encoding="utf-8") as m:
+            return json.load(m).keys()
 
 
     def create_hub(self) -> None:
@@ -371,7 +381,8 @@ class ProjectsHub(BaseModel):
                 "metadata": {
                     "current_project": None,
                     "lang": "en"
-                }
+                },
+                "projects": {}
             }, gm, indent=4)
         return None
 
@@ -582,7 +593,7 @@ class GeneralPurposeToolbox(BaseModel):
 
     @staticmethod
     def clean_text(text: str) -> str:
-        return clean(text, no_emoji=True, no_currency_symbols=True).replace(" ", "_").lower()
+        return clean(text, no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True).replace(" ", "_").lower()
 
 
     @staticmethod
