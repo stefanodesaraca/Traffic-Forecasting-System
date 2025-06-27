@@ -6,6 +6,8 @@ import sys
 import pickle
 import warnings
 from warnings import simplefilter
+
+from hypothesis.internal.conjecture.junkdrawer import endswith
 from scipy import stats
 from datetime import datetime
 from typing import Any, Literal, Generator, Protocol, cast, runtime_checkable
@@ -619,19 +621,27 @@ class TFSLearner:
         return self._scorer
 
 
-    def _load_model(self) -> Any:
+    @staticmethod
+    def _load_model(fp: str) -> Any:
         """
         Load pre-existing model from its corresponding joblib file.
+
+        Parameters
+        ----------
+        fp : str
+            The filepath of the model's joblib file. Must have a .joblib file extension
 
         Returns
         -------
         Any
             The model object.
         """
-        return joblib.load(dm.get_models_folder_path(self._target, self._road_category) + dm.get_current_project() + "_" + self._road_category + "_" + self._model.name + ".joblib")
+        if not fp.endswith(".joblib"):
+            raise ValueError("Trying to load a model with a non-joblib file. Retry with a joblib one.")
+        return joblib.load(fp) #TODO BEFORE IT WAS dm.get_models_folder_path(self._target, self._road_category) + dm.get_current_project() + "_" + self._road_category + "_" + self._model.name + ".joblib"
 
 
-    def export_gridsearch_results(self, results: pd.DataFrame) -> None:
+    def export_gridsearch_results(self, results: pd.DataFrame, fp: str) -> None:
         """
         Export GridSearchCV true best results to a JSON file.
 
@@ -639,6 +649,9 @@ class TFSLearner:
         ----------
         results : pd.DataFrame
             The actual gridsearch results as a pandas dataframe.
+        fp : str
+            The filepath where to export the gridsearch results
+
         Returns
         -------
         None
@@ -648,8 +661,10 @@ class TFSLearner:
         true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) # This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
         true_best_params["best_GridSearchCV_model_scores"] = results.loc[best_params[self._target][self._model.name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
-        #TODO FIND A WAY TO LET THE FILE PATH BE CUSTOMIZABLE
-        with open(dm.get_models_parameters_folder_path(self._target, self._road_category) + dm.get_current_project() + "_" + self._road_category + "_" + self._model.name + "_parameters.json", "w", encoding="utf-8") as params_file:
+        if not fp.endswith(".json"):
+            raise ValueError("Trying to export GridSearchCV results to a non-JSON file. Retry with a filename that ends with .json")
+
+        with open(fp, "w", encoding="utf-8") as params_file:
             json.dump(true_best_params, params_file, indent=4)
 
         #TODO TESTING:

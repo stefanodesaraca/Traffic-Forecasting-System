@@ -21,7 +21,7 @@ from tfs_ml_configs import *
 gp_toolbox = GeneralPurposeToolbox()
 pjh = ProjectsHub()
 
-gmm = ProjectsHubMetadataManager(path=pjh.hub)
+pjmm = ProjectsHubMetadataManager(path=pjh.hub)
 pmm = ProjectMetadataManager(path=)
 tmm = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManager
 
@@ -36,13 +36,13 @@ def manage_ops(functionality: str) -> None:
         pdm.create(gp_toolbox.clean_text(input("Insert new project name: ")))
 
     elif functionality == "1.2":
-        gmm.set_current_project(gp_toolbox.clean_text(input("Insert the operation to set as active: ")))
+        pjmm.set_current_project(gp_toolbox.clean_text(input("Insert the operation to set as active: ")))
 
     elif functionality == "1.3":
-        print("Current project: ", gmm.get_current_project(), "\n\n")
+        print("Current project: ", pjmm.get_current_project(), "\n\n")
 
     elif functionality == "1.4":
-        gmm.reset_current_project()
+        pjmm.reset_current_project()
 
     elif functionality == "1.5":
         pdm.delete(gp_toolbox.clean_text(input("Insert the name of the project to delete: ")))
@@ -94,7 +94,7 @@ async def download_volumes(functionality: str) -> None:
         await traffic_volumes_data_to_json(time_start=time_start, time_end=time_end)
 
     elif functionality == "2.3":
-        if len(os.listdir(gmm.get(key="folder_paths.data.trp_metadata.path"))) == 0:
+        if len(os.listdir(pjmm.get(key="folder_paths.data.trp_metadata.path"))) == 0:
             for trp_id in tqdm(trp_toolbox.get_global_trp_data().keys()):
                 tmm.write_trp_metadata(trp_id, **{"trp_data": trp_toolbox.get_global_trp_data()[trp_id]})
         else:
@@ -195,28 +195,32 @@ def execute_forecast_warmup(functionality: str) -> None:
         return None
 
 
-    def execute_testing(X_test: dd.DataFrame, y_test: dd.DataFrame, learner: callable):
+    def execute_testing(X_test: dd.DataFrame, y_test: dd.DataFrame, learner: callable) -> None:
         model = learner.get_model()
         y_pred = model.predict(X_test)
         print(model.evaluate_regression(y_test=y_test, y_pred=y_pred, scorer=learner.get_scorer()))
-        return
+        return None
 
 
     def process_functionality(target: str, function: callable) -> None:
+        function_name = function.__name__
+
         for road_category, files in trp_toolbox.get_trp_ids_by_road_category(target=target).items():
             X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
-            for model in models:
 
-                if function.__name__ != "execute_gridsearch":
+            for model in models:
+                if function_name != "execute_gridsearch":
                     with open(pmm.get(key="folder_paths.ml.models_parameters.subfolders." + target + ".subfolders." + road_category + ".path") + pdm.get_current_project() + "_" + road_category + "_" + model.__name__ + "_parameters.json", "r", encoding="utf-8") as params_reader:
                         params = json.load(params_reader)[model.__name__]
                 else:
                     params = model_definitions["auxiliary_parameters"].get(model.__name__, {})
 
                 learner = TFSLearner(model=model(**params), road_category=road_category, target=cast(Literal["V", "MS"], target), client=client)
-                function(X_train if function.__name__ in ["execute_gridsearch", "execute_training"] else X_test,
-                         y_train if function.__name__ in ["execute_gridsearch", "execute_training"] else y_test,
+                function(X_train if function_name in ["execute_gridsearch", "execute_training"] else X_test,
+                         y_train if function_name in ["execute_gridsearch", "execute_training"] else y_test,
                          learner)
+
+        return None
 
     with dask_cluster_client(processes=False) as client:
         functionality_mapping = {
