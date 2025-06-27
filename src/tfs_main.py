@@ -28,8 +28,6 @@ tmm = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManage
 trp_toolbox = TRPToolbox(tmm=tmm)
 forecasting_toolbox = ForecastingToolbox(gp_toolbox=gp_toolbox, tmm=tmm, pmm=pmm)
 
-pdm = ProjectManager(hub=pjh, pmm=pmm)
-
 
 def manage_ops(functionality: str) -> None:
     if functionality == "1.1":

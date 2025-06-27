@@ -50,8 +50,8 @@ def dask_cluster_client(processes=False):
 
 class GlobalDefinitions(Enum):
     CWD = os.getcwd()
-    GLOBAL_PROJECTS_DIR_NAME = "projects"
-    GLOBAL_PROJECTS_METADATA = "global_metadata.json" # File
+    PROJECTS_HUB_DIR_NAME = "projects"
+    PROJECTS_HUB_METADATA = "global_metadata.json" # File
     PROJECT_METADATA = "project_metadata.json"
 
     DATA_DIR = "data"
@@ -332,9 +332,15 @@ class ProjectsHub(BaseModel):
         return cls._instance
 
 
+    @model_validator(mode="after")
+    def _validate_hub(self) -> "ProjectsHub":
+        #TODO IF PROJECT EXISTS LOAD IT, OTHERWISE START BY CREATING A NEW PROJECT CALLING self.create_project()
+
+
+
     @property
     def hub(self) -> Path:
-        return Path.cwd() / GlobalDefinitions.GLOBAL_PROJECTS_DIR_NAME.value
+        return Path.cwd() / GlobalDefinitions.PROJECTS_HUB_DIR_NAME.value
 
 
     @property
@@ -360,7 +366,7 @@ class ProjectsHub(BaseModel):
 
 
     def _write_hub_metadata(self) -> None:
-        with open(self.hub / GlobalDefinitions.GLOBAL_PROJECTS_METADATA.value, "w", encoding="utf-8") as gm:
+        with open(self.hub / GlobalDefinitions.PROJECTS_HUB_METADATA.value, "w", encoding="utf-8") as gm:
             json.dump({
                 "metadata": {
                     "current_project": None,
