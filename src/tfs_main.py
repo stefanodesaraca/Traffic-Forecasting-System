@@ -22,7 +22,7 @@ gp_toolbox = GeneralPurposeToolbox()
 pjh = ProjectsHub()
 
 pjmm = ProjectsHubMetadataManager(path=pjh.hub)
-pmm = ProjectMetadataManager(path=)
+pmm = ProjectMetadataManager(path=pjh.hub / pjh.get_current_project() / "metadata.json")
 tmm = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManager
 
 trp_toolbox = TRPToolbox(tmm=tmm)
