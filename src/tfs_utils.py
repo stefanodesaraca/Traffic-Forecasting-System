@@ -537,19 +537,6 @@ class ProjectManager(BaseModel):
 
 
 
-
-    #TODO IMPROVE AND TRY GENERALIZE OR TO REPLACE ENTIRELY
-    def get_models_parameters_folder_path(self, target: str, road_category: str) -> str:
-        return {
-            GlobalDefinitions.VOLUME.value: self.pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["V"] + ".subfolders." + road_category + ".path"),
-            GlobalDefinitions.MEAN_SPEED.value: self.pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value["MS"] + ".subfolders." + road_category + ".path"),
-        }[target]
-
-
-
-
-
-
 class GeneralPurposeToolbox(BaseModel):
 
     @staticmethod

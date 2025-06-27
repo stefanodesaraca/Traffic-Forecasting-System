@@ -280,7 +280,7 @@ def execute_forecasting(functionality: str) -> None:
 
             for name, model in model_definitions["class_instances"].items():
 
-                with open(pdm.get_models_parameters_folder_path(GlobalDefinitions.TARGET_DATA.value[option], trp_road_category) + pdm.get_current_project() + "_" + trp_road_category + "_" + name + "_parameters.json", "r") as params_reader:
+                with open(pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value[option] + ".subfolders." + trp_road_category + ".path") + pdm.get_current_project() + "_" + trp_road_category + "_" + name + "_parameters.json", "r") as params_reader:
                     best_params = json.load(params_reader)[name] # Attributes which aren't included in the gridsearch grid are already included in best_params since they were first gathered together and then exported
 
                 learner = TFSLearner(model=model(**best_params), road_category=trp_road_category, target=GlobalDefinitions.TARGET_DATA.value[option], client=client)
