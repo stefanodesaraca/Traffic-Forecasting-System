@@ -141,13 +141,13 @@ def execute_eda() -> None:
 
     for v in (trp_id for trp_id in trp_data.keys() if tmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_VOLUME_CHECK.value)):
         volumes = pd.read_csv(clean_volumes_folder + v + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv")
-        analyze_volumes(volumes)
-        volumes_data_multicollinearity_test(volumes)
+        analyze_volume(volumes)
+        volume_multicollinearity_test(volumes)
 
     for s in (trp_id for trp_id in trp_data.keys() if tmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value)):
         speeds = pd.read_csv(clean_speeds_folder + s + GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv")
-        analyze_avg_speeds(speeds)
-        avg_speeds_data_multicollinearity_test(speeds)
+        analyze_mean_speed(speeds)
+        mean_speed_multicollinearity_test(speeds)
 
     volumes_speeds = (vs for vs in (trp_id for trp_id in trp_data.keys() if trp_data[trp_id]["checks"]["has_" + GlobalDefinitions.TARGET_DATA.value["V"]] and trp_data[trp_id]["checks"]["has_" + GlobalDefinitions.TARGET_DATA.value["MS"]]))
     # Determining the TRPs which have both traffic volumes and speed data

@@ -20,12 +20,11 @@ from tfs_cleaning import *
 tab10 = sns.color_palette("tab10")
 
 
-global_metadata_manager = ProjectsHubMetadataManager()
-project_metadata_manager = ProjectMetadataManager()
-
 gp_toolbox = GeneralPurposeToolbox()
+pjh = ProjectsHub()
 
-dm = ProjectManager(pmm=project_metadata_manager)
+pjhmm = ProjectsHubMetadataManager(path=pjh.hub)
+pmm = ProjectMetadataManager(path=pjh.hub / pjh.get_current_project() / "metadata.json")
 
 
 def savePlots(plotFunction):
@@ -87,7 +86,7 @@ def ShapiroWilkTest(targetFeatureName, data, shapiroWilkPlotsPath):
     return plotName, SWQQPlot, shapiroWilkPlotsPath
 
 
-def analyze_volumes(volumes: pd.DataFrame) -> None:
+def analyze_volume(volumes: pd.DataFrame) -> None:
 
     # --------------- Calculations ---------------
 
@@ -151,7 +150,7 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
         print("\n")
 
     # Checking if the data distribution is normal
-    ShapiroWilkTest("volume", volumes["volume"], project_metadata_manager.get(key="folder_paths.eda.traffic_shapiro_wilk_test.path"))
+    ShapiroWilkTest("volume", volumes["volume"], pmm.get(key="folder_paths.eda.traffic_shapiro_wilk_test.path"))
     plt.clf()
 
     print("\n\n")
@@ -184,7 +183,7 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
         plt.title(f"Traffic volumes aggregated (sum) by day for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_volume_trend_grouped_by_years", plt, project_metadata_manager.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.VOLUME.value + ".path")
+        return f"{trp_id}_volume_trend_grouped_by_years", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.VOLUME.value + ".path")
 
     @savePlots
     def volume_trend_by_week():
@@ -202,7 +201,7 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
         plt.title(f"Traffic volumes aggregated (median) by week for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_volume_trend_by_hour_day", plt, project_metadata_manager.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.VOLUME.value + ".path")
+        return f"{trp_id}_volume_trend_by_hour_day", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.VOLUME.value + ".path")
 
     @savePlots
     def volumes_distribution_by_week_and_year():
@@ -222,20 +221,20 @@ def analyze_volumes(volumes: pd.DataFrame) -> None:
 
         plt.subplots_adjust(hspace=0.5)
 
-        return f"{trp_id}_volumes_distribution_by_week_and_year", plt, project_metadata_manager.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.VOLUME.value + ".path")
+        return f"{trp_id}_volumes_distribution_by_week_and_year", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.VOLUME.value + ".path")
 
     @savePlots
     def correlation_heatmap():
         return (f"{trp_id}_volumes_corr_heatmap",
                 sns.heatmap(volumes.corr(numeric_only=True), annot=True, fmt=".2f").set_title(f"Traffic volumes - TRP: {trp_id} - Correlation heatmap"),
-                project_metadata_manager.get(key="folder_paths.eda.plots.eda_plots." + GlobalDefinitions.VOLUME.value + ".path"))
+                pmm.get(key="folder_paths.eda.plots.eda_plots." + GlobalDefinitions.VOLUME.value + ".path"))
 
     all((i(), plt.clf()) for i in (volume_trend_grouped_by_years, volume_trend_by_week, volumes_distribution_by_week_and_year, correlation_heatmap))
 
     return None
 
 
-def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
+def analyze_mean_speed(speeds: pd.DataFrame) -> None:
 
     # --------------- Calculations ---------------
 
@@ -298,7 +297,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
         print("\n")
 
     # Checking if the data distribution is normal
-    swt_path = project_metadata_manager.get(key="folder_paths.eda.traffic_shapiro_wilk_test.path")
+    swt_path = pmm.get(key="folder_paths.eda.traffic_shapiro_wilk_test.path")
     ShapiroWilkTest("mean_speed", speeds["mean_speed"], swt_path)
     plt.clf()
 
@@ -329,7 +328,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
         plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
         plt.title(f"Average speeds aggregated by day for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_avg_speeds_trend_grouped_by_years", plt, project_metadata_manager.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.MEAN_SPEED.value + ".path")
+        return f"{trp_id}_avg_speeds_trend_grouped_by_years", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.MEAN_SPEED.value + ".path")
 
     @savePlots
     def speeds_trend_by_week():
@@ -346,7 +345,7 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
         plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
         plt.title(f"Median of the average speeds by week for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_avg_speed_trend_by_hour_day", plt, project_metadata_manager.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.MEAN_SPEED.value + ".path")
+        return f"{trp_id}_avg_speed_trend_by_hour_day", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.MEAN_SPEED.value + ".path")
 
     @savePlots
     def speeds_distribution_by_week_and_year():
@@ -366,20 +365,20 @@ def analyze_avg_speeds(speeds: pd.DataFrame) -> None:
 
         plt.subplots_adjust(hspace=0.5)
 
-        return f"{trp_id}_avg_speed_distribution_by_week_and_year", plt, project_metadata_manager.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.MEAN_SPEED.value + ".path")
+        return f"{trp_id}_avg_speed_distribution_by_week_and_year", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.MEAN_SPEED.value + ".path")
 
     @savePlots
     def correlation_heatmap():
         return (f"{trp_id}_avg_speed_corr_heatmap",
                 sns.heatmap(speeds.corr(numeric_only=True), annot=True, fmt=".2f").set_title(f"Traffic volumes - TRP: {trp_id} - Correlation heatmap"),
-                project_metadata_manager.get(key="folder_paths.eda.plots.eda_plots." + GlobalDefinitions.MEAN_SPEED.value + ".path"))
+                pmm.get(key="folder_paths.eda.plots.eda_plots." + GlobalDefinitions.MEAN_SPEED.value + ".path"))
 
     all((i(), plt.clf()) for i in (speeds_trend_grouped_by_years, speeds_trend_by_week, speeds_distribution_by_week_and_year, correlation_heatmap))
 
     return None
 
 
-def volumes_data_multicollinearity_test(volumes: pd.DataFrame) -> None:
+def volume_multicollinearity_test(volumes: pd.DataFrame) -> None:
     volumes = volumes.drop(columns=["volume", "date", "trp_id"])
     volumes_col_names = list(volumes.columns)
     # print(volumes_col_names)
@@ -423,7 +422,7 @@ def volumes_data_multicollinearity_test(volumes: pd.DataFrame) -> None:
     return None
 
 
-def avg_speeds_data_multicollinearity_test(speeds: pd.DataFrame) -> None:
+def mean_speed_multicollinearity_test(speeds: pd.DataFrame) -> None:
     speeds = speeds.drop(columns=["mean_speed", "percentile_85", "trp_id", "date"], axis=1)
     speeds_col_names = list(speeds.columns)
     # print(speeds_col_names)
