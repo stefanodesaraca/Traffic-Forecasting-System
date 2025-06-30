@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import time
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -8,16 +9,20 @@ import pprint
 import asyncio
 from typing import cast
 from asyncio import Semaphore
+import pandas as pd
+import dask
+import dask.dataframe as dd
 
-#TODO GET MORE SPECIFIC WITH IMPORTS AND REPLACE * WITH ACTUAL METHODS, FUNCTIONS, ETC. USED HERE IN THE MAIN CODE
-from tfs_downloader import *
-from tfs_eda import *
-from tfs_cleaning import *
-from tfs_ml import *
-from tfs_road_network import *
-from tfs_ml_configs import *
-from tfs_utils import *
 from tfs_base_config import gp_toolbox, pjh, pjhmm, pmm, tmm, trp_toolbox, forecasting_toolbox
+from tfs_ml_configs import model_definitions
+from tfs_exceptions import TRPNotFoundError, TargetVariableNotFoundError, TargetDataNotAvailableError
+
+from tfs_downloader import trps_to_json, volumes_to_json
+from tfs_cleaning import TrafficVolumesCleaner, AverageSpeedCleaner
+from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
+from tfs_ml import TFSLearner, TFSPreprocessor, OnePointForecaster
+from tfs_road_network import *
+from tfs_utils import GlobalDefinitions, dask_cluster_client
 
 
 def manage_ops(functionality: str) -> None:
@@ -48,7 +53,7 @@ async def download_volumes(functionality: str) -> None:
     if functionality == "2.1":
         try:
             print("\nDownloading traffic registration points information for the active operation...")
-            await traffic_registration_points_to_json()
+            await trps_to_json()
             print("Traffic registration points information downloaded successfully\n\n")
         except Exception as e:
             raise Exception(f"Couldn't download traffic registration points information for the active operation. Error: {e}")
@@ -80,7 +85,7 @@ async def download_volumes(functionality: str) -> None:
         await pmm.set_async(value=weeks_delta, key=GlobalDefinitions.VOLUME.value + ".n_weeks", mode="e")
 
         print("Downloading traffic volumes data for every registration point for the active operation...")
-        await traffic_volumes_data_to_json(time_start=time_start, time_end=time_end)
+        await volumes_to_json(time_start=time_start, time_end=time_end)
 
     elif functionality == "2.3":
         if len(os.listdir(pjhmm.get(key="folder_paths.data.trp_metadata.path"))) == 0:

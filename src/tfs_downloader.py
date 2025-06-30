@@ -28,7 +28,7 @@ async def start_client_async() -> Client:
 
 
 # The number 3 indicates the Oslo og Viken county, which only includes the Oslo municipality
-async def fetch_traffic_registration_points(client: Client) -> dict | ExecutionResult:
+async def fetch_trps(client: Client) -> dict | ExecutionResult:
     return await client.execute_async(gql(
         """
         {
@@ -90,10 +90,10 @@ async def fetch_traffic_registration_points(client: Client) -> dict | ExecutionR
     ))
 
 
-def fetch_traffic_volumes_for_trp_id(client: Client, traffic_registration_point: str, time_start: str, time_end: str, last_end_cursor: str, next_page_query: bool) -> dict | ExecutionResult:
+def fetch_volumes_for_trp_id(client: Client, trp_id: str, time_start: str, time_end: str, last_end_cursor: str, next_page_query: bool) -> dict | ExecutionResult:
     return client.execute(gql(f"""
         {{
-            trafficData(trafficRegistrationPointId: "{traffic_registration_point}") {{
+            trafficData(trafficRegistrationPointId: "{trp_id}") {{
                 trafficRegistrationPoint {{
                     id
                     name
@@ -190,21 +190,21 @@ def fetch_areas(client: Client) -> dict | ExecutionResult:
 # --------------------------------- JSON Writing Section ---------------------------------
 
 
-async def traffic_registration_points_to_json() -> None:
+async def trps_to_json() -> None:
     """
     The _ops_name parameter is needed to identify the operation where the data needs to be downloaded.
     This implies that the same data can be downloaded multiple times, but downloaded into different operation folders,
     so reducing the risk of data loss or corruption in case of malfunctions.
     """
     client = await start_client_async()
-    TRPs = await fetch_traffic_registration_points(client)
+    TRPs = await fetch_trps(client)
 
     async with aiofiles.open(pmm.get(key="common.traffic_registration_points_file"), "w") as trps_w:
         await trps_w.write(json.dumps({data["id"]: data for data in TRPs["trafficRegistrationPoints"]}, indent=4))
     return None
 
 
-async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
+async def volumes_to_json(time_start: str, time_end: str) -> None:
     semaphore = asyncio.Semaphore(5)  # Limit to 5 concurrent tasks
 
     async def download_trp_data(trp_id):
@@ -216,7 +216,7 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
         while True:
             try:
                 query_result = await asyncio.to_thread(
-                    fetch_traffic_volumes_for_trp_id,
+                    fetch_volumes_for_trp_id,
                     client,
                     trp_id,
                     time_start,
