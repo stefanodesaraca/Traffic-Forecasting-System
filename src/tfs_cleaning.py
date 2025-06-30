@@ -365,7 +365,7 @@ class TrafficVolumesCleaner(BaseCleaner):
         #  THE set_path() method will be a method of the BaseMetadataManager CLASS
 
         async with aiofiles.open(
-                project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json", "r", encoding="utf-8") as m:
+                pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json", "r", encoding="utf-8") as m:
             by_hour_df = await asyncio.to_thread(self._parse_by_hour, json.loads(await m.read())) #In case there's no data by_hour_df will be None
 
         if by_hour_df is not None and by_hour_df.shape[0] > 0:
@@ -392,7 +392,7 @@ class TrafficVolumesCleaner(BaseCleaner):
 
         if export:
             try:
-                by_hour_df.to_csv(project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.clean.path") + trp_id + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv", index=False, encoding="utf-8")
+                by_hour_df.to_csv(pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.clean.path") + trp_id + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv", index=False, encoding="utf-8")
                 print(f"TRP: {trp_id} data exported correctly\n")
 
                 await tmm.set_async(value=True, key="checks." + GlobalDefinitions.HAS_VOLUME_CHECK.value, mode="e") #Only updating the has_volumes only if it has clean volumes data
@@ -508,10 +508,10 @@ class AverageSpeedCleaner(BaseCleaner):
                 # Using to_thread since this is a CPU-bound operation which would otherwise block the event loop until it's finished executing
                 data = await self._parse_speeds_async(
                             await asyncio.to_thread(pd.read_csv,
-                            project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING.value + ".csv", sep=";", **{"engine": "c"}))
+                            pmm.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING.value + ".csv", sep=";", **{"engine": "c"}))
 
                 if data is not None: #Checking if data isn't None. If it is, that means that the speeds file was empty
-                    await asyncio.to_thread(data.to_csv,project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path") + trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING.value + ".csv")
+                    await asyncio.to_thread(data.to_csv,pmm.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path") + trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING.value + ".csv")
 
                     await tmm.set_async(value=True, key="checks." + GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value, mode="e")
                     await tmm.set_async(value=trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING.value + ".csv", key="files." + GlobalDefinitions.MEAN_SPEED.value + ".clean", mode="e")
@@ -519,7 +519,7 @@ class AverageSpeedCleaner(BaseCleaner):
                 return None
 
             else:
-                return await self._parse_speeds_async(await asyncio.to_thread(pd.read_csv, project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING + ".csv", sep=";", **{"engine":"c"}))
+                return await self._parse_speeds_async(await asyncio.to_thread(pd.read_csv, pmm.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING + ".csv", sep=";", **{"engine":"c"}))
 
         except FileNotFoundError or IndexError as e:
             print(f"\033[91mNo average speed data for TRP: {trp_id}. Error: {e}\033[0m\n")
