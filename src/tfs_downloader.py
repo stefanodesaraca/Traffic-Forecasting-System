@@ -18,6 +18,7 @@ pjh = ProjectsHub()
 
 pmm = ProjectMetadataManager(path=pjh.hub / pjh.get_current_project() / "metadata.json")
 trp_metadata_manager = TRPMetadataManager()
+
 trp_toolbox = TRPToolbox(tmm=trp_metadata_manager)
 
 # --------------------------------- GraphQL Client Start ---------------------------------

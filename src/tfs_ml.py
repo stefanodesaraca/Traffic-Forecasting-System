@@ -7,7 +7,6 @@ import pickle
 import warnings
 from warnings import simplefilter
 
-from hypothesis.internal.conjecture.junkdrawer import endswith
 from scipy import stats
 from datetime import datetime
 from typing import Any, Literal, Generator, Protocol, cast, runtime_checkable
@@ -49,18 +48,15 @@ simplefilter(action="ignore", category=FutureWarning)
 warnings.filterwarnings("ignore")
 pd.set_option("display.max_columns", None)
 
-dt_iso = "%Y-%m-%dT%H:%M:%S.%fZ"
-dt_format = "%Y-%m-%dT%H"
-
-
-global_metadata_manager = ProjectsHubMetadataManager()
-project_metadata_manager = ProjectMetadataManager()
-trp_metadata_manager = TRPMetadataManager()
 
 gp_toolbox = GeneralPurposeToolbox()
-trp_toolbox = TRPToolbox(tmm=trp_metadata_manager)
+pjh = ProjectsHub()
 
-dm = ProjectManager(pmm=project_metadata_manager)
+pjhmm = ProjectsHubMetadataManager(path=pjh.hub)
+pmm = ProjectMetadataManager(path=pjh.hub / pjh.get_current_project() / "metadata.json")
+trp_metadata_manager = TRPMetadataManager()
+
+trp_toolbox = TRPToolbox(tmm=trp_metadata_manager)
 
 
 class TFSPreprocessor:
@@ -774,9 +770,9 @@ class OnePointForecaster:
         """
         if training_mode == 0:
             if limit is not None:
-                return dd.from_delayed(delayed(dd.read_csv(project_metadata_manager.get(key="folder_paths.data." + self._target + ".subfolders.clean.path") + self._trp_id + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv").tail(limit).persist()))
+                return dd.from_delayed(delayed(dd.read_csv(pmm.get(key="folder_paths.data." + self._target + ".subfolders.clean.path") + self._trp_id + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv").tail(limit).persist()))
             else:
-                return dd.read_csv(project_metadata_manager.get(key="folder_paths.data." + self._target + ".subfolders.clean.path") + self._trp_id + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv")
+                return dd.read_csv(pmm.get(key="folder_paths.data." + self._target + ".subfolders.clean.path") + self._trp_id + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv")
         elif training_mode == 1:
             if limit is not None:
                 return dd.from_delayed(delayed(
@@ -827,7 +823,7 @@ class OnePointForecaster:
                     break
                 yield batch
 
-        last_available_data_dt = datetime.strptime(project_metadata_manager.get(key=self._target + ".end_date_iso"), GlobalDefinitions.DT_ISO.value)
+        last_available_data_dt = datetime.strptime(pmm.get(key=self._target + ".end_date_iso"), GlobalDefinitions.DT_ISO.value)
         rows_to_predict = dd.from_delayed([delayed(pd.DataFrame)(batch) for batch in get_batches(
             ({
                 **attr,
