@@ -5,9 +5,8 @@ from sklearn.ensemble import (
 )
 
 from tfs_utils import GlobalDefinitions
-from tfs_ml import GeneralPurposeToolbox
+from tfs_base_config import gp_toolbox
 
-gp_toolbox = GeneralPurposeToolbox()
 
 #Be aware that too low parameters could bring some models to stall while training, so don't go too low with the grid search parameters
 grids = {

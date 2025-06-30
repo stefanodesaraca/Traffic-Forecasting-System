@@ -17,18 +17,11 @@ from sklearn.impute import IterativeImputer
 from sklego.meta import ZeroInflatedRegressor
 
 from tfs_utils import *
+from tfs_base_config import gp_toolbox, pjh, pmm, tmm
 
 
 pd.set_option("display.max_rows", None)
 pd.set_option("display.max_columns", None)
-
-
-gp_toolbox = GeneralPurposeToolbox()
-pjh = ProjectsHub()
-
-pmm = ProjectMetadataManager(path=pjh.hub / pjh.get_current_project() / "metadata.json")
-tmm = TRPMetadataManager()
-
 
 
 class BaseCleaner:

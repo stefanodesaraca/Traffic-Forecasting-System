@@ -41,6 +41,7 @@ from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastin
 
 from tfs_exceptions import *
 from tfs_utils import *
+from tfs_base_config import gp_toolbox, pjh, pjhmm, pmm, tmm, trp_toolbox, forecasting_toolbox
 from tfs_ml_configs import *
 
 
@@ -48,15 +49,6 @@ simplefilter(action="ignore", category=FutureWarning)
 warnings.filterwarnings("ignore")
 pd.set_option("display.max_columns", None)
 
-
-gp_toolbox = GeneralPurposeToolbox()
-pjh = ProjectsHub()
-
-pjhmm = ProjectsHubMetadataManager(path=pjh.hub)
-pmm = ProjectMetadataManager(path=pjh.hub / pjh.get_current_project() / "metadata.json")
-trp_metadata_manager = TRPMetadataManager()
-
-trp_toolbox = TRPToolbox(tmm=trp_metadata_manager)
 
 
 class TFSPreprocessor:

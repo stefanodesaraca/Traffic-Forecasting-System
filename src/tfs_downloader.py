@@ -10,16 +10,10 @@ from gql.transport.aiohttp import AIOHTTPTransport
 from graphql import ExecutionResult
 
 from tfs_utils import *
+from tfs_base_config import pmm, tmm, trp_toolbox
 
 simplefilter("ignore")
 
-
-pjh = ProjectsHub()
-
-pmm = ProjectMetadataManager(path=pjh.hub / pjh.get_current_project() / "metadata.json")
-trp_metadata_manager = TRPMetadataManager()
-
-trp_toolbox = TRPToolbox(tmm=trp_metadata_manager)
 
 # --------------------------------- GraphQL Client Start ---------------------------------
 
@@ -258,8 +252,8 @@ async def traffic_volumes_data_to_json(time_start: str, time_end: str) -> None:
         async with aiofiles.open(await asyncio.to_thread(pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json", "w")) as f:
             await f.write(json.dumps(await download_trp_data(trp_id), indent=4))
 
-        trp_metadata_manager.write_trp_metadata(trp_id=trp_id, **{"raw_volumes_file": trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json"}) # Writing TRP's empty metadata file
-        await trp_metadata_manager.set_async(value=(await trp_toolbox.get_global_trp_data_async())[trp_id], key="trp_data", mode="e")
+        tmm.write_trp_metadata(trp_id=trp_id, **{"raw_volumes_file": trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json"}) # Writing TRP's empty metadata file
+        await tmm.set_async(value=(await trp_toolbox.get_global_trp_data_async())[trp_id], key="trp_data", mode="e")
 
     async def limited_task(trp_id):
         async with semaphore:

@@ -9,24 +9,15 @@ import asyncio
 from typing import cast
 from asyncio import Semaphore
 
+#TODO GET MORE SPECIFIC WITH IMPORTS AND REPLACE * WITH ACTUAL METHODS, FUNCTIONS, ETC. USED HERE IN THE MAIN CODE
 from tfs_downloader import *
 from tfs_eda import *
-from tfs_utils import *
 from tfs_cleaning import *
 from tfs_ml import *
 from tfs_road_network import *
 from tfs_ml_configs import *
-
-
-gp_toolbox = GeneralPurposeToolbox()
-pjh = ProjectsHub()
-
-pjhmm = ProjectsHubMetadataManager(path=pjh.hub)
-pmm = ProjectMetadataManager(path=pjh.hub / pjh.get_current_project() / "metadata.json")
-tmm = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManager
-
-trp_toolbox = TRPToolbox(tmm=tmm)
-forecasting_toolbox = ForecastingToolbox(gp_toolbox=gp_toolbox, tmm=tmm, pmm=pmm)
+from tfs_utils import *
+from tfs_base_config import gp_toolbox, pjh, pjhmm, pmm, tmm, trp_toolbox, forecasting_toolbox
 
 
 def manage_ops(functionality: str) -> None:
