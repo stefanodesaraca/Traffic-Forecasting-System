@@ -23,20 +23,19 @@ pd.set_option("display.max_rows", None)
 pd.set_option("display.max_columns", None)
 
 
-global_metadata_manager = ProjectsHubMetadataManager()
-project_metadata_manager = ProjectMetadataManager()
-trp_metadata_manager = TRPMetadataManager()
-
 gp_toolbox = GeneralPurposeToolbox()
+pjh = ProjectsHub()
 
-dm = ProjectManager(pmm=project_metadata_manager)
+pmm = ProjectMetadataManager(path=pjh.hub / pjh.get_current_project() / "metadata.json")
+tmm = TRPMetadataManager()
+
 
 
 class BaseCleaner:
     def __init__(self):
         self._cwd: str | Path = GlobalDefinitions.CWD.value
         self._ops_folder: str = "ops"
-        self._ops_name: str | None = dm.get_current_project()
+        self._ops_name: str | None = pjh.get_current_project()
         self._regressor_types: list = ["lasso", "gamma", "quantile"]
 
 
@@ -370,7 +369,7 @@ class TrafficVolumesCleaner(BaseCleaner):
             by_hour_df = await asyncio.to_thread(self._parse_by_hour, json.loads(await m.read())) #In case there's no data by_hour_df will be None
 
         if by_hour_df is not None and by_hour_df.shape[0] > 0:
-            await trp_metadata_manager.set_async(value=trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json", key="files." + GlobalDefinitions.VOLUME.value + ".raw", mode="e")
+            await tmm.set_async(value=trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json", key="files." + GlobalDefinitions.VOLUME.value + ".raw", mode="e")
 
             try:
                 print("Shape before MICE: ", len(by_hour_df), len(by_hour_df.columns))
@@ -396,10 +395,10 @@ class TrafficVolumesCleaner(BaseCleaner):
                 by_hour_df.to_csv(project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.clean.path") + trp_id + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv", index=False, encoding="utf-8")
                 print(f"TRP: {trp_id} data exported correctly\n")
 
-                await trp_metadata_manager.set_async(value=True, key="checks." + GlobalDefinitions.HAS_VOLUME_CHECK.value, mode="e") #Only updating the has_volumes only if it has clean volumes data
-                await trp_metadata_manager.set_async(value=trp_id + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv", key="files." + GlobalDefinitions.VOLUME.value + ".clean", mode="e")
-                await trp_metadata_manager.set_async(value=str(by_hour_df["date"].min()), key="data_info." + GlobalDefinitions.VOLUME.value + ".start_date", mode="e")
-                await trp_metadata_manager.set_async(value=str(by_hour_df["date"].max()), key="data_info." + GlobalDefinitions.VOLUME.value + ".end_date", mode="e")
+                await tmm.set_async(value=True, key="checks." + GlobalDefinitions.HAS_VOLUME_CHECK.value, mode="e") #Only updating the has_volumes only if it has clean volumes data
+                await tmm.set_async(value=trp_id + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv", key="files." + GlobalDefinitions.VOLUME.value + ".clean", mode="e")
+                await tmm.set_async(value=str(by_hour_df["date"].min()), key="data_info." + GlobalDefinitions.VOLUME.value + ".start_date", mode="e")
+                await tmm.set_async(value=str(by_hour_df["date"].max()), key="data_info." + GlobalDefinitions.VOLUME.value + ".end_date", mode="e")
 
                 print(f"TRP: {trp_id} metadata updated correctly\n\n")
             except AttributeError as e:
@@ -422,7 +421,7 @@ class AverageSpeedCleaner(BaseCleaner):
 
         # TODO SET PATH USING tmm.set_path(trp_id)
 
-        await trp_metadata_manager.set_async(value=trp_id + GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv", key="files." + GlobalDefinitions.MEAN_SPEED.value + ".raw", mode="e")
+        await tmm.set_async(value=trp_id + GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv", key="files." + GlobalDefinitions.MEAN_SPEED.value + ".raw", mode="e")
 
         # Data cleaning
         speeds["coverage"] = speeds["coverage"].replace(",", ".", regex=True).astype("float") * 100
@@ -436,8 +435,8 @@ class AverageSpeedCleaner(BaseCleaner):
         t_min = speeds["date"].min()
         t_max = speeds["date"].max()
 
-        await trp_metadata_manager.set_async(value=str(t_min), key="data_info." + GlobalDefinitions.MEAN_SPEED.value + ".start_date", mode="e")
-        await trp_metadata_manager.set_async(value=str(t_max), key="data_info." + GlobalDefinitions.MEAN_SPEED.value + ".end_date", mode="e")
+        await tmm.set_async(value=str(t_min), key="data_info." + GlobalDefinitions.MEAN_SPEED.value + ".start_date", mode="e")
+        await tmm.set_async(value=str(t_max), key="data_info." + GlobalDefinitions.MEAN_SPEED.value + ".end_date", mode="e")
 
         print("Registrations time-range:")
         print("First day:", t_min)
@@ -514,8 +513,8 @@ class AverageSpeedCleaner(BaseCleaner):
                 if data is not None: #Checking if data isn't None. If it is, that means that the speeds file was empty
                     await asyncio.to_thread(data.to_csv,project_metadata_manager.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path") + trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING.value + ".csv")
 
-                    await trp_metadata_manager.set_async(value=True, key="checks." + GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value, mode="e")
-                    await trp_metadata_manager.set_async(value=trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING.value + ".csv", key="files." + GlobalDefinitions.MEAN_SPEED.value + ".clean", mode="e")
+                    await tmm.set_async(value=True, key="checks." + GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value, mode="e")
+                    await tmm.set_async(value=trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING.value + ".csv", key="files." + GlobalDefinitions.MEAN_SPEED.value + ".clean", mode="e")
 
                 return None
 
