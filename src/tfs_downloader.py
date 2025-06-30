@@ -9,7 +9,7 @@ from gql.transport.exceptions import TransportServerError
 from gql.transport.aiohttp import AIOHTTPTransport
 from graphql import ExecutionResult
 
-from tfs_utils import *
+from tfs_utils import GlobalDefinitions
 from tfs_base_config import pmm, tmm, trp_toolbox
 
 simplefilter("ignore")

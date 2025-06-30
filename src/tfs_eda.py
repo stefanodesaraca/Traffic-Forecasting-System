@@ -1,3 +1,4 @@
+from pprint import pprint
 import pandas as pd
 import dask.dataframe as dd
 import numpy as np
@@ -15,16 +16,11 @@ import inspect
 from functools import wraps
 from typing import Any
 
-from tfs_cleaning import *
+from tfs_base_config import pmm
+
+from tfs_cleaning import GlobalDefinitions
 
 tab10 = sns.color_palette("tab10")
-
-
-gp_toolbox = GeneralPurposeToolbox()
-pjh = ProjectsHub()
-
-pjhmm = ProjectsHubMetadataManager(path=pjh.hub)
-pmm = ProjectMetadataManager(path=pjh.hub / pjh.get_current_project() / "metadata.json")
 
 
 def savePlots(plotFunction):
