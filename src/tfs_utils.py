@@ -361,11 +361,9 @@ class ProjectsHub:
     @property
     def projects(self) -> list[str] | None:
         try:
-            with open(self._metadata_manager.get(key="projects"), "r", encoding="utf-8") as m:
-                return json.load(m).keys()
-        except FileNotFoundError:
+            return self._metadata_manager.get(key="projects").keys() #If no projects exist this function will just return None as the standard get() method
+        except AttributeError:
             return None
-
 
     def create_hub(self) -> None:
         if not Path(self.hub).exists():
