@@ -120,12 +120,12 @@ def set_forecasting_options(functionality: str) -> None:
     elif functionality == "3.1.2":
         print("-- Forecasting horizon reader --")
         target = input("V = Volumes | MS = Mean Speed")
-        print("Target datetime: ", forecasting_toolbox.get_forecasting_target_datetime(target=target), "\n\n")
+        print("Target datetime: ", forecasting_toolbox.get_forecasting_horizon(target=target), "\n\n")
 
     elif functionality == "3.1.3":
         print("-- Forecasting horizon reset --")
         target = input("V = Volumes | MS = Mean Speed")
-        forecasting_toolbox.reset_forecasting_target_datetime(target=target)
+        forecasting_toolbox.reset_forecasting_horizon(target=target)
 
     return None
 
@@ -266,7 +266,8 @@ def execute_forecasting(functionality: str) -> None:
             print("\nTRP road category: ", trp_road_category)
 
             forecaster = OnePointForecaster(trp_id=trp_id, road_category=trp_road_category, target=GlobalDefinitions.TARGET_DATA.value[option], client=client)
-            future_records = forecaster.get_future_records(target_datetime=forecasting_toolbox.get_forecasting_target_datetime(target=GlobalDefinitions.TARGET_DATA.value[option])) #Already preprocessed
+            future_records = forecaster.get_future_records(target_datetime=forecasting_toolbox.get_forecasting_horizon(
+                target=GlobalDefinitions.TARGET_DATA.value[option])) #Already preprocessed
 
             #TODO TEST training_mode = BOTH 0 AND 1
             model_training_dataset = forecaster.get_training_records(training_mode=0, limit=future_records.shape[0].compute() * 24)

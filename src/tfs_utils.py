@@ -7,6 +7,7 @@ import threading
 import os
 import json
 import sys
+from threading import Lock
 import asyncio
 import aiofiles
 from functools import lru_cache
@@ -15,15 +16,15 @@ import dask.dataframe as dd
 from cleantext import clean
 import geojson
 from dateutil.relativedelta import relativedelta
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel as PydanticBaseModel
 from pydantic.types import PositiveInt
+import async_lru
 from async_lru import alru_cache
 from dask import delayed
 import dask.distributed
 from dask.distributed import Client, LocalCluster
 
-from tfs_exceptions import *
-from utils import definitions
+from tfs_exceptions import TargetVariableNotFoundError, WrongSplittingMode
 
 
 pd.set_option("display.max_columns", None)
@@ -45,6 +46,12 @@ def dask_cluster_client(processes=False):
     finally:
         client.close()
         cluster.close()
+
+
+
+class BaseModel(PydanticBaseModel):
+    class Config:
+        arbitrary_types_allowed = True
 
 
 
@@ -322,41 +329,36 @@ class TRPMetadataManager(BaseMetadataManager):
 
 
 
-class ProjectsHub(BaseModel):
+class ProjectsHub:
     _instance = None
 
     #Making this class a singleton
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = super(ProjectsHub, cls).__new__(cls)
-        return cls._instance
+            print(type(cls._instance))
 
-
-    @model_validator(mode="after")
-    def _validate_hub(self) -> "ProjectsHub":
-        if self.get_current_project(errors=False) is None:
+        if cls._instance.get_current_project(errors=False) is None:
             print("\033[91mCurrent project not set\033[0m")
-            print("Available projects: \n", self.projects)
+            print("Available projects: \n", cls._instance.projects)
             print("Set a current project: ")
-            self.set_current_project(name=clean(input("Name of the project to set as current: "), no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True))
-        return self
+            cls._instance.set_current_project(name=clean(input("Name of the project to set as current: "), no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True))
+
+        return cls._instance
 
 
     @property
     def hub(self) -> Path:
         return Path.cwd() / GlobalDefinitions.PROJECTS_HUB_DIR_NAME.value
 
-
     @property
     def _metadata_manager(self):
         return ProjectsHubMetadataManager(self.hub / "metadata.json")
-
 
     @property
     def metadata(self) -> dict["str", Any]:
         with open(self._metadata_manager.get(key="metadata"), "r", encoding="utf-8") as m:
             return json.load(m)
-
 
     @property
     def projects(self):
@@ -388,16 +390,20 @@ class ProjectsHub(BaseModel):
 
 
     def set_current_project(self, name: str) -> None:
-        self._metadata_manager.set(value=name, key="current_project", mode="e")
+        self._metadata_manager.set(value=name, key="metadata.current_project", mode="e")
         return None
 
 
     @lru_cache()
     def get_current_project(self, errors: bool = True) -> str | None:
-        current_project = self._metadata_manager.get(key="metadata.current_project")
+        print("SONO QUI")
+        current_project = self._metadata_manager.get(key="metadata.current_project") #TODO QUI SI FERMA. LA CARTELLA PROJECTS E IL RELATIVO FILE DI METADATI GLOBALE NON VENGONO SCRITTI PRIMA E QUINDI QUESTO NON VIENE  TROVATO
+        print(current_project)
         if errors and not current_project:
+            print("SONO QUI 2")
             raise ValueError("Current project not set")
         elif not errors and not current_project:
+            print("SONO QUI 3")
             print("\033[91mCurrent project not set\033[0m")
             return None
         return current_project
@@ -516,7 +522,6 @@ class ProjectsHub(BaseModel):
         os.remove(self.hub / name)
         return None
 
-
     @property
     def trps_fp(self) -> Path:
         return Path(self.get_current_project(), GlobalDefinitions.DATA_DIR.value, GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)
@@ -617,7 +622,9 @@ class GeneralPurposeToolbox(BaseModel):
 
 class TRPToolbox(BaseModel):
     tmm: TRPMetadataManager
-
+    model_config = {
+        "ignored_types": (async_lru._LRUCacheWrapper,)
+    }
 
     @lru_cache
     def get_global_trp_data(self):
@@ -752,14 +759,14 @@ class ForecastingToolbox(BaseModel):
         return None
 
 
-    def get_forecasting_target_datetime(self, target: str) -> datetime:
+    def get_forecasting_horizon(self, target: str) -> datetime:
         try:
             return datetime.strptime(self.project_metadata_manager.get(key="forecasting.target_datetimes" + target), GlobalDefinitions.DT_FORMAT.value)
         except TypeError:
             raise Exception(f"\033[91mTarget datetime for {target} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
 
 
-    def reset_forecasting_target_datetime(self, target: str) -> None:
+    def reset_forecasting_horizon(self, target: str) -> None:
         try:
             self.project_metadata_manager.set(value=None, key="forecasting.target_datetimes" + target, mode="e")
             print("Target datetime reset successfully\n\n")
