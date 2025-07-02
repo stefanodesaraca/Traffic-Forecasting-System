@@ -93,6 +93,7 @@ class BaseMetadataManager:
     _instances: dict = {} #The class (or subclass) name is the key and the value is the class instance.
     _locks: dict = {} #The class (or subclass) name is the key and the value is the class instance.
     auto_save: bool = True
+    path: str | Path | None = None
     """By using a dictionary of instances, a dictionary of locks and the logic in the __new__ dunder method we make any subclass
        a singleton as well, but with a separated instance that doesn't belong to the father class (BaseMetadataManager) one"""
 
@@ -111,7 +112,8 @@ class BaseMetadataManager:
             with cls._locks[cls]:
                 if cls not in cls._instances:
                     cls._instances[cls] = super().__new__(cls)
-
+                    cls._instances[cls].path = path
+                    cls._instances[cls]._init(cls._instances[cls].path)
         return cls._instances[cls]
 
 
@@ -336,7 +338,7 @@ class ProjectsHub:
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = super(ProjectsHub, cls).__new__(cls)
-
+        cls._instance._start_check()
         return cls._instance
 
 
