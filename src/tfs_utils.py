@@ -349,14 +349,20 @@ class ProjectsHub:
         return ProjectsHubMetadataManager(self.hub / "metadata.json")
 
     @property
-    def metadata(self) -> dict["str", Any]:
-        with open(self._metadata_manager.get(key="metadata"), "r", encoding="utf-8") as m:
-            return json.load(m)
+    def metadata(self) -> dict["str", Any] | None:
+        try:
+            with open(self._metadata_manager.get(key="metadata"), "r", encoding="utf-8") as m:
+                return json.load(m)
+        except FileNotFoundError:
+            return None
 
     @property
-    def projects(self):
-        with open(self._metadata_manager.get(key="projects"), "r", encoding="utf-8") as m:
-            return json.load(m).keys()
+    def projects(self) -> list[str] | None:
+        try:
+            with open(self._metadata_manager.get(key="projects"), "r", encoding="utf-8") as m:
+                return json.load(m).keys()
+        except FileNotFoundError:
+            return None
 
 
     def create_hub(self) -> None:
@@ -374,7 +380,9 @@ class ProjectsHub:
     def _start_check(self) -> None:
         self.create_hub()  # Instantiating a hub (in case it already exists nothing will happen)
 
-        # TODO IF THERE ARE NO PROJECTS, CREATE ONE FIRST
+        if not self.projects:
+            print("No projects set. Set one now")
+            self.create_project(input("Impute project name: "))
 
         if self.get_current_project(errors=False) is None:
             print("\033[91mCurrent project not set\033[0m")
