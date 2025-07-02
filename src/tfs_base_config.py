@@ -9,7 +9,7 @@ from tfs_utils import (GeneralPurposeToolbox,
 gp_toolbox = GeneralPurposeToolbox()
 pjh = ProjectsHub()
 
-pjhmm = ProjectsHubMetadataManager(path=pjh.hub)
+pjhmm = ProjectsHubMetadataManager(path=pjh.hub / "metadata.json")
 pmm = ProjectMetadataManager(path=pjh.hub / pjh.get_current_project() / "metadata.json")
 tmm = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManager
 

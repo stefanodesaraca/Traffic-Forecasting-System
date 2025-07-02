@@ -336,13 +336,6 @@ class ProjectsHub:
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = super(ProjectsHub, cls).__new__(cls)
-            print(type(cls._instance))
-
-        if cls._instance.get_current_project(errors=False) is None:
-            print("\033[91mCurrent project not set\033[0m")
-            print("Available projects: \n", cls._instance.projects)
-            print("Set a current project: ")
-            cls._instance.set_current_project(name=clean(input("Name of the project to set as current: "), no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True))
 
         return cls._instance
 
@@ -367,14 +360,27 @@ class ProjectsHub:
 
 
     def create_hub(self) -> None:
-        os.makedirs(self.hub, exist_ok=True)
-        self._write_hub_metadata()
+        if not Path(self.hub).exists():
+            Path(self.hub).mkdir(parents=True, exist_ok=True)
+            self._write_hub_metadata()
         return None
 
 
     def delete_hub(self) -> None:
         os.rmdir(self.hub)
         return None
+
+
+    def _start_check(self) -> None:
+        self.create_hub()  # Instantiating a hub (in case it already exists nothing will happen)
+
+        # TODO IF THERE ARE NO PROJECTS, CREATE ONE FIRST
+
+        if self.get_current_project(errors=False) is None:
+            print("\033[91mCurrent project not set\033[0m")
+            print("Available projects: \n", self.projects)
+            print("Set a current project: ")
+            self.set_current_project(name=clean(input("Name of the project to set as current: "), no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True))
 
 
     def _write_hub_metadata(self) -> None:
@@ -479,6 +485,7 @@ class ProjectsHub:
             metadata_folder_structure[key] = create_nested_folders(str(main_dir), sub_structure)
 
         self._write_project_metadata(dir_name=name, **{metadata_folder_structure: metadata_folder_structure})  #Creating the project's metadata file
+        ProjectsHubMetadataManager(path=self.hub / "metadata.json").set(value=name, key="", mode="e")
 
         return None
 
