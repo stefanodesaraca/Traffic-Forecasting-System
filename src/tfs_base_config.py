@@ -1,4 +1,5 @@
-from tfs_utils import (GeneralPurposeToolbox,
+from tfs_utils import (GlobalDefinitions,
+                       GeneralPurposeToolbox,
                        ProjectsHub,
                        ProjectsHubMetadataManager,
                        ProjectMetadataManager,
@@ -9,8 +10,8 @@ from tfs_utils import (GeneralPurposeToolbox,
 gp_toolbox = GeneralPurposeToolbox()
 pjh = ProjectsHub()
 
-pjhmm = ProjectsHubMetadataManager(path=pjh.hub / "metadata.json")
-pmm = ProjectMetadataManager(path=pjh.hub / pjh.get_current_project() / "metadata.json")
+pjhmm = ProjectsHubMetadataManager(path=pjh.hub / GlobalDefinitions.PROJECTS_HUB_METADATA.value)
+pmm = ProjectMetadataManager(path=pjh.hub / pjh.get_current_project() / GlobalDefinitions.PROJECT_METADATA.value)
 tmm = TRPMetadataManager() #Defining path is not necessary for TRPMetadataManager
 
 trp_toolbox = TRPToolbox(tmm=tmm)

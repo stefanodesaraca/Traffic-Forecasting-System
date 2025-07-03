@@ -58,7 +58,7 @@ class BaseModel(PydanticBaseModel):
 class GlobalDefinitions(Enum):
     CWD = os.getcwd()
     PROJECTS_HUB_DIR_NAME = "projects"
-    PROJECTS_HUB_METADATA = "global_metadata.json" # File
+    PROJECTS_HUB_METADATA = "hub_metadata.json" # File
     PROJECT_METADATA = "project_metadata.json"
 
     DATA_DIR = "data"
@@ -181,11 +181,15 @@ class BaseMetadataManager:
         # This is how we preserve the whole original dictionary, but at the same time iterate over its keys and updating them
         # By doing to we'll assign the value (obtained from the value parameter of this method) to the right key, but preserving the rest of the dictionary
         data = self.data
+        print("GET", data)
         for k in keys:
             if isinstance(data, dict) and k in data:
                 data = data[k]
+                print("ECCOMI GET", data, k)
             else:
+                print("ECCOMI GET 2", data, k)
                 return default
+        print("ECCO DATA", data)
         return data
 
 
@@ -204,11 +208,14 @@ class BaseMetadataManager:
     def set(self, key: str, value: Any, mode: Literal["e", "a"]) -> None:
         keys = self._resolve_nested(key)
         data = self.data
+        print("SET", self.data)
         if mode == "e":
             for k in keys[:-1]:
                 data = data[k]
             data[keys[-1]] = value
+            print("ECCOMI SET", data, data[keys[-1]])
             if self.auto_save:
+                print("HO SALVATO")
                 self.save()
         elif mode == "a":
             for k in keys[:-1]:
@@ -348,26 +355,24 @@ class ProjectsHub:
 
     @property
     def _metadata_manager(self):
-        return ProjectsHubMetadataManager(self.hub / "metadata.json")
+        return ProjectsHubMetadataManager(self.hub / GlobalDefinitions.PROJECTS_HUB_METADATA.value)
 
     @property
     def metadata(self) -> dict["str", Any] | None:
         try:
-            with open(self._metadata_manager.get(key="metadata"), "r", encoding="utf-8") as m:
-                return json.load(m)
+            return self._metadata_manager.get(key="metadata")
         except FileNotFoundError:
             return None
 
     @property
     def projects(self) -> list[str] | None:
-        try:
-            return self._metadata_manager.get(key="projects").keys() #If no projects exist this function will just return None as the standard get() method
-        except AttributeError:
-            return None
+        projects = self._metadata_manager.get(key="projects")
+        return projects.keys() if isinstance(projects, dict) else None
+
 
     def create_hub(self) -> None:
-        if not Path(self.hub).exists():
-            Path(self.hub).mkdir(parents=True, exist_ok=True)
+        Path(self.hub).mkdir(parents=True, exist_ok=True)
+        if not Path(self.hub / GlobalDefinitions.PROJECTS_HUB_METADATA.value).exists():
             self._write_hub_metadata()
         return None
 
@@ -382,13 +387,13 @@ class ProjectsHub:
 
         if not self.projects:
             print("No projects set. Set one now")
-            self.create_project(input("Impute project name: "))
+            self.create_project(clean(input("Impute project name: "), no_punct=True, no_emoji=True, no_emails=True, no_currency_symbols=True, no_urls=True))
 
         if self.get_current_project(errors=False) is None:
             print("\033[91mCurrent project not set\033[0m")
             print("Available projects: \n", self.projects)
             print("Set a current project: ")
-            self.set_current_project(name=clean(input("Name of the project to set as current: "), no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True))
+            self.set_current_project(name=clean(input("Name of the project to set as current: "), no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True, no_urls=True))
 
 
     def _write_hub_metadata(self) -> None:
@@ -431,7 +436,7 @@ class ProjectsHub:
     def create_project(self, name: str):
 
         #Creating the project's directory
-        os.makedirs(self.hub / name, exist_ok=True)
+        Path(self.hub / name, exist_ok=True).mkdir(exist_ok=True)
 
         folder_structure = {
             "data": {
@@ -493,7 +498,7 @@ class ProjectsHub:
             metadata_folder_structure[key] = create_nested_folders(str(main_dir), sub_structure)
 
         self._write_project_metadata(dir_name=name, **{metadata_folder_structure: metadata_folder_structure})  #Creating the project's metadata file
-        ProjectsHubMetadataManager(path=self.hub / "metadata.json").set(value=name, key="", mode="e")
+        self._metadata_manager.set(value=name, key="projects", mode="e")
 
         return None
 
@@ -613,7 +618,7 @@ class GeneralPurposeToolbox(BaseModel):
 
     @staticmethod
     def clean_text(text: str) -> str:
-        return clean(text, no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True).replace(" ", "_").lower()
+        return clean(text, no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True, no_urls=True).replace(" ", "_").lower()
 
 
     @staticmethod
