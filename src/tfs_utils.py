@@ -397,13 +397,14 @@ class ProjectsHub:
 
 
     def _write_hub_metadata(self) -> None:
+        print("ECCOMI METADATA")
         with open(self.hub / GlobalDefinitions.PROJECTS_HUB_METADATA.value, "w", encoding="utf-8") as gm:
             json.dump({
                 "metadata": {
                     "current_project": None,
                     "lang": "en"
                 },
-                "projects": {}
+                "projects": []
             }, gm, indent=4)
         return None
 
@@ -416,12 +417,12 @@ class ProjectsHub:
     @lru_cache()
     def get_current_project(self, errors: bool = True) -> str | None:
         print("SONO QUI")
-        current_project = self._metadata_manager.get(key="metadata.current_project") #TODO QUI SI FERMA. LA CARTELLA PROJECTS E IL RELATIVO FILE DI METADATI GLOBALE NON VENGONO SCRITTI PRIMA E QUINDI QUESTO NON VIENE  TROVATO
+        current_project = self.metadata["current_project"] #TODO QUI SI FERMA. LA CARTELLA PROJECTS E IL RELATIVO FILE DI METADATI GLOBALE NON VENGONO SCRITTI PRIMA E QUINDI QUESTO NON VIENE  TROVATO
         print(current_project)
         if errors and not current_project:
             print("SONO QUI 2")
             raise ValueError("Current project not set")
-        elif not errors and not current_project:
+        elif errors is False and not current_project:
             print("SONO QUI 3")
             print("\033[91mCurrent project not set\033[0m")
             return None
@@ -437,6 +438,7 @@ class ProjectsHub:
 
         #Creating the project's directory
         Path(self.hub / name, exist_ok=True).mkdir(exist_ok=True)
+        self._metadata_manager.set(value=name, key="projects", mode="a") #HERE THE PROJECT GETS CREATED
 
         folder_structure = {
             "data": {
@@ -493,12 +495,11 @@ class ProjectsHub:
 
         # Creating main directories and respective subdirectories structure
         for key, sub_structure in folder_structure.items():
-            main_dir = self.hub / self.get_current_project() / key
+            main_dir = self.hub / self.get_current_project() / key #TODO HERE'S THE PROBLEMATIC LINE. THE CREATE PROJECT DOESN'T EVEN GET CREATED BECAUSE THE RUNTIME DOESN'T GET THERE
             os.makedirs(main_dir, exist_ok=True)
             metadata_folder_structure[key] = create_nested_folders(str(main_dir), sub_structure)
 
-        self._write_project_metadata(dir_name=name, **{metadata_folder_structure: metadata_folder_structure})  #Creating the project's metadata file
-        self._metadata_manager.set(value=name, key="projects", mode="e")
+        self._write_project_metadata(dir_name=name, **{metadata_folder_structure: metadata_folder_structure})  #Creating the project's metadata file #TODO INSTANTIATE A ProjectMetadataManager AND USE SET (?) WRITE METADATA FILE BEFORE?
 
         return None
 
