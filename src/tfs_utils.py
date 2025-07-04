@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Literal, Generator
+from typing import Any, Literal, Generator, override
 from enum import Enum
 from pathlib import Path
 import threading
@@ -131,7 +131,7 @@ class BaseMetadataManager:
 
     def _load(self) -> None:
         try:
-            with open(self.path, 'r') as f:
+            with open(self.path, 'r', encoding="utf-8") as f:
                 self.data = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             self.data = {}
@@ -140,10 +140,11 @@ class BaseMetadataManager:
 
     async def _load_async(self) -> None:
         try:
-            async with aiofiles.open(self.path, 'r') as f:
+            async with aiofiles.open(self.path, 'r', encoding="utf-8") as f:
                 self.data = json.loads(await f.read())
         except (FileNotFoundError, json.JSONDecodeError):
             self.data = {}
+        return None
 
 
     def reload(self) -> None:
@@ -290,7 +291,41 @@ class ProjectMetadataManager(BaseMetadataManager):
 class TRPMetadataManager(BaseMetadataManager):
 
 
-    def write_trp_metadata(self, trp_id: str, **kwargs: Any) -> None:
+    def _init(self, path: str | Path | None) -> None:
+        self.path = path #Set the metadata path
+        self._load() #Load metadata if exists, else set it to a default value (which at the moment is {}, see in _load())
+        return None
+
+
+    async def _init_async(self, path: str | Path | None) -> None:
+        self.path = path
+        await self._load_async()
+        return None
+
+
+    def _load(self) -> None:
+        try:
+            with open(self.path, 'r', encoding="utf-8") as f:
+                self.data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.data = {}
+        except TypeError:
+            pass
+        return None
+
+
+    async def _load_async(self) -> None:
+        try:
+            async with aiofiles.open(self.path, 'r', encoding="utf-8") as f:
+                self.data = json.loads(await f.read())
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.data = {}
+        except TypeError:
+            pass
+        return None
+
+
+    def set_trp_metadata(self, trp_id: str, **kwargs: Any) -> None:
         """
         Writes metadata for a single TRP (Traffic Registration Point).
 
@@ -309,11 +344,11 @@ class TRPMetadataManager(BaseMetadataManager):
             "id": trp_id,
             "trp_data": tracking["trp_data"],
             "files": {
-                "volume": {
+                GlobalDefinitions.VOLUME.value: {
                     "raw": tracking["raw_volumes_file"],
                     "clean": None
                 },
-                "mean_speed": {
+                GlobalDefinitions.MEAN_SPEED.value: {
                     "raw": None,
                     "clean": None
                 }
@@ -323,11 +358,11 @@ class TRPMetadataManager(BaseMetadataManager):
                 GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value: tracking[GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]
             },
             "data_info": {
-                "volume": {
+                GlobalDefinitions.VOLUME.value: {
                     "start_date": None,
                     "end_date": None
                 },
-                "mean_speed": {
+                GlobalDefinitions.MEAN_SPEED.value: {
                     "start_date": None,
                     "end_date": None
                 }
