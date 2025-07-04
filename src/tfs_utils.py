@@ -291,37 +291,27 @@ class ProjectMetadataManager(BaseMetadataManager):
 class TRPMetadataManager(BaseMetadataManager):
 
 
+    @override
     def _init(self, path: str | Path | None) -> None:
         self.path = path #Set the metadata path
         self._load() #Load metadata if exists, else set it to a default value (which at the moment is {}, see in _load())
         return None
 
 
+    @override
     async def _init_async(self, path: str | Path | None) -> None:
         self.path = path
         await self._load_async()
         return None
 
 
+    @override
     def _load(self) -> None:
-        try:
-            with open(self.path, 'r', encoding="utf-8") as f:
-                self.data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            self.data = {}
-        except TypeError:
-            pass
         return None
 
 
+    @override
     async def _load_async(self) -> None:
-        try:
-            async with aiofiles.open(self.path, 'r', encoding="utf-8") as f:
-                self.data = json.loads(await f.read())
-        except (FileNotFoundError, json.JSONDecodeError):
-            self.data = {}
-        except TypeError:
-            pass
         return None
 
 
