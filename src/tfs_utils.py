@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Literal, Generator, override
+from typing import Any, Literal, Generator
+from typing_extensions import override
 from enum import Enum
 from pathlib import Path
 import threading

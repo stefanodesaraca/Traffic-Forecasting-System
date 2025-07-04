@@ -1,16 +1,17 @@
+python == 3.11.9
 numpy
 pandas
 matplotlib
 seaborn
-scikit-learn >= 1.6.1
-dask >= 2025.3.0
-dask-ml >= 2025.1.0
+scikit-learn == 1.6.1
+dask == 2025.3.0
+dask-ml == 2025.1.0
 plotly
-networkx >= 3.4.2
-pydantic >= 2.10.3
+networkx == 3.4.2
+pydantic == 2.10.3
 scipy
 statsmodels
-gql >= 3.5.2
+gql == 3.5.2
 geojson
 geopandas
 fiona
@@ -23,10 +24,14 @@ unidecode
 joblib
 geopy
 folium
-scikit-lego >= 0.9.1
+scikit-lego == 0.9.1
 aiofiles
 dateutil
-async-lru >= 2.0.5
+async-lru == 2.0.5
 sphinx
 sphinx-rtd-theme
 polars
+aiohttp == 3.12.13
+sktime
+pytorch
+pytorch-forecasting
