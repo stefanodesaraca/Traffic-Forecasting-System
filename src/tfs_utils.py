@@ -181,15 +181,11 @@ class BaseMetadataManager:
         # This is how we preserve the whole original dictionary, but at the same time iterate over its keys and updating them
         # By doing to we'll assign the value (obtained from the value parameter of this method) to the right key, but preserving the rest of the dictionary
         data = self.data
-        print("GET", data)
         for k in keys:
             if isinstance(data, dict) and k in data:
                 data = data[k]
-                print("ECCOMI GET", data, k)
             else:
-                print("ECCOMI GET 2", data, k)
                 return default
-        print("ECCO DATA", data)
         return data
 
 
@@ -205,28 +201,33 @@ class BaseMetadataManager:
         return True
 
 
-    def set(self, key: str, value: Any, mode: Literal["e", "a"]) -> None:
+    def set(self, key: str, value: Any, mode: Literal["e", "a", "a+s"]) -> None:
         keys = self._resolve_nested(key)
         data = self.data
-        print("SET", self.data)
         if mode == "e":
             for k in keys[:-1]:
                 data = data[k]
             data[keys[-1]] = value
-            print("ECCOMI SET", data, data[keys[-1]])
             if self.auto_save:
-                print("HO SALVATO")
+                print("HO SALVATO 1")
                 self.save()
         elif mode == "a":
             for k in keys[:-1]:
                 data = data[k]
             data[keys[-1]].append(value)
             if self.auto_save:
+                print("HO SALVATO 2")
+                self.save()
+        elif mode == "a+s":
+            for k in keys[:-1]:
+                data = data[k]
+            data[keys[-1]] = list(set(data[keys[-1]]).union({value}))
+            if self.auto_save:
                 self.save()
         return None
 
 
-    async def set_async(self, key: str, value: Any, mode: Literal["e", "a"]) -> None:
+    async def set_async(self, key: str, value: Any, mode: Literal["e", "a", "a+s"]) -> None:
         keys = self._resolve_nested(key)
         data = self.data
         if mode == "e":
@@ -239,6 +240,12 @@ class BaseMetadataManager:
             for k in keys[:-1]:
                 data = data[k]
             data[keys[-1]].append(value)
+            if self.save_async:
+                await self.save_async()
+        elif mode == "a+s":
+            for k in keys[:-1]:
+                data = data[k]
+            data[keys[-1]] = list(set(data[keys[-1]]).union({value}))
             if self.save_async:
                 await self.save_async()
         return None
@@ -365,9 +372,8 @@ class ProjectsHub:
             return None
 
     @property
-    def projects(self) -> list[str] | None:
-        projects = self._metadata_manager.get(key="projects")
-        return projects.keys() if isinstance(projects, dict) else None
+    def projects(self) -> list[str]:
+        return self._metadata_manager.get(key="projects")
 
 
     def create_hub(self) -> None:
@@ -387,17 +393,20 @@ class ProjectsHub:
 
         if not self.projects:
             print("No projects set. Set one now")
-            self.create_project(clean(input("Impute project name: "), no_punct=True, no_emoji=True, no_emails=True, no_currency_symbols=True, no_urls=True))
+            project_name = clean(input("Impute project name: "), no_punct=True, no_emoji=True, no_emails=True, no_currency_symbols=True, no_urls=True)
+            self.create_project(project_name)
+            self.set_current_project(project_name)
+            print("Newly created project automatically set as active")
 
-        if self.get_current_project(errors=False) is None:
-            print("\033[91mCurrent project not set\033[0m")
-            print("Available projects: \n", self.projects)
-            print("Set a current project: ")
-            self.set_current_project(name=clean(input("Name of the project to set as current: "), no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True, no_urls=True))
+        if self.projects and self.metadata["current_project"] is None:
+            print("No current project set. Set one of the available ones")
+            print("Available projects:\n", self.projects)
+            self.set_current_project(clean(input("Impute project name: "), no_punct=True, no_emoji=True, no_emails=True, no_currency_symbols=True, no_urls=True))
+
+        return None
 
 
     def _write_hub_metadata(self) -> None:
-        print("ECCOMI METADATA")
         with open(self.hub / GlobalDefinitions.PROJECTS_HUB_METADATA.value, "w", encoding="utf-8") as gm:
             json.dump({
                 "metadata": {
@@ -416,8 +425,7 @@ class ProjectsHub:
 
     @lru_cache()
     def get_current_project(self, errors: bool = True) -> str | None:
-        print("SONO QUI")
-        current_project = self.metadata["current_project"] #TODO QUI SI FERMA. LA CARTELLA PROJECTS E IL RELATIVO FILE DI METADATI GLOBALE NON VENGONO SCRITTI PRIMA E QUINDI QUESTO NON VIENE  TROVATO
+        current_project = self.metadata["current_project"]
         print(current_project)
         if errors and not current_project:
             print("SONO QUI 2")
@@ -438,7 +446,7 @@ class ProjectsHub:
 
         #Creating the project's directory
         Path(self.hub / name, exist_ok=True).mkdir(exist_ok=True)
-        self._metadata_manager.set(value=name, key="projects", mode="a") #HERE THE PROJECT GETS CREATED
+        self._metadata_manager.set(value=name, key="projects", mode="a+s")
 
         folder_structure = {
             "data": {
@@ -495,7 +503,7 @@ class ProjectsHub:
 
         # Creating main directories and respective subdirectories structure
         for key, sub_structure in folder_structure.items():
-            main_dir = self.hub / self.get_current_project() / key #TODO HERE'S THE PROBLEMATIC LINE. THE CREATE PROJECT DOESN'T EVEN GET CREATED BECAUSE THE RUNTIME DOESN'T GET THERE
+            main_dir = self.hub / name / key
             os.makedirs(main_dir, exist_ok=True)
             metadata_folder_structure[key] = create_nested_folders(str(main_dir), sub_structure)
 
