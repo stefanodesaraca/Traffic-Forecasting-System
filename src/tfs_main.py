@@ -48,7 +48,7 @@ def manage_ops(functionality: str) -> None:
 
     return None
 
-#TODO TO TEST
+
 async def download_volumes(functionality: str) -> None:
     if functionality == "2.1":
         try:
@@ -89,8 +89,8 @@ async def download_volumes(functionality: str) -> None:
 
     elif functionality == "2.3":
         if len(os.listdir(pjhmm.get(key="folder_paths.data.trp_metadata.path"))) == 0:
-            for trp_id in tqdm(trp_toolbox.get_global_trp_data().keys()):
-                tmm.set_trp_metadata(trp_id, **{"trp_data": trp_toolbox.get_global_trp_data()[trp_id]})
+            for trp_id in tqdm(trp_toolbox.trps_data().keys()):
+                tmm.set_trp_metadata(trp_id, **{"trp_data": trp_toolbox.trps_data()[trp_id]})
         else:
             print("Metadata had already been computed.")
 
@@ -131,7 +131,7 @@ def set_forecasting_options(functionality: str) -> None:
 
 
 def execute_eda() -> None:
-    trp_data = trp_toolbox.get_global_trp_data()
+    trp_data = trp_toolbox.trps_data()
     clean_volumes_folder = pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.clean.path")
     clean_speeds_folder = pmm.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path")
 

@@ -575,6 +575,21 @@ class ProjectsHub:
     def trps_fp(self) -> Path:
         return Path(self.hub, self.get_current_project(), GlobalDefinitions.DATA_DIR.value, GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)
 
+    @lru_cache
+    @property
+    def trps_data(self):
+        """
+        This function returns json data about all TRPs (downloaded previously)
+        """
+        with open(self.trps_fp, "r", encoding="utf-8") as trps:
+            return json.load(trps)
+
+    @alru_cache()
+    @property
+    async def trps_data_async(self):
+        async with aiofiles.open(self.trps_fp, "r", encoding="utf-8") as trps:
+            return await json.loads(await trps.read())
+
 
 
 class GeneralPurposeToolbox(BaseModel):
@@ -675,29 +690,12 @@ class TRPToolbox(BaseModel):
         "ignored_types": (async_lru._LRUCacheWrapper,)
     }
 
-    @lru_cache
-    def get_global_trp_data(self):
-        """
-        This function returns json data about all TRPs (downloaded previously)
-        """
-        with open(self.get(key="common") + GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value, "r", encoding="utf-8") as TRPs:
-            return json.load(TRPs)
-
-
-    @alru_cache()
-    async def get_global_trp_data_async(self):
-        """
-        Asynchronously returns json data about all TRPs (downloaded previously)
-        """
-        async with aiofiles.open(self.tmm.get(key="common.traffic_registration_points_file"), "r", encoding="utf-8") as TRPs:
-            return json.loads(await TRPs.read())
-
 
     #TODO EVALUATE A POSSIBLE CACHING OF THESE AS WELL. BUT KEEP IN MIND POTENTIAL CHANGES DUE TO RE-DOWNLOAD OF TRPS DURING THE SAME EXECUTION OF THE CODE
     def get_trp_ids(self) -> list[str]:
         with open(self.get(key="common" + GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value), "r", encoding="utf-8") as f:
             return list(json.load(f).keys())
-
+    #TODO THIS METHOD IS NOT ASYNC, CHECK IF IT GETS USED IN ASYNC METHODS OR FUNCTIONS
 
     def get_trp_ids_by_road_category(self, target: str) -> dict[str, list[str]] | None:
 

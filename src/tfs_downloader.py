@@ -256,7 +256,7 @@ async def volumes_to_json(time_start: str, time_end: str) -> None:
             return await process_trp(trp_id)
 
     # Run all downloads in parallel with a maximum of 5 processes at the same time
-    await asyncio.gather(*(limited_task(trp_id) for trp_id in trp_toolbox.get_global_trp_data().keys())) # import_TRPs_data().keys() collects all TRP IDs from the traffic_registration_points.json file
+    await asyncio.gather(*(limited_task(trp_id) for trp_id in trp_toolbox.trps_data().keys()))
 
     print("\n\n")
 
