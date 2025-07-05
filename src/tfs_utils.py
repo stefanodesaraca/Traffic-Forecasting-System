@@ -449,7 +449,6 @@ class ProjectsHub:
         return None
 
 
-    @lru_cache()
     def get_current_project(self, errors: bool = True) -> str | None:
         current_project = self.metadata["current_project"]
         if errors and not current_project:
