@@ -494,7 +494,6 @@ class ProjectsHub:
                 "shortest_paths": {}
             },
             "ml": {
-                "models_parameters": {
                     **{
                         sub: {target:
                                {
@@ -502,9 +501,8 @@ class ProjectsHub:
                                } for target in GlobalDefinitions.TARGET_DATA.value.values()}
                         for sub in ("models_parameters", "models", "models_performance", "ml_reports")
                     },
-                },
+                }
             }
-        }
 
         metadata_folder_structure = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
 

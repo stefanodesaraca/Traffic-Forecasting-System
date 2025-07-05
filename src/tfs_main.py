@@ -39,7 +39,7 @@ def manage_ops(functionality: str) -> None:
         pjh.reset_current_project()
 
     elif functionality == "1.5":
-        pjhmm.delete(gp_toolbox.clean_text(input("Insert the name of the project to delete: ")))
+        pjh.delete_project(gp_toolbox.clean_text(input("Insert the name of the project to delete: ")))
 
     else:
         print("\033[91mFunctionality not found, try again with a correct one\033[0m")
