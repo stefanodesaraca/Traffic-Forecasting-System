@@ -27,16 +27,16 @@ from tfs_utils import GlobalDefinitions, dask_cluster_client
 
 def manage_ops(functionality: str) -> None:
     if functionality == "1.1":
-        pjhmm.create(gp_toolbox.clean_text(input("Insert new project name: ")))
+        pjh.create_project(gp_toolbox.clean_text(input("Insert new project name: ")))
 
     elif functionality == "1.2":
-        pjhmm.set_current_project(gp_toolbox.clean_text(input("Insert the operation to set as active: ")))
+        pjh.set_current_project(gp_toolbox.clean_text(input("Insert the operation to set as active: ")))
 
     elif functionality == "1.3":
-        print("Current project: ", pjhmm.get_current_project(), "\n\n")
+        print("Current project: ", pjh.get_current_project(), "\n\n")
 
     elif functionality == "1.4":
-        pjhmm.reset_current_project()
+        pjh.reset_current_project()
 
     elif functionality == "1.5":
         pjhmm.delete(gp_toolbox.clean_text(input("Insert the name of the project to delete: ")))

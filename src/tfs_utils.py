@@ -378,7 +378,7 @@ class ProjectsHub:
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = super(ProjectsHub, cls).__new__(cls)
-        cls._instance._start_check()
+        cls._instance._bootstrap_check()
         return cls._instance
 
 
@@ -414,7 +414,7 @@ class ProjectsHub:
         return None
 
 
-    def _start_check(self) -> None:
+    def _bootstrap_check(self) -> None:
         self.create_hub()  # Instantiating a hub (in case it already exists nothing will happen)
 
         if not self.projects:
@@ -452,12 +452,9 @@ class ProjectsHub:
     @lru_cache()
     def get_current_project(self, errors: bool = True) -> str | None:
         current_project = self.metadata["current_project"]
-        print(current_project)
         if errors and not current_project:
-            print("SONO QUI 2")
             raise ValueError("Current project not set")
         elif errors is False and not current_project:
-            print("SONO QUI 3")
             print("\033[91mCurrent project not set\033[0m")
             return None
         return current_project
@@ -533,7 +530,7 @@ class ProjectsHub:
             os.makedirs(main_dir, exist_ok=True)
             metadata_folder_structure[key] = create_nested_folders(str(main_dir), sub_structure)
 
-        self._write_project_metadata(dir_name=name, **{metadata_folder_structure: metadata_folder_structure})  #Creating the project's metadata file #TODO INSTANTIATE A ProjectMetadataManager AND USE SET (?) WRITE METADATA FILE BEFORE?
+        self._write_project_metadata(dir_name=name, **{"metadata_folder_structure": metadata_folder_structure})  #Creating the project's metadata file
 
         return None
 
