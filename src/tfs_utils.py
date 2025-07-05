@@ -573,7 +573,7 @@ class ProjectsHub:
 
     @property
     def trps_fp(self) -> Path:
-        return Path(self.get_current_project(), GlobalDefinitions.DATA_DIR.value, GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)
+        return Path(self.hub, self.get_current_project(), GlobalDefinitions.DATA_DIR.value, GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)
 
 
 

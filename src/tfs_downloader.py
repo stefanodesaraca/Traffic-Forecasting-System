@@ -10,7 +10,7 @@ from gql.transport.aiohttp import AIOHTTPTransport
 from graphql import ExecutionResult
 
 from tfs_utils import GlobalDefinitions
-from tfs_base_config import pmm, tmm, trp_toolbox
+from tfs_base_config import pjh, pmm, tmm, trp_toolbox
 
 simplefilter("ignore")
 
@@ -191,15 +191,10 @@ def fetch_areas(client: Client) -> dict | ExecutionResult:
 
 
 async def trps_to_json() -> None:
-    """
-    The _ops_name parameter is needed to identify the operation where the data needs to be downloaded.
-    This implies that the same data can be downloaded multiple times, but downloaded into different operation folders,
-    so reducing the risk of data loss or corruption in case of malfunctions.
-    """
     client = await start_client_async()
     TRPs = await fetch_trps(client)
 
-    async with aiofiles.open(pmm.get(key="common.traffic_registration_points_file"), "w") as trps_w:
+    async with aiofiles.open(pjh.trps_fp, "w") as trps_w:
         await trps_w.write(json.dumps({data["id"]: data for data in TRPs["trafficRegistrationPoints"]}, indent=4))
     return None
 

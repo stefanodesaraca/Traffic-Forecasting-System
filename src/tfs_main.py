@@ -48,7 +48,7 @@ def manage_ops(functionality: str) -> None:
 
     return None
 
-
+#TODO TO TEST
 async def download_volumes(functionality: str) -> None:
     if functionality == "2.1":
         try:
@@ -266,8 +266,7 @@ def execute_forecasting(functionality: str) -> None:
             print("\nTRP road category: ", trp_road_category)
 
             forecaster = OnePointForecaster(trp_id=trp_id, road_category=trp_road_category, target=GlobalDefinitions.TARGET_DATA.value[option], client=client)
-            future_records = forecaster.get_future_records(target_datetime=forecasting_toolbox.get_forecasting_horizon(
-                target=GlobalDefinitions.TARGET_DATA.value[option])) #Already preprocessed
+            future_records = forecaster.get_future_records(target_datetime=forecasting_toolbox.get_forecasting_horizon(target=GlobalDefinitions.TARGET_DATA.value[option])) #Already preprocessed
 
             #TODO TEST training_mode = BOTH 0 AND 1
             model_training_dataset = forecaster.get_training_records(training_mode=0, limit=future_records.shape[0].compute() * 24)
