@@ -536,7 +536,7 @@ class ProjectsHub:
         with open(Path(self.hub / dir_name / GlobalDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
             json.dump({
             "common": {
-                "traffic_registration_points_file": str(self.trps_fp),
+                "traffic_registration_points_file": str(Path(dir_name, GlobalDefinitions.DATA_DIR.value, GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
             },
             "volume": {
                 "n_days": None,  # The total number of days which we have data about
