@@ -28,64 +28,64 @@ async def start_client_async() -> Client:
 
 
 # The number 3 indicates the Oslo og Viken county, which only includes the Oslo municipality
-async def fetch_trps(client: Client) -> dict | ExecutionResult:
+async def fetch_trps(client: Client, municipality_numbers: list[int] | None = None) -> dict | ExecutionResult:
     return await client.execute_async(gql(
-        """
-        {
+        f"""
+        {{
           trafficRegistrationPoints(
-            searchQuery: {roadCategoryIds: [E, R, F, K, P], countyNumbers: [3], isOperational: true, trafficType: VEHICLE, registrationFrequency: CONTINUOUS}
-          ) {
+            searchQuery: {{roadCategoryIds: [E, R, F, K, P], countyNumbers: [{', '.join([str(n) for n in (municipality_numbers or [3])])}], isOperational: true, trafficType: VEHICLE, registrationFrequency: CONTINUOUS}}
+          ) {{
             id
             name
-            location {
-              coordinates {
-                latLon {
+            location {{
+              coordinates {{
+                latLon {{
                   lat
                   lon
-                }
-              }
-              roadReference{
+                }}
+              }}
+              roadReference{{
                 shortForm
-                roadCategory{
+                roadCategory{{
                   id
-                }
-              }
-              roadLinkSequence{
+                }}
+              }}
+              roadLinkSequence{{
                 roadLinkSequenceId
                 relativePosition
-              }
-              roadReferenceHistory{
+              }}
+              roadReferenceHistory{{
                 validFrom
                 validTo
-              }
-              county{
+              }}
+              county{{
                 name
                 number
                 geographicNumber
-                countryPart{
+                countryPart{{
                   id
                   name
-                }
-              }
-              municipality{
+                }}
+              }}
+              municipality{{
                 name
                 number
-              }
-            }
+              }}
+            }}
             trafficRegistrationType            
-            dataTimeSpan {
+            dataTimeSpan {{
               firstData
               firstDataWithQualityMetrics
-              latestData {
+              latestData {{
                 volumeByDay
                 volumeByHour
                 volumeAverageDailyByYear
                 volumeAverageDailyBySeason
                 volumeAverageDailyByMonth
-              }
-            }
-          }
-        }
+              }}
+            }}
+          }}
+        }}
         """
     ))
 
@@ -256,7 +256,7 @@ async def volumes_to_json(time_start: str, time_end: str) -> None:
             return await process_trp(trp_id)
 
     # Run all downloads in parallel with a maximum of 5 processes at the same time
-    await asyncio.gather(*(limited_task(trp_id) for trp_id in trp_toolbox.trps_data().keys()))
+    await asyncio.gather(*(limited_task(trp_id) for trp_id in pjh.trps_data.keys()))
 
     print("\n\n")
 

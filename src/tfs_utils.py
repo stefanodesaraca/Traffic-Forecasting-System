@@ -575,8 +575,8 @@ class ProjectsHub:
     def trps_fp(self) -> Path:
         return Path(self.hub, self.get_current_project(), GlobalDefinitions.DATA_DIR.value, GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)
 
-    @lru_cache
     @property
+    @lru_cache
     def trps_data(self):
         """
         This function returns json data about all TRPs (downloaded previously)
@@ -584,8 +584,8 @@ class ProjectsHub:
         with open(self.trps_fp, "r", encoding="utf-8") as trps:
             return json.load(trps)
 
-    @alru_cache()
     @property
+    @alru_cache()
     async def trps_data_async(self):
         async with aiofiles.open(self.trps_fp, "r", encoding="utf-8") as trps:
             return await json.loads(await trps.read())
