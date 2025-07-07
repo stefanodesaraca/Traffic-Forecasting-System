@@ -244,7 +244,7 @@ async def volumes_to_json(time_start: str, time_end: str) -> None:
 
         # TODO SET PATH USING tmm.set_path(trp_id)
 
-        async with aiofiles.open(await asyncio.to_thread(pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json", "w")) as f:
+        async with aiofiles.open(pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json", "w") as f:
             await f.write(json.dumps(await download_trp_data(trp_id), indent=4))
 
         tmm.set_trp_metadata(trp_id=trp_id, **{
