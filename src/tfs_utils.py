@@ -303,8 +303,6 @@ class TRPMetadataManager(BaseMetadataManager):
         @wraps(func)
         def wrapper(self, trp_id: str, *args, **kwargs):
             trp_metadata_fp = self._hub_metadata_manager.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json"
-            print(trp_metadata_fp)
-            print(self)
             self._init(path=trp_metadata_fp) #Every time the @trp_updated decorator gets called the metadata filepath gets updated by just replacing the old metadata with the TRP's one
             kwargs["trp_metadata_fp"] = trp_metadata_fp
             return func(*args, **kwargs)
@@ -314,14 +312,14 @@ class TRPMetadataManager(BaseMetadataManager):
     @override
     def _init(self, path: str | Path | None) -> None:
         self.path = path #Set the metadata path
-        self._load(self.path) #Load metadata if exists, else set it to a default value (which at the moment is {}, see in _load())
+        if path: self._load() #Load metadata if exists, else set it to a default value (which at the moment is {}, see in _load())
         return None
 
 
     @override
     async def _init_async(self, path: str | Path | None) -> None:
         self.path = path
-        await self._load_async(self.path)
+        await self._load_async()
         return None
 
 
@@ -397,8 +395,6 @@ class TRPMetadataManager(BaseMetadataManager):
     def get_trp_metadata(self, trp_id: str, **kwargs: Any) -> dict[Any, Any]:
         with open(kwargs["trp_metadata_fp"], "r", encoding="utf-8") as trp_metadata:
             return json.load(trp_metadata)
-
-    #To update a single TRP's data just the set() method from the BaseMetadataManager father class and set the Path to the TRP's metadata file
 
 
 
