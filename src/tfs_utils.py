@@ -4,6 +4,7 @@ from typing import Any, Literal, Generator
 from typing_extensions import override
 from enum import Enum
 from pathlib import Path
+from functools import wraps
 import threading
 import os
 import json
@@ -292,6 +293,22 @@ class ProjectMetadataManager(BaseMetadataManager):
 class TRPMetadataManager(BaseMetadataManager):
 
 
+    @property
+    def _hub_metadata_manager(self) -> ProjectsHubMetadataManager:
+        return ProjectsHubMetadataManager(ProjectsHub().hub / GlobalDefinitions.PROJECTS_HUB_METADATA.value)
+
+
+    def trp_updated(self, func: callable) -> callable:
+        @wraps(func)
+        def wrapper(trp_id: str, *args, **kwargs):
+            trp_metadata_fp = self._hub_metadata_manager.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json"
+            self._init(path=trp_metadata_fp) #Every time the @trp_updated decorator gets called the metadata filepath gets updated by just replacing the old metadata with the TRP's one
+            kwargs["trp_metadata_fp"] = trp_metadata_fp
+            func(*args, **kwargs)
+            return None
+        return wrapper
+
+
     @override
     def _init(self, path: str | Path | None) -> None:
         self.path = path #Set the metadata path
@@ -308,14 +325,25 @@ class TRPMetadataManager(BaseMetadataManager):
 
     @override
     def _load(self) -> None:
+        try:
+            with open(self.path, 'r', encoding="utf-8") as f:
+                self.data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.data = {}
         return None
 
 
     @override
     async def _load_async(self) -> None:
+        try:
+            async with aiofiles.open(self.path, 'r', encoding="utf-8") as f:
+                self.data = json.loads(await f.read())
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.data = {}
         return None
 
 
+    @trp_updated
     def set_trp_metadata(self, trp_id: str, **kwargs: Any) -> None:
         """
         Writes metadata for a single TRP (Traffic Registration Point).
@@ -330,7 +358,7 @@ class TRPMetadataManager(BaseMetadataManager):
         default_settings = {"raw_volumes_file": None, GlobalDefinitions.HAS_VOLUME_CHECK.value: False, GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value: False, "trp_data": None}
         tracking = {**default_settings, **kwargs}  # Overriding default settings with kwargs
 
-        with open(self.get(key="folder_paths.data.trp_metadata.path" + trp_id + "_metadata.json"), "w", encoding="utf-8") as metadata_writer:
+        with open(kwargs["trp_metadata_fp"], "w", encoding="utf-8") as metadata_writer:
             json.dump({
             "id": trp_id,
             "trp_data": tracking["trp_data"],
@@ -363,8 +391,9 @@ class TRPMetadataManager(BaseMetadataManager):
         return None
 
 
-    def get_trp_metadata(self, trp_id: str) -> dict[Any, Any]:
-        with open(self.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json", "r", encoding="utf-8") as trp_metadata:
+    @trp_updated
+    def get_trp_metadata(self, trp_id: str, **kwargs: Any) -> dict[Any, Any]:
+        with open(kwargs["trp_metadata_fp"], "r", encoding="utf-8") as trp_metadata:
             return json.load(trp_metadata)
 
     #To update a single TRP's data just the set() method from the BaseMetadataManager father class and set the Path to the TRP's metadata file

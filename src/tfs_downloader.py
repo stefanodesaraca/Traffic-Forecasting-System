@@ -240,18 +240,17 @@ async def volumes_to_json(time_start: str, time_end: str) -> None:
 
         return volumes
 
-    async def process_trp(trp_id):
+    async def process_trp(trp_id: str):
 
         # TODO SET PATH USING tmm.set_path(trp_id)
 
         async with aiofiles.open(pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json", "w") as f:
             await f.write(json.dumps(await download_trp_data(trp_id), indent=4))
 
-        tmm.set_trp_metadata(trp_id=trp_id, **{
-            "raw_volumes_file": trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json"})  # Writing TRP's empty metadata file
-        await tmm.set_async(value=(await trp_toolbox.get_global_trp_data_async())[trp_id], key="trp_data", mode="e")
+        tmm.set_trp_metadata(trp_id=trp_id, **{"raw_volumes_file": trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json"})  # Writing TRP's empty metadata file
+        await tmm.set_async(value=pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path")[trp_id], key="trp_data", mode="e")
 
-    async def limited_task(trp_id):
+    async def limited_task(trp_id: str):
         async with semaphore:
             return await process_trp(trp_id)
 
