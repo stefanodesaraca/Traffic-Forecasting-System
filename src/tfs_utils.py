@@ -297,29 +297,31 @@ class TRPMetadataManager(BaseMetadataManager):
     def _hub_metadata_manager(self) -> ProjectsHubMetadataManager:
         return ProjectsHubMetadataManager(ProjectsHub().hub / GlobalDefinitions.PROJECTS_HUB_METADATA.value)
 
-
-    def trp_updated(self, func: callable) -> callable:
+    #Using @staticmethod since for instance methods that get used as decorators the instance itself (self) needs to be handled explicitly. More on that here: https://stackoverflow.com/questions/38524332/declaring-decorator-inside-a-class
+    @staticmethod
+    def trp_updated(func: callable) -> callable:
         @wraps(func)
-        def wrapper(trp_id: str, *args, **kwargs):
+        def wrapper(self, trp_id: str, *args, **kwargs):
             trp_metadata_fp = self._hub_metadata_manager.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json"
+            print(trp_metadata_fp)
+            print(self)
             self._init(path=trp_metadata_fp) #Every time the @trp_updated decorator gets called the metadata filepath gets updated by just replacing the old metadata with the TRP's one
             kwargs["trp_metadata_fp"] = trp_metadata_fp
-            func(*args, **kwargs)
-            return None
+            return func(*args, **kwargs)
         return wrapper
 
 
     @override
     def _init(self, path: str | Path | None) -> None:
         self.path = path #Set the metadata path
-        self._load() #Load metadata if exists, else set it to a default value (which at the moment is {}, see in _load())
+        self._load(self.path) #Load metadata if exists, else set it to a default value (which at the moment is {}, see in _load())
         return None
 
 
     @override
     async def _init_async(self, path: str | Path | None) -> None:
         self.path = path
-        await self._load_async()
+        await self._load_async(self.path)
         return None
 
 
