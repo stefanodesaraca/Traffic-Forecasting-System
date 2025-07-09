@@ -13,7 +13,7 @@ import pandas as pd
 import dask
 import dask.dataframe as dd
 
-from tfs_base_config import gp_toolbox, pjh, pjhmm, pmm, trp_toolbox, forecasting_toolbox
+from tfs_base_config import gp_toolbox, pjh, pjhmm, pmm, tmm, trp_toolbox, forecasting_toolbox
 from tfs_ml_configs import model_definitions
 from tfs_exceptions import TRPNotFoundError, TargetVariableNotFoundError, TargetDataNotAvailableError
 
@@ -135,12 +135,12 @@ def execute_eda() -> None:
     clean_volumes_folder = pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.clean.path")
     clean_speeds_folder = pmm.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path")
 
-    for v in (trp_id for trp_id in trp_data.keys() if pmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_VOLUME_CHECK.value)):
+    for v in (trp_id for trp_id in trp_data.keys() if tmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_VOLUME_CHECK.value)):
         volumes = pd.read_csv(clean_volumes_folder + v + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv")
         analyze_volume(volumes)
         volume_multicollinearity_test(volumes)
 
-    for s in (trp_id for trp_id in trp_data.keys() if pmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value)):
+    for s in (trp_id for trp_id in trp_data.keys() if tmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value)):
         speeds = pd.read_csv(clean_speeds_folder + s + GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv")
         analyze_mean_speed(speeds)
         mean_speed_multicollinearity_test(speeds)

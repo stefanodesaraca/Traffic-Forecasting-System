@@ -686,7 +686,7 @@ class TRPToolbox(BaseModel):
         return {k: d for k, d in {
             category: [clean_data_folder + trp_id + data for trp_id in
                        filter(lambda trp_id:
-                              self.tmm.get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and self.pmm.get_trp_metadata(trp_id)["checks"][check], self.get_trp_ids())]
+                              self.tmm.get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and self.tmm.get_trp_metadata(trp_id)["checks"][check], self.get_trp_ids())]
             for category in road_categories
         }.items() if len(d) >= 2}
         # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
@@ -728,7 +728,7 @@ class ForecastingToolbox(BaseModel):
         dt_start, dt_end = zip(*(
             (data["data_info"]["speeds"]["start_date"], data["data_info"]["speeds"]["end_date"])
             for trp_id in trp_ids
-            if (data := self.pmm.get_trp_metadata(trp_id=trp_id))["checks"][GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]
+            if (data := self.tmm.get_trp_metadata(trp_id=trp_id))["checks"][GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]
         ), strict=True)
         return min(dt_start), max(dt_end)
 
