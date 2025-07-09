@@ -1,21 +1,59 @@
 from contextlib import contextmanager
-import aiosqlite
+import asyncpg
+from asyncpg.exceptions import InvalidCatalogNameError, DuplicateDatabaseError
 
 
 @contextmanager
-async def aiosqlite_conn(dbname: str, auto_commit: bool = False):
-    conn = await aiosqlite.connect(f"{dbname}.db")
+async def postgres_conn(user: str, password: str):
     try:
+        conn = await asyncpg.connect(
+            user=user,
+            password=password,
+            database='postgres',
+            host='localhost'
+        )
         yield conn
     finally:
-        if auto_commit:
-            await conn.commit()
         await conn.close()
 
 
-def init() -> None:
-    with aiosqlite_conn(dbname="tfs_hub", auto_commit=True) as conn:
-        conn.execute("""
+@contextmanager
+async def tfs_db_conn(dbname: str):
+    try:
+        conn = await asyncpg.connect(
+            user='tfs',
+            password='tfs',
+            database=dbname,
+            host='localhost'
+        )
+        yield conn
+    finally:
+        await conn.close()
+
+
+async def init() -> None:
+
+    #Accessing as superuser
+    async with postgres_conn(user="postgres", password="") as conn:
+        try:
+            await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
+            print(f"User 'tfs' created.")
+        except asyncpg.DuplicateObjectError:
+            print(f"User 'username' already exists.")
+
+
+    async with postgres_conn(user="tfs", password="tfs") as conn:
+        try:
+            await conn.execute("""
+            CREATE DATABASE projects
+            """)
+        except DuplicateDatabaseError:
+            pass
+
+
+    async with tfs_db_conn(dbname="tfs_hub") as conn:
+
+        await conn.execute("""
                  CREATE TABLE IF NOT EXISTS metadata (
                     id TEXT PRIMARY KEY
                     current_project TEXT
@@ -27,7 +65,7 @@ def init() -> None:
                  )
         """)
 
-        conn.execute("""
+        await conn.execute("""
                 CREATE TABLE IF NOT EXISTS RoadCategories (
                     id INT PRIMARY KEY,
                     name TEXT
