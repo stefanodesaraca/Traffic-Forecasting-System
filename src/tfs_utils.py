@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Any, Literal, Generator
 from typing_extensions import override
 from enum import Enum
-import aiosqlite
 from pathlib import Path
 import threading
 import os
@@ -48,6 +47,9 @@ def dask_cluster_client(processes=False):
     finally:
         client.close()
         cluster.close()
+
+
+
 
 
 class BaseModel(PydanticBaseModel):
@@ -670,7 +672,7 @@ class TRPToolbox(BaseModel):
 
     #TODO EVALUATE A POSSIBLE CACHING OF THESE AS WELL. BUT KEEP IN MIND POTENTIAL CHANGES DUE TO RE-DOWNLOAD OF TRPS DURING THE SAME EXECUTION OF THE CODE
     def get_trp_ids(self) -> list[str]:
-        with open(self.pjh.hub / self.pmm.get(key="common.traffic_registration_points_file"), "r", encoding="utf-8") as f:
+        with open(self.pjh.trps_fp, "r", encoding="utf-8") as f:
             return list(json.load(f).keys())
     #TODO THIS METHOD IS NOT ASYNC, CHECK IF IT GETS USED IN ASYNC METHODS OR FUNCTIONS
 
@@ -686,7 +688,7 @@ class TRPToolbox(BaseModel):
         return {k: d for k, d in {
             category: [clean_data_folder + trp_id + data for trp_id in
                        filter(lambda trp_id:
-                              self.tmm.get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and self.pmm.get_trp_metadata(trp_id)["checks"][check], self.get_trp_ids())]
+                              self.tmm.get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and self.tmm.get_trp_metadata(trp_id)["checks"][check], self.get_trp_ids())]
             for category in road_categories
         }.items() if len(d) >= 2}
         # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
@@ -728,7 +730,7 @@ class ForecastingToolbox(BaseModel):
         dt_start, dt_end = zip(*(
             (data["data_info"]["speeds"]["start_date"], data["data_info"]["speeds"]["end_date"])
             for trp_id in trp_ids
-            if (data := self.pmm.get_trp_metadata(trp_id=trp_id))["checks"][GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]
+            if (data := self.tmm.get_trp_metadata(trp_id=trp_id))["checks"][GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]
         ), strict=True)
         return min(dt_start), max(dt_end)
 

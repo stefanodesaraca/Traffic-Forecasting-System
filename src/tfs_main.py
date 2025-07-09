@@ -13,7 +13,7 @@ import pandas as pd
 import dask
 import dask.dataframe as dd
 
-from tfs_base_config import gp_toolbox, pjh, pjhmm, pmm, trp_toolbox, forecasting_toolbox
+from tfs_base_config import gp_toolbox, pjh, pjhmm, pmm, tmm, trp_toolbox, forecasting_toolbox
 from tfs_ml_configs import model_definitions
 from tfs_exceptions import TRPNotFoundError, TargetVariableNotFoundError, TargetDataNotAvailableError
 
