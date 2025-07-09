@@ -847,7 +847,7 @@ class OnePointForecaster:
 
 
     @staticmethod
-    def export_predictions(y_preds: dd.DataFrame, predictions_metadata: dict[Any, Any], predictions_filepath: str, metadata_filepath: str) -> None:
+    def export_predictions(y_preds: dd.DataFrame, predictions_metadata: dict[Any, Any], predictions_fp: str, metadata_fp: str) -> None:
         """
         Export predictions and metadata to files.
 
@@ -857,9 +857,9 @@ class OnePointForecaster:
             The predicted values to export.
         predictions_metadata : dict[Any, Any]
             Metadata associated with the predictions.
-        predictions_filepath : str
+        predictions_fp : str
             File path for saving predictions.
-        metadata_filepath : str
+        metadata_fp : str
             File path for saving metadata.
 
         Returns
@@ -872,11 +872,11 @@ class OnePointForecaster:
         gracefully by printing error messages if export fails.
         """
         try:
-            with open(metadata_filepath, "w", encoding="utf-8") as m:
+            with open(metadata_fp, "w", encoding="utf-8") as m:
                 json.dump(predictions_metadata, m, indent=4)
-            dd.to_csv(y_preds, predictions_filepath, single_file=True, encoding="utf-8", **{"index": False})
+            dd.to_csv(y_preds, predictions_fp, single_file=True, encoding="utf-8", **{"index": False})
         except Exception as e:
-            print(f"Couldn't export data to {predictions_filepath}, error {e}")
+            print(f"Couldn't export data to {predictions_fp}, error {e}")
         return None
 
 

@@ -194,7 +194,7 @@ async def trps_to_json() -> None:
     client = await start_client_async()
     TRPs = await fetch_trps(client)
 
-    async with aiofiles.open(pjh.trps_fp, "w") as trps_w:
+    async with aiofiles.open(pjh.trps_fp, "w", encoding="utf-8") as trps_w:
         await trps_w.write(json.dumps({data["id"]: data for data in TRPs["trafficRegistrationPoints"]}, indent=4))
     return None
 
@@ -247,7 +247,7 @@ async def volumes_to_json(time_start: str, time_end: str) -> None:
         async with aiofiles.open(pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json", "w") as f:
             await f.write(json.dumps(await download_trp_data(trp_id), indent=4))
 
-        tmm.set_trp_metadata(trp_id=trp_id, **{"raw_volumes_file": trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json"})  # Writing TRP's empty metadata file
+        tmm.set_trp_metadata(trp_id=trp_id, **{"raw_volumes_file": trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json"})  # Writing TRP's empty metadata file #TODO MAKE THIS FUNCTION ASYNC
         await tmm.set_async(value=pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path")[trp_id], key="trp_data", mode="e")
 
     async def limited_task(trp_id: str):

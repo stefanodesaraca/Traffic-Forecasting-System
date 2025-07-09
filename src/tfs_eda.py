@@ -16,9 +16,8 @@ import inspect
 from functools import wraps
 from typing import Any
 
+from tfs_utils import GlobalDefinitions
 from tfs_base_config import pmm
-
-from tfs_cleaning import GlobalDefinitions
 
 tab10 = sns.color_palette("tab10")
 

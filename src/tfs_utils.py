@@ -294,18 +294,19 @@ class TRPMetadataManager(BaseMetadataManager):
 
 
     @property
-    def _hub_metadata_manager(self) -> ProjectsHubMetadataManager:
-        return ProjectsHubMetadataManager(ProjectsHub().hub / GlobalDefinitions.PROJECTS_HUB_METADATA.value)
+    def _hub_metadata_manager(self) -> ProjectMetadataManager:
+        return ProjectMetadataManager()
 
     #Using @staticmethod since for instance methods that get used as decorators the instance itself (self) needs to be handled explicitly. More on that here: https://stackoverflow.com/questions/38524332/declaring-decorator-inside-a-class
     @staticmethod
     def trp_updated(func: callable) -> callable:
         @wraps(func)
         def wrapper(self, trp_id: str, *args, **kwargs):
-            trp_metadata_fp = self._hub_metadata_manager.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json"
+            print("TRP ID: ", trp_id)
+            trp_metadata_fp = self._hub_metadata_manager.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json" #TODO NON SI PUO' FARE LA GET DI NULLA PERCHE' self.data ANCORA NON è STATO ISTANZIATO VIDEO THE VIENE ISTANZIATO DA self._load() CHE PERO' GIRA SOLO SE ESISTE UN PATH
             self._init(path=trp_metadata_fp) #Every time the @trp_updated decorator gets called the metadata filepath gets updated by just replacing the old metadata with the TRP's one
             kwargs["trp_metadata_fp"] = trp_metadata_fp
-            return func(*args, **kwargs)
+            return func(self, *args, **kwargs)
         return wrapper
 
 
@@ -344,7 +345,7 @@ class TRPMetadataManager(BaseMetadataManager):
 
 
     @trp_updated
-    def set_trp_metadata(self, trp_id: str, **kwargs: Any) -> None:
+    def set_trp_metadata(self, trp_id: str, **kwargs: Any) -> str:
         """
         Writes metadata for a single TRP (Traffic Registration Point).
 
@@ -388,7 +389,7 @@ class TRPMetadataManager(BaseMetadataManager):
             }
         }, metadata_writer, indent=4)
 
-        return None
+        return trp_id
 
 
     @trp_updated
@@ -533,7 +534,7 @@ class ProjectsHub:
 
         metadata_folder_structure = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
 
-        def create_nested_folders(base_path: str, structure: dict[str, dict | None]) -> dict[str, Any]:
+        def create_nested_dirs(base_path: str, structure: dict[str, dict | None]) -> dict[str, Any]:
             result = {}
             for folder, subfolders in structure.items():
                 folder_path = os.path.join(base_path, folder)
@@ -541,7 +542,7 @@ class ProjectsHub:
                 if isinstance(subfolders, dict) and subfolders:
                     result[folder] = {
                         "path": folder_path,
-                        "subfolders": create_nested_folders(folder_path, subfolders)
+                        "subfolders": create_nested_dirs(folder_path, subfolders)
                     }
                 else:
                     result[folder] = {"path": folder_path,
@@ -552,7 +553,7 @@ class ProjectsHub:
         for key, sub_structure in folder_structure.items():
             main_dir = self.hub / name / key
             os.makedirs(main_dir, exist_ok=True)
-            metadata_folder_structure[key] = create_nested_folders(str(main_dir), sub_structure)
+            metadata_folder_structure[key] = create_nested_dirs(str(main_dir), sub_structure)
 
         self._write_project_metadata(dir_name=name, **{"metadata_folder_structure": metadata_folder_structure})  #Creating the project's metadata file
 

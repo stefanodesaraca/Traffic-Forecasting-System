@@ -112,7 +112,7 @@ async def clean_data(functionality: str) -> None:
     return None
 
 
-def set_forecasting_options(functionality: str) -> None:
+def manage_forecasting_horizon(functionality: str) -> None:
     if functionality == "3.1.1":
         print("-- Forecasting horizon setter --")
         forecasting_toolbox.set_forecasting_horizon()
@@ -305,9 +305,9 @@ def main():
         "2.1": download_volumes,
         "2.2": download_volumes,
         "2.3": download_volumes,
-        "3.1.1": set_forecasting_options,
-        "3.1.2": set_forecasting_options,
-        "3.1.3": set_forecasting_options,
+        "3.1.1": manage_forecasting_horizon,
+        "3.1.2": manage_forecasting_horizon,
+        "3.1.3": manage_forecasting_horizon,
         "3.2.1": execute_forecast_warmup,
         "3.2.2": execute_forecast_warmup,
         "3.2.3": execute_forecast_warmup,
