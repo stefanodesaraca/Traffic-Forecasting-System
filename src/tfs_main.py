@@ -88,9 +88,9 @@ async def download_volumes(functionality: str) -> None:
         await volumes_to_json(time_start=time_start, time_end=time_end)
 
     elif functionality == "2.3":
-        if len(os.listdir(pjhmm.get(key="folder_paths.data.trp_metadata.path"))) == 0:
-            for trp_id in tqdm(trp_toolbox.trps_data().keys()):
-                pmm.set_trp_metadata(trp_id, **{"trp_data": trp_toolbox.trps_data()[trp_id]})
+        if len(os.listdir(pmm.get(key="folder_paths.data.trp_metadata.path"))) == 0:
+            for trp_id in tqdm(trp_toolbox.get_trp_ids()):
+                pmm.set_trp_metadata(trp_id, **{"trp_data": pmm.trps_data()[trp_id]})
         else:
             print("Metadata had already been computed.")
 
@@ -135,12 +135,12 @@ def execute_eda() -> None:
     clean_volumes_folder = pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.clean.path")
     clean_speeds_folder = pmm.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path")
 
-    for v in (trp_id for trp_id in trp_data.keys() if pmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_VOLUME_CHECK.value)):
+    for v in (trp_id for trp_id in trp_data.keys() if tmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_VOLUME_CHECK.value)):
         volumes = pd.read_csv(clean_volumes_folder + v + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv")
         analyze_volume(volumes)
         volume_multicollinearity_test(volumes)
 
-    for s in (trp_id for trp_id in trp_data.keys() if pmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value)):
+    for s in (trp_id for trp_id in trp_data.keys() if tmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value)):
         speeds = pd.read_csv(clean_speeds_folder + s + GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv")
         analyze_mean_speed(speeds)
         mean_speed_multicollinearity_test(speeds)
