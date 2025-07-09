@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any, Literal, Generator
 from typing_extensions import override
 from enum import Enum
+import aiosqlite
 from pathlib import Path
 import threading
 import os
@@ -47,7 +48,6 @@ def dask_cluster_client(processes=False):
     finally:
         client.close()
         cluster.close()
-
 
 
 class BaseModel(PydanticBaseModel):
@@ -285,8 +285,14 @@ class ProjectsHubMetadataManager(BaseMetadataManager):
 
 
 class ProjectMetadataManager(BaseMetadataManager):
+    ...
 
-    async def set_trp_metadata(self, trp_id: str, **kwargs: Any) -> str:
+
+
+class TRPMetadataManager(BaseModel):
+    pmm: ProjectMetadataManager
+
+    def set_trp_metadata(self, trp_id: str, **kwargs: Any) -> str:
         """
         Writes metadata for a single TRP (Traffic Registration Point).
 
@@ -301,7 +307,7 @@ class ProjectMetadataManager(BaseMetadataManager):
         default_settings = {"raw_volumes_file": None, GlobalDefinitions.HAS_VOLUME_CHECK.value: False, GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value: False, "trp_data": None}
         tracking = {**default_settings, **kwargs}  # Overriding default settings with kwargs
 
-        with open(self.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json") as metadata_writer:
+        with open(self.pmm.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json") as metadata_writer:
             json.dump({
             "id": trp_id,
             "trp_data": tracking["trp_data"],
@@ -335,13 +341,8 @@ class ProjectMetadataManager(BaseMetadataManager):
 
 
     def get_trp_metadata(self, trp_id: str) -> dict[Any, Any]:
-        with open(self.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json") as trp_metadata:
+        with open(self.pmm.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json") as trp_metadata:
             return json.load(trp_metadata)
-
-
-
-class TRPMetadataManager(BaseMetadataManager):
-    ...
 
 
 
@@ -512,10 +513,10 @@ class ProjectsHub:
             "common": {
                 "traffic_registration_points_file": str(Path(dir_name, GlobalDefinitions.DATA_DIR.value, GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
             },
-            "volume": {
+            GlobalDefinitions.VOLUME.value: {
                 "n_days": None,  # The total number of days which we have data about
                 "n_months": None,  # The total number of months which we have data about
-                "n_years:": None,  # The total number of years which we have data about
+                "n_years": None,  # The total number of years which we have data about
                 "n_weeks": None,  # The total number of weeks which we have data about
                 "raw_filenames": [],  # The list of raw traffic volumes file names
                 "clean_filenames": [],  # The list of clean traffic volumes file names
@@ -523,7 +524,7 @@ class ProjectsHub:
                 "start_date_iso": None,
                 "end_date_iso": None
             },
-            "mean_speed": {
+            GlobalDefinitions.MEAN_SPEED.value: {
                 "n_days": None,  # The total number of days which we have data about
                 "n_months": None,  # The total number of months which we have data about
                 "n_years": None,  # The total number of years which we have data about
@@ -659,6 +660,7 @@ class GeneralPurposeToolbox(BaseModel):
 
 
 class TRPToolbox(BaseModel):
+    pmm: ProjectMetadataManager
     tmm: TRPMetadataManager
     model_config = {
         "ignored_types": (async_lru._LRUCacheWrapper,)
@@ -667,7 +669,7 @@ class TRPToolbox(BaseModel):
 
     #TODO EVALUATE A POSSIBLE CACHING OF THESE AS WELL. BUT KEEP IN MIND POTENTIAL CHANGES DUE TO RE-DOWNLOAD OF TRPS DURING THE SAME EXECUTION OF THE CODE
     def get_trp_ids(self) -> list[str]:
-        with open(self.get(key="common" + GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value), "r", encoding="utf-8") as f:
+        with open(self.pmm.get(key="common" + GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value), "r", encoding="utf-8") as f:
             return list(json.load(f).keys())
     #TODO THIS METHOD IS NOT ASYNC, CHECK IF IT GETS USED IN ASYNC METHODS OR FUNCTIONS
 
@@ -676,14 +678,14 @@ class TRPToolbox(BaseModel):
         #TODO ADD check_target() HERE
 
         road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in self.get_global_trp_data().values())
-        clean_data_folder = self.tmm.get(key="folder_paths.data." + target + ".subfolders.clean.path")
+        clean_data_folder = self.pmm.get(key="folder_paths.data." + target + ".subfolders.clean.path")
         check = "has_" + target
         data = GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv" if target == GlobalDefinitions.TARGET_DATA.value["V"] else GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
 
         return {k: d for k, d in {
             category: [clean_data_folder + trp_id + data for trp_id in
                        filter(lambda trp_id:
-                              self.tmm.get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and self.tmm.get_trp_metadata(trp_id)["checks"][check], self.get_trp_ids())]
+                              self.tmm.get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and self.pmm.get_trp_metadata(trp_id)["checks"][check], self.get_trp_ids())]
             for category in road_categories
         }.items() if len(d) >= 2}
         # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
@@ -725,7 +727,7 @@ class ForecastingToolbox(BaseModel):
         dt_start, dt_end = zip(*(
             (data["data_info"]["speeds"]["start_date"], data["data_info"]["speeds"]["end_date"])
             for trp_id in trp_ids
-            if (data := self.tmm.get_trp_metadata(trp_id=trp_id))["checks"][GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]
+            if (data := self.pmm.get_trp_metadata(trp_id=trp_id))["checks"][GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]
         ), strict=True)
         return min(dt_start), max(dt_end)
 
@@ -746,7 +748,7 @@ class ForecastingToolbox(BaseModel):
         print("Maximum number of days to forecast: ", max_forecasting_window_size)
 
         if option == GlobalDefinitions.TARGET_DATA.value["V"]:
-            last_available_data_dt = self.pmm.get(key=GlobalDefinitions.VOLUME.value + ".end_date_iso")
+            last_available_data_dt = self.tmm.get(key=GlobalDefinitions.VOLUME.value + ".end_date_iso") #TODO tmm HAS TO BE REPLACED
         elif option == GlobalDefinitions.TARGET_DATA.value["MS"]:
             _, last_available_data_dt = self._get_speeds_dates(self.get_global_trp_data())
             if last_available_data_dt is None:

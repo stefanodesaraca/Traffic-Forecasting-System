@@ -356,15 +356,9 @@ class TrafficVolumesCleaner(BaseCleaner):
 
     async def clean_async(self, trp_id: str, export: bool = True) -> None:
 
-        # TODO SET PATH USING tmm.set_path(trp_id)
-        #  THE set_path() method will be a method of the BaseMetadataManager CLASS
-
         async with aiofiles.open(
                 pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json", "r", encoding="utf-8") as m:
             by_hour_df = await asyncio.to_thread(self._parse_by_hour, json.loads(await m.read())) #In case there's no data by_hour_df will be None
-
-        if by_hour_df is not None and by_hour_df.shape[0] > 0:
-            await tmm.set_async(value=trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json", key="files." + GlobalDefinitions.VOLUME.value + ".raw", mode="e")
 
             try:
                 print("Shape before MICE: ", len(by_hour_df), len(by_hour_df.columns))

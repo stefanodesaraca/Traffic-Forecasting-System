@@ -10,7 +10,7 @@ from gql.transport.aiohttp import AIOHTTPTransport
 from graphql import ExecutionResult
 
 from tfs_utils import GlobalDefinitions
-from tfs_base_config import pjh, pmm, tmm, trp_toolbox
+from tfs_base_config import pjh, pmm, tmm
 
 simplefilter("ignore")
 
@@ -242,13 +242,10 @@ async def volumes_to_json(time_start: str, time_end: str) -> None:
 
     async def process_trp(trp_id: str):
 
-        # TODO SET PATH USING tmm.set_path(trp_id)
-
         async with aiofiles.open(pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json", "w") as f:
             await f.write(json.dumps(await download_trp_data(trp_id), indent=4))
 
-        await asyncio.to_thread(pmm.set_trp_metadata, trp_id=trp_id, **{"raw_volumes_file": trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json"})  # Writing TRP's empty metadata file #TODO MAKE THIS FUNCTION ASYNC
-        await asyncio.to_thread(pmm.set, value=pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path"), key="trp_data", mode="e")
+        await asyncio.to_thread(tmm.set_trp_metadata, trp_id=trp_id, **{"raw_volumes_file": trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json"})  # Writing TRP's empty metadata file #TODO MAKE THIS FUNCTION ASYNC
 
     async def limited_task(trp_id: str):
         async with semaphore:

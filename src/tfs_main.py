@@ -13,7 +13,7 @@ import pandas as pd
 import dask
 import dask.dataframe as dd
 
-from tfs_base_config import gp_toolbox, pjh, pjhmm, pmm, tmm, trp_toolbox, forecasting_toolbox
+from tfs_base_config import gp_toolbox, pjh, pjhmm, pmm, trp_toolbox, forecasting_toolbox
 from tfs_ml_configs import model_definitions
 from tfs_exceptions import TRPNotFoundError, TargetVariableNotFoundError, TargetDataNotAvailableError
 
@@ -88,9 +88,9 @@ async def download_volumes(functionality: str) -> None:
         await volumes_to_json(time_start=time_start, time_end=time_end)
 
     elif functionality == "2.3":
-        if len(os.listdir(pjhmm.get(key="folder_paths.data.trp_metadata.path"))) == 0:
-            for trp_id in tqdm(trp_toolbox.trps_data().keys()):
-                pmm.set_trp_metadata(trp_id, **{"trp_data": trp_toolbox.trps_data()[trp_id]})
+        if len(os.listdir(pmm.get(key="folder_paths.data.trp_metadata.path"))) == 0:
+            for trp_id in tqdm(trp_toolbox.get_trp_ids()):
+                pmm.set_trp_metadata(trp_id, **{"trp_data": pmm.trps_data()[trp_id]})
         else:
             print("Metadata had already been computed.")
 
