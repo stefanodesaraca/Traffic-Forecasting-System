@@ -234,7 +234,7 @@ async def volumes_to_json(time_start: str, time_end: str) -> None:
                     break
 
             except TimeoutError:
-                continue
+                continue #TODO IMPLEMENT EXPONENTIAL BACKOFF FOR A RANGE OF ERRORS (408, 429 AND SO ON...)
             except TransportServerError:  # If error code is 503: Service Unavailable
                 continue
 
@@ -247,8 +247,8 @@ async def volumes_to_json(time_start: str, time_end: str) -> None:
         async with aiofiles.open(pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json", "w") as f:
             await f.write(json.dumps(await download_trp_data(trp_id), indent=4))
 
-        tmm.set_trp_metadata(trp_id=trp_id, **{"raw_volumes_file": trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json"})  # Writing TRP's empty metadata file #TODO MAKE THIS FUNCTION ASYNC
-        await tmm.set_async(value=pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path")[trp_id], key="trp_data", mode="e")
+        await asyncio.to_thread(pmm.set_trp_metadata, trp_id=trp_id, **{"raw_volumes_file": trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json"})  # Writing TRP's empty metadata file #TODO MAKE THIS FUNCTION ASYNC
+        await asyncio.to_thread(pmm.set, value=pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path"), key="trp_data", mode="e")
 
     async def limited_task(trp_id: str):
         async with semaphore:

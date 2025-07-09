@@ -90,7 +90,7 @@ async def download_volumes(functionality: str) -> None:
     elif functionality == "2.3":
         if len(os.listdir(pjhmm.get(key="folder_paths.data.trp_metadata.path"))) == 0:
             for trp_id in tqdm(trp_toolbox.trps_data().keys()):
-                tmm.set_trp_metadata(trp_id, **{"trp_data": trp_toolbox.trps_data()[trp_id]})
+                pmm.set_trp_metadata(trp_id, **{"trp_data": trp_toolbox.trps_data()[trp_id]})
         else:
             print("Metadata had already been computed.")
 
@@ -135,12 +135,12 @@ def execute_eda() -> None:
     clean_volumes_folder = pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.clean.path")
     clean_speeds_folder = pmm.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path")
 
-    for v in (trp_id for trp_id in trp_data.keys() if tmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_VOLUME_CHECK.value)):
+    for v in (trp_id for trp_id in trp_data.keys() if pmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_VOLUME_CHECK.value)):
         volumes = pd.read_csv(clean_volumes_folder + v + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv")
         analyze_volume(volumes)
         volume_multicollinearity_test(volumes)
 
-    for s in (trp_id for trp_id in trp_data.keys() if tmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value)):
+    for s in (trp_id for trp_id in trp_data.keys() if pmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value)):
         speeds = pd.read_csv(clean_speeds_folder + s + GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv")
         analyze_mean_speed(speeds)
         mean_speed_multicollinearity_test(speeds)
@@ -257,7 +257,7 @@ def execute_forecasting(functionality: str) -> None:
             if trp_id not in trp_ids:
                 raise TRPNotFoundError("TRP ID not in available TRP IDs list")
 
-            trp_metadata = tmm.get_trp_metadata(trp_id)
+            trp_metadata = pmm.get_trp_metadata(trp_id)
 
             if not trp_metadata["checks"][GlobalDefinitions.HAS_VOLUME_CHECK.value if option == GlobalDefinitions.TARGET_DATA.value["V"] else GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]:
                 raise TargetDataNotAvailableError(f"Target data not available for TRP: {trp_id}")

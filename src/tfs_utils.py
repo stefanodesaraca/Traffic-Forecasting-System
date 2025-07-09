@@ -4,7 +4,6 @@ from typing import Any, Literal, Generator
 from typing_extensions import override
 from enum import Enum
 from pathlib import Path
-from functools import wraps
 import threading
 import os
 import json
@@ -137,6 +136,8 @@ class BaseMetadataManager:
                 self.data = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             self.data = {}
+        except TypeError:
+            print(f"No path for {type(self)} instance")
         return None
 
 
@@ -212,14 +213,12 @@ class BaseMetadataManager:
                 data = data[k]
             data[keys[-1]] = value
             if self.auto_save:
-                print("HO SALVATO 1")
                 self.save()
         elif mode == "a":
             for k in keys[:-1]:
                 data = data[k]
             data[keys[-1]].append(value)
             if self.auto_save:
-                print("HO SALVATO 2")
                 self.save()
         elif mode == "a+s":
             for k in keys[:-1]:
@@ -286,66 +285,8 @@ class ProjectsHubMetadataManager(BaseMetadataManager):
 
 
 class ProjectMetadataManager(BaseMetadataManager):
-    ...
 
-
-
-class TRPMetadataManager(BaseMetadataManager):
-
-
-    @property
-    def _hub_metadata_manager(self) -> ProjectMetadataManager:
-        return ProjectMetadataManager()
-
-    #Using @staticmethod since for instance methods that get used as decorators the instance itself (self) needs to be handled explicitly. More on that here: https://stackoverflow.com/questions/38524332/declaring-decorator-inside-a-class
-    @staticmethod
-    def trp_updated(func: callable) -> callable:
-        @wraps(func)
-        def wrapper(self, trp_id: str, *args, **kwargs):
-            print("TRP ID: ", trp_id)
-            trp_metadata_fp = self._hub_metadata_manager.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json" #TODO NON SI PUO' FARE LA GET DI NULLA PERCHE' self.data ANCORA NON è STATO ISTANZIATO VIDEO THE VIENE ISTANZIATO DA self._load() CHE PERO' GIRA SOLO SE ESISTE UN PATH
-            self._init(path=trp_metadata_fp) #Every time the @trp_updated decorator gets called the metadata filepath gets updated by just replacing the old metadata with the TRP's one
-            kwargs["trp_metadata_fp"] = trp_metadata_fp
-            return func(self, *args, **kwargs)
-        return wrapper
-
-
-    @override
-    def _init(self, path: str | Path | None) -> None:
-        self.path = path #Set the metadata path
-        if path: self._load() #Load metadata if exists, else set it to a default value (which at the moment is {}, see in _load())
-        return None
-
-
-    @override
-    async def _init_async(self, path: str | Path | None) -> None:
-        self.path = path
-        await self._load_async()
-        return None
-
-
-    @override
-    def _load(self) -> None:
-        try:
-            with open(self.path, 'r', encoding="utf-8") as f:
-                self.data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            self.data = {}
-        return None
-
-
-    @override
-    async def _load_async(self) -> None:
-        try:
-            async with aiofiles.open(self.path, 'r', encoding="utf-8") as f:
-                self.data = json.loads(await f.read())
-        except (FileNotFoundError, json.JSONDecodeError):
-            self.data = {}
-        return None
-
-
-    @trp_updated
-    def set_trp_metadata(self, trp_id: str, **kwargs: Any) -> str:
+    async def set_trp_metadata(self, trp_id: str, **kwargs: Any) -> str:
         """
         Writes metadata for a single TRP (Traffic Registration Point).
 
@@ -356,10 +297,11 @@ class TRPMetadataManager(BaseMetadataManager):
         Returns:
              None
         """
+
         default_settings = {"raw_volumes_file": None, GlobalDefinitions.HAS_VOLUME_CHECK.value: False, GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value: False, "trp_data": None}
         tracking = {**default_settings, **kwargs}  # Overriding default settings with kwargs
 
-        with open(kwargs["trp_metadata_fp"], "w", encoding="utf-8") as metadata_writer:
+        with open(self.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json") as metadata_writer:
             json.dump({
             "id": trp_id,
             "trp_data": tracking["trp_data"],
@@ -392,10 +334,14 @@ class TRPMetadataManager(BaseMetadataManager):
         return trp_id
 
 
-    @trp_updated
-    def get_trp_metadata(self, trp_id: str, **kwargs: Any) -> dict[Any, Any]:
-        with open(kwargs["trp_metadata_fp"], "r", encoding="utf-8") as trp_metadata:
+    def get_trp_metadata(self, trp_id: str) -> dict[Any, Any]:
+        with open(self.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json") as trp_metadata:
             return json.load(trp_metadata)
+
+
+
+class TRPMetadataManager(BaseMetadataManager):
+    ...
 
 
 
@@ -541,11 +487,11 @@ class ProjectsHub:
                 os.makedirs(folder_path, exist_ok=True)
                 if isinstance(subfolders, dict) and subfolders:
                     result[folder] = {
-                        "path": folder_path,
+                        "path": folder_path + os.sep,
                         "subfolders": create_nested_dirs(folder_path, subfolders)
                     }
                 else:
-                    result[folder] = {"path": folder_path,
+                    result[folder] = {"path": folder_path + os.sep,
                                       "subfolders": {}}
             return result
 
@@ -836,14 +782,14 @@ class ForecastingToolbox(BaseModel):
 
     def get_forecasting_horizon(self, target: str) -> datetime:
         try:
-            return datetime.strptime(self.project_metadata_manager.get(key="forecasting.target_datetimes" + target), GlobalDefinitions.DT_FORMAT.value)
+            return datetime.strptime(self.pmm.get(key="forecasting.target_datetimes" + target), GlobalDefinitions.DT_FORMAT.value)
         except TypeError:
             raise Exception(f"\033[91mTarget datetime for {target} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
 
 
     def reset_forecasting_horizon(self, target: str) -> None:
         try:
-            self.project_metadata_manager.set(value=None, key="forecasting.target_datetimes" + target, mode="e")
+            self.pmm.set(value=None, key="forecasting.target_datetimes" + target, mode="e")
             print("Target datetime reset successfully\n\n")
             return None
         except KeyError:
