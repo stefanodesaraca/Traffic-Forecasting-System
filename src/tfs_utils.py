@@ -307,7 +307,7 @@ class TRPMetadataManager(BaseModel):
         default_settings = {"raw_volumes_file": None, GlobalDefinitions.HAS_VOLUME_CHECK.value: False, GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value: False, "trp_data": None}
         tracking = {**default_settings, **kwargs}  # Overriding default settings with kwargs
 
-        with open(self.pmm.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json") as metadata_writer:
+        with open(self.pmm.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json", "w") as metadata_writer:
             json.dump({
             "id": trp_id,
             "trp_data": tracking["trp_data"],
@@ -341,7 +341,7 @@ class TRPMetadataManager(BaseModel):
 
 
     def get_trp_metadata(self, trp_id: str) -> dict[Any, Any]:
-        with open(self.pmm.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json") as trp_metadata:
+        with open(self.pmm.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json", "r") as trp_metadata:
             return json.load(trp_metadata)
 
 
