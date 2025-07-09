@@ -307,7 +307,7 @@ class TRPMetadataManager(BaseModel):
         default_settings = {"raw_volumes_file": None, GlobalDefinitions.HAS_VOLUME_CHECK.value: False, GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value: False, "trp_data": None}
         tracking = {**default_settings, **kwargs}  # Overriding default settings with kwargs
 
-        with open(self.pmm.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json", "w") as metadata_writer:
+        with open(self.pmm.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json", "w", encoding="utf-8") as metadata_writer:
             json.dump({
             "id": trp_id,
             "trp_data": tracking["trp_data"],
@@ -341,7 +341,7 @@ class TRPMetadataManager(BaseModel):
 
 
     def get_trp_metadata(self, trp_id: str) -> dict[Any, Any]:
-        with open(self.pmm.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json", "r") as trp_metadata:
+        with open(self.pmm.get(key="folder_paths.data.trp_metadata.path") + trp_id + "_metadata.json", "r", encoding="utf-8") as trp_metadata:
             return json.load(trp_metadata)
 
 
@@ -660,6 +660,7 @@ class GeneralPurposeToolbox(BaseModel):
 
 
 class TRPToolbox(BaseModel):
+    pjh: ProjectsHub
     pmm: ProjectMetadataManager
     tmm: TRPMetadataManager
     model_config = {
@@ -669,7 +670,7 @@ class TRPToolbox(BaseModel):
 
     #TODO EVALUATE A POSSIBLE CACHING OF THESE AS WELL. BUT KEEP IN MIND POTENTIAL CHANGES DUE TO RE-DOWNLOAD OF TRPS DURING THE SAME EXECUTION OF THE CODE
     def get_trp_ids(self) -> list[str]:
-        with open(self.pmm.get(key="common" + GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value), "r", encoding="utf-8") as f:
+        with open(self.pjh.hub / self.pmm.get(key="common.traffic_registration_points_file"), "r", encoding="utf-8") as f:
             return list(json.load(f).keys())
     #TODO THIS METHOD IS NOT ASYNC, CHECK IF IT GETS USED IN ASYNC METHODS OR FUNCTIONS
 
@@ -744,12 +745,13 @@ class ForecastingToolbox(BaseModel):
         """
         max_forecasting_window_size: int = max(int(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value), forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
-        option = input("V = Volumes | MS = Mean Speed")
+        print("V = Volume | MS = Mean Speed")
+        option = input("Target: ")
         print("Maximum number of days to forecast: ", max_forecasting_window_size)
 
-        if option == GlobalDefinitions.TARGET_DATA.value["V"]:
+        if option == "V":
             last_available_data_dt = self.tmm.get(key=GlobalDefinitions.VOLUME.value + ".end_date_iso") #TODO tmm HAS TO BE REPLACED
-        elif option == GlobalDefinitions.TARGET_DATA.value["MS"]:
+        elif option == "MS":
             _, last_available_data_dt = self._get_speeds_dates(self.get_global_trp_data())
             if last_available_data_dt is None:
                 raise Exception("End date not found in metainfo file. Run download first or set it first")
