@@ -150,8 +150,8 @@ def fetch_volumes_for_trp_id(client: Client, trp_id: str, time_start: str, time_
         """))
 
 
-def fetch_road_categories(client: Client) -> dict | ExecutionResult:
-    return client.execute(gql("""
+async def fetch_road_categories(client: Client) -> dict | ExecutionResult:
+    return await client.execute_async(gql("""
     {
         roadCategories{
             id

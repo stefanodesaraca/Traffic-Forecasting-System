@@ -9,7 +9,7 @@ import asyncpg
 from asyncpg.exceptions import InvalidCatalogNameError, DuplicateDatabaseError
 
 from db_config import DBConfig
-from tfs_downloader import start_client_async, fetch_areas, fetch_trps
+from tfs_downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
 
 
 @contextmanager
@@ -84,7 +84,7 @@ async def init() -> None:
         #Tables
         await conn.execute("""
                 CREATE TABLE IF NOT EXISTS RoadCategories (
-                    id INTEGER PRIMARY KEY,
+                    id TEXT PRIMARY KEY,
                     name TEXT
                 );
                 
@@ -100,7 +100,6 @@ async def init() -> None:
                     FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
                 );
                 
-                
                 CREATE TABLE IF NOT EXISTS Municipalities (
                     number INTEGER PRIMARY KEY,
                     name TEXT,
@@ -109,7 +108,6 @@ async def init() -> None:
                     FOREIGN KEY (county_number) REFERENCES Counties(number),
                     FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
                 );
-                
                 
                 CREATE TABLE IF NOT EXISTS TrafficRegistrationPoints (
                     id TEXT PRIMARY KEY,
@@ -193,6 +191,17 @@ async def init() -> None:
                           ) for county in part["counties"])) for part in data["data"]["areas"]["countryParts"])
             return None
 
+        async def insert_road_categories(conn: asyncpg.connection, data: dict[str, Any]) -> None:
+            all(await conn.execute(
+                    """
+                    INSERT INTO RoadCategories (id, name)
+                    VALUES ($1, $2)
+                    ON CONFLICT (id) DO NOTHING
+                    """,
+                    cat["id"], cat["name"]
+                ) for cat in data["data"]["roadCategories"])
+            return None
+
         async def insert_trps(conn: asyncpg.connection, data: dict[str, Any]) -> None:
             all(await conn.execute(
                     f"""
@@ -206,25 +215,25 @@ async def init() -> None:
                         first_data, first_data_with_quality_metrics
                     )
                     VALUES (
-                        {trp_data["id"]}, 
-                        {trp_data["name"]}, 
-                        {trp_data["location"]["coordinates"]["latLon"]["lat"]}, 
-                        {trp_data["location"]["coordinates"]["latLon"]["lon"]},
-                        {trp_data["location"].get("roadReference", {}).get("shortForm")}, 
-                        {trp_data["location"].get("roadReference", {}).get("shortForm").get("roadCategory", {}).get("id")}, 
-                        {trp_data["location"].get("roadLinkSequence", {}).get("roadLinkSequenceId")}, 
-                        {trp_data["location"].get("roadLinkSequence", {}).get("relativePosition")},
-                        {trp_data["location"].get("county", {}).get("name")}, 
-                        {str(trp_data["location"].get("county", {}).get("countryPart", {}).get("id")) if trp_data["location"].get("county", {}).get("countryPart", {}).get("id") is not None else None}, 
-                        {trp_data["location"].get("county", {}).get("countryPart", {}).get("name")}, 
-                        {trp_data["location"].get("county", {}).get("number")},
-                        {trp_data["location"].get("county", {}).get("geographicNumber")}, 
-                        {trp_data.get("trafficRegistrationType")},
-                        {trp_data.get("dataTimeSpan", {}).get("firstData")}, 
-                        {trp_data.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics")})
+                        {trp["id"]}, 
+                        {trp["name"]}, 
+                        {trp["location"]["coordinates"]["latLon"]["lat"]}, 
+                        {trp["location"]["coordinates"]["latLon"]["lon"]},
+                        {trp["location"].get("roadReference", {}).get("shortForm")}, 
+                        {trp["location"].get("roadReference", {}).get("shortForm").get("roadCategory", {}).get("id")}, 
+                        {trp["location"].get("roadLinkSequence", {}).get("roadLinkSequenceId")}, 
+                        {trp["location"].get("roadLinkSequence", {}).get("relativePosition")},
+                        {trp["location"].get("county", {}).get("name")}, 
+                        {str(trp["location"].get("county", {}).get("countryPart", {}).get("id")) if trp["location"].get("county", {}).get("countryPart", {}).get("id") is not None else None}, 
+                        {trp["location"].get("county", {}).get("countryPart", {}).get("name")}, 
+                        {trp["location"].get("county", {}).get("number")},
+                        {trp["location"].get("county", {}).get("geographicNumber")}, 
+                        {trp.get("trafficRegistrationType")},
+                        {trp.get("dataTimeSpan", {}).get("firstData")}, 
+                        {trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics")})
                     ON CONFLICT (id) DO NOTHING
                     """
-                ) for trp_id, trp_data in data.items())
+                ) for trp in data["data"]["trafficRegistrationPoints"])
             return None
 
 
@@ -244,6 +253,14 @@ async def init() -> None:
                 await insert_areas(conn=conn, data=json.load(a))
 
 
+        road_categories = await fetch_road_categories(await (start_client_async()))
+        if road_categories:
+            async with conn.transaction():
+                await insert_road_categories(conn=conn, data=road_categories)
+
+        else:
+            ...
+
         print("Trying to download TRPs' data...")
         trps = await fetch_trps(await start_client_async())
         if trps:
@@ -256,7 +273,6 @@ async def init() -> None:
             json_file = input("Enter json TRPs' data file path: ")
             async with aiofiles.open(json_file, "r", encoding="utf-8") as a:
                 await insert_trps(conn=conn, data=json.load(a))
-
 
     return None
 
