@@ -253,13 +253,19 @@ async def init() -> None:
                 await insert_areas(conn=conn, data=json.load(a))
 
 
+        print("Trying to download road categories data...")
         road_categories = await fetch_road_categories(await (start_client_async()))
         if road_categories:
             async with conn.transaction():
                 await insert_road_categories(conn=conn, data=road_categories)
+                print("Road categories inserted correctly into project db")
 
         else:
-            ...
+            print("Road categories download failed, load them from a JSON file")
+            json_file = input("Enter json road categories file path: ")
+            async with aiofiles.open(json_file, "r", encoding="utf-8") as a:
+                await insert_areas(conn=conn, data=json.load(a))
+
 
         print("Trying to download TRPs' data...")
         trps = await fetch_trps(await start_client_async())
