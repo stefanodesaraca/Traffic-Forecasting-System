@@ -165,42 +165,61 @@ async def init(auto_project_setup: bool = True) -> None:
             except DuplicateDatabaseError:
                 pass
 
+    # -- Hub DB Setup --
     async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value, dbname=DBConfig.HUB_DB.value) as conn:
 
         #Projects
         await conn.execute("""
+                CREATE TABLE IF NOT EXISTS Projects (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT,
+                    lang TEXT
+                 )
+                 
                  CREATE TABLE IF NOT EXISTS Metadata (
                     id SERIAL PRIMARY KEY,
                     current_project_id TEXT,
                     lang TEXT,
                     FOREIGN KEY (current_project_id) REFERENCES Projects(id)
                  )
-                 CREATE TABLE IF NOT EXISTS Projects (
-                    id SERIAL PRIMARY KEY,
-                    name TEXT,
-                    lang TEXT
-                 )
         """)
 
-        #Tables
+        # -- Check if any projects exist --
+
+        project_check = await conn.fetchrow("SELECT * FROM Projects LIMIT 1")
+
+        #If there aren't any projects, let the user impute one and insert it into the Projects table
+        if not project_check:
+            print("Initialize the program. Create your first project!")
+            name = input("Enter project name: ")
+            lang = input("Enter project language: ")
+
+    # -- New Project DB Setup --
+    async with postgres_conn(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value, dbname=DBConfig.MAINTENANCE_DB.value) as conn:
+        #Accessing as superuser since some tools may require this configuration to create a new database
+
+        #TODO CREATE PROJECT DATABASE HERE
+
+
+        # Tables
         await conn.execute("""
                 CREATE TABLE IF NOT EXISTS RoadCategories (
                     id TEXT PRIMARY KEY,
                     name TEXT
                 );
-                
+
                 CREATE TABLE IF NOT EXISTS CountryParts (
                     id INTEGER PRIMARY KEY,
                     name TEXT
                 );
-                
+
                 CREATE TABLE IF NOT EXISTS Counties (
                     number INTEGER PRIMARY KEY,
                     name TEXT,
                     country_part_id TEXT,
                     FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
                 );
-                
+
                 CREATE TABLE IF NOT EXISTS Municipalities (
                     number INTEGER PRIMARY KEY,
                     name TEXT,
@@ -209,7 +228,7 @@ async def init(auto_project_setup: bool = True) -> None:
                     FOREIGN KEY (county_number) REFERENCES Counties(number),
                     FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
                 );
-                
+
                 CREATE TABLE IF NOT EXISTS TrafficRegistrationPoints (
                     id TEXT PRIMARY KEY,
                     name TEXT,
@@ -229,7 +248,7 @@ async def init(auto_project_setup: bool = True) -> None:
                     first_data_with_quality_metrics TIMESTAMPTZ,
                     FOREIGN KEY (road_category) REFERENCES RoadCategories(name)
                 );
-                
+
                 CREATE TABLE IF NOT EXISTS Data (
                     row_idx SERIAL PRIMARY KEY,
                     trp_id TEXT,
@@ -243,7 +262,7 @@ async def init(auto_project_setup: bool = True) -> None:
                     zoned_dt_iso TIMESTAMPTZ,
                     FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
                 );
-                
+
                 CREATE TABLE IF NOT EXISTS TrafficRegistrationPointsMetadata (
                     trp_id TEXT PRIMARY KEY,
                     has_volume BOOLEAN DEFAULT FALSE,
@@ -256,7 +275,7 @@ async def init(auto_project_setup: bool = True) -> None:
                 );
         """)
 
-        #Views
+        # Views
         await conn.execute("""
         CREATE OR REPLACE VIEW TrafficRegistrationPointsMetadataView AS
         SELECT
@@ -276,21 +295,14 @@ async def init(auto_project_setup: bool = True) -> None:
         """)
 
 
-        # -- Check if any projects exist --
+    # -- New Project Metadata Insertions --
+    async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_USER.value, dbname=DBConfig.HUB_DB.value) as conn:
 
-        project_check = await conn.fetchrow("SELECT * FROM Projects LIMIT 1")
-
-        #If there aren't any projects, let the user impute one and insert it into the Projects table
-        if not project_check:
-            print("Initialize the program. Create your first project!")
-            name = input("Enter project name: ")
-            lang = input("Enter project language: ")
-
-            new_project = await conn.fetchrow(
-                "INSERT INTO Projects (name, lang) VALUES ($1, $2) RETURNING *",
-                name, lang
-            )
-            print(f"New project created: {new_project}")
+        new_project = await conn.fetchrow(
+            "INSERT INTO Projects (name, lang) VALUES ($1, $2) RETURNING *",
+            name, lang
+        )
+        print(f"New project created: {new_project}")
 
         await conn.execute(
             "INSERT INTO Metadata (current_project_id, lang) VALUES ($1, $2)",
@@ -298,8 +310,15 @@ async def init(auto_project_setup: bool = True) -> None:
         )
         print(f"Metadata updated setting {new_project['name']} as current project.")
 
+        #TODO ENTER IN THE NEW PROJECT DATABASE AND EXECUTE THE SETUP AS BELOW
+
+
+    # -- New Project Setup Insertions --
+    async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value, dbname=name) as conn:
         if auto_project_setup:
             await setup_project(conn=conn)
+
+
 
     return None
 
