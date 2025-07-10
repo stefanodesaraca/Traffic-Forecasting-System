@@ -7,8 +7,7 @@ class DBConfig(Enum):
     TFS_PASSWORD = "tfs"
 
     HUB_DB = "tfs_hub"
-
-
+    MAINTENANCE_DB = "postgres"
 
 
 

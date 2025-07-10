@@ -28,43 +28,46 @@ async def check_db(dbname: str) -> bool:
 
 async def init() -> None:
 
+    # -- Initialize users and DBs --
+
     #Accessing as superuser and creating tfs user
-    async with postgres_conn(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value, dbname="postgres") as conn:
+    async with postgres_conn(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value, dbname=DBConfig.MAINTENANCE_DB.value) as conn:
         try:
             await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
             print(f"User 'tfs' created.")
         except asyncpg.DuplicateObjectError:
             print(f"User 'username' already exists.")
 
-    async with postgres_conn(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value, dbname="postgres") as conn:
+    async with postgres_conn(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value, dbname=DBConfig.MAINTENANCE_DB.value) as conn:
         try:
             await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
             print(f"User 'tfs' created.")
         except asyncpg.DuplicateObjectError:
             print(f"User 'username' already exists.")
 
+
+    if not await check_db(dbname=DBConfig.HUB_DB.value):
+        async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value, dbname=DBConfig.HUB_DB.value) as conn:
+            try:
+                await conn.execute(f"""
+                CREATE DATABASE {DBConfig.HUB_DB.value}
+                """)
+            except DuplicateDatabaseError:
+                pass
+
     async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value, dbname=DBConfig.HUB_DB.value) as conn:
-        try:
-            await conn.execute(f"""
-            CREATE DATABASE {DBConfig.HUB_DB.value}
-            """)
-        except DuplicateDatabaseError:
-            pass
 
-    await check_db(DBConfig.HUB_DB.value)
-
-
-    async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value, dbname=DBConfig.HUB_DB.value) as conn:
-
+        #Projects
         await conn.execute("""
                  CREATE TABLE IF NOT EXISTS Metadata (
-                    id TEXT PRIMARY KEY
-                    current_project TEXT
-                    lang TEXT
+                    id SERIAL PRIMARY KEY,
+                    current_project_id TEXT,
+                    lang TEXT,
+                    FOREIGN KEY (current_project_id) REFERENCES Projects(id)
                  )
                  CREATE TABLE IF NOT EXISTS Projects (
-                    id TEXT PRIMARY KEY
-                    name TEXT
+                    id SERIAL PRIMARY KEY,
+                    name TEXT,
                     lang TEXT
                  )
         """)
@@ -72,17 +75,17 @@ async def init() -> None:
         #Tables
         await conn.execute("""
                 CREATE TABLE IF NOT EXISTS RoadCategories (
-                    id INT PRIMARY KEY,
+                    id INTEGER PRIMARY KEY,
                     name TEXT
                 );
                 
                 CREATE TABLE IF NOT EXISTS CountryParts (
-                    id INT PRIMARY KEY,
+                    id INTEGER PRIMARY KEY,
                     name TEXT
                 );
                 
                 CREATE TABLE IF NOT EXISTS Counties (
-                    number INT PRIMARY KEY,
+                    number INTEGER PRIMARY KEY,
                     name TEXT,
                     country_part_id TEXT,
                     FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
@@ -95,13 +98,13 @@ async def init() -> None:
                     lon FLOAT,
                     road_reference_short_form TEXT,
                     road_category TEXT,
-                    road_link_sequence INT,
+                    road_link_sequence INTEGER,
                     relative_position FLOAT,
                     county TEXT,
                     country_part_id TEXT,
                     country_part_name TEXT,
-                    county_number INT,
-                    geographic_number INT,
+                    county_number INTEGER,
+                    geographic_number INTEGER,
                     traffic_registration_type TEXT,
                     first_data TIMESTAMPTZ,
                     first_data_with_quality_metrics TIMESTAMPTZ,
@@ -109,9 +112,9 @@ async def init() -> None:
                 );
                 
                 CREATE TABLE IF NOT EXISTS Data (
-                    row_idx INT PRIMARY KEY,
+                    row_idx SERIAL PRIMARY KEY,
                     trp_id TEXT,
-                    volume INT,
+                    volume INTEGER,
                     volume_coverage FLOAT,
                     mean_speed FLOAT,
                     mean_speed_coverage FLOAT,
@@ -123,7 +126,28 @@ async def init() -> None:
         """)
 
 
+        # -- Check if any projects exist --
 
+        project_check = await conn.fetchrow("SELECT * FROM Projects LIMIT 1")
+
+        #If there aren't any projects, let the user impute one and insert it into the Projects table
+        if not project_check:
+            print("Initialize the program. Create your first project!")
+            name = input("Enter project name: ")
+            lang = input("Enter project language: ")
+
+            new_project = await conn.fetchrow(
+                "INSERT INTO Projects (name, lang) VALUES ($1, $2) RETURNING *",
+                name, lang
+            )
+            print(f"New project created: {new_project}")
+
+        # 4. Insert into Metadata table
+        await conn.execute(
+            "INSERT INTO Metadata (current_project_id, lang) VALUES ($1, $2)",
+            new_project['id'], new_project['lang']
+        )
+        print(f"Metadata updated setting {new_project['name']} as current project.")
 
 
 
