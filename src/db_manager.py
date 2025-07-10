@@ -263,15 +263,22 @@ class DBManager:
                             FOREIGN KEY (road_category) REFERENCES RoadCategories(name)
                         );
         
-                        CREATE TABLE IF NOT EXISTS Data (
+                        CREATE TABLE IF NOT EXISTS Volume (
                             row_idx SERIAL PRIMARY KEY,
                             trp_id TEXT,
                             volume INTEGER,
-                            volume_coverage FLOAT,
-                            volume_mice BOOLEAN,
+                            coverage FLOAT,
+                            is_mice BOOLEAN,
+                            zoned_dt_iso TIMESTAMPTZ,
+                            FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS MeanSpeed(
+                            row_idx SERIAL PRIMARY KEY,
+                            trp_id TEXT,
                             mean_speed FLOAT,
-                            mean_speed_coverage FLOAT,
-                            mean_speed_mice BOOLEAN,
+                            _coverage FLOAT,
+                            is_mice BOOLEAN,
                             percentile_85 FLOAT,
                             zoned_dt_iso TIMESTAMPTZ,
                             FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
@@ -294,16 +301,18 @@ class DBManager:
                 CREATE OR REPLACE VIEW TrafficRegistrationPointsMetadataView AS
                 SELECT
                     trp.id AS trp_id,
-                    BOOL_OR(d.volume IS NOT NULL) AS has_volume,
-                    BOOL_OR(d.mean_speed IS NOT NULL) AS has_mean_speed,
-                    MIN(CASE WHEN d.volume IS NOT NULL THEN d.zoned_dt_iso END) AS volume_start_date,
-                    MAX(CASE WHEN d.volume IS NOT NULL THEN d.zoned_dt_iso END) AS volume_end_date,
-                    MIN(CASE WHEN d.mean_speed IS NOT NULL THEN d.zoned_dt_iso END) AS mean_speed_start_date,
-                    MAX(CASE WHEN d.mean_speed IS NOT NULL THEN d.zoned_dt_iso END) AS mean_speed_end_date
+                    BOOL_OR(v.volume IS NOT NULL) AS has_volume,
+                    BOOL_OR(ms.mean_speed IS NOT NULL) AS has_mean_speed,
+                    MIN(CASE WHEN v.volume IS NOT NULL THEN v.zoned_dt_iso END) AS volume_start_date,
+                    MAX(CASE WHEN v.volume IS NOT NULL THEN v.zoned_dt_iso END) AS volume_end_date,
+                    MIN(CASE WHEN ms.mean_speed IS NOT NULL THEN ms.zoned_dt_iso END) AS mean_speed_start_date,
+                    MAX(CASE WHEN ms.mean_speed IS NOT NULL THEN ms.zoned_dt_iso END) AS mean_speed_end_date
                 FROM
                     TrafficRegistrationPoints trp
                 LEFT JOIN
-                    Data d ON trp.id = d.trp_id
+                    Volume v ON trp.id = v.trp_id
+                LEFT JOIN
+                    MeanSpeed ms ON trp.id = ms.trp_id
                 GROUP BY
                     trp.id;
                 """)
