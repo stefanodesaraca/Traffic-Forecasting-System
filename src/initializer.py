@@ -1,5 +1,8 @@
+import json
 from contextlib import contextmanager
 from typing import Any
+import asyncio
+import aiofiles
 from gql.transport.exceptions import TransportServerError
 import asyncpg
 from asyncpg.exceptions import InvalidCatalogNameError, DuplicateDatabaseError
@@ -158,22 +161,31 @@ async def init() -> None:
 
         # -- Fetch or import necessary data to work with during program usage --
 
+        async def insert_areas(conn: asyncpg.connection, data: dict[str, Any]) -> None:
+            all((await conn.execute(
+                "INSERT INTO CountryParts (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+                part["id"], part["name"]
+            ),
+                 all(await conn.execute(
+                     "INSERT INTO Counties (number, name, country_part_id) VALUES ($1, $2, $3) ON CONFLICT (number) DO NOTHING",
+                     county["number"], county["name"], part["id"]
+                 ) for county in part["counties"])) for part in data["data"]["areas"]["countryParts"])
+            return None
+
         print("Setting up necessary data...")
 
+        print("Trying to download areas data...")
         areas = await fetch_areas(await start_client_async())
 
         if areas:
-            async def insert_areas(conn: asyncpg.connection, data: dict[str, Any]):
-                country_parts = data["data"]["areas"]["countryParts"]
+            await insert_areas(conn=conn, data=areas)
+            print("Areas inserted correctly into project db")
 
-                all((await conn.execute(
-                        "INSERT INTO CountryParts (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
-                        part["id"], part["name"]
-                    ),
-                     all(await conn.execute(
-                            "INSERT INTO Counties (number, name, country_part_id) VALUES ($1, $2, $3) ON CONFLICT (number) DO NOTHING",
-                            county["number"], county["name"], part["id"]
-                        ) for county in part["counties"])) for part in country_parts)
+        else:
+            print("Areas download failed, load them from a JSON file")
+            json_file = input("Enter json areas file path: ")
+            async with aiofiles.open(json_file, "r", encoding="utf-8") as a:
+                await insert_areas(conn=conn, data=json.load(a))
 
 
 
