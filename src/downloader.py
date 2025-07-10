@@ -21,7 +21,7 @@ class RetryErrors(BaseModel):
     TooEarly: int = 425
     TooManyRequests: int = 429
     GatewayTimeout: int = 504
-    
+
     class Config:
         frozen=True
 
@@ -225,8 +225,11 @@ async def volumes_to_json(time_start: str, time_end: str) -> None:
                     next_page_query=pages_counter > 0,
                 )
 
+
                 page_info = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]
                 end_cursor = page_info["endCursor"] if page_info["hasNextPage"] else None
+
+                #TODO EXECUTE PIPELINE
 
                 pages_counter += 1
 

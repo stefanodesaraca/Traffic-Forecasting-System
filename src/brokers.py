@@ -15,7 +15,8 @@ class DBBroker:
 
 
     def send(self, data):
-
+        #TODO INSTANTIATE PIPELINE AND SEND TO DB
+        ...
 
 
 

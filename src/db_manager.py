@@ -27,7 +27,7 @@ async def postgres_conn(user: str, password: str, dbname: str, host: str = 'loca
 
 class DBManager:
 
-    def __init__(self, superuser: str, superuser_password: str, tfs_user: str, tfs_password: str, hub_db: str = DBConfig.HUB_DB.value, maintenance_db: str = "postgres"):
+    def __init__(self, superuser: str, superuser_password: str, tfs_user: str, tfs_password: str, hub_db: str = "tfs_hub", maintenance_db: str = "postgres"):
         self._superuser = superuser
         self._superuser_password = superuser_password
         self._tfs_user = tfs_user
