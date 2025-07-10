@@ -5,24 +5,11 @@ from db_config import DBConfig
 
 
 @contextmanager
-async def postgres_conn(user: str, password: str) -> asyncpg.connection:
+async def postgres_conn(user: str, password: str, dbname: str) -> asyncpg.connection:
     try:
         conn = await asyncpg.connect(
             user=user,
             password=password,
-            database='postgres',
-            host='localhost'
-        )
-        yield conn
-    finally:
-        await conn.close()
-
-@contextmanager
-async def tfs_db_conn(dbname: str) -> asyncpg.connection:
-    try:
-        conn = await asyncpg.connect(
-            user=DBConfig.TFS_USER.value,
-            password=DBConfig.TFS_PASSWORD.value,
             database=dbname,
             host='localhost'
         )
@@ -32,7 +19,7 @@ async def tfs_db_conn(dbname: str) -> asyncpg.connection:
 
 
 async def check_db(dbname: str) -> bool:
-    async with postgres_conn(user="postgres", password="") as conn:
+    async with postgres_conn(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value, dbname="postgres") as conn:
         return await conn.fetchval(
                 "SELECT 1 FROM pg_database WHERE datname = $1",
                 dbname
@@ -42,24 +29,24 @@ async def check_db(dbname: str) -> bool:
 async def init() -> None:
 
     #Accessing as superuser and creating tfs user
-    async with postgres_conn(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value) as conn:
+    async with postgres_conn(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value, dbname="postgres") as conn:
         try:
             await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
             print(f"User 'tfs' created.")
         except asyncpg.DuplicateObjectError:
             print(f"User 'username' already exists.")
 
-    async with postgres_conn(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value) as conn:
+    async with postgres_conn(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value, dbname="postgres") as conn:
         try:
             await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
             print(f"User 'tfs' created.")
         except asyncpg.DuplicateObjectError:
             print(f"User 'username' already exists.")
 
-    async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value) as conn:
+    async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value, dbname=DBConfig.HUB_DB.value) as conn:
         try:
-            await conn.execute("""
-            CREATE DATABASE tfs_hub
+            await conn.execute(f"""
+            CREATE DATABASE {DBConfig.HUB_DB.value}
             """)
         except DuplicateDatabaseError:
             pass
@@ -67,7 +54,7 @@ async def init() -> None:
     await check_db(DBConfig.HUB_DB.value)
 
 
-    async with tfs_db_conn(dbname=DBConfig.HUB_DB.value) as conn:
+    async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value, dbname=DBConfig.HUB_DB.value) as conn:
 
         await conn.execute("""
                  CREATE TABLE IF NOT EXISTS Metadata (
