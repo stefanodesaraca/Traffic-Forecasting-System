@@ -142,7 +142,36 @@ async def init() -> None:
                     zoned_dt_iso TIMESTAMPTZ,
                     FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
                 );
-                        
+                
+                CREATE TABLE IF NOT EXISTS TrafficRegistrationPointsMetadata (
+                    trp_id TEXT PRIMARY KEY,
+                    has_volume BOOLEAN DEFAULT FALSE,
+                    has_mean_speed BOOLEAN DEFAULT FALSE,
+                    volume_start_date TIMESTAMPTZ,
+                    volume_end_date TIMESTAMPTZ,
+                    mean_speed_start_date TIMESTAMPTZ,
+                    mean_speed_end_date TIMESTAMPTZ,
+                    FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
+                );
+        """)
+
+        #Views
+        await conn.execute("""
+        CREATE OR REPLACE VIEW TrafficRegistrationPointsMetadataView AS
+        SELECT
+            trp.id AS trp_id,
+            BOOL_OR(d.volume IS NOT NULL) AS has_volume,
+            BOOL_OR(d.mean_speed IS NOT NULL) AS has_mean_speed,
+            MIN(CASE WHEN d.volume IS NOT NULL THEN d.zoned_dt_iso END) AS volume_start_date,
+            MAX(CASE WHEN d.volume IS NOT NULL THEN d.zoned_dt_iso END) AS volume_end_date,
+            MIN(CASE WHEN d.mean_speed IS NOT NULL THEN d.zoned_dt_iso END) AS mean_speed_start_date,
+            MAX(CASE WHEN d.mean_speed IS NOT NULL THEN d.zoned_dt_iso END) AS mean_speed_end_date
+        FROM
+            TrafficRegistrationPoints trp
+        LEFT JOIN
+            Data d ON trp.id = d.trp_id
+        GROUP BY
+            trp.id;
         """)
 
 

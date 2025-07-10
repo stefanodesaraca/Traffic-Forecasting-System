@@ -1,6 +1,3 @@
-import pprint
-import json
-import os
 import asyncio
 import aiofiles
 from warnings import simplefilter
@@ -15,19 +12,53 @@ from tfs_base_config import pjh, pmm, tmm
 simplefilter("ignore")
 
 
-# --------------------------------- GraphQL Client Start ---------------------------------
-
 # This client is specifically thought for asynchronous data downloading
 async def start_client_async() -> Client:
     return Client(transport=AIOHTTPTransport(url="https://trafikkdata-api.atlas.vegvesen.no/"), fetch_schema_from_transport=True)
 
 
-#TODO IN THE FUTURE ASYNCHRONIZE EVERY FUNCTION (CREATE A SPECIFIC FEATURE BRANCH FOR THAT MODIFICATION)
+async def fetch_areas(client: Client) -> dict | ExecutionResult | None:
+    try:
+        return await client.execute_async(gql("""
+                {
+                  areas {
+                    countryParts {
+                      name
+                      id
+                      counties {
+                        name
+                        number
+                        geographicNumber
+                        municipalities {
+                          name
+                          number
+                        }
+                        countryPart {
+                          name
+                          id
+                        }
+                      }
+                    }
+                  }
+                }
+                """))
+    except TimeoutError:
+        return None
+    except TransportServerError:  # If error code is 503: Service Unavailable
+        return None
 
-# --------------------------------- GraphQL Queries Section (Data Fetching) ---------------------------------
+
+async def fetch_road_categories(client: Client) -> dict | ExecutionResult:
+    return await client.execute_async(gql("""
+    {
+        roadCategories{
+            id
+            name
+        }
+    }
+    """))
 
 
-# The number 3 indicates the Oslo og Viken county, which only includes the Oslo municipality
 async def fetch_trps(client: Client, municipality_numbers: list[int] | None = None) -> dict | ExecutionResult:
     return await client.execute_async(gql(
         f"""
@@ -87,11 +118,11 @@ async def fetch_trps(client: Client, municipality_numbers: list[int] | None = No
           }}
         }}
         """
-    ))
+    )) # The number 3 indicates the Oslo og Viken county, which only includes the Oslo municipality
 
 
-def fetch_volumes_for_trp_id(client: Client, trp_id: str, time_start: str, time_end: str, last_end_cursor: str, next_page_query: bool) -> dict | ExecutionResult:
-    return client.execute(gql(f"""
+async def fetch_volumes_for_trp_id(client: Client, trp_id: str, time_start: str, time_end: str, last_end_cursor: str, next_page_query: bool) -> dict | ExecutionResult:
+    return await client.execute_async(gql(f"""
         {{
             trafficData(trafficRegistrationPointId: "{trp_id}") {{
                 trafficRegistrationPoint {{
@@ -150,59 +181,6 @@ def fetch_volumes_for_trp_id(client: Client, trp_id: str, time_start: str, time_
         """))
 
 
-async def fetch_road_categories(client: Client) -> dict | ExecutionResult:
-    return await client.execute_async(gql("""
-    {
-        roadCategories{
-            id
-            name
-        }
-    }
-    """))
-
-
-async def fetch_areas(client: Client) -> dict | ExecutionResult | None:
-    try:
-        return await client.execute_async(gql("""
-                {
-                  areas {
-                    countryParts {
-                      name
-                      id
-                      counties {
-                        name
-                        number
-                        geographicNumber
-                        municipalities {
-                          name
-                          number
-                        }
-                        countryPart {
-                          name
-                          id
-                        }
-                      }
-                    }
-                  }
-                }
-                """))
-    except TimeoutError:
-        return None
-    except TransportServerError:  # If error code is 503: Service Unavailable
-        return None
-
-# --------------------------------- JSON Writing Section ---------------------------------
-
-
-async def trps_to_json() -> None:
-    client = await start_client_async()
-    TRPs = await fetch_trps(client)
-
-    async with aiofiles.open(pjh.trps_fp, "w", encoding="utf-8") as trps_w:
-        await trps_w.write(json.dumps({data["id"]: data for data in TRPs["trafficRegistrationPoints"]}, indent=4))
-    return None
-
-
 async def volumes_to_json(time_start: str, time_end: str) -> None:
     semaphore = asyncio.Semaphore(5)  # Limit to 5 concurrent tasks
 
@@ -214,8 +192,7 @@ async def volumes_to_json(time_start: str, time_end: str) -> None:
 
         while True:
             try:
-                query_result = await asyncio.to_thread(
-                    fetch_volumes_for_trp_id,
+                query_result = await fetch_volumes_for_trp_id(
                     client,
                     trp_id,
                     time_start,
@@ -246,8 +223,7 @@ async def volumes_to_json(time_start: str, time_end: str) -> None:
 
     async def process_trp(trp_id: str):
 
-        async with aiofiles.open(pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json", "w") as f:
-            await f.write(json.dumps(await download_trp_data(trp_id), indent=4))
+        await download_trp_data(trp_id) #TODO SEND IT TO PIPELINE
 
         await asyncio.to_thread(tmm.set_trp_metadata, trp_id=trp_id, **{"raw_volumes_file": trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json"})  # Writing TRP's empty metadata file #TODO MAKE THIS FUNCTION ASYNC
 
