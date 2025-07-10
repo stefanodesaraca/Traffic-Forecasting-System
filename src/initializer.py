@@ -99,6 +99,17 @@ async def init() -> None:
                     FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
                 );
                 
+                
+                CREATE TABLE IF NOT EXISTS Municipalities (
+                    number INTEGER PRIMARY KEY,
+                    name TEXT,
+                    county_number INTEGER,
+                    country_part_id TEXT,
+                    FOREIGN KEY (county_number) REFERENCES Counties(number),
+                    FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
+                );
+                
+                
                 CREATE TABLE IF NOT EXISTS TrafficRegistrationPoints (
                     id TEXT PRIMARY KEY,
                     name TEXT,
@@ -166,10 +177,19 @@ async def init() -> None:
                 "INSERT INTO CountryParts (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
                 part["id"], part["name"]
             ),
-                 all(await conn.execute(
+                 all((await conn.execute(
                      "INSERT INTO Counties (number, name, country_part_id) VALUES ($1, $2, $3) ON CONFLICT (number) DO NOTHING",
                      county["number"], county["name"], part["id"]
-                 ) for county in part["counties"])) for part in data["data"]["areas"]["countryParts"])
+                 ),
+                      all(await conn.execute(
+                          """
+                          INSERT INTO Municipalities (number, name, county_number, country_part_id)
+                          VALUES ($1, $2, $3, $4)
+                          ON CONFLICT (number) DO NOTHING
+                          """,
+                          muni["number"], muni["name"], county["number"], part["id"]
+                      ) for muni in county.get("municipalities", []))
+                          ) for county in part["counties"])) for part in data["data"]["areas"]["countryParts"])
             return None
 
         print("Setting up necessary data...")
