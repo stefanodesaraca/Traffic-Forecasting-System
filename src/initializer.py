@@ -192,14 +192,53 @@ async def init() -> None:
                           ) for county in part["counties"])) for part in data["data"]["areas"]["countryParts"])
             return None
 
+
+        async def insert_trps(conn: asyncpg.connection, data: dict[str, Any]) -> None:
+            for trp_id, trp_data in data.items():
+                await conn.execute(
+                    f"""
+                    INSERT INTO TrafficRegistrationPoints (
+                        id, name, lat, lon,
+                        road_reference_short_form, road_category,
+                        road_link_sequence, relative_position,
+                        county, country_part_id, country_part_name,
+                        county_number, geographic_number,
+                        traffic_registration_type,
+                        first_data, first_data_with_quality_metrics
+                    )
+                    VALUES (
+                        {trp_data["id"]}, 
+                        {trp_data["name"]}, 
+                        {trp_data["location"]["coordinates"]["latLon"]["lat"]}, 
+                        {trp_data["location"]["coordinates"]["latLon"]["lon"]},
+                        {trp_data["location"].get("roadReference", {}).get("shortForm")}, 
+                        {trp_data["location"].get("roadReference", {}).get("shortForm").get("roadCategory", {}).get("id")}, 
+                        {trp_data["location"].get("roadLinkSequence", {}).get("roadLinkSequenceId")}, 
+                        {trp_data["location"].get("roadLinkSequence", {}).get("relativePosition")},
+                        {trp_data["location"].get("county", {}).get("name")}, 
+                        {trp_data["location"].get("county", {}).get("countryPart", {})},
+                        {str(trp_data["location"].get("county", {}).get("countryPart", {}).get("id")) if trp_data["location"].get("county", {}).get("countryPart", {}).get("id") is not None else None}, {country_part.get("name")},
+                        {trp_data["location"].get("county", {}).get("number")},
+                        {trp_data["location"].get("county", {}).get("geographicNumber")}, 
+                        {trp_data.get("trafficRegistrationType")},
+                        {trp_data.get("dataTimeSpan", {}).get("firstData")}, 
+                        {trp_data.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics")})
+                    ON CONFLICT (id) DO NOTHING
+                    """
+                )
+            return None
+
+
+
         print("Setting up necessary data...")
 
         print("Trying to download areas data...")
         areas = await fetch_areas(await start_client_async())
 
         if areas:
-            await insert_areas(conn=conn, data=areas)
-            print("Areas inserted correctly into project db")
+            async with conn.transaction():
+                await insert_areas(conn=conn, data=areas)
+                print("Areas inserted correctly into project db")
 
         else:
             print("Areas download failed, load them from a JSON file")
