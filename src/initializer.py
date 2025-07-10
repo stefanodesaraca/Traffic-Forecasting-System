@@ -35,7 +35,108 @@ async def check_db(dbname: str) -> bool:
 
 
 
-async def init() -> None:
+async def setup_project(conn: asyncpg.connection) -> None:
+    # -- Fetch or import necessary data to work with during program usage --
+
+    async def insert_areas(conn: asyncpg.connection, data: dict[str, Any]) -> None:
+        all((await conn.execute(
+            "INSERT INTO CountryParts (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+            part["id"], part["name"]
+        ),
+             all((await conn.execute(
+                 "INSERT INTO Counties (number, name, country_part_id) VALUES ($1, $2, $3) ON CONFLICT (number) DO NOTHING",
+                 county["number"], county["name"], part["id"]
+             ),
+                  all(await conn.execute(
+                      """
+                      INSERT INTO Municipalities (number, name, county_number, country_part_id)
+                      VALUES ($1, $2, $3, $4)
+                      ON CONFLICT (number) DO NOTHING
+                      """,
+                      muni["number"], muni["name"], county["number"], part["id"]
+                  ) for muni in county.get("municipalities", []))
+                  ) for county in part["counties"])) for part in data["data"]["areas"]["countryParts"])
+        return None
+
+    async def insert_road_categories(conn: asyncpg.connection, data: dict[str, Any]) -> None:
+        all(await conn.execute(
+            """
+            INSERT INTO RoadCategories (id, name)
+            VALUES ($1, $2)
+            ON CONFLICT (id) DO NOTHING
+            """,
+            cat["id"], cat["name"]
+        ) for cat in data["data"]["roadCategories"])
+        return None
+
+    async def insert_trps(conn: asyncpg.connection, data: dict[str, Any]) -> None:
+        all(await conn.execute(
+            f"""
+                        INSERT INTO TrafficRegistrationPoints (
+                            id, name, lat, lon,
+                            road_reference_short_form, road_category,
+                            road_link_sequence, relative_position,
+                            county, country_part_id, country_part_name,
+                            county_number, geographic_number,
+                            traffic_registration_type,
+                            first_data, first_data_with_quality_metrics
+                        )
+                        VALUES (
+                            {trp["id"]}, 
+                            {trp["name"]}, 
+                            {trp["location"]["coordinates"]["latLon"]["lat"]}, 
+                            {trp["location"]["coordinates"]["latLon"]["lon"]},
+                            {trp["location"].get("roadReference", {}).get("shortForm")}, 
+                            {trp["location"].get("roadReference", {}).get("shortForm").get("roadCategory", {}).get("id")}, 
+                            {trp["location"].get("roadLinkSequence", {}).get("roadLinkSequenceId")}, 
+                            {trp["location"].get("roadLinkSequence", {}).get("relativePosition")},
+                            {trp["location"].get("county", {}).get("name")}, 
+                            {str(trp["location"].get("county", {}).get("countryPart", {}).get("id")) if trp["location"].get("county", {}).get("countryPart", {}).get("id") is not None else None}, 
+                            {trp["location"].get("county", {}).get("countryPart", {}).get("name")}, 
+                            {trp["location"].get("county", {}).get("number")},
+                            {trp["location"].get("county", {}).get("geographicNumber")}, 
+                            {trp.get("trafficRegistrationType")},
+                            {trp.get("dataTimeSpan", {}).get("firstData")}, 
+                            {trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics")})
+                        ON CONFLICT (id) DO NOTHING
+                        """
+        ) for trp in data["data"]["trafficRegistrationPoints"])
+        return None
+
+    fetch_funcs = (fetch_areas, fetch_road_categories, fetch_trps)
+    insert_funcs = (insert_areas, insert_road_categories, insert_trps)
+    try_desc = ("Trying to download areas data...",
+                "Trying to download road categories data...",
+                "Trying to download TRPs' data...")
+    success_desc = ("Areas inserted correctly into project db",
+                    "Road categories inserted correctly into project db",
+                    "TRPs' data inserted correctly into project db")
+    fail_desc = ("Areas download failed, load them from a JSON file",
+                 "Road categories download failed, load them from a JSON file",
+                 "TRPs' data download failed, load them from a JSON file")
+    json_enter_desc = ("Enter json areas file path: ",
+                       "Enter json road categories file path: ",
+                       "Enter json TRPs' data file path: ")
+
+    print("Setting up necessary data...")
+    for fetch, insert, t, s, f, je in zip(fetch_funcs, insert_funcs, try_desc, success_desc, fail_desc, json_enter_desc, strict=True):
+        print(t)
+        data = await fetch(await start_client_async())
+        if data:
+            async with conn.transaction():
+                await insert(conn=conn, data=data)
+                print(s)
+        else:
+            print(f)
+            json_file = input(je)
+            async with aiofiles.open(json_file, "r", encoding="utf-8") as a:
+                await insert(conn=conn, data=json.load(a))
+
+    return None
+
+
+
+async def init(auto_project_setup: bool = True) -> None:
 
     # -- Initialize users and DBs --
 
@@ -197,95 +298,8 @@ async def init() -> None:
         )
         print(f"Metadata updated setting {new_project['name']} as current project.")
 
-
-        # -- Fetch or import necessary data to work with during program usage --
-
-        async def insert_areas(conn: asyncpg.connection, data: dict[str, Any]) -> None:
-            all((await conn.execute(
-                "INSERT INTO CountryParts (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
-                part["id"], part["name"]
-            ),
-                 all((await conn.execute(
-                     "INSERT INTO Counties (number, name, country_part_id) VALUES ($1, $2, $3) ON CONFLICT (number) DO NOTHING",
-                     county["number"], county["name"], part["id"]
-                 ),
-                      all(await conn.execute(
-                          """
-                          INSERT INTO Municipalities (number, name, county_number, country_part_id)
-                          VALUES ($1, $2, $3, $4)
-                          ON CONFLICT (number) DO NOTHING
-                          """,
-                          muni["number"], muni["name"], county["number"], part["id"]
-                      ) for muni in county.get("municipalities", []))
-                          ) for county in part["counties"])) for part in data["data"]["areas"]["countryParts"])
-            return None
-
-        async def insert_road_categories(conn: asyncpg.connection, data: dict[str, Any]) -> None:
-            all(await conn.execute(
-                    """
-                    INSERT INTO RoadCategories (id, name)
-                    VALUES ($1, $2)
-                    ON CONFLICT (id) DO NOTHING
-                    """,
-                    cat["id"], cat["name"]
-                ) for cat in data["data"]["roadCategories"])
-            return None
-
-        async def insert_trps(conn: asyncpg.connection, data: dict[str, Any]) -> None:
-            all(await conn.execute(
-                    f"""
-                    INSERT INTO TrafficRegistrationPoints (
-                        id, name, lat, lon,
-                        road_reference_short_form, road_category,
-                        road_link_sequence, relative_position,
-                        county, country_part_id, country_part_name,
-                        county_number, geographic_number,
-                        traffic_registration_type,
-                        first_data, first_data_with_quality_metrics
-                    )
-                    VALUES (
-                        {trp["id"]}, 
-                        {trp["name"]}, 
-                        {trp["location"]["coordinates"]["latLon"]["lat"]}, 
-                        {trp["location"]["coordinates"]["latLon"]["lon"]},
-                        {trp["location"].get("roadReference", {}).get("shortForm")}, 
-                        {trp["location"].get("roadReference", {}).get("shortForm").get("roadCategory", {}).get("id")}, 
-                        {trp["location"].get("roadLinkSequence", {}).get("roadLinkSequenceId")}, 
-                        {trp["location"].get("roadLinkSequence", {}).get("relativePosition")},
-                        {trp["location"].get("county", {}).get("name")}, 
-                        {str(trp["location"].get("county", {}).get("countryPart", {}).get("id")) if trp["location"].get("county", {}).get("countryPart", {}).get("id") is not None else None}, 
-                        {trp["location"].get("county", {}).get("countryPart", {}).get("name")}, 
-                        {trp["location"].get("county", {}).get("number")},
-                        {trp["location"].get("county", {}).get("geographicNumber")}, 
-                        {trp.get("trafficRegistrationType")},
-                        {trp.get("dataTimeSpan", {}).get("firstData")}, 
-                        {trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics")})
-                    ON CONFLICT (id) DO NOTHING
-                    """
-                ) for trp in data["data"]["trafficRegistrationPoints"])
-            return None
-
-
-        fetch_funcs = (fetch_areas, fetch_road_categories, fetch_trps)
-        insert_funcs = (insert_areas, insert_road_categories, insert_trps)
-        try_desc = ("Trying to download areas data...", "Trying to download road categories data...", "Trying to download TRPs' data...")
-        success_desc = ("Areas inserted correctly into project db", "Road categories inserted correctly into project db", "TRPs' data inserted correctly into project db")
-        fail_desc = ("Areas download failed, load them from a JSON file", "Road categories download failed, load them from a JSON file", "TRPs' data download failed, load them from a JSON file")
-        json_enter_desc = ("Enter json areas file path: ", "Enter json road categories file path: ", "Enter json TRPs' data file path: ")
-
-        print("Setting up necessary data...")
-        for fetch, insert, t, s, f, je in zip(fetch_funcs, insert_funcs, try_desc, success_desc, fail_desc, json_enter_desc, strict=True):
-            print(t)
-            data = await fetch(await start_client_async())
-            if data:
-                async with conn.transaction():
-                    await insert(conn=conn, data=data)
-                    print(s)
-            else:
-                print(f)
-                json_file = input(je)
-                async with aiofiles.open(json_file, "r", encoding="utf-8") as a:
-                    await insert(conn=conn, data=json.load(a))
+        if auto_project_setup:
+            await setup_project(conn=conn)
 
     return None
 
