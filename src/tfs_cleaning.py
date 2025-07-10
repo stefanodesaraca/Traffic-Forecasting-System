@@ -11,15 +11,11 @@ import numpy as np
 import pandas as pd
 import dask.dataframe as dd
 
-
-
 from tfs_base_config import pjh, pmm, tmm
 
 from tfs_utils import GlobalDefinitions
 
 
-pd.set_option("display.max_rows", None)
-pd.set_option("display.max_columns", None)
 
 
 class BaseCleaner:
@@ -27,52 +23,6 @@ class BaseCleaner:
         self._cwd: str | Path = GlobalDefinitions.CWD.value
         self._ops_folder: str = "ops"
         self._ops_name: str | None = pjh.get_current_project()
-        self._regressor_types: list = ["lasso", "gamma", "quantile"]
-
-
-    # Executing multiple imputation to get rid of NaNs using the MICE method (Multiple Imputation by Chained Equations)
-    def _impute_missing_values(self, data: pd.DataFrame | dd.DataFrame, r: str = "gamma") -> pd.DataFrame:
-        """
-        This function should only be supplied with numerical columns-only dataframes
-
-        Parameters:
-            data: the data with missing values
-            r: the regressor kind. Has to be within a specific list or regressors available
-        """
-        if r not in self._regressor_types:
-            raise ValueError(f"Regressor type '{r}' is not supported. Must be one of: {self._regressor_types}")
-
-        reg = None
-        if r == "lasso":
-            reg = ZeroInflatedRegressor(
-                regressor=Lasso(random_state=100, fit_intercept=True),
-                classifier=DecisionTreeClassifier(random_state=100)
-            )  # Using Lasso regression (L1 Penalization) to get better results in case of non-informative columns present in the data (coverage data, because their values all the same)
-        elif r == "gamma":
-            reg = ZeroInflatedRegressor(
-                regressor=GammaRegressor(fit_intercept=True, verbose=0),
-                classifier=DecisionTreeClassifier(random_state=100)
-            )  # Using Gamma regression to address for the zeros present in the data (which will need to be predicted as well)
-        elif r == "quantile":
-            reg = ZeroInflatedRegressor(
-                regressor=QuantileRegressor(fit_intercept=True),
-                classifier=DecisionTreeClassifier(random_state=100)
-            )
-
-        mice_imputer = IterativeImputer(
-            estimator=reg,
-            random_state=100,
-            verbose=0,
-            imputation_order="roman",
-            initial_strategy="mean"
-        )  # Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
-
-        return pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns) # Fitting the imputer and processing all the data columns except the date one #TODO BOTTLENECK
-
-
-    @staticmethod
-    def _is_empty(data: dict[Any, Any]) -> bool:
-        return True if len(data) == 0 else False
 
 
 

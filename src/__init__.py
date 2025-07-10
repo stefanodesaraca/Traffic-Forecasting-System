@@ -1,4 +1,4 @@
-import tfs_main as main
+import main as main
 import downloader as downloader
 import tfs_cleaning as cleaning
 import tfs_eda as eda

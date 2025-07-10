@@ -1,7 +1,9 @@
+import datetime
+from datetime import datetime
 import dask.dataframe as dd
 import pandas as pd
 import numpy
-from typing import Any
+from typing import Any, Generator
 from pydantic import BaseModel
 from pydantic.types import PositiveInt, PositiveFloat
 
@@ -12,6 +14,10 @@ from sklearn.impute import IterativeImputer
 from sklego.meta import ZeroInflatedRegressor
 
 
+pd.set_option("display.max_rows", None)
+pd.set_option("display.max_columns", None)
+
+
 
 class RegressorTypes(BaseModel):
     lasso = "lasso"
@@ -20,8 +26,6 @@ class RegressorTypes(BaseModel):
 
     class Config:
         frozen=True
-
-
 
 
 
@@ -65,11 +69,11 @@ class PipelineMixin:
             initial_strategy="mean"
         )  # Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
 
-        return pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns) # Fitting the imputer and processing all the data columns except the date one #TODO BOTTLENECK. MAYBE USE POLARS LazyFrame?
+        return pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns) # Fitting the imputer and processing all the data columns except the date one #TODO BOTTLENECK. MAYBE USE POLARS LazyFrame or PyArrow?
 
 
     @staticmethod
-    def _is_empty(data: dict[Any, Any]) -> bool:
+    async def _is_empty_async(data: dict[Any, Any]) -> bool:
         return len(data) == 0
 
 

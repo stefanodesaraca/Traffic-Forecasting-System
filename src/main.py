@@ -326,11 +326,11 @@ def main():
     while True:
         print("""==================== MENU ====================
 1. Set pre-analysis information
-    1.1 Create an operation
-    1.2 Set an operation as active (current one)
-    1.3 Check the active operation name
-    1.4 Reset active operation
-    1.5 Delete an operation
+    1.1 Create a new project
+    1.2 Set a project as the current one
+    1.3 Check the current project's name
+    1.4 Reset current project
+    1.5 Delete a project
 2. Download data (Trafikkdata API)
     2.1 Traffic registration points information
     2.2 Traffic volumes for every registration point
