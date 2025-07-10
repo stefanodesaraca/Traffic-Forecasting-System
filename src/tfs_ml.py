@@ -41,9 +41,9 @@ from sktime.base import BaseEstimator as SktimeBaseEstimator
 from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastingBaseModel
 
 from tfs_base_config import gp_toolbox, pmm, trp_toolbox
-from tfs_ml_configs import grids, model_definitions, best_params
+from ml_configs import grids, model_definitions, best_params
 
-from tfs_exceptions import WrongEstimatorTypeError, ModelNotSetError, TargetVariableNotFoundError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
+from exceptions import WrongEstimatorTypeError, ModelNotSetError, TargetVariableNotFoundError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
 from tfs_utils import GlobalDefinitions
 
 

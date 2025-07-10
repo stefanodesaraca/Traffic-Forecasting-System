@@ -3,14 +3,12 @@ from contextlib import contextmanager
 from typing import Any
 import asyncio
 import aiofiles
-from distributed.utils_test import async_wait_for
-from gql.transport.exceptions import TransportServerError
 import asyncpg
-from asyncpg.exceptions import InvalidCatalogNameError, DuplicateDatabaseError
+from asyncpg.exceptions import DuplicateDatabaseError
 from cleantext import clean
 
 from db_config import DBConfig
-from tfs_downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
+from downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
 
 
 @contextmanager
@@ -33,7 +31,6 @@ async def check_db(dbname: str) -> bool:
                 "SELECT 1 FROM pg_database WHERE datname = $1",
                 dbname
             ) == 1
-
 
 
 async def setup_project(conn: asyncpg.connection) -> None:
@@ -134,7 +131,6 @@ async def setup_project(conn: asyncpg.connection) -> None:
                 await insert(conn=conn, data=json.load(a))
 
     return None
-
 
 
 async def init(auto_project_setup: bool = True) -> None:
@@ -322,8 +318,6 @@ async def init(auto_project_setup: bool = True) -> None:
     async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value, dbname=name) as conn:
         if auto_project_setup:
             await setup_project(conn=conn)
-
-
 
     return None
 

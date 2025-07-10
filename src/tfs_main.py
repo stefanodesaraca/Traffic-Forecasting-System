@@ -14,10 +14,10 @@ import dask
 import dask.dataframe as dd
 
 from tfs_base_config import gp_toolbox, pjh, pjhmm, pmm, tmm, trp_toolbox, forecasting_toolbox
-from tfs_ml_configs import model_definitions
-from tfs_exceptions import TRPNotFoundError, TargetVariableNotFoundError, TargetDataNotAvailableError
+from ml_configs import model_definitions
+from exceptions import TRPNotFoundError, TargetVariableNotFoundError, TargetDataNotAvailableError
 
-from tfs_downloader import trps_to_json, volumes_to_json
+from downloader import volumes_to_json
 from tfs_cleaning import TrafficVolumesCleaner, AverageSpeedCleaner
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
 from tfs_ml import TFSLearner, TFSPreprocessor, OnePointForecaster

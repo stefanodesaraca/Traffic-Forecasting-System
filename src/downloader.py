@@ -5,11 +5,22 @@ from gql import gql, Client
 from gql.transport.exceptions import TransportServerError
 from gql.transport.aiohttp import AIOHTTPTransport
 from graphql import ExecutionResult
+from pydantic import BaseModel
 
 from tfs_utils import GlobalDefinitions
 from tfs_base_config import pjh, pmm, tmm
 
 simplefilter("ignore")
+
+
+class RetryErrors(BaseModel):
+    NotFound: int = 404
+    RequestTimeout: int = 408
+    MisdirectedRequest: int = 421
+    UnprocessableContent: int = 422
+    TooEarly: int = 425
+    TooManyRequests: int = 429
+    GatewayTimeout: int = 504
 
 
 # This client is specifically thought for asynchronous data downloading
@@ -48,77 +59,87 @@ async def fetch_areas(client: Client) -> dict | ExecutionResult | None:
         return None
 
 
-async def fetch_road_categories(client: Client) -> dict | ExecutionResult:
-    return await client.execute_async(gql("""
-    {
-        roadCategories{
-            id
-            name
+async def fetch_road_categories(client: Client) -> dict | ExecutionResult | None:
+    try:
+        return await client.execute_async(gql("""
+        {
+            roadCategories{
+                id
+                name
+            }
         }
-    }
-    """))
+        """))
+    except TimeoutError:
+        return None
+    except TransportServerError:  # If error code is 503: Service Unavailable
+        return None
 
 
-async def fetch_trps(client: Client, municipality_numbers: list[int] | None = None) -> dict | ExecutionResult:
-    return await client.execute_async(gql(
-        f"""
-        {{
-          trafficRegistrationPoints(
-            searchQuery: {{roadCategoryIds: [E, R, F, K, P], countyNumbers: [{', '.join([str(n) for n in (municipality_numbers or [3])])}], isOperational: true, trafficType: VEHICLE, registrationFrequency: CONTINUOUS}}
-          ) {{
-            id
-            name
-            location {{
-              coordinates {{
-                latLon {{
-                  lat
-                  lon
-                }}
-              }}
-              roadReference{{
-                shortForm
-                roadCategory{{
-                  id
-                }}
-              }}
-              roadLinkSequence{{
-                roadLinkSequenceId
-                relativePosition
-              }}
-              roadReferenceHistory{{
-                validFrom
-                validTo
-              }}
-              county{{
+async def fetch_trps(client: Client, municipality_numbers: list[int] | None = None) -> dict | ExecutionResult | None:
+    try:
+        return await client.execute_async(gql(
+            f"""
+            {{
+              trafficRegistrationPoints(
+                searchQuery: {{roadCategoryIds: [E, R, F, K, P], countyNumbers: [{', '.join([str(n) for n in (municipality_numbers or [3])])}], isOperational: true, trafficType: VEHICLE, registrationFrequency: CONTINUOUS}}
+              ) {{
+                id
                 name
-                number
-                geographicNumber
-                countryPart{{
-                  id
-                  name
+                location {{
+                  coordinates {{
+                    latLon {{
+                      lat
+                      lon
+                    }}
+                  }}
+                  roadReference{{
+                    shortForm
+                    roadCategory{{
+                      id
+                    }}
+                  }}
+                  roadLinkSequence{{
+                    roadLinkSequenceId
+                    relativePosition
+                  }}
+                  roadReferenceHistory{{
+                    validFrom
+                    validTo
+                  }}
+                  county{{
+                    name
+                    number
+                    geographicNumber
+                    countryPart{{
+                      id
+                      name
+                    }}
+                  }}
+                  municipality{{
+                    name
+                    number
+                  }}
                 }}
-              }}
-              municipality{{
-                name
-                number
+                trafficRegistrationType            
+                dataTimeSpan {{
+                  firstData
+                  firstDataWithQualityMetrics
+                  latestData {{
+                    volumeByDay
+                    volumeByHour
+                    volumeAverageDailyByYear
+                    volumeAverageDailyBySeason
+                    volumeAverageDailyByMonth
+                  }}
+                }}
               }}
             }}
-            trafficRegistrationType            
-            dataTimeSpan {{
-              firstData
-              firstDataWithQualityMetrics
-              latestData {{
-                volumeByDay
-                volumeByHour
-                volumeAverageDailyByYear
-                volumeAverageDailyBySeason
-                volumeAverageDailyByMonth
-              }}
-            }}
-          }}
-        }}
-        """
-    )) # The number 3 indicates the Oslo og Viken county, which only includes the Oslo municipality
+            """
+        )) # The number 3 indicates the Oslo og Viken county, which only includes the Oslo municipality
+    except TimeoutError:
+        return None
+    except TransportServerError:  # If error code is 503: Service Unavailable
+        return None
 
 
 async def fetch_volumes_for_trp_id(client: Client, trp_id: str, time_start: str, time_end: str, last_end_cursor: str, next_page_query: bool) -> dict | ExecutionResult:

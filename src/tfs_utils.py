@@ -25,7 +25,7 @@ from dask import delayed
 import dask.distributed
 from dask.distributed import Client, LocalCluster
 
-from tfs_exceptions import TargetVariableNotFoundError, WrongSplittingMode
+from exceptions import TargetVariableNotFoundError, WrongSplittingMode
 
 
 pd.set_option("display.max_columns", None)
