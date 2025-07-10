@@ -32,11 +32,12 @@ class DBManager:
         self._superuser_password = superuser_password
         self._tfs_user = tfs_user
         self._tfs_password = tfs_password
-        self._maintenance_db = maintenance_db
         self._hub_db = hub_db
+        self._maintenance_db = maintenance_db
 
 
-    async def _check_db(self, dbname: str) -> bool:
+    @staticmethod
+    async def _check_db(dbname: str) -> bool:
         async with postgres_conn(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value, dbname="postgres") as conn:
             return await conn.fetchval(
                     "SELECT 1 FROM pg_database WHERE datname = $1",
@@ -44,7 +45,8 @@ class DBManager:
                 ) == 1
 
 
-    async def _setup_project(self, conn: asyncpg.connection) -> None:
+    @staticmethod
+    async def _setup_project(conn: asyncpg.connection) -> None:
         # -- Fetch or import necessary data to work with during program usage --
 
         async def insert_areas(conn: asyncpg.connection, data: dict[str, Any]) -> None:
@@ -200,7 +202,7 @@ class DBManager:
             #If there aren't any projects, let the user impute one and insert it into the Projects table
             if not project_check:
                 print("Initialize the program. Create your first project!")
-                name = clean(input("Enter project name: "), no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True, no_urls=True).replace(" ", "_").lower()
+                name = clean(input("Enter project name: "), no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True, no_urls=True, normalize_whitespace=True, lower=True)
                 lang = input("Enter project language: ")
                 print("Cleaned project DB name: ", name)
                 print("Project language: ", lang)
@@ -211,7 +213,7 @@ class DBManager:
             async with conn.transaction():
                 conn.execute(f"""CREATE DATABASE {name};""")
 
-        # -- Creating project tables --
+        # -- Project Tables Setup --
         async with postgres_conn(user=self._tfs_user, password=self._tfs_password, dbname=name) as conn:
             async with conn.transaction():
 
@@ -340,6 +342,9 @@ class DBManager:
                 await self._setup_project(conn=conn)
 
         return None
+
+
+
 
 
 

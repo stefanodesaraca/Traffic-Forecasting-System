@@ -229,7 +229,7 @@ async def volumes_to_json(time_start: str, time_end: str) -> None:
                 page_info = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]
                 end_cursor = page_info["endCursor"] if page_info["hasNextPage"] else None
 
-                #TODO EXECUTE PIPELINE
+                #TODO EXECUTE PIPELINE. INSTANTIATE A DB BROKER IN A SPECIFIC FUNCTION JUST LIKE start_client_async() AND PASS IT TO THE PIPELINE HERE
 
                 pages_counter += 1
 

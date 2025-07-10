@@ -14,6 +14,7 @@ from sklearn.impute import IterativeImputer
 from sklego.meta import ZeroInflatedRegressor
 
 from tfs_utils import GlobalDefinitions
+from brokers import DBBroker
 
 pd.set_option("display.max_rows", None)
 pd.set_option("display.max_columns", None)
@@ -82,8 +83,9 @@ class ExtractionPipelineMixin:
 
 class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
-    def __init__(self, data: dict[str, Any] | None = None):
+    def __init__(self, db_broker: DBBroker, data: dict[str, Any] | None = None):
         self.data: dict[str, Any] | pd.DataFrame | dd.DataFrame | None = data
+        self.db_broker: DBBroker = db_broker
 
 
     @staticmethod
@@ -127,26 +129,38 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         return pd.DataFrame(by_hour).sort_values(by=["zoned_dt_iso"], ascending=True)
 
 
-    async def _clean_async(self) -> None:
-        try:
-            print("Shape before MICE: ", len(self.data), len(self.data.columns))
-            print("Number of zeros before MICE: ", len(self.data[self.data["volume"] == 0]))
+    async def _clean_async(self, mice_past_window: PositiveInt) -> None:
+        print("Shape before MICE: ", len(self.data), len(self.data.columns))
+        print("Number of zeros before MICE: ", len(self.data[self.data["volume"] == 0]))
 
-            #TODO EXTRACT DATA FROM OF A PAST TIME WINDOW THE DATABASE TO ENSURE THE CORRECT WORKING OF MICE. LIKE ONE MONTH IN THE PAST
-            #TODO PRINT NUMBER OF ADDED COLUMNS
 
-            self.data = pd.concat([self.data[["trp_id", "is_mice", "zoned_dt_iso"]],
-                                    await asyncio.to_thread(self._impute_missing_values,
-                                                      self.data.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1), r="gamma")], axis=1)
+        #TODO FOR TESTING PURPOSES
+        context = pd.DataFrame(await self.db_broker.execute_sql(sql=f"""SELECT *
+                                                                      FROM Volume
+                                                                      ORDER BY zoned_dt_iso DESC
+                                                                      LIMIT {mice_past_window};
+                                                                   """))
+        print(context)
+        print(context.shape)
+        print(context.describe())
 
-            print("Shape after MICE: ", len(self.data), len(self.data.columns))
-            print("Number of zeros after MICE: ", len(self.data[self.data["volume"] == 0]))
-            print("Number of negative values (after MICE): ", len(self.data[self.data["volume"] < 0]))
 
-        except ValueError as e:
-            print(f"\033[91mValue error raised. Error: {e} Continuing with the cleaning.\033[0m")
 
-        self.data["volume"] = self.data["volume"].astype("int")
+        self.data = pd.concat([
+                                self.data[["trp_id", "is_mice", "zoned_dt_iso"]],
+                                await asyncio.to_thread(pd.DataFrame, await self.db_broker.execute_sql(sql=f"""SELECT *
+                                                          FROM Volume
+                                                          ORDER BY zoned_dt_iso DESC
+                                                          LIMIT {mice_past_window};
+                                                       """)), #Extracting data from the past to improve MICE regression model performances
+                                await asyncio.to_thread(self._impute_missing_values,self.data.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1), r="gamma")
+                                ], axis=1)
+
+        print("Shape after MICE: ", len(self.data), len(self.data.columns))
+        print("Number of zeros after MICE: ", len(self.data[self.data["volume"] == 0]))
+        print("Number of negative values (after MICE): ", len(self.data[self.data["volume"] < 0]))
+
+        self.data["volume"] = self.data["volume"].astype("int") #Re-converting volume to int after MICE
 
         return None
 
