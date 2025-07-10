@@ -237,48 +237,26 @@ async def init() -> None:
             return None
 
 
+        fetch_funcs = (fetch_areas, fetch_road_categories, fetch_trps)
+        insert_funcs = (insert_areas, insert_road_categories, insert_trps)
+        try_desc = ("Trying to download areas data...", "Trying to download road categories data...", "Trying to download TRPs' data...")
+        success_desc = ("Areas inserted correctly into project db", "Road categories inserted correctly into project db", "TRPs' data inserted correctly into project db")
+        fail_desc = ("Areas download failed, load them from a JSON file", "Road categories download failed, load them from a JSON file", "TRPs' data download failed, load them from a JSON file")
+        json_enter_desc = ("Enter json areas file path: ", "Enter json road categories file path: ", "Enter json TRPs' data file path: ")
+
         print("Setting up necessary data...")
-
-        print("Trying to download areas data...")
-        areas = await fetch_areas(await start_client_async())
-        if areas:
-            async with conn.transaction():
-                await insert_areas(conn=conn, data=areas)
-                print("Areas inserted correctly into project db")
-
-        else:
-            print("Areas download failed, load them from a JSON file")
-            json_file = input("Enter json areas file path: ")
-            async with aiofiles.open(json_file, "r", encoding="utf-8") as a:
-                await insert_areas(conn=conn, data=json.load(a))
-
-
-        print("Trying to download road categories data...")
-        road_categories = await fetch_road_categories(await (start_client_async()))
-        if road_categories:
-            async with conn.transaction():
-                await insert_road_categories(conn=conn, data=road_categories)
-                print("Road categories inserted correctly into project db")
-
-        else:
-            print("Road categories download failed, load them from a JSON file")
-            json_file = input("Enter json road categories file path: ")
-            async with aiofiles.open(json_file, "r", encoding="utf-8") as a:
-                await insert_areas(conn=conn, data=json.load(a))
-
-
-        print("Trying to download TRPs' data...")
-        trps = await fetch_trps(await start_client_async())
-        if trps:
-            async with conn.transaction():
-                await insert_trps(conn=conn, data=trps)
-                print("TRPs' data inserted correctly into project db")
-
-        else:
-            print("TRPs' data download failed, load them from a JSON file")
-            json_file = input("Enter json TRPs' data file path: ")
-            async with aiofiles.open(json_file, "r", encoding="utf-8") as a:
-                await insert_trps(conn=conn, data=json.load(a))
+        for fetch, insert, t, s, f, je in zip(fetch_funcs, insert_funcs, try_desc, success_desc, fail_desc, json_enter_desc, strict=True):
+            print(t)
+            areas = await fetch(await start_client_async())
+            if areas:
+                async with conn.transaction():
+                    await insert(conn=conn, data=areas)
+                    print(s)
+            else:
+                print(f)
+                json_file = input(je)
+                async with aiofiles.open(json_file, "r", encoding="utf-8") as a:
+                    await insert_areas(conn=conn, data=json.load(a))
 
     return None
 
