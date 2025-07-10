@@ -123,8 +123,32 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
             by_hour["zoned_dt_iso"].append(datetime.datetime.fromisoformat(edge["node"]["from"])))
         for edge in self.data)
 
-        return pd.DataFrame(by_hour).sort_values(by=["date", "hour"], ascending=True)
+        return pd.DataFrame(by_hour).sort_values(by=["zoned_dt_iso"], ascending=True)
 
+
+    async def _clean_async(self, trp_id: str, export: bool = True) -> None:
+        try:
+            print("Shape before MICE: ", len(by_hour_df), len(by_hour_df.columns))
+            print("Number of zeros before MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
+
+            #TODO EXTRACT DATA FROM OF A PAST TIME WINDOW THE DATABASE TO ENSURE THE CORRECT WORKING OF MICE. LIKE ONE MONTH IN THE PAST
+
+            by_hour_df = pd.concat([by_hour_df[["trp_id", "date", "year", "month", "day", "week"]],
+                                    await asyncio.to_thread(self._impute_missing_values,
+                                                      by_hour_df.drop(columns=["trp_id", "date", "year", "month", "day", "week"], axis=1), r="gamma")], axis=1)
+
+            print("Shape after MICE: ", len(by_hour_df), len(by_hour_df.columns))
+            print("Number of zeros after MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
+            print("Number of negative values (after MICE): ", len(by_hour_df[by_hour_df["volume"] < 0]))
+
+        except ValueError as e:
+            print(f"\033[91mValue error raised. Error: {e} Continuing with the cleaning.\033[0m")
+            return
+
+        for col in ("year", "month", "week", "day", "hour", "volume"):
+            by_hour_df[col] = by_hour_df[col].astype("int")
+
+        return None
 
 
     async def ingest(self, payload: dict[str, Any]):
