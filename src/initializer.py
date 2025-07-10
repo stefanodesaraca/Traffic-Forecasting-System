@@ -1,7 +1,11 @@
 from contextlib import contextmanager
+from typing import Any
+from gql.transport.exceptions import TransportServerError
 import asyncpg
 from asyncpg.exceptions import InvalidCatalogNameError, DuplicateDatabaseError
+
 from db_config import DBConfig
+from tfs_downloader import start_client_async, fetch_areas
 
 
 @contextmanager
@@ -24,6 +28,7 @@ async def check_db(dbname: str) -> bool:
                 "SELECT 1 FROM pg_database WHERE datname = $1",
                 dbname
             ) == 1
+
 
 
 async def init() -> None:
@@ -116,8 +121,10 @@ async def init() -> None:
                     trp_id TEXT,
                     volume INTEGER,
                     volume_coverage FLOAT,
+                    volume_mice BOOLEAN,
                     mean_speed FLOAT,
                     mean_speed_coverage FLOAT,
+                    mean_speed_mice BOOLEAN,
                     percentile_85 FLOAT,
                     zoned_dt_iso TIMESTAMPTZ,
                     FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
@@ -142,12 +149,33 @@ async def init() -> None:
             )
             print(f"New project created: {new_project}")
 
-        # 4. Insert into Metadata table
         await conn.execute(
             "INSERT INTO Metadata (current_project_id, lang) VALUES ($1, $2)",
             new_project['id'], new_project['lang']
         )
         print(f"Metadata updated setting {new_project['name']} as current project.")
+
+
+        # -- Fetch or import necessary data to work with during program usage --
+
+        print("Setting up necessary data...")
+
+        areas = await fetch_areas(await start_client_async())
+
+        if areas:
+            async def insert_areas(conn: asyncpg.connection, data: dict[str, Any]):
+                country_parts = data["data"]["areas"]["countryParts"]
+
+                all((await conn.execute(
+                        "INSERT INTO CountryParts (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+                        part["id"], part["name"]
+                    ),
+                     all(await conn.execute(
+                            "INSERT INTO Counties (number, name, country_part_id) VALUES ($1, $2, $3) ON CONFLICT (number) DO NOTHING",
+                            county["number"], county["name"], part["id"]
+                        ) for county in part["counties"])) for part in country_parts)
+
+
 
 
 

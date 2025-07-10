@@ -160,32 +160,36 @@ def fetch_road_categories(client: Client) -> dict | ExecutionResult:
     }
     """))
 
-#TODO TO IMPLEMENT
-def fetch_areas(client: Client) -> dict | ExecutionResult:
-    return client.execute(gql("""
-    {
-      areas {
-        countryParts {
-          name
-          id
-          counties {
-            name
-            number
-            geographicNumber
-            municipalities {
-              name
-              number
-            }
-            countryPart {
-              name
-              id
-            }
-          }
-        }
-      }
-    }
-    """))
 
+async def fetch_areas(client: Client) -> dict | ExecutionResult | None:
+    try:
+        return await client.execute_async(gql("""
+                {
+                  areas {
+                    countryParts {
+                      name
+                      id
+                      counties {
+                        name
+                        number
+                        geographicNumber
+                        municipalities {
+                          name
+                          number
+                        }
+                        countryPart {
+                          name
+                          id
+                        }
+                      }
+                    }
+                  }
+                }
+                """))
+    except TimeoutError:
+        return None
+    except TransportServerError:  # If error code is 503: Service Unavailable
+        return None
 
 # --------------------------------- JSON Writing Section ---------------------------------
 
