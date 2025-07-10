@@ -1,4 +1,5 @@
 import datetime
+import asyncio
 import dask.dataframe as dd
 import pandas as pd
 import numpy
@@ -82,7 +83,7 @@ class ExtractionPipelineMixin:
 class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
     def __init__(self, data: dict[str, Any] | None = None):
-        self.data = data
+        self.data: dict[str, Any] | pd.DataFrame | dd.DataFrame | None = data
 
 
     @staticmethod
@@ -126,27 +127,26 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         return pd.DataFrame(by_hour).sort_values(by=["zoned_dt_iso"], ascending=True)
 
 
-    async def _clean_async(self, trp_id: str, export: bool = True) -> None:
+    async def _clean_async(self) -> None:
         try:
-            print("Shape before MICE: ", len(by_hour_df), len(by_hour_df.columns))
-            print("Number of zeros before MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
+            print("Shape before MICE: ", len(self.data), len(self.data.columns))
+            print("Number of zeros before MICE: ", len(self.data[self.data["volume"] == 0]))
 
             #TODO EXTRACT DATA FROM OF A PAST TIME WINDOW THE DATABASE TO ENSURE THE CORRECT WORKING OF MICE. LIKE ONE MONTH IN THE PAST
+            #TODO PRINT NUMBER OF ADDED COLUMNS
 
-            by_hour_df = pd.concat([by_hour_df[["trp_id", "date", "year", "month", "day", "week"]],
+            self.data = pd.concat([self.data[["trp_id", "is_mice", "zoned_dt_iso"]],
                                     await asyncio.to_thread(self._impute_missing_values,
-                                                      by_hour_df.drop(columns=["trp_id", "date", "year", "month", "day", "week"], axis=1), r="gamma")], axis=1)
+                                                      self.data.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1), r="gamma")], axis=1)
 
-            print("Shape after MICE: ", len(by_hour_df), len(by_hour_df.columns))
-            print("Number of zeros after MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
-            print("Number of negative values (after MICE): ", len(by_hour_df[by_hour_df["volume"] < 0]))
+            print("Shape after MICE: ", len(self.data), len(self.data.columns))
+            print("Number of zeros after MICE: ", len(self.data[self.data["volume"] == 0]))
+            print("Number of negative values (after MICE): ", len(self.data[self.data["volume"] < 0]))
 
         except ValueError as e:
             print(f"\033[91mValue error raised. Error: {e} Continuing with the cleaning.\033[0m")
-            return
 
-        for col in ("year", "month", "week", "day", "hour", "volume"):
-            by_hour_df[col] = by_hour_df[col].astype("int")
+        self.data["volume"] = self.data["volume"].astype("int")
 
         return None
 
