@@ -3,12 +3,13 @@ from contextlib import contextmanager
 from typing import Any
 import asyncio
 import aiofiles
+from distributed.utils_test import async_wait_for
 from gql.transport.exceptions import TransportServerError
 import asyncpg
 from asyncpg.exceptions import InvalidCatalogNameError, DuplicateDatabaseError
 
 from db_config import DBConfig
-from tfs_downloader import start_client_async, fetch_areas
+from tfs_downloader import start_client_async, fetch_areas, fetch_trps
 
 
 @contextmanager
@@ -192,10 +193,8 @@ async def init() -> None:
                           ) for county in part["counties"])) for part in data["data"]["areas"]["countryParts"])
             return None
 
-
         async def insert_trps(conn: asyncpg.connection, data: dict[str, Any]) -> None:
-            for trp_id, trp_data in data.items():
-                await conn.execute(
+            all(await conn.execute(
                     f"""
                     INSERT INTO TrafficRegistrationPoints (
                         id, name, lat, lon,
@@ -216,8 +215,8 @@ async def init() -> None:
                         {trp_data["location"].get("roadLinkSequence", {}).get("roadLinkSequenceId")}, 
                         {trp_data["location"].get("roadLinkSequence", {}).get("relativePosition")},
                         {trp_data["location"].get("county", {}).get("name")}, 
-                        {trp_data["location"].get("county", {}).get("countryPart", {})},
-                        {str(trp_data["location"].get("county", {}).get("countryPart", {}).get("id")) if trp_data["location"].get("county", {}).get("countryPart", {}).get("id") is not None else None}, {country_part.get("name")},
+                        {str(trp_data["location"].get("county", {}).get("countryPart", {}).get("id")) if trp_data["location"].get("county", {}).get("countryPart", {}).get("id") is not None else None}, 
+                        {trp_data["location"].get("county", {}).get("countryPart", {}).get("name")}, 
                         {trp_data["location"].get("county", {}).get("number")},
                         {trp_data["location"].get("county", {}).get("geographicNumber")}, 
                         {trp_data.get("trafficRegistrationType")},
@@ -225,16 +224,14 @@ async def init() -> None:
                         {trp_data.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics")})
                     ON CONFLICT (id) DO NOTHING
                     """
-                )
+                ) for trp_id, trp_data in data.items())
             return None
-
 
 
         print("Setting up necessary data...")
 
         print("Trying to download areas data...")
         areas = await fetch_areas(await start_client_async())
-
         if areas:
             async with conn.transaction():
                 await insert_areas(conn=conn, data=areas)
@@ -247,8 +244,18 @@ async def init() -> None:
                 await insert_areas(conn=conn, data=json.load(a))
 
 
+        print("Trying to download TRPs' data...")
+        trps = await fetch_trps(await start_client_async())
+        if trps:
+            async with conn.transaction():
+                await insert_trps(conn=conn, data=trps)
+                print("TRPs' data inserted correctly into project db")
 
-
+        else:
+            print("TRPs' data download failed, load them from a JSON file")
+            json_file = input("Enter json TRPs' data file path: ")
+            async with aiofiles.open(json_file, "r", encoding="utf-8") as a:
+                await insert_trps(conn=conn, data=json.load(a))
 
 
     return None
