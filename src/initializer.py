@@ -1,10 +1,11 @@
 from contextlib import contextmanager
 import asyncpg
 from asyncpg.exceptions import InvalidCatalogNameError, DuplicateDatabaseError
+from db_config import DBConfig
 
 
 @contextmanager
-async def postgres_conn(user: str, password: str):
+async def postgres_conn(user: str, password: str) -> asyncpg.connection:
     try:
         conn = await asyncpg.connect(
             user=user,
@@ -16,13 +17,12 @@ async def postgres_conn(user: str, password: str):
     finally:
         await conn.close()
 
-
 @contextmanager
-async def tfs_db_conn(dbname: str):
+async def tfs_db_conn(dbname: str) -> asyncpg.connection:
     try:
         conn = await asyncpg.connect(
-            user='tfs',
-            password='tfs',
+            user=DBConfig.TFS_USER.value,
+            password=DBConfig.TFS_PASSWORD.value,
             database=dbname,
             host='localhost'
         )
@@ -31,40 +31,58 @@ async def tfs_db_conn(dbname: str):
         await conn.close()
 
 
+async def check_db(dbname: str) -> bool:
+    async with postgres_conn(user="postgres", password="") as conn:
+        return await conn.fetchval(
+                "SELECT 1 FROM pg_database WHERE datname = $1",
+                dbname
+            ) == 1
+
+
 async def init() -> None:
 
-    #Accessing as superuser
-    async with postgres_conn(user="postgres", password="") as conn:
+    #Accessing as superuser and creating tfs user
+    async with postgres_conn(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value) as conn:
         try:
             await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
             print(f"User 'tfs' created.")
         except asyncpg.DuplicateObjectError:
             print(f"User 'username' already exists.")
 
+    async with postgres_conn(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value) as conn:
+        try:
+            await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
+            print(f"User 'tfs' created.")
+        except asyncpg.DuplicateObjectError:
+            print(f"User 'username' already exists.")
 
-    async with postgres_conn(user="tfs", password="tfs") as conn:
+    async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value) as conn:
         try:
             await conn.execute("""
-            CREATE DATABASE projects
+            CREATE DATABASE tfs_hub
             """)
         except DuplicateDatabaseError:
             pass
 
+    await check_db(DBConfig.HUB_DB.value)
 
-    async with tfs_db_conn(dbname="tfs_hub") as conn:
+
+    async with tfs_db_conn(dbname=DBConfig.HUB_DB.value) as conn:
 
         await conn.execute("""
-                 CREATE TABLE IF NOT EXISTS metadata (
+                 CREATE TABLE IF NOT EXISTS Metadata (
                     id TEXT PRIMARY KEY
                     current_project TEXT
                     lang TEXT
                  )
-                 CREATE TABLE IF NOT EXISTS projects (
+                 CREATE TABLE IF NOT EXISTS Projects (
                     id TEXT PRIMARY KEY
+                    name TEXT
                     lang TEXT
                  )
         """)
 
+        #Tables
         await conn.execute("""
                 CREATE TABLE IF NOT EXISTS RoadCategories (
                     id INT PRIMARY KEY,
@@ -98,7 +116,8 @@ async def init() -> None:
                     county_number INT,
                     geographic_number INT,
                     traffic_registration_type TEXT,
-                    firstData TIMESTAMPTZ,
+                    first_data TIMESTAMPTZ,
+                    first_data_with_quality_metrics TIMESTAMPTZ,
                     FOREIGN KEY (road_category) REFERENCES RoadCategories(name)
                 );
                 
