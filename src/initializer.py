@@ -7,6 +7,7 @@ from distributed.utils_test import async_wait_for
 from gql.transport.exceptions import TransportServerError
 import asyncpg
 from asyncpg.exceptions import InvalidCatalogNameError, DuplicateDatabaseError
+from cleantext import clean
 
 from db_config import DBConfig
 from tfs_downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
@@ -165,6 +166,7 @@ async def init(auto_project_setup: bool = True) -> None:
             except DuplicateDatabaseError:
                 pass
 
+
     # -- Hub DB Setup --
     async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value, dbname=DBConfig.HUB_DB.value) as conn:
 
@@ -191,109 +193,113 @@ async def init(auto_project_setup: bool = True) -> None:
         #If there aren't any projects, let the user impute one and insert it into the Projects table
         if not project_check:
             print("Initialize the program. Create your first project!")
-            name = input("Enter project name: ")
+            name = clean(input("Enter project name: "), no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True, no_urls=True).replace(" ", "_").lower()
             lang = input("Enter project language: ")
+            print("Cleaned project DB name: ", name)
+            print("Project language: ", lang)
 
     # -- New Project DB Setup --
     async with postgres_conn(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value, dbname=DBConfig.MAINTENANCE_DB.value) as conn:
         #Accessing as superuser since some tools may require this configuration to create a new database
+        async with conn.transaction():
+            conn.execute(f"""CREATE DATABASE {name};""")
 
-        #TODO CREATE PROJECT DATABASE HERE
+    # -- Creating project tables --
+    async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_USER.value, dbname=name) as conn:
+        async with conn.transaction():
 
+            # Tables
+            await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS RoadCategories (
+                        id TEXT PRIMARY KEY,
+                        name TEXT
+                    );
+    
+                    CREATE TABLE IF NOT EXISTS CountryParts (
+                        id INTEGER PRIMARY KEY,
+                        name TEXT
+                    );
+    
+                    CREATE TABLE IF NOT EXISTS Counties (
+                        number INTEGER PRIMARY KEY,
+                        name TEXT,
+                        country_part_id TEXT,
+                        FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
+                    );
+    
+                    CREATE TABLE IF NOT EXISTS Municipalities (
+                        number INTEGER PRIMARY KEY,
+                        name TEXT,
+                        county_number INTEGER,
+                        country_part_id TEXT,
+                        FOREIGN KEY (county_number) REFERENCES Counties(number),
+                        FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
+                    );
+    
+                    CREATE TABLE IF NOT EXISTS TrafficRegistrationPoints (
+                        id TEXT PRIMARY KEY,
+                        name TEXT,
+                        lat FLOAT,
+                        lon FLOAT,
+                        road_reference_short_form TEXT,
+                        road_category TEXT,
+                        road_link_sequence INTEGER,
+                        relative_position FLOAT,
+                        county TEXT,
+                        country_part_id TEXT,
+                        country_part_name TEXT,
+                        county_number INTEGER,
+                        geographic_number INTEGER,
+                        traffic_registration_type TEXT,
+                        first_data TIMESTAMPTZ,
+                        first_data_with_quality_metrics TIMESTAMPTZ,
+                        FOREIGN KEY (road_category) REFERENCES RoadCategories(name)
+                    );
+    
+                    CREATE TABLE IF NOT EXISTS Data (
+                        row_idx SERIAL PRIMARY KEY,
+                        trp_id TEXT,
+                        volume INTEGER,
+                        volume_coverage FLOAT,
+                        volume_mice BOOLEAN,
+                        mean_speed FLOAT,
+                        mean_speed_coverage FLOAT,
+                        mean_speed_mice BOOLEAN,
+                        percentile_85 FLOAT,
+                        zoned_dt_iso TIMESTAMPTZ,
+                        FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
+                    );
+    
+                    CREATE TABLE IF NOT EXISTS TrafficRegistrationPointsMetadata (
+                        trp_id TEXT PRIMARY KEY,
+                        has_volume BOOLEAN DEFAULT FALSE,
+                        has_mean_speed BOOLEAN DEFAULT FALSE,
+                        volume_start_date TIMESTAMPTZ,
+                        volume_end_date TIMESTAMPTZ,
+                        mean_speed_start_date TIMESTAMPTZ,
+                        mean_speed_end_date TIMESTAMPTZ,
+                        FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
+                    );
+            """)
 
-        # Tables
-        await conn.execute("""
-                CREATE TABLE IF NOT EXISTS RoadCategories (
-                    id TEXT PRIMARY KEY,
-                    name TEXT
-                );
-
-                CREATE TABLE IF NOT EXISTS CountryParts (
-                    id INTEGER PRIMARY KEY,
-                    name TEXT
-                );
-
-                CREATE TABLE IF NOT EXISTS Counties (
-                    number INTEGER PRIMARY KEY,
-                    name TEXT,
-                    country_part_id TEXT,
-                    FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
-                );
-
-                CREATE TABLE IF NOT EXISTS Municipalities (
-                    number INTEGER PRIMARY KEY,
-                    name TEXT,
-                    county_number INTEGER,
-                    country_part_id TEXT,
-                    FOREIGN KEY (county_number) REFERENCES Counties(number),
-                    FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
-                );
-
-                CREATE TABLE IF NOT EXISTS TrafficRegistrationPoints (
-                    id TEXT PRIMARY KEY,
-                    name TEXT,
-                    lat FLOAT,
-                    lon FLOAT,
-                    road_reference_short_form TEXT,
-                    road_category TEXT,
-                    road_link_sequence INTEGER,
-                    relative_position FLOAT,
-                    county TEXT,
-                    country_part_id TEXT,
-                    country_part_name TEXT,
-                    county_number INTEGER,
-                    geographic_number INTEGER,
-                    traffic_registration_type TEXT,
-                    first_data TIMESTAMPTZ,
-                    first_data_with_quality_metrics TIMESTAMPTZ,
-                    FOREIGN KEY (road_category) REFERENCES RoadCategories(name)
-                );
-
-                CREATE TABLE IF NOT EXISTS Data (
-                    row_idx SERIAL PRIMARY KEY,
-                    trp_id TEXT,
-                    volume INTEGER,
-                    volume_coverage FLOAT,
-                    volume_mice BOOLEAN,
-                    mean_speed FLOAT,
-                    mean_speed_coverage FLOAT,
-                    mean_speed_mice BOOLEAN,
-                    percentile_85 FLOAT,
-                    zoned_dt_iso TIMESTAMPTZ,
-                    FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
-                );
-
-                CREATE TABLE IF NOT EXISTS TrafficRegistrationPointsMetadata (
-                    trp_id TEXT PRIMARY KEY,
-                    has_volume BOOLEAN DEFAULT FALSE,
-                    has_mean_speed BOOLEAN DEFAULT FALSE,
-                    volume_start_date TIMESTAMPTZ,
-                    volume_end_date TIMESTAMPTZ,
-                    mean_speed_start_date TIMESTAMPTZ,
-                    mean_speed_end_date TIMESTAMPTZ,
-                    FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
-                );
-        """)
-
-        # Views
-        await conn.execute("""
-        CREATE OR REPLACE VIEW TrafficRegistrationPointsMetadataView AS
-        SELECT
-            trp.id AS trp_id,
-            BOOL_OR(d.volume IS NOT NULL) AS has_volume,
-            BOOL_OR(d.mean_speed IS NOT NULL) AS has_mean_speed,
-            MIN(CASE WHEN d.volume IS NOT NULL THEN d.zoned_dt_iso END) AS volume_start_date,
-            MAX(CASE WHEN d.volume IS NOT NULL THEN d.zoned_dt_iso END) AS volume_end_date,
-            MIN(CASE WHEN d.mean_speed IS NOT NULL THEN d.zoned_dt_iso END) AS mean_speed_start_date,
-            MAX(CASE WHEN d.mean_speed IS NOT NULL THEN d.zoned_dt_iso END) AS mean_speed_end_date
-        FROM
-            TrafficRegistrationPoints trp
-        LEFT JOIN
-            Data d ON trp.id = d.trp_id
-        GROUP BY
-            trp.id;
-        """)
-
+            # Views
+            await conn.execute("""
+            CREATE OR REPLACE VIEW TrafficRegistrationPointsMetadataView AS
+            SELECT
+                trp.id AS trp_id,
+                BOOL_OR(d.volume IS NOT NULL) AS has_volume,
+                BOOL_OR(d.mean_speed IS NOT NULL) AS has_mean_speed,
+                MIN(CASE WHEN d.volume IS NOT NULL THEN d.zoned_dt_iso END) AS volume_start_date,
+                MAX(CASE WHEN d.volume IS NOT NULL THEN d.zoned_dt_iso END) AS volume_end_date,
+                MIN(CASE WHEN d.mean_speed IS NOT NULL THEN d.zoned_dt_iso END) AS mean_speed_start_date,
+                MAX(CASE WHEN d.mean_speed IS NOT NULL THEN d.zoned_dt_iso END) AS mean_speed_end_date
+            FROM
+                TrafficRegistrationPoints trp
+            LEFT JOIN
+                Data d ON trp.id = d.trp_id
+            GROUP BY
+                trp.id;
+            """)
 
     # -- New Project Metadata Insertions --
     async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_USER.value, dbname=DBConfig.HUB_DB.value) as conn:
@@ -311,7 +317,6 @@ async def init(auto_project_setup: bool = True) -> None:
         print(f"Metadata updated setting {new_project['name']} as current project.")
 
         #TODO ENTER IN THE NEW PROJECT DATABASE AND EXECUTE THE SETUP AS BELOW
-
 
     # -- New Project Setup Insertions --
     async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value, dbname=name) as conn:
