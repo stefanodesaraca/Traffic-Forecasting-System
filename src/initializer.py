@@ -247,16 +247,16 @@ async def init() -> None:
         print("Setting up necessary data...")
         for fetch, insert, t, s, f, je in zip(fetch_funcs, insert_funcs, try_desc, success_desc, fail_desc, json_enter_desc, strict=True):
             print(t)
-            areas = await fetch(await start_client_async())
-            if areas:
+            data = await fetch(await start_client_async())
+            if data:
                 async with conn.transaction():
-                    await insert(conn=conn, data=areas)
+                    await insert(conn=conn, data=data)
                     print(s)
             else:
                 print(f)
                 json_file = input(je)
                 async with aiofiles.open(json_file, "r", encoding="utf-8") as a:
-                    await insert_areas(conn=conn, data=json.load(a))
+                    await insert(conn=conn, data=json.load(a))
 
     return None
 
