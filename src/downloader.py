@@ -21,6 +21,9 @@ class RetryErrors(BaseModel):
     TooEarly: int = 425
     TooManyRequests: int = 429
     GatewayTimeout: int = 504
+    
+    class Config:
+        frozen=True
 
 
 # This client is specifically thought for asynchronous data downloading
