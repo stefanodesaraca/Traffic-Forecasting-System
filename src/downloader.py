@@ -203,7 +203,7 @@ async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time
                       db_name=db_credentials["name"], db_host=db_credentials["host"])
     pipeline = VolumeExtractionPipeline(db_broker=broker)
 
-    async def download_trp_data(trp_id) -> None:
+    async def download_trp_data(trp_id: str) -> None:
         pages_counter = 0
         retries = 0
         end_cursor = None
@@ -227,6 +227,9 @@ async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time
                     break
 
             except (TimeoutError, TransportServerError):
+                if retries == max_retries:
+                    print("\033[91mFailed to download TRP volumes data\033[0m")
+                    break
                 await asyncio.sleep(delay=(2 ^ retries) + random.random()) #Exponential backoff
                 retries += 1
 

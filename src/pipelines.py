@@ -170,7 +170,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         ...
 
 
-
+        #TODO FOR INSERTS USE "ON CONFLICT (id) DO NOTHING"
 
 
 
