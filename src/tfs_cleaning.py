@@ -1,17 +1,13 @@
-import os
 from typing import Any, Generator
-import json
 import datetime
 from datetime import datetime
 from pathlib import Path
-import pprint
 import asyncio
-import aiofiles
 import numpy as np
 import pandas as pd
 import dask.dataframe as dd
 
-from tfs_base_config import pjh, pmm, tmm
+from tfs_base_config import pjh, pmm
 
 from tfs_utils import GlobalDefinitions
 
@@ -20,11 +16,7 @@ from tfs_utils import GlobalDefinitions
 
 class BaseCleaner:
     def __init__(self):
-        self._cwd: str | Path = GlobalDefinitions.CWD.value
-        self._ops_folder: str = "ops"
-        self._ops_name: str | None = pjh.get_current_project()
-
-
+        ...
 
 class TrafficVolumesCleaner(BaseCleaner):
     def __init__(self):
@@ -200,7 +192,6 @@ class AverageSpeedCleaner(BaseCleaner):
         if speeds.empty:
             return None
 
-        # Data cleaning
         speeds["coverage"] = speeds["coverage"].replace(",", ".", regex=True).astype("float") * 100
         speeds["mean_speed"] = speeds["mean_speed"].replace(",", ".", regex=True).astype("float")
         speeds["percentile_85"] = speeds["percentile_85"].replace(",", ".", regex=True).astype("float")
@@ -211,27 +202,22 @@ class AverageSpeedCleaner(BaseCleaner):
         try:
             print("Shape before MICE:", speeds.shape)
             print("Number of zeros before MICE:", len(speeds[speeds["mean_speed"] == 0]))
+            print("Negative values (mean speed) before MICE:", len(speeds[speeds["mean_speed"] < 0]))
 
             speeds = await asyncio.to_thread(pd.concat, [
                 speeds[["trp_id", "zoned_dt_iso"]],
-                BaseCleaner()._impute_missing_values(speeds.drop(columns=["trp_id", "zoned_dt_iso"]), r="gamma")
+                self._impute_missing_values(speeds.drop(columns=["trp_id", "zoned_dt_iso"]), r="gamma")
             ], axis=1) #TODO IF THIS DOESN'T WORK TRY AS IT WAS BEFORE ... .to_thread(lambda: pd.concat(...)
 
             print("Shape after MICE:", speeds.shape, "\n")
             print("Number of zeros after MICE:", len(speeds[speeds["mean_speed"] == 0]))
-            print("Negative values (volume):", len(speeds[speeds["mean_speed"] < 0]))
+            print("Negative values (mean speed) after MICE:", len(speeds[speeds["mean_speed"] < 0]))
 
         except ValueError as e:
             print(f"\033[91mValueError: {e}. Skipping...\033[0m")
             return None
 
-        return pd.DataFrame({
-            "trp_id": grouped["trp_id"].to_list(),
-            "mean_speed": grouped["mean_speed"].to_list(),
-            "coverage": grouped["coverage"].to_list(),
-            "percentile_85": grouped["percentile_85"].to_list(),
-            "zoned_dt_iso": grouped["zoned_dt_iso"].to_list(),
-        }).reindex(sorted(speeds.columns), axis=1)
+        return speeds
 
 
     async def clean_async(self, trp_id: str, export: bool = True) -> pd.DataFrame | dd.DataFrame | None:

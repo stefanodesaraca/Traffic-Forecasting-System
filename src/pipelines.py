@@ -174,7 +174,11 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
 
 
+class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
 
+    def __init__(self, db_broker: DBBroker, data: dict[str, Any] | None = None):
+        self.data: dict[str, Any] | pd.DataFrame | dd.DataFrame | None = data
+        self.db_broker: DBBroker = db_broker
 
 
 
