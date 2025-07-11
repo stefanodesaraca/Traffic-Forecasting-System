@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 import dask.dataframe as dd
 
-from tfs_base_config import pjh, pmm
+from tfs_base_config import pmm
+
 
 from tfs_utils import GlobalDefinitions
 
@@ -220,31 +221,18 @@ class AverageSpeedCleaner(BaseCleaner):
         return speeds
 
 
-    async def clean_async(self, trp_id: str, export: bool = True) -> pd.DataFrame | dd.DataFrame | None:
-        """
-        This function asynchronously executes a cleaning pipeline and lets the user choose to export the cleaned data or not.
-        Parameters:
-            trp_id: the ID of the traffic registration point (TRP) which we want to clean average speed data for
-            export: lets the user export the clean data. By default, this is set to True. If set to False the function will just return the clean data
-
-        Returns:
-            pd.DataFrame | None
-        """
+    async def clean_async(self, fp: str) -> pd.DataFrame | dd.DataFrame | None:
         try:
-            if export:
-                # Using to_thread since this is a CPU-bound operation which would otherwise block the event loop until it's finished executing
-                data = await self._parse_speeds_async(
-                            await asyncio.to_thread(pd.read_csv,
-                            pmm.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING.value + ".csv", sep=";", **{"engine": "c"}))
+            # Using to_thread since this is a CPU-bound operation which would otherwise block the event loop until it's finished executing
+            data = await self._parse_speeds_async(
+                        await asyncio.to_thread(pd.read_csv, fp, sep=";", **{"engine": "c"})) #TODO TO GET ALL mean_speed FILES JSUT USE os.listdir() UPSTREAM
 
-                if data is not None: #Checking if data isn't None. If it is, that means that the speeds file was empty
-                    await asyncio.to_thread(data.to_csv,pmm.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path") + trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING.value + ".csv")
+            if data is not None: #Checking if data isn't None. If it is, that means that the speeds file was empty
+                #TODO JUST SKIP THE INSERTION PROCESS
+                ...
 
-                return None
-
-            else:
-                return await self._parse_speeds_async(await asyncio.to_thread(pd.read_csv, pmm.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING + ".csv", sep=";", **{"engine":"c"}))
+            return None
 
         except Exception as e:
-            print(f"\033[91mFailed to export speeds for TRP: {trp_id}. Error: {e}\033[0m")
+            print(f"\033[91mFailed to export speeds\033[0m")
             return None
