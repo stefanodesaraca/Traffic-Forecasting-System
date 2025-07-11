@@ -17,7 +17,7 @@ from tfs_base_config import gp_toolbox, pjh, pjhmm, pmm, tmm, trp_toolbox, forec
 from ml_configs import model_definitions
 from exceptions import TRPNotFoundError, TargetVariableNotFoundError, TargetDataNotAvailableError
 
-from downloader import volumes_to_json
+from downloader import volumes_to_db
 from tfs_cleaning import TrafficVolumesCleaner, AverageSpeedCleaner
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
 from tfs_ml import TFSLearner, TFSPreprocessor, OnePointForecaster
@@ -85,7 +85,7 @@ async def download_volumes(functionality: str) -> None:
         await pmm.set_async(value=weeks_delta, key=GlobalDefinitions.VOLUME.value + ".n_weeks", mode="e")
 
         print("Downloading traffic volumes data for every registration point for the active operation...")
-        await volumes_to_json(time_start=time_start, time_end=time_end)
+        await volumes_to_db(time_start=time_start, time_end=time_end)
 
     elif functionality == "2.3":
         if len(os.listdir(pmm.get(key="folder_paths.data.trp_metadata.path"))) == 0:

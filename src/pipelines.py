@@ -136,10 +136,10 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
         #TODO FOR TESTING PURPOSES
         context = pd.DataFrame(await self.db_broker.execute_sql(sql=f"""SELECT *
-                                                                      FROM Volume
-                                                                      ORDER BY zoned_dt_iso DESC
-                                                                      LIMIT {mice_past_window};
-                                                                   """))
+                                                                        FROM Volume
+                                                                        ORDER BY zoned_dt_iso DESC
+                                                                        LIMIT {mice_past_window};
+                                                                     """))
         print(context)
         print(context.shape)
         print(context.describe())
@@ -149,10 +149,10 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         self.data = pd.concat([
                                 self.data[["trp_id", "is_mice", "zoned_dt_iso"]],
                                 await asyncio.to_thread(pd.DataFrame, await self.db_broker.execute_sql(sql=f"""SELECT *
-                                                          FROM Volume
-                                                          ORDER BY zoned_dt_iso DESC
-                                                          LIMIT {mice_past_window};
-                                                       """)), #Extracting data from the past to improve MICE regression model performances
+                                                                                                                     FROM Volume
+                                                                                                                     ORDER BY zoned_dt_iso DESC
+                                                                                                                     LIMIT {mice_past_window};
+                                                                                                                 """)), #Extracting data from the past to improve MICE regression model performances
                                 await asyncio.to_thread(self._impute_missing_values,self.data.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1), r="gamma")
                                 ], axis=1)
 

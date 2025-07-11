@@ -7,6 +7,7 @@ from gql.transport.aiohttp import AIOHTTPTransport
 from graphql import ExecutionResult
 from pydantic import BaseModel
 
+from brokers import DBBroker
 from tfs_utils import GlobalDefinitions
 from tfs_base_config import pjh, pmm, tmm
 
@@ -29,6 +30,10 @@ class RetryErrors(BaseModel):
 # This client is specifically thought for asynchronous data downloading
 async def start_client_async() -> Client:
     return Client(transport=AIOHTTPTransport(url="https://trafikkdata-api.atlas.vegvesen.no/"), fetch_schema_from_transport=True)
+
+
+async def start_db_broker() -> DBBroker:
+
 
 
 async def fetch_areas(client: Client) -> dict | ExecutionResult | None:
@@ -205,7 +210,7 @@ async def fetch_volumes_for_trp_id(client: Client, trp_id: str, time_start: str,
         """))
 
 
-async def volumes_to_json(time_start: str, time_end: str) -> None:
+async def volumes_to_db(time_start: str, time_end: str) -> None:
     semaphore = asyncio.Semaphore(5)  # Limit to 5 concurrent tasks
 
     async def download_trp_data(trp_id):
@@ -224,7 +229,6 @@ async def volumes_to_json(time_start: str, time_end: str) -> None:
                     last_end_cursor=end_cursor,
                     next_page_query=pages_counter > 0,
                 )
-
 
                 page_info = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]
                 end_cursor = page_info["endCursor"] if page_info["hasNextPage"] else None
@@ -252,15 +256,14 @@ async def volumes_to_json(time_start: str, time_end: str) -> None:
 
         await download_trp_data(trp_id) #TODO SEND IT TO PIPELINE
 
-        await asyncio.to_thread(tmm.set_trp_metadata, trp_id=trp_id, **{"raw_volumes_file": trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json"})  # Writing TRP's empty metadata file #TODO MAKE THIS FUNCTION ASYNC
-
     async def limited_task(trp_id: str):
         async with semaphore:
             return await process_trp(trp_id)
 
+    #TODO INSTANTIATE DB BROKER HERE AND GET ALL TRP IDS FROM DB
+
     # Run all downloads in parallel with a maximum of 5 processes at the same time
     await asyncio.gather(*(limited_task(trp_id) for trp_id in pjh.trps_data.keys()))
 
-    print("\n\n")
 
     return None

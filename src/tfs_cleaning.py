@@ -191,55 +191,6 @@ class TrafficVolumesCleaner(BaseCleaner):
         return pd.DataFrame(by_direction_structured).sort_values(by=["date", "hour"], ascending=True)
 
 
-    async def clean_async(self, trp_id: str, export: bool = True) -> None:
-
-        async with aiofiles.open(
-                pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json", "r", encoding="utf-8") as m:
-            by_hour_df = await asyncio.to_thread(self._parse_by_hour, json.loads(await m.read())) #In case there's no data by_hour_df will be None
-
-            if by_hour_df is not None and by_hour_df.shape[0] > 0:
-                await tmm.set_async(value=trp_id + GlobalDefinitions.RAW_VOLUME_FILENAME_ENDING.value + ".json",
-                                    key="files." + GlobalDefinitions.VOLUME.value + ".raw", mode="e")
-
-                try:
-                    print("Shape before MICE: ", len(by_hour_df), len(by_hour_df.columns))
-                    print("Number of zeros before MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
-
-                    by_hour_df = pd.concat([by_hour_df[["trp_id", "date", "year", "month", "day", "week"]],
-                                            await asyncio.to_thread(BaseCleaner()._impute_missing_values,
-                                                              by_hour_df.drop(columns=["trp_id", "date", "year", "month", "day", "week"], axis=1), r="gamma")], axis=1)
-
-                    print("Shape after MICE: ", len(by_hour_df), len(by_hour_df.columns))
-                    print("Number of zeros after MICE: ", len(by_hour_df[by_hour_df["volume"] == 0]))
-                    print("Number of negative values (after MICE): ", len(by_hour_df[by_hour_df["volume"] < 0]))
-
-                except ValueError as e:
-                    print(f"\033[91mValue error raised. Error: {e} Continuing with the cleaning.\033[0m")
-                    return
-
-                for col in ("year", "month", "week", "day", "hour", "volume"):
-                    by_hour_df[col] = by_hour_df[col].astype("int")
-
-            if export:
-                try:
-                    by_hour_df.to_csv(pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.clean.path") + trp_id + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv", index=False, encoding="utf-8")
-                    print(f"TRP: {trp_id} data exported correctly\n")
-
-                    await tmm.set_async(value=True, key="checks." + GlobalDefinitions.HAS_VOLUME_CHECK.value, mode="e") #Only updating the has_volumes only if it has clean volumes data
-                    await tmm.set_async(value=trp_id + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv", key="files." + GlobalDefinitions.VOLUME.value + ".clean", mode="e")
-                    await tmm.set_async(value=str(by_hour_df["date"].min()), key="data_info." + GlobalDefinitions.VOLUME.value + ".start_date", mode="e")
-                    await tmm.set_async(value=str(by_hour_df["date"].max()), key="data_info." + GlobalDefinitions.VOLUME.value + ".end_date", mode="e")
-
-                    print(f"TRP: {trp_id} metadata updated correctly\n\n")
-                except AttributeError as e:
-                    print(f"\033[91mCouldn't export {trp_id} TRP volumes data. Error: {e}\033[0m")
-
-            print("--------------------------------------------------------\n\n")
-
-        return None
-
-
-
 class AverageSpeedCleaner(BaseCleaner):
     def __init__(self):
         super().__init__()
@@ -250,8 +201,6 @@ class AverageSpeedCleaner(BaseCleaner):
             return None
 
         trp_id = str(speeds["trp_id"].unique()[0])
-
-        # TODO SET PATH USING tmm.set_path(trp_id)
 
         await tmm.set_async(value=trp_id + GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv", key="files." + GlobalDefinitions.MEAN_SPEED.value + ".raw", mode="e")
 
