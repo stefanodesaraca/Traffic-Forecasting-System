@@ -2,6 +2,7 @@ from typing import Any
 import asyncpg
 
 from db_config import DBConfig
+from exceptions import WrongSQLStatement
 from db_manager import postgres_conn
 
 
@@ -19,13 +20,18 @@ class DBBroker:
     async def execute_sql(self, sql: str) -> Any:
         async with postgres_conn(user=self._db_user, password=self._db_password, name=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
-                return await conn.execute(sql)
+                if any(sql.startswith(prefix) for prefix in ["SELECT", "select"]):
+                    return await conn.fetch(sql)
+                elif any(sql.startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "insert", "update", "delete"]):
+                    return await conn.execute(sql)
+                else:
+                    raise WrongSQLStatement("The SQL query isn't correct")
 
 
     async def get_trp_ids(self) -> Any:
         async with postgres_conn(user=self._db_user, password=self._db_password, name=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
-                return await conn.execute("""SELECT id FROM TrafficRegistrationPoints;""")
+                return await conn.fetch("""SELECT id FROM TrafficRegistrationPoints;""")
 
 
 

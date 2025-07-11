@@ -248,7 +248,7 @@ async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time
         async with semaphore:
             return await download_trp_data(trp_id)
 
-    trp_ids = broker.get_trp_ids()
+    trp_ids = await broker.get_trp_ids()
 
     # Run all downloads in parallel with a maximum of 5 processes at the same time
     await asyncio.gather(*(limited_task(trp_id) for trp_id in pjh.trps_data.keys()))
