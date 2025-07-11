@@ -200,71 +200,37 @@ class AverageSpeedCleaner(BaseCleaner):
         if speeds.empty:
             return None
 
-        trp_id = str(speeds["trp_id"].unique()[0])
-
         # Data cleaning
         speeds["coverage"] = speeds["coverage"].replace(",", ".", regex=True).astype("float") * 100
         speeds["mean_speed"] = speeds["mean_speed"].replace(",", ".", regex=True).astype("float")
         speeds["percentile_85"] = speeds["percentile_85"].replace(",", ".", regex=True).astype("float")
 
-        #TODO MERGE DATE AND HOUR TO CREATE ONE zoned_dt_iso COLUMN
-
         speeds["zoned_dt_iso"] = speeds["date"] + "T" + speeds["hour_start"] + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
-
-        speeds["hour_start"] = speeds["hour_start"].str[:2] #TODO TO DELETE
-
-        speeds["trp_id"] = speeds["trp_id"].astype("str")
-        speeds["date"] = pd.to_datetime(speeds["date"])
-
-        #TODO TO DELETE
-        speeds["year"] = speeds["date"].dt.year.astype("int")
-        speeds["month"] = speeds["date"].dt.month.astype("int")
-        speeds["week"] = speeds["date"].dt.isocalendar().week.astype("int")
-        speeds["day"] = speeds["date"].dt.day.astype("int")
-        speeds["hour_start"] = speeds["hour_start"].astype("int")
-
-        print("Shape before MICE:", speeds.shape)
-        print("Number of zeros before MICE:", len(speeds[speeds["mean_speed"] == 0]))
+        speeds = speeds.drop(columns=["date"])
 
         try:
-            speeds = await asyncio.to_thread(lambda: pd.concat([speeds[["trp_id", "date", "year", "month", "day", "week"]], BaseCleaner()._impute_missing_values(speeds.drop(columns=["trp_id", "date", "year", "month", "day", "week"]), r="gamma")], axis=1))
+            print("Shape before MICE:", speeds.shape)
+            print("Number of zeros before MICE:", len(speeds[speeds["mean_speed"] == 0]))
+
+            speeds = await asyncio.to_thread(pd.concat, [
+                speeds[["trp_id", "zoned_dt_iso"]],
+                BaseCleaner()._impute_missing_values(speeds.drop(columns=["trp_id", "zoned_dt_iso"]), r="gamma")
+            ], axis=1) #TODO IF THIS DOESN'T WORK TRY AS IT WAS BEFORE ... .to_thread(lambda: pd.concat(...)
 
             print("Shape after MICE:", speeds.shape, "\n")
             print("Number of zeros after MICE:", len(speeds[speeds["mean_speed"] == 0]))
             print("Negative values (volume):", len(speeds[speeds["mean_speed"] < 0]))
+
         except ValueError as e:
             print(f"\033[91mValueError: {e}. Skipping...\033[0m")
             return None
 
-        for col in ("year", "month", "week", "day", "hour_start"):
-            speeds[col] = speeds[col].astype("int")
-
-        #print("Dataframe head:\n", speeds.head(15), "\n")
-        #print("Statistics:\n", speeds.drop(columns=["year", "month", "week", "day", "hour_start"]).describe(), "\n")
-
-        grouped = speeds.groupby(["date", "hour_start"], as_index=False).agg({
-            "mean_speed": lambda x: np.round(np.mean(x), 2),
-            "percentile_85": lambda x: np.round(np.mean(x), 2),
-            "coverage": lambda x: np.round(np.mean(x), 2)
-        })
-
-        grouped["year"] = grouped["date"].dt.year.astype("int")
-        grouped["month"] = grouped["date"].dt.month.astype("int")
-        grouped["week"] = grouped["date"].dt.isocalendar().week.astype("int")
-        grouped["day"] = grouped["date"].dt.day.astype("int")
-        grouped["trp_id"] = trp_id
-
         return pd.DataFrame({
-            "trp_id": grouped["mean_speed"].to_list(),
-            "date": grouped["percentile_85"].to_list(),
-            "year": grouped["coverage"].to_list(),
-            "month": grouped["hour_start"].to_list(),
-            "week": grouped["year"].to_list(),
-            "day": grouped["month"].to_list(),
-            "hour_start": grouped["week"].to_list(),
-            "mean_speed": grouped["day"].to_list(),
-            "percentile_85": grouped["date"].to_list(),
-            "coverage": grouped["trp_id"].to_list()
+            "trp_id": grouped["trp_id"].to_list(),
+            "mean_speed": grouped["mean_speed"].to_list(),
+            "coverage": grouped["coverage"].to_list(),
+            "percentile_85": grouped["percentile_85"].to_list(),
+            "zoned_dt_iso": grouped["zoned_dt_iso"].to_list(),
         }).reindex(sorted(speeds.columns), axis=1)
 
 
