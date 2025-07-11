@@ -146,98 +146,36 @@ class DBManager:
         return None
 
 
-    async def init(self, auto_project_setup: bool = True) -> None:
-
-        # -- Initialize users and DBs --
-
-        #Accessing as superuser and creating tfs user
-        async with postgres_conn(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
-            try:
-                await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
-                print(f"User 'tfs' created.")
-            except asyncpg.DuplicateObjectError:
-                print(f"User 'username' already exists.")
-
-        async with postgres_conn(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
-            try:
-                await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
-                print(f"User 'tfs' created.")
-            except asyncpg.DuplicateObjectError:
-                print(f"User 'username' already exists.")
-
-
-        if not await self._check_db(dbname=DBConfig.HUB_DB.value):
-            async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value, dbname=DBConfig.HUB_DB.value) as conn:
-                try:
-                    await conn.execute(f"""
-                    CREATE DATABASE {DBConfig.HUB_DB.value}
-                    """)
-                except DuplicateDatabaseError:
-                    pass
-
-
-        # -- Hub DB Setup --
-        async with postgres_conn(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
-
-            #Projects
-            await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS Projects (
-                        id SERIAL PRIMARY KEY,
-                        name TEXT,
-                        lang TEXT
-                     )
-                     
-                     CREATE TABLE IF NOT EXISTS Metadata (
-                        id SERIAL PRIMARY KEY,
-                        current_project_id TEXT,
-                        lang TEXT,
-                        FOREIGN KEY (current_project_id) REFERENCES Projects(id)
-                     )
-            """)
-
-            # -- Check if any projects exist --
-
-            project_check = await conn.fetchrow("SELECT * FROM Projects LIMIT 1")
-
-            #If there aren't any projects, let the user impute one and insert it into the Projects table
-            if not project_check:
-                print("Initialize the program. Create your first project!")
-                name = clean(input("Enter project name: "), no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True, no_urls=True, normalize_whitespace=True, lower=True)
-                lang = input("Enter project language: ")
-                print("Cleaned project DB name: ", name)
-                print("Project language: ", lang)
-
-        #TODO ALL OF THESE BELOW ONLY IF THERE AREN'T ANY PROJECTS
+    async def create_project(self, name: str, lang: str, auto_project_setup: bool = True) -> None:
 
         # -- New Project DB Setup --
         async with postgres_conn(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
-            #Accessing as superuser since some tools may require this configuration to create a new database
+            # Accessing as superuser since some tools may require this configuration to create a new database
             async with conn.transaction():
                 await conn.execute(f"""CREATE DATABASE {name};""")
 
         # -- Project Tables Setup --
         async with postgres_conn(user=self._tfs_user, password=self._tfs_password, dbname=name) as conn:
             async with conn.transaction():
-
                 # Tables
                 await conn.execute("""
                         CREATE TABLE IF NOT EXISTS RoadCategories (
                             id TEXT PRIMARY KEY,
                             name TEXT
                         );
-        
+
                         CREATE TABLE IF NOT EXISTS CountryParts (
                             id INTEGER PRIMARY KEY,
                             name TEXT
                         );
-        
+
                         CREATE TABLE IF NOT EXISTS Counties (
                             number INTEGER PRIMARY KEY,
                             name TEXT,
                             country_part_id TEXT,
                             FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
                         );
-        
+
                         CREATE TABLE IF NOT EXISTS Municipalities (
                             number INTEGER PRIMARY KEY,
                             name TEXT,
@@ -246,7 +184,7 @@ class DBManager:
                             FOREIGN KEY (county_number) REFERENCES Counties(number),
                             FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
                         );
-        
+
                         CREATE TABLE IF NOT EXISTS TrafficRegistrationPoints (
                             id TEXT PRIMARY KEY,
                             name TEXT,
@@ -266,7 +204,7 @@ class DBManager:
                             first_data_with_quality_metrics TIMESTAMPTZ,
                             FOREIGN KEY (road_category) REFERENCES RoadCategories(name)
                         );
-        
+
                         CREATE TABLE IF NOT EXISTS Volume (
                             row_idx SERIAL PRIMARY KEY,
                             trp_id TEXT,
@@ -276,7 +214,7 @@ class DBManager:
                             zoned_dt_iso TIMESTAMPTZ,
                             FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
                         );
-                        
+
                         CREATE TABLE IF NOT EXISTS MeanSpeed(
                             row_idx SERIAL PRIMARY KEY,
                             trp_id TEXT,
@@ -287,7 +225,7 @@ class DBManager:
                             zoned_dt_iso TIMESTAMPTZ,
                             FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
                         );
-        
+
                         CREATE TABLE IF NOT EXISTS TrafficRegistrationPointsMetadata (
                             trp_id TEXT PRIMARY KEY,
                             has_volume BOOLEAN DEFAULT FALSE,
@@ -323,7 +261,6 @@ class DBManager:
 
         # -- New Project Metadata Insertions --
         async with postgres_conn(user=self._tfs_user, password=self._tfs_password, dbname=DBConfig.HUB_DB.value) as conn:
-
             new_project = await conn.fetchrow(
                 "INSERT INTO Projects (name, lang) VALUES ($1, $2) RETURNING *",
                 name, lang
@@ -336,12 +273,76 @@ class DBManager:
             )
             print(f"Metadata updated setting {new_project['name']} as current project.")
 
-            #TODO ENTER IN THE NEW PROJECT DATABASE AND EXECUTE THE SETUP AS BELOW
-
         # -- New Project Setup Insertions --
         async with postgres_conn(user=self._tfs_user, password=self._tfs_password, dbname=name) as conn:
             if auto_project_setup:
                 await self._setup_project(conn=conn)
+
+        return None
+
+
+    async def init(self, auto_project_setup: bool = True) -> None:
+
+        # -- Initialize users and DBs --
+
+        #Accessing as superuser and creating tfs user
+        async with postgres_conn(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
+            try:
+                await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
+                print(f"User 'tfs' created.")
+            except asyncpg.DuplicateObjectError:
+                print(f"User 'username' already exists.")
+
+        async with postgres_conn(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
+            try:
+                await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
+                print(f"User 'tfs' created.")
+            except asyncpg.DuplicateObjectError:
+                print(f"User 'username' already exists.")
+
+
+        if not await self._check_db(dbname=DBConfig.HUB_DB.value):
+            async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value, dbname=DBConfig.HUB_DB.value) as conn:
+                try:
+                    await conn.execute(f"""
+                    CREATE DATABASE {DBConfig.HUB_DB.value}
+                    """)
+                except DuplicateDatabaseError:
+                    pass
+
+            # -- Hub DB Setup (If It Doesn't Exist) --
+            async with postgres_conn(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
+
+                #Projects
+                await conn.execute("""
+                        CREATE TABLE IF NOT EXISTS Projects (
+                            id SERIAL PRIMARY KEY,
+                            name TEXT,
+                            lang TEXT
+                         )
+                         
+                         CREATE TABLE IF NOT EXISTS Metadata (
+                            id SERIAL PRIMARY KEY,
+                            current_project_id TEXT,
+                            lang TEXT,
+                            FOREIGN KEY (current_project_id) REFERENCES Projects(id)
+                         )
+                """)
+
+
+        # -- Check if any projects exist --
+        async with postgres_conn(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
+            project_check = await conn.fetchrow("SELECT * FROM Projects LIMIT 1")
+
+            #If there aren't any projects, let the user impute one and insert it into the Projects table
+            if not project_check:
+                print("Initialize the program. Create your first project!")
+                name = clean(input("Enter project name: "), no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True, no_urls=True, normalize_whitespace=True, lower=True)
+                lang = input("Enter project language: ")
+                print("Cleaned project DB name: ", name)
+                print("Project language: ", lang)
+
+                await self.create_project(name=name, lang=lang, auto_project_setup=True)
 
         return None
 
