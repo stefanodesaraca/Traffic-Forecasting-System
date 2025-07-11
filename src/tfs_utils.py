@@ -75,9 +75,6 @@ class GlobalDefinitions(Enum):
     ROAD_CATEGORIES = ["E", "R", "F", "K", "P"]
     DEFAULT_MAX_FORECASTING_WINDOW_SIZE = 14
 
-    DT_ISO = "%Y-%m-%dT%H:%M:%S.%fZ"
-    DT_FORMAT = "%Y-%m-%dT%H"  # Datetime format, the hour (H) must be zero-padded and 24-h base, for example: 01, 02, ..., 12, 13, 14, 15, etc.
-
     RAW_VOLUME_FILENAME_ENDING = "_volume"
     RAW_MEAN_SPEED_FILENAME_ENDING = "_mean_speed"
 
@@ -101,7 +98,6 @@ class ProjectsHub:
         if cls._instance is None:
             cls._instance = super(ProjectsHub, cls).__new__(cls)
         return cls._instance
-
 
 
     def create_project(self, name: str):
@@ -171,66 +167,11 @@ class ProjectsHub:
 
         return None
 
-
-    def _write_project_metadata(self, dir_name: str, **kwargs: Any) -> None:
-        with open(Path(self.hub / dir_name / GlobalDefinitions.PROJECT_METADATA.value), "w", encoding="utf-8") as tf:
-            json.dump({
-            "common": {
-                "traffic_registration_points_file": str(Path(dir_name, GlobalDefinitions.DATA_DIR.value, GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)),
-            },
-            GlobalDefinitions.VOLUME.value: {
-                "n_days": None,  # The total number of days which we have data about
-                "n_months": None,  # The total number of months which we have data about
-                "n_years": None,  # The total number of years which we have data about
-                "n_weeks": None,  # The total number of weeks which we have data about
-                "raw_filenames": [],  # The list of raw traffic volumes file names
-                "clean_filenames": [],  # The list of clean traffic volumes file names
-                "n_rows": [],  # The total number of records downloaded (clean volumes)
-                "start_date_iso": None,
-                "end_date_iso": None
-            },
-            GlobalDefinitions.MEAN_SPEED.value: {
-                "n_days": None,  # The total number of days which we have data about
-                "n_months": None,  # The total number of months which we have data about
-                "n_years": None,  # The total number of years which we have data about
-                "n_weeks": None,  # The total number of weeks which we have data about
-                "raw_filenames": [],  # The list of raw average speed file names
-                "clean_filenames": [],  # The list of clean average speed file names
-                "n_rows": [],  # The total number of records downloaded (clean average speeds)
-                "start_date_iso": None,
-                "end_date_iso": None
-            },
-            "folder_paths": kwargs.get("metadata_folder_structure", {}),
-            "forecasting": {"target_datetimes": {"V": None, "AS": None}},
-            "trps": {}  # For each TRP we'll have {"id": metadata_filename}
-        }, tf, indent=4)
-        return None
-
-
-    def delete_project(self, name: str) -> None:
-        os.remove(self.hub / name)
-        return None
-
-    @property
-    def trps_fp(self) -> Path:
-        return Path(self.hub, self.get_current_project(), GlobalDefinitions.DATA_DIR.value, GlobalDefinitions.TRAFFIC_REGISTRATION_POINTS_FILE.value)
-
-    @property
-    @lru_cache
-    def trps_data(self):
-        """
-        This function returns json data about all TRPs (downloaded previously)
-        """
-        with open(self.trps_fp, "r", encoding="utf-8") as trps:
-            return json.load(trps)
-
-    @property
-    @alru_cache()
-    async def trps_data_async(self):
-        async with aiofiles.open(self.trps_fp, "r", encoding="utf-8") as trps:
-            return await json.loads(await trps.read())
-
-
+{
+    "folder_paths": kwargs.get("metadata_folder_structure", {}),
+    "forecasting": {"target_datetimes": {"V": None, "AS": None}},
+    "trps": {}  # For each TRP we'll have {"id": metadata_filename}
+}
 
 class GeneralPurposeToolbox(BaseModel):
 
@@ -286,15 +227,6 @@ class GeneralPurposeToolbox(BaseModel):
 
 
     @staticmethod
-    def check_datetime_format(dt: str) -> bool:
-        try:
-            datetime.strptime(dt, GlobalDefinitions.DT_FORMAT.value)
-            return True
-        except ValueError:
-            return False
-
-
-    @staticmethod
     def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
         df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
         return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
@@ -326,58 +258,32 @@ class GeneralPurposeToolbox(BaseModel):
 
 class TRPToolbox(BaseModel):
     pjh: ProjectsHub
-    pmm: ProjectMetadataManager
-    tmm: TRPMetadataManager
     model_config = {
         "ignored_types": (async_lru._LRUCacheWrapper,)
     }
 
-
-    #TODO EVALUATE A POSSIBLE CACHING OF THESE AS WELL. BUT KEEP IN MIND POTENTIAL CHANGES DUE TO RE-DOWNLOAD OF TRPS DURING THE SAME EXECUTION OF THE CODE
-    def get_trp_ids(self) -> list[str]:
-        with open(self.pjh.trps_fp, "r", encoding="utf-8") as f:
-            return list(json.load(f).keys())
-    #TODO THIS METHOD IS NOT ASYNC, CHECK IF IT GETS USED IN ASYNC METHODS OR FUNCTIONS
-
     def get_trp_ids_by_road_category(self, target: str) -> dict[str, list[str]] | None:
-
-        #TODO ADD check_target() HERE
-
-        road_categories = set(trp["location"]["roadReference"]["roadCategory"]["id"] for trp in self.get_global_trp_data().values())
-        clean_data_folder = self.pmm.get(key="folder_paths.data." + target + ".subfolders.clean.path")
-        check = "has_" + target
-        data = GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv" if target == GlobalDefinitions.TARGET_DATA.value["V"] else GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv"  # TODO THIS WILL BE REMOVED WHEN THE TARGET VARIABLE NAME PROBLEM WILL BE SOLVED
-
-        return {k: d for k, d in {
-            category: [clean_data_folder + trp_id + data for trp_id in
-                       filter(lambda trp_id:
-                              self.tmm.get_trp_metadata(trp_id)["trp_data"]["location"]["roadReference"]["roadCategory"]["id"] == category and self.tmm.get_trp_metadata(trp_id)["checks"][check], self.get_trp_ids())]
-            for category in road_categories
-        }.items() if len(d) >= 2}
-        # Removing key value pairs from the dictionary where there are less than two dataframes to concatenate, otherwise this would throw an error in the merge() function
-
+        ...
+        #TODO QUERY THE DB FOR THE id COLUMN IN TrafficRegistrationPoints AND GROUP BY ROAD_CATEGORY
 
 
 class RoadNetworkToolbox(BaseModel):
-    project_metadata_manager: ProjectMetadataManager
-
 
     def retrieve_edges(self) -> dict:
-        with open(f"{self.project_metadata_manager.get('folder_paths.rn_graph.edges.path')}/traffic-nodes-2024_2025-02-28.geojson", "r", encoding="utf-8") as e:
+        with open(f"{self.get('folder_paths.rn_graph.edges.path')}/traffic-nodes-2024_2025-02-28.geojson", "r", encoding="utf-8") as e:
             return geojson.load(e)["features"]
 
 
     def retrieve_arches(self) -> dict:
-        with open(f"{self.project_metadata_manager.get('folder_paths.rn_graph.arches.path')}/traffic_links_2024_2025-02-27.geojson", "r", encoding="utf-8") as a:
+        with open(f"{self.get('folder_paths.rn_graph.arches.path')}/traffic_links_2024_2025-02-27.geojson", "r", encoding="utf-8") as a:
             return geojson.load(a)["features"]
+
+    #TODO LOAD GRAPH DATA INTO DB
 
 
 
 class ForecastingToolbox(BaseModel):
     gp_toolbox: GeneralPurposeToolbox
-    pmm: ProjectMetadataManager
-    tmm: TRPMetadataManager
-
 
     def _get_speeds_dates(self, trp_ids: list[str] | Generator[str, None, None]) -> tuple[str, str]:
         """
@@ -398,6 +304,7 @@ class ForecastingToolbox(BaseModel):
         return min(dt_start), max(dt_end)
 
 
+    #TODO SET FORECASTING HORIZON IN PROJECT DB
     def set_forecasting_horizon(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
         """
         Parameters:

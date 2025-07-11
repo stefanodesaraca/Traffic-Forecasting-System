@@ -209,7 +209,7 @@ class AverageSpeedCleaner(BaseCleaner):
 
         #TODO MERGE DATE AND HOUR TO CREATE ONE zoned_dt_iso COLUMN
 
-        speeds["zoned_dt_iso"] = speeds["date"] + speeds["hour_start"] + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
+        speeds["zoned_dt_iso"] = speeds["date"] + "T" + speeds["hour_start"] + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
 
         speeds["hour_start"] = speeds["hour_start"].str[:2] #TODO TO DELETE
 

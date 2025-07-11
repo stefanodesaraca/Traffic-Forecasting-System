@@ -342,7 +342,7 @@ class DBManager:
                 print("Cleaned project DB name: ", name)
                 print("Project language: ", lang)
 
-                await self.create_project(name=name, lang=lang, auto_project_setup=True)
+                await self.create_project(name=name, lang=lang, auto_project_setup=auto_project_setup)
 
         return None
 

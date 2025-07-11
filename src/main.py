@@ -70,16 +70,6 @@ async def download_volumes(functionality: str) -> None:
         time_start += ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
         time_end += ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
 
-        relative_delta = relativedelta(datetime.datetime.strptime(time_end, GlobalDefinitions.DT_ISO.value).date(), datetime.datetime.strptime(time_start, GlobalDefinitions.DT_ISO.value).date())
-        days_delta = (datetime.datetime.strptime(time_end, GlobalDefinitions.DT_ISO.value).date() - datetime.datetime.strptime(time_start, GlobalDefinitions.DT_ISO.value).date()).days
-        years_delta = relative_delta.years or 0
-        months_delta = relative_delta.months + (years_delta * 12)
-        weeks_delta = days_delta // 7
-
-        await pmm.set_async(value=days_delta, key=GlobalDefinitions.VOLUME.value + ".n_days", mode="e")
-        await pmm.set_async(value=months_delta, key=GlobalDefinitions.VOLUME.value + ".n_months", mode="e")
-        await pmm.set_async(value=years_delta, key=GlobalDefinitions.VOLUME.value + ".n_years", mode="e")
-        await pmm.set_async(value=weeks_delta, key=GlobalDefinitions.VOLUME.value + ".n_weeks", mode="e")
 
         print("Downloading traffic volumes data for every registration point for the active operation...")
 
@@ -95,9 +85,9 @@ async def clean_data(functionality: str) -> None:
         async with semaphore:
             await cleaner.clean_async(trp_id, export=export)
 
-    if functionality == "5.6.1":
+    if functionality == "5.6.1":                                                                                        #TODO REPLACE trp_toolbox
         await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=TrafficVolumesCleaner(), export=True) for trp_id in trp_toolbox.get_trp_ids())) # The star (*) in necessary since gather() requires the coroutines to fed as positional arguments of the function. So we can unpack the list with *
-    elif functionality == "5.6.2":
+    elif functionality == "5.6.2":                                                                                    #TODO REPLACE trp_toolbox
         await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=AverageSpeedCleaner(), export=True) for trp_id in trp_toolbox.get_trp_ids()))
 
     return None
