@@ -67,8 +67,8 @@ async def download_volumes(functionality: str) -> None:
             print("Returning to the main menu...\n\n")
             main()
 
-        time_start += ":00:00.000Z"
-        time_end += ":00:00.000Z"
+        time_start += ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
+        time_end += ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
 
         relative_delta = relativedelta(datetime.datetime.strptime(time_end, GlobalDefinitions.DT_ISO.value).date(), datetime.datetime.strptime(time_start, GlobalDefinitions.DT_ISO.value).date())
         days_delta = (datetime.datetime.strptime(time_end, GlobalDefinitions.DT_ISO.value).date() - datetime.datetime.strptime(time_start, GlobalDefinitions.DT_ISO.value).date()).days

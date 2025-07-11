@@ -207,6 +207,8 @@ class DBManager:
                 print("Cleaned project DB name: ", name)
                 print("Project language: ", lang)
 
+        #TODO ALL OF THESE BELOW ONLY IF THERE AREN'T ANY PROJECTS
+
         # -- New Project DB Setup --
         async with postgres_conn(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
             #Accessing as superuser since some tools may require this configuration to create a new database

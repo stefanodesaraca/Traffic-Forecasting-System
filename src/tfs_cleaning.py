@@ -202,27 +202,21 @@ class AverageSpeedCleaner(BaseCleaner):
 
         trp_id = str(speeds["trp_id"].unique()[0])
 
-        await tmm.set_async(value=trp_id + GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv", key="files." + GlobalDefinitions.MEAN_SPEED.value + ".raw", mode="e")
-
         # Data cleaning
         speeds["coverage"] = speeds["coverage"].replace(",", ".", regex=True).astype("float") * 100
         speeds["mean_speed"] = speeds["mean_speed"].replace(",", ".", regex=True).astype("float")
         speeds["percentile_85"] = speeds["percentile_85"].replace(",", ".", regex=True).astype("float")
-        speeds["hour_start"] = speeds["hour_start"].str[:2]
+
+        #TODO MERGE DATE AND HOUR TO CREATE ONE zoned_dt_iso COLUMN
+
+        speeds["zoned_dt_iso"] = speeds["date"] + speeds["hour_start"] + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
+
+        speeds["hour_start"] = speeds["hour_start"].str[:2] #TODO TO DELETE
 
         speeds["trp_id"] = speeds["trp_id"].astype("str")
         speeds["date"] = pd.to_datetime(speeds["date"])
 
-        t_min = speeds["date"].min()
-        t_max = speeds["date"].max()
-
-        await tmm.set_async(value=str(t_min), key="data_info." + GlobalDefinitions.MEAN_SPEED.value + ".start_date", mode="e")
-        await tmm.set_async(value=str(t_max), key="data_info." + GlobalDefinitions.MEAN_SPEED.value + ".end_date", mode="e")
-
-        print("Registrations time-range:")
-        print("First day:", t_min)
-        print("Last day:", t_max, "\n\n")
-
+        #TODO TO DELETE
         speeds["year"] = speeds["date"].dt.year.astype("int")
         speeds["month"] = speeds["date"].dt.month.astype("int")
         speeds["week"] = speeds["date"].dt.isocalendar().week.astype("int")
@@ -294,17 +288,11 @@ class AverageSpeedCleaner(BaseCleaner):
                 if data is not None: #Checking if data isn't None. If it is, that means that the speeds file was empty
                     await asyncio.to_thread(data.to_csv,pmm.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path") + trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING.value + ".csv")
 
-                    await tmm.set_async(value=True, key="checks." + GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value, mode="e")
-                    await tmm.set_async(value=trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING.value + ".csv", key="files." + GlobalDefinitions.MEAN_SPEED.value + ".clean", mode="e")
-
                 return None
 
             else:
                 return await self._parse_speeds_async(await asyncio.to_thread(pd.read_csv, pmm.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.raw.path") + trp_id + GlobalDefinitions.RAW_MEAN_SPEED_FILENAME_ENDING + ".csv", sep=";", **{"engine":"c"}))
 
-        except FileNotFoundError or IndexError as e:
-            print(f"\033[91mNo average speed data for TRP: {trp_id}. Error: {e}\033[0m\n")
-            return None
         except Exception as e:
             print(f"\033[91mFailed to export speeds for TRP: {trp_id}. Error: {e}\033[0m")
             return None
