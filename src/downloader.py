@@ -1,3 +1,4 @@
+from typing import Any
 import asyncio
 import aiofiles
 from warnings import simplefilter
@@ -6,10 +7,12 @@ from gql.transport.exceptions import TransportServerError
 from gql.transport.aiohttp import AIOHTTPTransport
 from graphql import ExecutionResult
 from pydantic import BaseModel
+from pydantic.types import PositiveInt
 
 from brokers import DBBroker
+from pipelines import VolumeExtractionPipeline
 from tfs_utils import GlobalDefinitions
-from tfs_base_config import pjh, pmm, tmm
+from tfs_base_config import pjh
 
 simplefilter("ignore")
 
@@ -30,10 +33,6 @@ class RetryErrors(BaseModel):
 # This client is specifically thought for asynchronous data downloading
 async def start_client_async() -> Client:
     return Client(transport=AIOHTTPTransport(url="https://trafikkdata-api.atlas.vegvesen.no/"), fetch_schema_from_transport=True)
-
-
-async def start_db_broker() -> DBBroker:
-
 
 
 async def fetch_areas(client: Client) -> dict | ExecutionResult | None:
@@ -150,7 +149,7 @@ async def fetch_trps(client: Client, municipality_numbers: list[int] | None = No
         return None
 
 
-async def fetch_volumes_for_trp_id(client: Client, trp_id: str, time_start: str, time_end: str, last_end_cursor: str, next_page_query: bool) -> dict | ExecutionResult:
+async def fetch_trp_volumes(client: Client, trp_id: str, time_start: str, time_end: str, last_end_cursor: str, next_page_query: bool) -> dict | ExecutionResult:
     return await client.execute_async(gql(f"""
         {{
             trafficData(trafficRegistrationPointId: "{trp_id}") {{
@@ -210,38 +209,31 @@ async def fetch_volumes_for_trp_id(client: Client, trp_id: str, time_start: str,
         """))
 
 
-async def volumes_to_db(time_start: str, time_end: str) -> None:
-    semaphore = asyncio.Semaphore(5)  # Limit to 5 concurrent tasks
+async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 5) -> None:
+    semaphore = asyncio.Semaphore(n_async_jobs)  # Limit to n_async_jobs async tasks
+    broker = DBBroker(db_user=db_credentials["user"], db_password=db_credentials["password"],
+                      db_name=db_credentials["name"], db_host=db_credentials["host"])
+    pipeline = VolumeExtractionPipeline(db_broker=broker)
 
-    async def download_trp_data(trp_id):
-        client = await start_client_async()
-        volumes = {}
+    async def download_trp_data(trp_id) -> None:
         pages_counter = 0
         end_cursor = None
 
         while True:
             try:
-                query_result = await fetch_volumes_for_trp_id(
-                    client,
-                    trp_id,
-                    time_start,
-                    time_end,
-                    last_end_cursor=end_cursor,
-                    next_page_query=pages_counter > 0,
-                )
+                query_result = await fetch_trp_volumes(gql_client,
+                                                       trp_id,
+                                                       time_start,
+                                                       time_end,
+                                                       last_end_cursor=end_cursor,
+                                                       next_page_query=pages_counter > 0)
 
                 page_info = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]
                 end_cursor = page_info["endCursor"] if page_info["hasNextPage"] else None
 
-                #TODO EXECUTE PIPELINE. INSTANTIATE A DB BROKER IN A SPECIFIC FUNCTION JUST LIKE start_client_async() AND PASS IT TO THE PIPELINE HERE
+                await pipeline.ingest(payload=query_result)
 
                 pages_counter += 1
-
-                if pages_counter == 1:
-                    volumes = query_result
-                else:
-                    volumes["trafficData"]["volume"]["byHour"]["edges"].extend(query_result["trafficData"]["volume"]["byHour"]["edges"])
-
                 if end_cursor is None:
                     break
 
@@ -250,15 +242,11 @@ async def volumes_to_db(time_start: str, time_end: str) -> None:
             except TransportServerError:  # If error code is 503: Service Unavailable
                 continue
 
-        return volumes
-
-    async def process_trp(trp_id: str):
-
-        await download_trp_data(trp_id) #TODO SEND IT TO PIPELINE
+        return None
 
     async def limited_task(trp_id: str):
         async with semaphore:
-            return await process_trp(trp_id)
+            return await download_trp_data(trp_id)
 
     #TODO INSTANTIATE DB BROKER HERE AND GET ALL TRP IDS FROM DB
 
@@ -267,3 +255,16 @@ async def volumes_to_db(time_start: str, time_end: str) -> None:
 
 
     return None
+
+
+
+
+
+
+
+
+
+
+
+
+

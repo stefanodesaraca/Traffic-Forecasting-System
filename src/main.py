@@ -70,9 +70,6 @@ async def download_volumes(functionality: str) -> None:
         time_start += ":00:00.000Z"
         time_end += ":00:00.000Z"
 
-        await pmm.set_async(value=time_start, key=GlobalDefinitions.VOLUME.value + "start_date_iso", mode="e")
-        await pmm.set_async(value=time_end, key=GlobalDefinitions.MEAN_SPEED.value + "end_date_iso", mode="e")
-
         relative_delta = relativedelta(datetime.datetime.strptime(time_end, GlobalDefinitions.DT_ISO.value).date(), datetime.datetime.strptime(time_start, GlobalDefinitions.DT_ISO.value).date())
         days_delta = (datetime.datetime.strptime(time_end, GlobalDefinitions.DT_ISO.value).date() - datetime.datetime.strptime(time_start, GlobalDefinitions.DT_ISO.value).date()).days
         years_delta = relative_delta.years or 0
@@ -81,18 +78,12 @@ async def download_volumes(functionality: str) -> None:
 
         await pmm.set_async(value=days_delta, key=GlobalDefinitions.VOLUME.value + ".n_days", mode="e")
         await pmm.set_async(value=months_delta, key=GlobalDefinitions.VOLUME.value + ".n_months", mode="e")
-        await pmm.set_async(value=years_delta, key=GlobalDefinitions.VOLUME.value + ".n_years", mode="e") #TODO THIS CREATES A SECOND n_years. WHY DOESN'T IT OVERWRITE .OLD n_years: null?
+        await pmm.set_async(value=years_delta, key=GlobalDefinitions.VOLUME.value + ".n_years", mode="e")
         await pmm.set_async(value=weeks_delta, key=GlobalDefinitions.VOLUME.value + ".n_weeks", mode="e")
 
         print("Downloading traffic volumes data for every registration point for the active operation...")
-        await volumes_to_db(time_start=time_start, time_end=time_end)
 
-    elif functionality == "2.3":
-        if len(os.listdir(pmm.get(key="folder_paths.data.trp_metadata.path"))) == 0:
-            for trp_id in tqdm(trp_toolbox.get_trp_ids()):
-                pmm.set_trp_metadata(trp_id, **{"trp_data": pmm.trps_data()[trp_id]})
-        else:
-            print("Metadata had already been computed.")
+        #TODO USE download_volumes()
 
     return None
 
@@ -304,7 +295,6 @@ def main():
         "1.5": manage_ops,
         "2.1": download_volumes,
         "2.2": download_volumes,
-        "2.3": download_volumes,
         "3.1.1": manage_forecasting_horizon,
         "3.1.2": manage_forecasting_horizon,
         "3.1.3": manage_forecasting_horizon,
@@ -334,7 +324,6 @@ def main():
 2. Download data (Trafikkdata API)
     2.1 Traffic registration points information
     2.2 Traffic volumes for every registration point
-    2.3 Write metadata file for every TRP
 3. Forecast
     3.1 Set forecasting target datetime
         3.1.1 Write forecasting target datetime
