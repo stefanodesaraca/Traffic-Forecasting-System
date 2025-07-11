@@ -211,7 +211,7 @@ class DBManager:
         async with postgres_conn(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
             #Accessing as superuser since some tools may require this configuration to create a new database
             async with conn.transaction():
-                conn.execute(f"""CREATE DATABASE {name};""")
+                await conn.execute(f"""CREATE DATABASE {name};""")
 
         # -- Project Tables Setup --
         async with postgres_conn(user=self._tfs_user, password=self._tfs_password, dbname=name) as conn:
