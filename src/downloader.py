@@ -1,4 +1,5 @@
 from typing import Any
+import random
 import asyncio
 import aiofiles
 from warnings import simplefilter
@@ -15,19 +16,6 @@ from tfs_utils import GlobalDefinitions
 from tfs_base_config import pjh
 
 simplefilter("ignore")
-
-
-class RetryErrors(BaseModel):
-    NotFound: int = 404
-    RequestTimeout: int = 408
-    MisdirectedRequest: int = 421
-    UnprocessableContent: int = 422
-    TooEarly: int = 425
-    TooManyRequests: int = 429
-    GatewayTimeout: int = 504
-
-    class Config:
-        frozen=True
 
 
 # This client is specifically thought for asynchronous data downloading
@@ -209,7 +197,7 @@ async def fetch_trp_volumes(client: Client, trp_id: str, time_start: str, time_e
         """))
 
 
-async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 5) -> None:
+async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10) -> None:
     semaphore = asyncio.Semaphore(n_async_jobs)  # Limit to n_async_jobs async tasks
     broker = DBBroker(db_user=db_credentials["user"], db_password=db_credentials["password"],
                       db_name=db_credentials["name"], db_host=db_credentials["host"])
@@ -217,9 +205,10 @@ async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time
 
     async def download_trp_data(trp_id) -> None:
         pages_counter = 0
+        retries = 0
         end_cursor = None
 
-        while True:
+        while retries < max_retries:
             try:
                 query_result = await fetch_trp_volumes(gql_client,
                                                        trp_id,
@@ -237,10 +226,9 @@ async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time
                 if end_cursor is None:
                     break
 
-            except TimeoutError:
-                continue #TODO IMPLEMENT EXPONENTIAL BACKOFF FOR A RANGE OF ERRORS (408, 429 AND SO ON...)
-            except TransportServerError:  # If error code is 503: Service Unavailable
-                continue
+            except (TimeoutError, TransportServerError):
+                await asyncio.sleep(delay=(2 ^ retries) + random.random()) #Exponential backoff
+                retries += 1
 
         return None
 
@@ -248,10 +236,8 @@ async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time
         async with semaphore:
             return await download_trp_data(trp_id)
 
-    trp_ids = await broker.get_trp_ids()
-
     # Run all downloads in parallel with a maximum of 5 processes at the same time
-    await asyncio.gather(*(limited_task(trp_id) for trp_id in pjh.trps_data.keys()))
+    await asyncio.gather(*(limited_task(trp_id) for trp_id in [trp_record["id"] for trp_record in await broker.get_trp_ids()]))
 
 
     return None

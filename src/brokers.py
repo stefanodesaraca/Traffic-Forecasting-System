@@ -28,7 +28,7 @@ class DBBroker:
                     raise WrongSQLStatement("The SQL query isn't correct")
 
 
-    async def get_trp_ids(self) -> Any:
+    async def get_trp_ids(self) -> list[asyncpg.Record]:
         async with postgres_conn(user=self._db_user, password=self._db_password, name=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
                 return await conn.fetch("""SELECT id FROM TrafficRegistrationPoints;""")
