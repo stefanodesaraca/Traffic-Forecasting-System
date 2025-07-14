@@ -18,7 +18,7 @@ import dask.distributed
 from dask.distributed import Client, LocalCluster
 
 from exceptions import TargetVariableNotFoundError, WrongSplittingMode
-
+from src.brokers import DBBroker
 
 pd.set_option("display.max_columns", None)
 
@@ -160,20 +160,27 @@ class RoadNetworkToolbox(BaseModel):
 
 
 
-class ForecastingToolbox(BaseModel):
+class ForecastingToolbox:
+    def __init__(self, db_broker: DBBroker):
+        self.db_broker = db_broker
 
 
-    async def _get_volume_date_boundaries(self, trp_ids: list[str] | Generator[str, None, None]) -> Any:
-        #TODO QUERY GET MIN AND MAX of zoned_dt_iso
-        return
+    async def _get_volume_date_boundaries(self) -> dict[str, Any]:
+        result = await self.db_broker.send_sql("""
+            SELECT MIN(zoned_dt_iso) as latest, MAX(zoned_dt_iso) as earliest
+            FROM Volume
+        """)
+        return {"min": result["earliest"], "max": result["latest"]} #Respectively: min and max
 
 
-    async def _get_mean_speed_date_boundaries(self, trp_ids: list[str] | Generator[str, None, None]) -> Any:
-        #TODO QUERY GET MIN AND MAX of zoned_dt_iso
-        return
+    async def _get_mean_speed_date_boundaries(self) -> dict[str, Any]:
+        result = await self.db_broker.send_sql("""
+            SELECT MIN(zoned_dt_iso) as latest, MAX(zoned_dt_iso) as earliest
+            FROM MeanSpeed
+        """)
+        return {"min": result["earliest"], "max": result["latest"]} #Respectively: min and max
 
 
-    #TODO SET FORECASTING HORIZON IN PROJECT DB
     def set_forecasting_horizon(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
         """
         Parameters:
@@ -184,7 +191,7 @@ class ForecastingToolbox(BaseModel):
         Returns:
             None
         """
-        max_forecasting_window_size: int = max(int(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value), forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
+        max_forecasting_window_size: int = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
         print("V = Volume | MS = Mean Speed")
         option = input("Target: ")

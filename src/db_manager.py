@@ -271,9 +271,10 @@ class DBManager:
                             PRIMARY KEY (id, model_id, road_category_id)
                         );
                         
-                        
-                        
-                        
+                        CREATE TABLE IF NOT EXISTS ForecastingSettings (
+                            id BOOLEAN PRIMARY KEY CHECK (id = TRUE),
+                            config JSONB
+                        );
                 """)
 
 
