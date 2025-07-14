@@ -1,13 +1,9 @@
 from typing import Any, Generator
 import datetime
 from datetime import datetime
-from pathlib import Path
 import asyncio
-import numpy as np
 import pandas as pd
 import dask.dataframe as dd
-
-from tfs_base_config import pmm
 
 
 from tfs_utils import GlobalDefinitions
@@ -226,10 +222,10 @@ class AverageSpeedCleaner(BaseCleaner):
         data = await self._parse_speeds_async(
                     await asyncio.to_thread(pd.read_csv, fp, sep=";", **{"engine": "c"})) #TODO TO GET ALL mean_speed FILES JSUT USE os.listdir() UPSTREAM
 
-        if data is not None: #Checking if data isn't None. If it is, that means that the speeds file was empty
+        if not data:
             ...
 
-        return None
+        return data
 
 
 

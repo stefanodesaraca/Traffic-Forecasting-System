@@ -1,16 +1,11 @@
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Literal, Generator
-from typing_extensions import override
 from enum import Enum
 from pathlib import Path
-import threading
 import os
-import json
 import sys
-from threading import Lock
 import asyncio
-import aiofiles
 from functools import lru_cache
 import pandas as pd
 import dask.dataframe as dd
@@ -19,8 +14,6 @@ import geojson
 from dateutil.relativedelta import relativedelta
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic.types import PositiveInt
-import async_lru
-from async_lru import alru_cache
 from dask import delayed
 import dask.distributed
 from dask.distributed import Client, LocalCluster
@@ -49,9 +42,6 @@ def dask_cluster_client(processes=False):
         cluster.close()
 
 
-
-
-
 class BaseModel(PydanticBaseModel):
     class Config:
         arbitrary_types_allowed = True
@@ -59,27 +49,9 @@ class BaseModel(PydanticBaseModel):
 
 
 class GlobalDefinitions(Enum):
-    CWD = os.getcwd()
-    PROJECTS_HUB_DIR_NAME = "projects"
-    PROJECTS_HUB_METADATA = "hub_metadata.json" # File
-    PROJECT_METADATA = "project_metadata.json"
-
-    DATA_DIR = "data"
-    EDA_DIR = "eda"
-    ML_DIR = "ml"
-    RN_DIR = "rn_graph"
-
     TARGET_DATA = {"V": "volume", "MS": "mean_speed"}
-
-    TRAFFIC_REGISTRATION_POINTS_FILE = "traffic_registration_points.json"
     ROAD_CATEGORIES = ["E", "R", "F", "K", "P"]
     DEFAULT_MAX_FORECASTING_WINDOW_SIZE = 14
-
-    RAW_VOLUME_FILENAME_ENDING = "_volume"
-    RAW_MEAN_SPEED_FILENAME_ENDING = "_mean_speed"
-
-    CLEAN_VOLUME_FILENAME_ENDING= "_volume_C"
-    CLEAN_MEAN_SPEED_FILENAME_ENDING= "_mean_speed_C"
 
     HAS_VOLUME_CHECK = "has_volume"
     HAS_MEAN_SPEED_CHECK = "has_mean_speed"
@@ -88,6 +60,10 @@ class GlobalDefinitions(Enum):
     MEAN_SPEED = "mean_speed"
 
     NORWEGIAN_UTC_TIME_ZONE = "+01:00"
+
+
+
+
 
 
 class ProjectsHub:
@@ -100,13 +76,8 @@ class ProjectsHub:
         return cls._instance
 
 
-    def create_project(self, name: str):
-
-        #Creating the project's directory
-        Path(self.hub / name, exist_ok=True).mkdir(exist_ok=True)
-        self._metadata_manager.set(value=name, key="projects", mode="a+s")
-
-        folder_structure = {
+    forecasting = {"target_datetimes": {"V": None, "AS": None}}
+    folder_structure = {
             "eda": {
                 "shapiro_wilk_test": {},
                 "plots": {
@@ -119,50 +90,8 @@ class ProjectsHub:
                 "arches": {},
                 "graph_analysis": {},
                 "shortest_paths": {}
-            },
-            "ml": {
-                    **{
-                        sub: {target:
-                               {
-                                   rc: {} for rc in GlobalDefinitions.ROAD_CATEGORIES.value
-                               } for target in GlobalDefinitions.TARGET_DATA.value.values()}
-                        for sub in ("models_parameters", "models", "models_performance", "ml_reports")
-                    },
-                }
             }
-
-        metadata_folder_structure = {}  # Setting/resetting the folders path dictionary to either write it for the first time or reset the previous one to adapt it with new updated folders, paths, etc.
-
-        def create_nested_dirs(base_path: str, structure: dict[str, dict | None]) -> dict[str, Any]:
-            result = {}
-            for folder, subfolders in structure.items():
-                folder_path = os.path.join(base_path, folder)
-                os.makedirs(folder_path, exist_ok=True)
-                if isinstance(subfolders, dict) and subfolders:
-                    result[folder] = {
-                        "path": folder_path + os.sep,
-                        "subfolders": create_nested_dirs(folder_path, subfolders)
-                    }
-                else:
-                    result[folder] = {"path": folder_path + os.sep,
-                                      "subfolders": {}}
-            return result
-
-        # Creating main directories and respective subdirectories structure
-        for key, sub_structure in folder_structure.items():
-            main_dir = self.hub / name / key
-            os.makedirs(main_dir, exist_ok=True)
-            metadata_folder_structure[key] = create_nested_dirs(str(main_dir), sub_structure)
-
-        self._write_project_metadata(dir_name=name, **{"metadata_folder_structure": metadata_folder_structure})  #Creating the project's metadata file
-
-        return None
-
-{
-    "folder_paths": kwargs.get("metadata_folder_structure", {}),
-    "forecasting": {"target_datetimes": {"V": None, "AS": None}},
-    "trps": {}  # For each TRP we'll have {"id": metadata_filename}
-}
+    }
 
 class GeneralPurposeToolbox(BaseModel):
 
@@ -248,10 +177,6 @@ class GeneralPurposeToolbox(BaseModel):
 
 
 class TRPToolbox(BaseModel):
-    pjh: ProjectsHub
-    model_config = {
-        "ignored_types": (async_lru._LRUCacheWrapper,)
-    }
 
     def get_trp_ids_by_road_category(self, target: str) -> dict[str, list[str]] | None:
         ...
@@ -276,23 +201,15 @@ class RoadNetworkToolbox(BaseModel):
 class ForecastingToolbox(BaseModel):
     gp_toolbox: GeneralPurposeToolbox
 
-    def _get_speeds_dates(self, trp_ids: list[str] | Generator[str, None, None]) -> tuple[str, str]:
-        """
-        Extracts and returns the date of the first and last data available from all average speed files.
-        Uses a generator of tuples internally so a generator of TRP IDs would be better to maximize performances.
 
-        Parameters:
-            trp_ids: a list or a generator of strings which represent IDs of each traffic registration point available
+    def _get_volume_date_boundaries(self, trp_ids: list[str] | Generator[str, None, None]) -> tuple[str, str]:
+        #TODO QUERY GET MIN AND MAX of zoned_dt_iso
+        return
 
-        Returns:
-            tuple[str, str] <- The date of the first data available in first position and the one of the latest data available in second position
-        """
-        dt_start, dt_end = zip(*(
-            (data["data_info"]["speeds"]["start_date"], data["data_info"]["speeds"]["end_date"])
-            for trp_id in trp_ids
-            if (data := self.tmm.get_trp_metadata(trp_id=trp_id))["checks"][GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]
-        ), strict=True)
-        return min(dt_start), max(dt_end)
+
+    def _get_mean_speed_date_boundaries(self, trp_ids: list[str] | Generator[str, None, None]) -> tuple[str, str]:
+        #TODO QUERY GET MIN AND MAX of zoned_dt_iso
+        return
 
 
     #TODO SET FORECASTING HORIZON IN PROJECT DB
@@ -313,16 +230,16 @@ class ForecastingToolbox(BaseModel):
         print("Maximum number of days to forecast: ", max_forecasting_window_size)
 
         if option == "V":
-            last_available_data_dt = self.tmm.get(key=GlobalDefinitions.VOLUME.value + ".end_date_iso") #TODO tmm HAS TO BE REPLACED
+            last_available_data_dt = self._get_volume_date_boundaries()
         elif option == "MS":
-            _, last_available_data_dt = self._get_speeds_dates(self.get_global_trp_data())
-            if last_available_data_dt is None:
-                raise Exception("End date not found in metainfo file. Run download first or set it first")
-
-            last_available_data_dt = datetime.strptime(last_available_data_dt, "%Y-%m-%d %H:%M:%S").strftime(GlobalDefinitions.DT_ISO.value)
+            _, last_available_data_dt = self._get_mean_speed_date_boundaries()
 
         else:
             raise ValueError("Wrong data option, try again")
+
+        if not last_available_data_dt:
+            raise Exception("End date not set. Run download or set it first")
+
 
         print("Latest data available: ", datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value))
         print("Maximum settable date: ", relativedelta(datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value), days=14))
@@ -335,8 +252,7 @@ class ForecastingToolbox(BaseModel):
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
         if self.gp_toolbox.check_datetime_format(dt) and option in GlobalDefinitions.TARGET_DATA.value.keys():
-            self.pmm.set(value=dt, key="forecasting.target_datetimes" + option, mode="e")
-            print("Target datetime set to: ", dt, "\n\n")
+            #TODO QUERY SET
             return None
         else:
             if not self.gp_toolbox.check_datetime_format(dt):
@@ -349,14 +265,15 @@ class ForecastingToolbox(BaseModel):
 
     def get_forecasting_horizon(self, target: str) -> datetime:
         try:
-            return datetime.strptime(self.pmm.get(key="forecasting.target_datetimes" + target), GlobalDefinitions.DT_FORMAT.value)
+            #TODO QUERY GET
+            ...
         except TypeError:
             raise Exception(f"\033[91mTarget datetime for {target} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
 
 
     def reset_forecasting_horizon(self, target: str) -> None:
         try:
-            self.pmm.set(value=None, key="forecasting.target_datetimes" + target, mode="e")
+            #TODO QUERY SET AS NULL
             print("Target datetime reset successfully\n\n")
             return None
         except KeyError:
