@@ -222,17 +222,17 @@ class AverageSpeedCleaner(BaseCleaner):
 
 
     async def clean_async(self, fp: str) -> pd.DataFrame | dd.DataFrame | None:
-        try:
-            # Using to_thread since this is a CPU-bound operation which would otherwise block the event loop until it's finished executing
-            data = await self._parse_speeds_async(
-                        await asyncio.to_thread(pd.read_csv, fp, sep=";", **{"engine": "c"})) #TODO TO GET ALL mean_speed FILES JSUT USE os.listdir() UPSTREAM
+        # Using to_thread since this is a CPU-bound operation which would otherwise block the event loop until it's finished executing
+        data = await self._parse_speeds_async(
+                    await asyncio.to_thread(pd.read_csv, fp, sep=";", **{"engine": "c"})) #TODO TO GET ALL mean_speed FILES JSUT USE os.listdir() UPSTREAM
 
-            if data is not None: #Checking if data isn't None. If it is, that means that the speeds file was empty
-                #TODO JUST SKIP THE INSERTION PROCESS
-                ...
+        if data is not None: #Checking if data isn't None. If it is, that means that the speeds file was empty
+            ...
 
-            return None
+        return None
 
-        except Exception as e:
-            print(f"\033[91mFailed to export speeds\033[0m")
-            return None
+
+
+
+
+

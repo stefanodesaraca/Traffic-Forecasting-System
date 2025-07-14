@@ -165,8 +165,14 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         return None
 
 
-    async def ingest(self, payload: dict[str, Any]):
+    async def ingest(self, payload: dict[str, Any], fields: list[str]):
         self.data = payload
+
+        #TODO CLEAN self.data AND INSERT
+
+        #TODO CHECK THAT fields (WHICH ARE THE FIELDS TO MAINTAIN AND TO ACTUALLY INSERT INTO THE DB) ARE PRESENT IN self.data
+        #TODO DO self.data[[fields]] AND THEN INSERT
+
         ...
 
 

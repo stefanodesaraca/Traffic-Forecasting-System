@@ -48,49 +48,32 @@ grids = {
                 "friedman_mse",
             ],  # Setting "absolute_error" within the metrics to try in the grid will raise errors due to the NaNs present in the lag features
             "ccp_alpha": [0.002, 0.0002],  # ccp_alpha = 1 overfits
+            "n_jobs": gp_toolbox.ml_cpus,
+            "random_state": 100
         },
         "DecisionTreeRegressor": {
+            "random_state": 100,
             "criterion": ["squared_error", "friedman_mse"],
             "max_depth": [None, 30],
             "ccp_alpha": [0, 0.0002, 0.00002],
         },
         "HistGradientBoostingRegressor": {
+            "random_state": 100,
+            "categorical_features": None,
             "max_iter": [100, 200, 300],
             "max_depth": [None, 20, 50, 100],
             "loss": ["absolute_error"],
             "validation_fraction": [0.25],
             "n_iter_no_change": [20, 50],
             "tol": [1e-7, 1e-4, 1e-3],
-            "l2_regularization": [0, 0.001, 0.0001],
+            "l2_regularization": [0, 0.001, 0.0001]
         },
     }
 }
 
-model_definitions = {
-    "class_instance": {
+model_mappings = {
         "RandomForestRegressor": RandomForestRegressor,
         "HistGradientBoostingRegressor": HistGradientBoostingRegressor,
         "DecisionTreeRegressor": DecisionTreeRegressor,
-    },
-    "auxiliary_parameters": {
-        "RandomForestRegressor": {"n_jobs": gp_toolbox.ml_cpus, "random_state": 100},
-        "HistGradientBoostingRegressor": {
-            "random_state": 100,
-            "categorical_features": None,
-        },
-        "DecisionTreeRegressor": {"random_state": 100},
-    }
 }
 
-best_params = {
-    "traffic_volumes": {
-        "RandomForestRegressor": 1,
-        "HistGradientBoostingRegressor": 1,
-        "DecisionTreeRegressor": 1,
-    },
-    "average_speed": {
-        "RandomForestRegressor": 1,
-        "HistGradientBoostingRegressor": 1,
-        "DecisionTreeRegressor": 1,
-    }
-}

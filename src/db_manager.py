@@ -161,45 +161,45 @@ class DBManager:
                 await conn.execute("""
                         CREATE TABLE IF NOT EXISTS RoadCategories (
                             id TEXT PRIMARY KEY,
-                            name TEXT
+                            name TEXT NOT NULL
                         );
 
                         CREATE TABLE IF NOT EXISTS CountryParts (
                             id INTEGER PRIMARY KEY,
-                            name TEXT
+                            name TEXT NOT NULL
                         );
 
                         CREATE TABLE IF NOT EXISTS Counties (
                             number INTEGER PRIMARY KEY,
-                            name TEXT,
-                            country_part_id TEXT,
+                            name TEXT NOT NULL,
+                            country_part_id TEXT NOT NULL,
                             FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
                         );
 
                         CREATE TABLE IF NOT EXISTS Municipalities (
                             number INTEGER PRIMARY KEY,
-                            name TEXT,
-                            county_number INTEGER,
-                            country_part_id TEXT,
+                            name TEXT NOT NULL,
+                            county_number INTEGER NOT NULL,
+                            country_part_id TEXT NOT NULL,
                             FOREIGN KEY (county_number) REFERENCES Counties(number),
                             FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
                         );
 
                         CREATE TABLE IF NOT EXISTS TrafficRegistrationPoints (
                             id TEXT PRIMARY KEY,
-                            name TEXT,
-                            lat FLOAT,
-                            lon FLOAT,
-                            road_reference_short_form TEXT,
-                            road_category TEXT,
-                            road_link_sequence INTEGER,
-                            relative_position FLOAT,
-                            county TEXT,
-                            country_part_id TEXT,
-                            country_part_name TEXT,
-                            county_number INTEGER,
-                            geographic_number INTEGER,
-                            traffic_registration_type TEXT,
+                            name TEXT NOT NULL,
+                            lat FLOAT NOT NULL,
+                            lon FLOAT NOT NULL,
+                            road_reference_short_form TEXT NOT NULL,
+                            road_category TEXT NOT NULL,
+                            road_link_sequence INTEGER NOT NULL,
+                            relative_position FLOAT NOT NULL,
+                            county TEXT NOT NULL,
+                            country_part_id TEXT NOT NULL,
+                            country_part_name TEXT NOT NULL,
+                            county_number INTEGER NOT NULL,
+                            geographic_number INTEGER NOT NULL,
+                            traffic_registration_type TEXT NOT NULL,
                             first_data TIMESTAMPTZ,
                             first_data_with_quality_metrics TIMESTAMPTZ,
                             FOREIGN KEY (road_category) REFERENCES RoadCategories(name)
@@ -207,22 +207,22 @@ class DBManager:
 
                         CREATE TABLE IF NOT EXISTS Volume (
                             row_idx SERIAL PRIMARY KEY,
-                            trp_id TEXT,
-                            volume INTEGER,
-                            coverage FLOAT,
-                            is_mice BOOLEAN,
-                            zoned_dt_iso TIMESTAMPTZ,
+                            trp_id TEXT NOT NULL,
+                            volume INTEGER NOT NULL,
+                            coverage FLOAT NOT NULL,
+                            is_mice BOOLEAN DEFAULT FALSE,
+                            zoned_dt_iso TIMESTAMPTZ NOT NULL,
                             FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
                         );
 
                         CREATE TABLE IF NOT EXISTS MeanSpeed(
                             row_idx SERIAL PRIMARY KEY,
-                            trp_id TEXT,
-                            mean_speed FLOAT,
-                            _coverage FLOAT,
-                            is_mice BOOLEAN,
-                            percentile_85 FLOAT,
-                            zoned_dt_iso TIMESTAMPTZ,
+                            trp_id TEXT NOT NULL,
+                            mean_speed FLOAT NOT NULL,
+                            coverage FLOAT NOT NULL,
+                            is_mice BOOLEAN DEFAULT FALSE,
+                            percentile_85 FLOAT NOT NULL,
+                            zoned_dt_iso TIMESTAMPTZ NOT NULL,
                             FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
                         );
 
@@ -236,6 +236,36 @@ class DBManager:
                             mean_speed_end_date TIMESTAMPTZ,
                             FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
                         );
+                        
+                        CREATE TABLE IF NOT EXISTS MLModels (
+                            id SERIAL PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            type TEXT DEFAULT 'Regression',
+                            volume_grid JSON NOT NULL,
+                            mean_speed_grid JSON NOT NULL,
+                            best_volume_gridsearch_params INT DEFAULT 1,
+                            best_mean_speed_gridsearch_params INT DEFAULT 1
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS ModelGridSearchCVResults (
+                            id SERIAL,
+                            model_id INT REFERENCES MLModels(id) ON DELETE CASCADE,
+                            road_category_id TEXT REFERENCES RoadCategories(id) ON DELETE CASCADE,
+                            params JSON NOT NULL,
+                            mean_fit_time FLOAT NOT NULL,
+                            mean_test_r2 FLOAT NOT NULL,
+                            mean_train_r2 FLOAT NOT NULL,
+                            mean_test_mean_squared_error FLOAT NOT NULL,
+                            mean_train_mean_squared_error FLOAT NOT NULL,
+                            mean_test_root_mean_squared_error FLOAT NOT NULL,
+                            mean_train_root_mean_squared_error FLOAT NOT NULL,
+                            mean_test_mean_absolute_error FLOAT NOT NULL,
+                            mean_train_mean_absolute_error FLOAT NOT NULL,
+                            PRIMARY KEY (id, model_id, road_category_id)
+                        );
+
+
+                        
                 """)
 
                 # Views

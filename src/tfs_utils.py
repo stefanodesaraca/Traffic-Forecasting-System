@@ -107,15 +107,6 @@ class ProjectsHub:
         self._metadata_manager.set(value=name, key="projects", mode="a+s")
 
         folder_structure = {
-            "data": {
-                **{sub: {
-                        "raw": {},
-                        "clean": {}
-                    } for sub in (GlobalDefinitions.VOLUME.value, GlobalDefinitions.MEAN_SPEED.value, "travel_times")
-                },
-                "trp_metadata": {}
-                # No subfolders
-            },
             "eda": {
                 "shapiro_wilk_test": {},
                 "plots": {
