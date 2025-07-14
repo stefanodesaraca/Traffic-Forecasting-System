@@ -3,7 +3,7 @@ import downloader as downloader
 import tfs_cleaning as cleaning
 import tfs_eda as eda
 import tfs_ml as ml
-import tfs_utils as utils
+import utils as utils
 import tfs_road_network as road_network
 import exceptions as exceptions
 import ml_configs as ml_configs

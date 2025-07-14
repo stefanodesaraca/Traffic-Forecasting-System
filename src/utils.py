@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Literal, Generator
+from typing import Any, Literal, Generator
 from enum import Enum
 import os
 import sys
@@ -144,8 +144,6 @@ class GeneralPurposeToolbox(BaseModel):
         # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
 
 
-#TODO QUERY THE DB FOR THE id COLUMN IN TrafficRegistrationPoints AND GROUP BY ROAD_CATEGORY
-
 
 class RoadNetworkToolbox(BaseModel):
 
@@ -166,12 +164,12 @@ class ForecastingToolbox(BaseModel):
     gp_toolbox: GeneralPurposeToolbox
 
 
-    def _get_volume_date_boundaries(self, trp_ids: list[str] | Generator[str, None, None]) -> tuple[str, str]:
+    def _get_volume_date_boundaries(self, trp_ids: list[str] | Generator[str, None, None]) -> Any:
         #TODO QUERY GET MIN AND MAX of zoned_dt_iso
         return
 
 
-    def _get_mean_speed_date_boundaries(self, trp_ids: list[str] | Generator[str, None, None]) -> tuple[str, str]:
+    def _get_mean_speed_date_boundaries(self, trp_ids: list[str] | Generator[str, None, None]) -> Any:
         #TODO QUERY GET MIN AND MAX of zoned_dt_iso
         return
 
@@ -204,25 +202,17 @@ class ForecastingToolbox(BaseModel):
         if not last_available_data_dt:
             raise Exception("End date not set. Run download or set it first")
 
-
-        print("Latest data available: ", datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value))
-        print("Maximum settable date: ", relativedelta(datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value), days=14))
+        print("Latest data available: ", last_available_data_dt)
+        print("Maximum settable date: ", relativedelta(last_available_data_dt, days=14))
 
         dt = input("Insert Target Datetime (YYYY-MM-DDTHH): ")  # The month number must be zero-padded, for example: 01, 02, etc.
 
-        assert datetime.strptime(dt, GlobalDefinitions.DT_FORMAT.value) > datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value), "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
-        assert (datetime.strptime(dt, GlobalDefinitions.DT_FORMAT.value) - datetime.strptime(last_available_data_dt, GlobalDefinitions.DT_ISO.value)).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
+        assert dt > last_available_data_dt, "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
+        assert (dt - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
         # The number of days to forecast
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
-        if self.gp_toolbox.check_datetime_format(dt) and option in GlobalDefinitions.TARGET_DATA.value.keys():
-            #TODO QUERY SET
-            return None
-        else:
-            if not self.gp_toolbox.check_datetime_format(dt):
-                raise ValueError("Wrong datetime format, try again")
-            elif option not in list(GlobalDefinitions.TARGET_DATA.value.keys()):
-                raise ValueError("Wrong target data option, try again")
+        #TODO QUERY SET FORECASTING TARGET DATETIME
 
         return None
 

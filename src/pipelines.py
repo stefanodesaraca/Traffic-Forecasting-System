@@ -13,7 +13,7 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 from sklego.meta import ZeroInflatedRegressor
 
-from tfs_utils import GlobalDefinitions
+from utils import GlobalDefinitions
 from brokers import DBBroker
 
 pd.set_option("display.max_rows", None)

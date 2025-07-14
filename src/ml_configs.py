@@ -4,7 +4,7 @@ from sklearn.ensemble import (
     HistGradientBoostingRegressor,
 )
 
-from tfs_utils import GlobalDefinitions
+from utils import GlobalDefinitions
 
 
 #Be aware that too low parameters could bring some models to stall while training, so don't go too low with the grid search parameters

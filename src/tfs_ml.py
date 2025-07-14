@@ -41,7 +41,7 @@ from tfs_base_config import gp_toolbox, pmm, trp_toolbox
 from ml_configs import grids
 
 from exceptions import WrongEstimatorTypeError, ModelNotSetError, TargetVariableNotFoundError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
-from tfs_utils import GlobalDefinitions
+from utils import GlobalDefinitions
 
 
 simplefilter(action="ignore", category=FutureWarning)
