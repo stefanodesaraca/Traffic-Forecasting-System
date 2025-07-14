@@ -274,8 +274,13 @@ class DBManager:
 
 
                 #Constraints
-                await conn.execute("""ALTER TABLE Volume
+                await conn.execute("""
+                            ALTER TABLE Volume
                             ADD CONSTRAINT unique_volume_per_trp_and_time
+                            UNIQUE (trp_id, zoned_dt_iso);
+                            
+                            ALTER TABLE MeanSpeed
+                            ADD CONSTRAINT unique_mean_speed_per_trp_and_time
                             UNIQUE (trp_id, zoned_dt_iso);
                 """) #There can only be one registration at one specific time and location (where the location is the place where the TRP lies)
 

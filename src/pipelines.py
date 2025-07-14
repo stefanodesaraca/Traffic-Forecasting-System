@@ -176,7 +176,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
             INSERT INTO Volume ({', '.join(fields)})
             VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields)+1))})
             ON CONFLICT ON CONSTRAINT unique_volume_per_trp_and_time DO NOTHING;
-        """, many=True)
+        """, many=True, many_values=list(self.data.itertuples(index=False, name=None)))
 
         return None
 
@@ -189,7 +189,7 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
         self.db_broker: DBBroker = db_broker
 
 
-    async def _parse_speeds_async(self, speeds: pd.DataFrame) -> pd.DataFrame | dd.DataFrame | None:
+    async def _parse_mean_speed_async(self, speeds: pd.DataFrame) -> pd.DataFrame | dd.DataFrame | None:
         if speeds.empty:
             return None
 
@@ -222,17 +222,20 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
 
 
     async def ingest(self, fp: str, fields: list[str]) -> None:
-        self.data = await self._parse_speeds_async(
+        self.data = await self._parse_mean_speed_async(
             await asyncio.to_thread(pd.read_csv, fp, sep=";", **{"engine": "c"}))
-
         if not self.data:
-            ...
+            pass
+        if fields:
+            self.data = self.data[[fields]]
+        await self.db_broker.send_sql(f"""
+            INSERT INTO MeanSpeed ({', '.join(fields)})
+            VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields)+1))})
+            ON CONFLICT ON CONSTRAINT unique_mean_speed_per_trp_and_time DO NOTHING;
+        """, many=True, many_values=list(self.data.itertuples(index=False, name=None)))
 
 
-    async def clean_async(self, fp: str) -> pd.DataFrame | dd.DataFrame | None:
-        # Using to_thread since this is a CPU-bound operation which would otherwise block the event loop until it's finished executing
-        #TODO TO GET ALL mean_speed FILES JSUT USE os.listdir() UPSTREAM
-        ...
+    #TODO TO GET ALL mean_speed FILES JSUT USE os.listdir() UPSTREAM
 
 
 

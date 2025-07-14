@@ -17,7 +17,7 @@ class DBBroker:
         self._db_host = db_host
 
 
-    async def send_sql(self, sql: str, many: bool = False, many_values: list[tuple[Any]] | None = None) -> Any:
+    async def send_sql(self, sql: str, many: bool = False, many_values: list[tuple[Any, ...]] | None = None) -> Any:
         async with postgres_conn(user=self._db_user, password=self._db_password, name=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
                 if any(sql.startswith(prefix) for prefix in ["SELECT", "select"]):
