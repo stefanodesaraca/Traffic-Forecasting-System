@@ -17,7 +17,7 @@ class DBBroker:
         self._db_host = db_host
 
 
-    async def execute_sql(self, sql: str) -> Any:
+    async def send_sql(self, sql: str) -> Any:
         async with postgres_conn(user=self._db_user, password=self._db_password, name=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
                 if any(sql.startswith(prefix) for prefix in ["SELECT", "select"]):
@@ -34,14 +34,6 @@ class DBBroker:
                 return await conn.fetch("""SELECT id FROM TrafficRegistrationPoints;""")
 
 
-
-
-
-
-
-    async def send(self, data):
-        #TODO INSTANTIATE PIPELINE AND SEND TO DB
-        ...
 
 
 

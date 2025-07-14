@@ -247,6 +247,13 @@ class DBManager:
                             best_mean_speed_gridsearch_params INT DEFAULT 1
                         );
                         
+                        CREATE TABLE IF NOT EXISTS MLModelObjects (
+                            id SERIAL PRIMARY KEY,
+                            joblib_object BYTEA,
+                            pickle_object BYTEA NOT NULL,
+                            FOREIGN KEY (id) REFERENCES MLModels(id)
+                        );
+                        
                         CREATE TABLE IF NOT EXISTS ModelGridSearchCVResults (
                             id SERIAL,
                             model_id INT REFERENCES MLModels(id) ON DELETE CASCADE,

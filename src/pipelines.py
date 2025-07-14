@@ -135,7 +135,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
 
         #TODO FOR TESTING PURPOSES
-        context = pd.DataFrame(await self.db_broker.execute_sql(sql=f"""SELECT *
+        context = pd.DataFrame(await self.db_broker.send_sql(sql=f"""SELECT *
                                                                         FROM Volume
                                                                         ORDER BY zoned_dt_iso DESC
                                                                         LIMIT {mice_past_window};
@@ -148,7 +148,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
         self.data = pd.concat([
                                 self.data[["trp_id", "is_mice", "zoned_dt_iso"]],
-                                await asyncio.to_thread(pd.DataFrame, await self.db_broker.execute_sql(sql=f"""SELECT *
+                                await asyncio.to_thread(pd.DataFrame, await self.db_broker.send_sql(sql=f"""SELECT *
                                                                                                                      FROM Volume
                                                                                                                      ORDER BY zoned_dt_iso DESC
                                                                                                                      LIMIT {mice_past_window};
@@ -165,7 +165,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         return None
 
 
-    async def ingest(self, payload: dict[str, Any], fields: list[str]):
+    async def ingest(self, payload: dict[str, Any], fields: list[str]) -> None:
         self.data = payload
 
         #TODO CLEAN self.data AND INSERT
@@ -187,14 +187,50 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
         self.db_broker: DBBroker = db_broker
 
 
+    async def _parse_speeds_async(self, speeds: pd.DataFrame) -> pd.DataFrame | dd.DataFrame | None:
+        if speeds.empty:
+            return None
+
+        speeds["coverage"] = speeds["coverage"].replace(",", ".", regex=True).astype("float") * 100
+        speeds["mean_speed"] = speeds["mean_speed"].replace(",", ".", regex=True).astype("float")
+        speeds["percentile_85"] = speeds["percentile_85"].replace(",", ".", regex=True).astype("float")
+
+        speeds["zoned_dt_iso"] = speeds["date"] + "T" + speeds["hour_start"] + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
+        speeds = speeds.drop(columns=["date"])
+
+        try:
+            print("Shape before MICE:", speeds.shape)
+            print("Number of zeros before MICE:", len(speeds[speeds["mean_speed"] == 0]))
+            print("Negative values (mean speed) before MICE:", len(speeds[speeds["mean_speed"] < 0]))
+
+            speeds = await asyncio.to_thread(pd.concat, [
+                speeds[["trp_id", "zoned_dt_iso"]],
+                self._impute_missing_values(speeds.drop(columns=["trp_id", "zoned_dt_iso"]), r="gamma")
+            ], axis=1) #TODO IF THIS DOESN'T WORK TRY AS IT WAS BEFORE ... .to_thread(lambda: pd.concat(...)
+
+            print("Shape after MICE:", speeds.shape, "\n")
+            print("Number of zeros after MICE:", len(speeds[speeds["mean_speed"] == 0]))
+            print("Negative values (mean speed) after MICE:", len(speeds[speeds["mean_speed"] < 0]))
+
+        except ValueError as e:
+            print(f"\033[91mValueError: {e}. Skipping...\033[0m")
+            return None
+
+        return speeds
 
 
+    async def ingest(self, fp: str, fields: list[str]) -> None:
+        self.data = await self._parse_speeds_async(
+            await asyncio.to_thread(pd.read_csv, fp, sep=";", **{"engine": "c"}))
+
+        if not self.data:
+            ...
 
 
-
-
-
-
+    async def clean_async(self, fp: str) -> pd.DataFrame | dd.DataFrame | None:
+        # Using to_thread since this is a CPU-bound operation which would otherwise block the event loop until it's finished executing
+        #TODO TO GET ALL mean_speed FILES JSUT USE os.listdir() UPSTREAM
+        ...
 
 
 

@@ -1,5 +1,3 @@
-import os
-import time
 import math
 import gc
 import sys
@@ -8,9 +6,8 @@ import json
 import warnings
 from warnings import simplefilter
 
-from scipy import stats
 from datetime import datetime
-from typing import Any, Literal, Generator, Protocol, cast, runtime_checkable
+from typing import Any, Literal, Generator
 from pydantic import BaseModel as PydanticBaseModel, field_validator
 from pydantic.types import PositiveFloat
 import numpy as np
@@ -18,7 +15,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import joblib
 
-from dask import delayed, compute
+from dask import delayed
 import dask.dataframe as dd
 from dask.distributed import Client
 
@@ -41,7 +38,7 @@ from sktime.base import BaseEstimator as SktimeBaseEstimator
 from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastingBaseModel
 
 from tfs_base_config import gp_toolbox, pmm, trp_toolbox
-from ml_configs import grids, model_definitions, best_params
+from ml_configs import grids
 
 from exceptions import WrongEstimatorTypeError, ModelNotSetError, TargetVariableNotFoundError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
 from tfs_utils import GlobalDefinitions
@@ -505,9 +502,9 @@ class ModelWrapper(BaseModel):
             with joblib.parallel_backend("dask"):
                 return self.model_obj.predict(X_test.compute()) # type: ignore[attr-defined] # <- WARNING: this comment is used to avoid seeing a useless warning since the model will indeed have a predict method, but the scikit-learn BaseEstimator class doesn't
         elif isinstance(self.model_obj, PyTorchForecastingBaseModel):
-            pass #TODO STILL TO IMPLEMENT
+            pass #NOTE STILL TO IMPLEMENT
         elif isinstance(self.model_obj, SktimeBaseEstimator):
-            pass #TODO STILL TO IMPLEMENT
+            pass #NOTE STILL TO IMPLEMENT
         else:
             raise TypeError(f"Unsupported model type: {type(self.model_obj)}")
 
@@ -829,7 +826,7 @@ class OnePointForecaster:
                 "week": dt.strftime("%V"),
                 "date": dt.strftime("%Y-%m-%d"),
                 "trp_id": self._trp_id
-            } for dt in pd.date_range(start=last_available_data_dt.strftime(GlobalDefinitions.DT_FORMAT.value), end=target_datetime.strftime(GlobalDefinitions.DT_FORMAT.value), freq="1h")), batch_size=max(1, math.ceil((target_datetime - last_available_data_dt).days * 0.20)))]).repartition(partition_size="512MB").persist()
+            } for dt in pd.date_range(start=last_available_data_dt, end=target_datetime, freq="1h")), batch_size=max(1, math.ceil((target_datetime - last_available_data_dt).days * 0.20)))]).repartition(partition_size="512MB").persist()
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
         rows_to_predict["day"] = rows_to_predict["day"].astype("int")
@@ -848,35 +845,12 @@ class OnePointForecaster:
 
     @staticmethod
     def export_predictions(y_preds: dd.DataFrame, predictions_metadata: dict[Any, Any], predictions_fp: str, metadata_fp: str) -> None:
-        """
-        Export predictions and metadata to files.
-
-        Parameters
-        ----------
-        y_preds : dd.DataFrame
-            The predicted values to export.
-        predictions_metadata : dict[Any, Any]
-            Metadata associated with the predictions.
-        predictions_fp : str
-            File path for saving predictions.
-        metadata_fp : str
-            File path for saving metadata.
-
-        Returns
-        -------
-        None
-
-        Notes
-        -----
-        Exports predictions as CSV and metadata as JSON. Handles exceptions
-        gracefully by printing error messages if export fails.
-        """
         try:
             with open(metadata_fp, "w", encoding="utf-8") as m:
                 json.dump(predictions_metadata, m, indent=4)
             dd.to_csv(y_preds, predictions_fp, single_file=True, encoding="utf-8", **{"index": False})
         except Exception as e:
-            print(f"Couldn't export data to {predictions_fp}, error {e}")
+            print(f"Couldn't export data to db, error {e}")
         return None
 
 
