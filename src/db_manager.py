@@ -273,7 +273,7 @@ class DBManager:
                         
                         CREATE TABLE IF NOT EXISTS ForecastingSettings (
                             id BOOLEAN PRIMARY KEY CHECK (id = TRUE),
-                            config JSONB
+                            config JSONB DEFAULT {'volume_forecasting_horizon": NULL, 'mean_speed_forecasting_horizon": NULL}
                         );
                 """)
 
