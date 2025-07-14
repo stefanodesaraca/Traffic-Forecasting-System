@@ -4,8 +4,6 @@ from sklearn.ensemble import (
     HistGradientBoostingRegressor,
 )
 
-from tfs_base_config import gp_toolbox
-
 from tfs_utils import GlobalDefinitions
 
 

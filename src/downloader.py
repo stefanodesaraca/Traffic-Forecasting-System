@@ -220,7 +220,7 @@ async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time
                 page_info = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]
                 end_cursor = page_info["endCursor"] if page_info["hasNextPage"] else None
 
-                await pipeline.ingest(payload=query_result)
+                await pipeline.ingest(payload=query_result, fields=["trp_id", "volume", "coverage", "is_mice", "zoned_dt_iso"])
 
                 pages_counter += 1
                 if end_cursor is None:

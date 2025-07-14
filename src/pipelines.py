@@ -129,7 +129,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         return pd.DataFrame(by_hour).sort_values(by=["zoned_dt_iso"], ascending=True)
 
 
-    async def _clean_async(self, mice_past_window: PositiveInt) -> None:
+    async def _clean_async(self, mice_past_window: PositiveInt) -> pd.DataFrame:
         print("Shape before MICE: ", len(self.data), len(self.data.columns))
         print("Number of zeros before MICE: ", len(self.data[self.data["volume"] == 0]))
 
@@ -155,6 +155,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
                                                                                                                  """)), #Extracting data from the past to improve MICE regression model performances
                                 await asyncio.to_thread(self._impute_missing_values,self.data.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1), r="gamma")
                                 ], axis=1)
+        #Duplicates aren't a problem since PostgresSQL inserts are set to do nothing on conflict
 
         print("Shape after MICE: ", len(self.data), len(self.data.columns))
         print("Number of zeros after MICE: ", len(self.data[self.data["volume"] == 0]))
@@ -162,16 +163,14 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
         self.data["volume"] = self.data["volume"].astype("int") #Re-converting volume to int after MICE
 
-        return None
+        return self.data
 
 
-    async def ingest(self, payload: dict[str, Any], fields: list[str]) -> None:
+    async def ingest(self, payload: dict[str, Any], fields: list[str] | None = None) -> None:
         self.data = payload
-
-        #TODO CLEAN self.data AND INSERT
-
-        #TODO CHECK THAT fields (WHICH ARE THE FIELDS TO MAINTAIN AND TO ACTUALLY INSERT INTO THE DB) ARE PRESENT IN self.data
-        #TODO DO self.data[[fields]] AND THEN INSERT
+        self.data = await self._clean_async(self.data)
+        if fields:
+            self.data = self.data[[fields]]
 
         ...
 
