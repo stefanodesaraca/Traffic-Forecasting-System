@@ -53,6 +53,9 @@ class WrongSQLStatement(ValueError):
         super().__init__(self.message)
 
 
-
+class MissingDataException(Exception):
+    def __init__(self, message: str):
+        self.message: str = message
+        super().__init__(self.message)
 
 

@@ -174,13 +174,11 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
         await self.db_broker.send_sql(f"""
             INSERT INTO Volume ({', '.join(fields)})
-            VALUES %s
-            ON CONFLICT DO NOTHING;
-        """)
+            VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields)+1))})
+            ON CONFLICT ON CONSTRAINT unique_volume_per_trp_and_time DO NOTHING;
+        """, many=True)
 
-
-
-        #TODO FOR INSERTS USE "ON CONFLICT (id) DO NOTHING"
+        return None
 
 
 
