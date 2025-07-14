@@ -41,11 +41,13 @@ class DBBroker:
     async def get_trp_ids_by_road_category(self) -> list[asyncpg.Record]:
         async with postgres_conn(user=self._db_user, password=self._db_password, name=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
-                return await conn.fetch("""SELECT id FROM TrafficRegistrationPoints
-                                           GROUP BY road_category;
-                ;""")
-
-
+                return await conn.fetch("""SELECT json_object_agg(road_category, ids) AS result
+                                           FROM (
+                                               SELECT road_category, json_agg(id ORDER BY id) AS ids
+                                               FROM TrafficRegistrationPoints
+                                               GROUP BY road_category
+                                           ) AS sub;
+                """)
 
 
 
