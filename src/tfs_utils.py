@@ -62,36 +62,6 @@ class GlobalDefinitions(Enum):
 
 
 
-
-
-
-class ProjectsHub:
-    _instance = None
-
-    #Making this class a singleton
-    def __new__(cls, *args, **kwargs):
-        if cls._instance is None:
-            cls._instance = super(ProjectsHub, cls).__new__(cls)
-        return cls._instance
-
-
-    forecasting = {"target_datetimes": {"V": None, "AS": None}}
-    folder_structure = {
-            "eda": {
-                "shapiro_wilk_test": {},
-                "plots": {
-                    GlobalDefinitions.VOLUME.value: {},
-                    GlobalDefinitions.MEAN_SPEED.value: {}
-                }
-            },
-            "rn_graph": {
-                "edges": {},
-                "arches": {},
-                "graph_analysis": {},
-                "shortest_paths": {}
-            }
-    }
-
 class GeneralPurposeToolbox(BaseModel):
 
     @staticmethod
@@ -174,12 +144,7 @@ class GeneralPurposeToolbox(BaseModel):
         # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
 
 
-
-class TRPToolbox(BaseModel):
-
-    def get_trp_ids_by_road_category(self, target: str) -> dict[str, list[str]] | None:
-        ...
-        #TODO QUERY THE DB FOR THE id COLUMN IN TrafficRegistrationPoints AND GROUP BY ROAD_CATEGORY
+#TODO QUERY THE DB FOR THE id COLUMN IN TrafficRegistrationPoints AND GROUP BY ROAD_CATEGORY
 
 
 class RoadNetworkToolbox(BaseModel):

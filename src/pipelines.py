@@ -31,7 +31,6 @@ class RegressorTypes(BaseModel):
 
 
 
-
 class ExtractionPipelineMixin:
 
     # Executing multiple imputation to get rid of NaNs using the MICE method (Multiple Imputation by Chained Equations)
@@ -234,8 +233,10 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
             ON CONFLICT ON CONSTRAINT unique_mean_speed_per_trp_and_time DO NOTHING;
         """, many=True, many_values=list(self.data.itertuples(index=False, name=None)))
 
+        return None
 
-    #TODO TO GET ALL mean_speed FILES JSUT USE os.listdir() UPSTREAM
+
+#TODO TO GET ALL mean_speed FILES JSUT USE os.listdir() UPSTREAM
 
 
 

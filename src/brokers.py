@@ -38,7 +38,12 @@ class DBBroker:
                 return await conn.fetch("""SELECT id FROM TrafficRegistrationPoints;""")
 
 
-
+    async def get_trp_ids_by_road_category(self) -> list[asyncpg.Record]:
+        async with postgres_conn(user=self._db_user, password=self._db_password, name=self._db_name, host=self._db_host) as conn:
+            async with conn.transaction():
+                return await conn.fetch("""SELECT id FROM TrafficRegistrationPoints
+                                           GROUP BY road_category;
+                ;""")
 
 
 
