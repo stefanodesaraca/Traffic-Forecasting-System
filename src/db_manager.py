@@ -270,6 +270,10 @@ class DBManager:
                             mean_train_mean_absolute_error FLOAT NOT NULL,
                             PRIMARY KEY (id, model_id, road_category_id)
                         );
+                        
+                        
+                        
+                        
                 """)
 
 

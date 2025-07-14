@@ -161,15 +161,14 @@ class RoadNetworkToolbox(BaseModel):
 
 
 class ForecastingToolbox(BaseModel):
-    gp_toolbox: GeneralPurposeToolbox
 
 
-    def _get_volume_date_boundaries(self, trp_ids: list[str] | Generator[str, None, None]) -> Any:
+    async def _get_volume_date_boundaries(self, trp_ids: list[str] | Generator[str, None, None]) -> Any:
         #TODO QUERY GET MIN AND MAX of zoned_dt_iso
         return
 
 
-    def _get_mean_speed_date_boundaries(self, trp_ids: list[str] | Generator[str, None, None]) -> Any:
+    async def _get_mean_speed_date_boundaries(self, trp_ids: list[str] | Generator[str, None, None]) -> Any:
         #TODO QUERY GET MIN AND MAX of zoned_dt_iso
         return
 
@@ -212,7 +211,7 @@ class ForecastingToolbox(BaseModel):
         # The number of days to forecast
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
-        #TODO QUERY SET FORECASTING TARGET DATETIME
+        #TODO QUERY SET FORECASTING TARGET DATETIME. On conflict update
 
         return None
 

@@ -24,7 +24,7 @@ class DBBroker:
                     return await conn.fetch(sql)
                 elif any(sql.startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "insert", "update", "delete"]):
                     if many and many_values:
-                        return conn.executemany(sql, many_values)
+                        return await conn.executemany(sql, many_values)
                     elif many and not many_values:
                         raise MissingDataException("Missing data to insert")
                     return await conn.execute(sql)
