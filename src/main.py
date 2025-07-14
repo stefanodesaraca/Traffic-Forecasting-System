@@ -1,6 +1,5 @@
 import sys
 import time
-from dateutil.relativedelta import relativedelta
 import asyncio
 from typing import cast
 from asyncio import Semaphore
@@ -66,21 +65,6 @@ async def download_volumes(functionality: str) -> None:
         print("Downloading traffic volumes data for every registration point for the active operation...")
 
         #TODO USE download_volumes()
-
-    return None
-
-
-async def clean_data(functionality: str) -> None:
-    semaphore = Semaphore(50)
-
-    async def limited_clean(trp_id: str, cleaner: TrafficVolumesCleaner | AverageSpeedCleaner, export: bool = True):
-        async with semaphore:
-            await cleaner.clean_async(trp_id, export=export)
-
-    if functionality == "5.6.1":                                                                                        #TODO REPLACE trp_toolbox
-        await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=TrafficVolumesCleaner(), export=True) for trp_id in trp_toolbox.get_trp_ids())) # The star (*) in necessary since gather() requires the coroutines to fed as positional arguments of the function. So we can unpack the list with *
-    elif functionality == "5.6.2":                                                                                    #TODO REPLACE trp_toolbox
-        await asyncio.gather(*(limited_clean(trp_id=trp_id, cleaner=AverageSpeedCleaner(), export=True) for trp_id in trp_toolbox.get_trp_ids()))
 
     return None
 
@@ -213,7 +197,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
 def execute_forecasting(functionality: str) -> None:
 
-    print("Which kind of data would you like to forecast?")
+    print("Enter target data to forecast: ")
     print("V: Volumes | MS: Mean Speed")
     option = input("Choice: ").upper()
 
@@ -290,9 +274,7 @@ def main():
         "4.1": manage_road_network,
         "4.2": manage_road_network,
         "4.3": manage_road_network,
-        "5.2": execute_eda,
-        "5.6.1": clean_data,
-        "5.6.2": clean_data,
+        "5.2": execute_eda
     }
 
     while True:
@@ -330,10 +312,6 @@ def main():
     5.3 Erase all data about an operation
     5.4 Find best model for the current operation
     5.5 Analyze pre-existing road network graph
-    5.6 Clean data
-        5.6.1 Clean traffic volumes data
-        5.6.2 Clean average speed data
-
 0. Exit""")
 
         option = input("Choice: ")

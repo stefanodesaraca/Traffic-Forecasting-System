@@ -156,8 +156,6 @@ class RoadNetworkToolbox(BaseModel):
         with open(f"{self.get('folder_paths.rn_graph.arches.path')}/traffic_links_2024_2025-02-27.geojson", "r", encoding="utf-8") as a:
             return geojson.load(a)["features"]
 
-    #TODO LOAD GRAPH DATA INTO DB
-
 
 
 class ForecastingToolbox:
