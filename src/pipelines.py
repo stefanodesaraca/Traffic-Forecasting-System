@@ -172,7 +172,12 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         if fields:
             self.data = self.data[[fields]]
 
-        ...
+        await self.db_broker.send_sql(f"""
+            INSERT INTO Volume ({', '.join(fields)})
+            VALUES %s
+            ON CONFLICT DO NOTHING;
+        """)
+
 
 
         #TODO FOR INSERTS USE "ON CONFLICT (id) DO NOTHING"
