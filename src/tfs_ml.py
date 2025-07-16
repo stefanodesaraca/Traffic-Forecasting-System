@@ -812,26 +812,16 @@ class OnePointForecaster:
                     break
                 yield batch
 
-        last_available_data_dt = datetime.strptime(pmm.get(key=self._target + ".end_date_iso"), GlobalDefinitions.DT_ISO.value)
+        last_available_data_dt = datetime.strptime(pmm.get(key=self._target + ".end_date_iso"), GlobalDefinitions.DT_ISO.value) #TODO LOAD FROM DB AND REMOVE DATETIME TYPE CASTING
         rows_to_predict = dd.from_delayed([delayed(pd.DataFrame)(batch) for batch in get_batches(
             ({
                 **attr,
                 "coverage": np.nan,
-                "day": dt.strftime("%d"),
-                "month": dt.strftime("%m"),
-                "year": dt.strftime("%Y"),
-                "hour": dt.strftime("%H"),
-                "week": dt.strftime("%V"),
-                "date": dt.strftime("%Y-%m-%d"),
+                "zoned_dt_iso": dt,
+                "is_mice": False, #Being a future record to predict it's not a MICEd record
                 "trp_id": self._trp_id
             } for dt in pd.date_range(start=last_available_data_dt, end=target_datetime, freq="1h")), batch_size=max(1, math.ceil((target_datetime - last_available_data_dt).days * 0.20)))]).repartition(partition_size="512MB").persist()
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
-
-        rows_to_predict["day"] = rows_to_predict["day"].astype("int")
-        rows_to_predict["month"] = rows_to_predict["month"].astype("int")
-        rows_to_predict["year"] = rows_to_predict["year"].astype("int")
-        rows_to_predict["hour"] = rows_to_predict["hour"].astype("int")
-        rows_to_predict["week"] = rows_to_predict["week"].astype("int")
 
         if self._target == GlobalDefinitions.TARGET_DATA.value["V"]:
             return TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=self._client).preprocess_volumes(z_score=False)
