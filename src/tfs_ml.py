@@ -41,6 +41,7 @@ from tfs_base_config import gp_toolbox, pmm, trp_toolbox
 from ml_configs import grids
 
 from exceptions import WrongEstimatorTypeError, ModelNotSetError, TargetVariableNotFoundError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
+from src.brokers import DBBroker
 from utils import GlobalDefinitions
 
 
@@ -401,7 +402,7 @@ class ModelWrapper(BaseModel):
 
 
     @property
-    def grid(self) -> dict[str, Any]:
+    def grid(self) -> dict[str, Any]: #TODO TO REMOVE, THE GRID WILL DIRECTLY BE COLLECTED FROM A SPECIFIC METHOD IN THE TFSLearner CLASS
         """
         Get the model's custom hyperparameter grid.
 
@@ -533,7 +534,7 @@ class ModelWrapper(BaseModel):
         return {k: np.round(s(y_test, y_pred), decimals=4) for k, s in scorer.items()}
 
 
-    def export(self, filepath: str) -> None:
+    def export(self, filepath: str) -> None: #TODO THIS METHOD WILL BE BROUGHT TO THE TFSLearner CLASS AS WELL
         """
         Export the model in joblib and pickle formats.
 
@@ -554,14 +555,10 @@ class ModelWrapper(BaseModel):
 
         The function will exit the program if export fails.
         """
-        try:
-            joblib.dump(self.model_obj, filepath + ".joblib", protocol=pickle.HIGHEST_PROTOCOL)
-            with open(filepath + ".pkl", "wb") as ml_pkl_file:
-                pickle.dump(self.model_obj, ml_pkl_file, protocol=pickle.HIGHEST_PROTOCOL)
-            return None
-        except Exception as e:
-            print(f"\033[91mCouldn't export trained model. Safely exited the program. Error: {e}\033[0m")
-            sys.exit(1)
+        joblib.dump(self.model_obj, filepath + ".joblib", protocol=pickle.HIGHEST_PROTOCOL)
+        with open(filepath + ".pkl", "wb") as ml_pkl_file:
+            pickle.dump(self.model_obj, ml_pkl_file, protocol=pickle.HIGHEST_PROTOCOL)
+        return None
 
 
 
@@ -587,7 +584,7 @@ class TFSLearner:
         A Dask distributed client used to parallelize computation.
     """
 
-    def __init__(self, model: callable, road_category: str, target: str, client: Client | None):
+    def __init__(self, model: callable, road_category: str, target: str, client: Client | None, db_broker: DBBroker):
         self._scorer: dict[str, Any] = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
@@ -598,6 +595,7 @@ class TFSLearner:
         self._road_category: str = road_category
         self._target: str = target
         self._model: ModelWrapper = ModelWrapper(model_obj=model, target=self._target)
+        self._db_broker: DBBroker = db_broker
 
 
     def get_model(self) -> ModelWrapper:
@@ -609,7 +607,7 @@ class TFSLearner:
 
 
     @staticmethod
-    def _load_model(fp: str) -> Any:
+    def _load_model(fp: str) -> Any: #TODO LOAD MODEL FROM DB
         """
         Load pre-existing model from its corresponding joblib file.
 
@@ -625,7 +623,7 @@ class TFSLearner:
         """
         if not fp.endswith(".joblib"):
             raise ValueError("Trying to load a model with a non-joblib file. Retry with a joblib one.")
-        return joblib.load(fp) #TODO BEFORE IT WAS dm.get_models_folder_path(self._target, self._road_category) + dm.get_current_project() + "_" + self._road_category + "_" + self._model.name + ".joblib"
+        return joblib.load(fp)
 
 
     def export_gridsearch_results(self, results: pd.DataFrame, fp: str) -> None:

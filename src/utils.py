@@ -160,11 +160,11 @@ class RoadNetworkToolbox(BaseModel):
 
 class ForecastingToolbox:
     def __init__(self, db_broker: DBBroker):
-        self.db_broker = db_broker
+        self._db_broker = db_broker
         self.gp_toolbox = GeneralPurposeToolbox()
 
     async def _get_volume_date_boundaries(self) -> dict[str, Any]:
-        result = await self.db_broker.send_sql("""
+        result = await self._db_broker.send_sql("""
             SELECT MIN(zoned_dt_iso) as latest, MAX(zoned_dt_iso) as earliest
             FROM Volume
         """)
@@ -172,7 +172,7 @@ class ForecastingToolbox:
 
 
     async def _get_mean_speed_date_boundaries(self) -> dict[str, Any]:
-        result = await self.db_broker.send_sql("""
+        result = await self._db_broker.send_sql("""
             SELECT MIN(zoned_dt_iso) as latest, MAX(zoned_dt_iso) as earliest
             FROM MeanSpeed
         """)
@@ -216,7 +216,7 @@ class ForecastingToolbox:
         # The number of days to forecast
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
-        await self.db_broker.send_sql(f"""UPDATE ForecastingSettings
+        await self._db_broker.send_sql(f"""UPDATE ForecastingSettings
                                           SET config = jsonb_set(
                                               config,
                                               '{'{volume_forecasting_horizon}' if option == "V" else '{mean_speed_forecasting_horizon}'}'
@@ -232,7 +232,7 @@ class ForecastingToolbox:
     async def get_forecasting_horizon(self, target: str) -> datetime:
             if not self.gp_toolbox.check_target(target):
                 raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
-            return (await self.db_broker.send_sql(f"""SELECT config -> {'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon' } AS volume_horizon
+            return (await self._db_broker.send_sql(f"""SELECT config -> {'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon' } AS volume_horizon
                                                       FROM ForecastingSettings
                                                       WHERE id = TRUE;"""))[target]
 
@@ -240,7 +240,7 @@ class ForecastingToolbox:
     async def reset_forecasting_horizon(self, target: str) -> None:
         if not self.gp_toolbox.check_target(target):
             raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
-        await self.db_broker.send_sql(f"""UPDATE ForecastingSettings
+        await self._db_broker.send_sql(f"""UPDATE ForecastingSettings
                                           SET config = jsonb_set(config, '{'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'}', 'null'::jsonb)
                                           WHERE id = TRUE;""")
         return None

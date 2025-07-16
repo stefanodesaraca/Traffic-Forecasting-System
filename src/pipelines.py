@@ -84,7 +84,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
     def __init__(self, db_broker: DBBroker, data: dict[str, Any] | None = None):
         self.data: dict[str, Any] | pd.DataFrame | dd.DataFrame | None = data
-        self.db_broker: DBBroker = db_broker
+        self._db_broker: DBBroker = db_broker
 
 
     @staticmethod
@@ -134,7 +134,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
 
         #TODO FOR TESTING PURPOSES
-        context = pd.DataFrame(await self.db_broker.send_sql(sql=f"""SELECT *
+        context = pd.DataFrame(await self._db_broker.send_sql(sql=f"""SELECT *
                                                                         FROM Volume
                                                                         ORDER BY zoned_dt_iso DESC
                                                                         LIMIT {mice_past_window};
@@ -147,7 +147,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
         self.data = pd.concat([
                                 self.data[["trp_id", "is_mice", "zoned_dt_iso"]],
-                                await asyncio.to_thread(pd.DataFrame, await self.db_broker.send_sql(sql=f"""SELECT *
+                                await asyncio.to_thread(pd.DataFrame, await self._db_broker.send_sql(sql=f"""SELECT *
                                                                                                                      FROM Volume
                                                                                                                      ORDER BY zoned_dt_iso DESC
                                                                                                                      LIMIT {mice_past_window};
@@ -171,7 +171,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         if fields:
             self.data = self.data[[fields]]
 
-        await self.db_broker.send_sql(f"""
+        await self._db_broker.send_sql(f"""
             INSERT INTO Volume ({', '.join(fields)})
             VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields)+1))})
             ON CONFLICT ON CONSTRAINT unique_volume_per_trp_and_time DO NOTHING;
@@ -185,7 +185,7 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
 
     def __init__(self, db_broker: DBBroker, data: dict[str, Any] | None = None):
         self.data: dict[str, Any] | pd.DataFrame | dd.DataFrame | None = data
-        self.db_broker: DBBroker = db_broker
+        self._db_broker: DBBroker = db_broker
 
 
     async def _parse_mean_speed_async(self, speeds: pd.DataFrame) -> pd.DataFrame | dd.DataFrame | None:
@@ -227,7 +227,7 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
             pass
         if fields:
             self.data = self.data[[fields]]
-        await self.db_broker.send_sql(f"""
+        await self._db_broker.send_sql(f"""
             INSERT INTO MeanSpeed ({', '.join(fields)})
             VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields)+1))})
             ON CONFLICT ON CONSTRAINT unique_mean_speed_per_trp_and_time DO NOTHING;
