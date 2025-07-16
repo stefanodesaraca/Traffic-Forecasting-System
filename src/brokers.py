@@ -48,8 +48,7 @@ class DBBroker:
                                                SELECT road_category, json_agg(id ORDER BY id) AS ids
                                                FROM TrafficRegistrationPoints
                                                GROUP BY road_category
-                                           ) AS sub;
-                """)
+                                           ) AS sub;""")
 
 
 

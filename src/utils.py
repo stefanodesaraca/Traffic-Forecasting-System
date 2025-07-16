@@ -17,7 +17,7 @@ from dask import delayed
 import dask.distributed
 from dask.distributed import Client, LocalCluster
 
-from exceptions import TargetVariableNotFoundError, WrongSplittingMode
+from exceptions import TargetVariableNotFoundError, WrongSplittingMode, TargetDataNotAvailableError
 from src.brokers import DBBroker
 
 pd.set_option("display.max_columns", None)
@@ -161,7 +161,7 @@ class RoadNetworkToolbox(BaseModel):
 class ForecastingToolbox:
     def __init__(self, db_broker: DBBroker):
         self.db_broker = db_broker
-
+        self.gp_toolbox = GeneralPurposeToolbox()
 
     async def _get_volume_date_boundaries(self) -> dict[str, Any]:
         result = await self.db_broker.send_sql("""
@@ -179,7 +179,7 @@ class ForecastingToolbox:
         return {"min": result["earliest"], "max": result["latest"]} #Respectively: min and max
 
 
-    def set_forecasting_horizon(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
+    async def set_forecasting_horizon(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
         """
         Parameters:
             forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24.
@@ -196,10 +196,9 @@ class ForecastingToolbox:
         print("Maximum number of days to forecast: ", max_forecasting_window_size)
 
         if option == "V":
-            last_available_data_dt = self._get_volume_date_boundaries()
+            last_available_data_dt = (await self._get_volume_date_boundaries())["max"]
         elif option == "MS":
-            _, last_available_data_dt = self._get_mean_speed_date_boundaries()
-
+            _, last_available_data_dt = (await self._get_mean_speed_date_boundaries())["max"]
         else:
             raise ValueError("Wrong data option, try again")
 
@@ -209,34 +208,42 @@ class ForecastingToolbox:
         print("Latest data available: ", last_available_data_dt)
         print("Maximum settable date: ", relativedelta(last_available_data_dt, days=14))
 
-        dt = input("Insert Target Datetime (YYYY-MM-DDTHH): ")  # The month number must be zero-padded, for example: 01, 02, etc.
+        horizon = input("Insert forecasting horizon (YYYY-MM-DDTHH): ")  #TODO CONVERT INTO TIMEZONED DATETIME
+        # The month number must be zero-padded, for example: 01, 02, etc. #TODO NOT TO KEEP
 
-        assert dt > last_available_data_dt, "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
-        assert (dt - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
+        assert horizon > last_available_data_dt, "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
+        assert (horizon - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
         # The number of days to forecast
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
-        #TODO QUERY SET FORECASTING TARGET DATETIME. On conflict update
+        await self.db_broker.send_sql(f"""UPDATE ForecastingSettings
+                                          SET config = jsonb_set(
+                                              config,
+                                              '{'{volume_forecasting_horizon}' if option == "V" else '{mean_speed_forecasting_horizon}'}'
+                                              to_jsonb('{horizon}'::timestamptz::text),
+                                              TRUE
+                                          )
+                                          WHERE id = TRUE;""")
+        #The TRUE after to_jsonb(...) is needed to create the record in case it didn't exist before
 
         return None
 
 
-    def get_forecasting_horizon(self, target: str) -> datetime:
-        try:
-            #TODO QUERY GET
-            ...
-        except TypeError:
-            raise Exception(f"\033[91mTarget datetime for {target} isn't set yet. Set it first and then execute a one-point forecast\033[0m")
+    async def get_forecasting_horizon(self, target: str) -> datetime:
+            if not self.gp_toolbox.check_target(target):
+                raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
+            return (await self.db_broker.send_sql(f"""SELECT config -> {'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon' } AS volume_horizon
+                                                      FROM ForecastingSettings
+                                                      WHERE id = TRUE;"""))[target]
 
 
-    def reset_forecasting_horizon(self, target: str) -> None:
-        try:
-            #TODO QUERY SET AS NULL
-            print("Target datetime reset successfully\n\n")
-            return None
-        except KeyError:
-            raise KeyError("Target datetime not found")
-
+    async def reset_forecasting_horizon(self, target: str) -> None:
+        if not self.gp_toolbox.check_target(target):
+            raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
+        await self.db_broker.send_sql(f"""UPDATE ForecastingSettings
+                                          SET config = jsonb_set(config, '{'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'}', 'null'::jsonb)
+                                          WHERE id = TRUE;""")
+        return None
 
 
 
