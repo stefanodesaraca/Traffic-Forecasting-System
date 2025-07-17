@@ -64,7 +64,7 @@ class DBBroker:
         self._db_host = db_host
 
 
-    def send_sql(self, sql: str, single: bool = False, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> Any:
+    def send_sql(self, sql: str, single: bool = False, many: bool = False, many_values: list[tuple[Any, ...]] | None = None, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> Any:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host, row_factory=row_factory) as conn:
             with conn.transaction():
                 if any(sql.startswith(prefix) for prefix in ["SELECT", "select"]):
@@ -72,6 +72,10 @@ class DBBroker:
                         return conn.fetchone(sql)
                     return conn.fetchall(sql)
                 elif any(sql.startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "insert", "update", "delete"]):
+                    if many and many_values:
+                        return conn.executemany(sql, many_values)
+                    elif many and not many_values:
+                        raise MissingDataException("Missing data to insert")
                     return conn.execute(sql)
                 else:
                     raise WrongSQLStatement("The SQL query isn't correct")

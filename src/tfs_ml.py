@@ -41,7 +41,7 @@ from ml_configs import grids
 
 from exceptions import WrongEstimatorTypeError, ModelNotSetError, TargetVariableNotFoundError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
 from src.brokers import DBBroker
-from utils import GlobalDefinitions
+from utils import GlobalDefinitions, GeneralPurposeToolbox
 
 
 simplefilter(action="ignore", category=FutureWarning)
@@ -52,10 +52,11 @@ pd.set_option("display.max_columns", None)
 
 class TFSPreprocessor:
 
-    def __init__(self, data: dd.DataFrame, road_category: str, client: Client):
+    def __init__(self, data: dd.DataFrame, road_category: str, client: Client, gp_toolbox: GeneralPurposeToolbox):
         self._data: dd.DataFrame = data
         self.road_category: str = road_category
         self.client: Client = client
+        self._gp_toolbox: GeneralPurposeToolbox = gp_toolbox
 
 
     @property
@@ -189,7 +190,7 @@ class TFSPreprocessor:
         # ------------------ Outliers filtering with Z-Score ------------------
 
         if z_score:
-            self._data = gp_toolbox.ZScore(self._data, "volume")
+            self._data = self._gp_toolbox.ZScore(self._data, "volume")
 
         self._data = self._data.sort_values(by=["date"], ascending=True)
 
@@ -223,7 +224,7 @@ class TFSPreprocessor:
 
         # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
 
-        self._data["is_covid_year"] = (self._data["year"].isin(gp_toolbox.covid_years)).astype("int")  # Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
+        self._data["is_covid_year"] = (self._data["year"].isin(self._gp_toolbox.covid_years)).astype("int")  # Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
@@ -285,7 +286,7 @@ class TFSPreprocessor:
         # ------------------ Outliers filtering with Z-Score ------------------
 
         if z_score:
-            self._data = gp_toolbox.ZScore(self._data, "mean_speed")
+            self._data = self._gp_toolbox.ZScore(self._data, "mean_speed")
 
         self._data = self._data.sort_values(by=["date"], ascending=True)
 
@@ -326,7 +327,7 @@ class TFSPreprocessor:
 
         # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
 
-        self._data["is_covid_year"] = self._data["year"].isin(gp_toolbox.covid_years).astype("int")  # Creating a dummy variable which indicates if the average speed for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
+        self._data["is_covid_year"] = self._data["year"].isin(self._gp_toolbox.covid_years).astype("int")  # Creating a dummy variable which indicates if the average speed for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
@@ -583,7 +584,7 @@ class TFSLearner:
         A Dask distributed client used to parallelize computation.
     """
 
-    def __init__(self, model: callable, road_category: str, target: str, client: Client | None, db_broker: DBBroker):
+    def __init__(self, model: callable, road_category: str, target: str, client: Client | None, db_broker: DBBroker, gp_toolbox: GeneralPurposeToolbox):
         self._scorer: dict[str, Any] = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
@@ -595,6 +596,7 @@ class TFSLearner:
         self._target: str = target
         self._model: ModelWrapper = ModelWrapper(model_obj=model, target=self._target)
         self._db_broker: DBBroker = db_broker
+        self._gp_toolbox: GeneralPurposeToolbox = gp_toolbox
 
 
     def get_model(self) -> ModelWrapper:
@@ -612,31 +614,33 @@ class TFSLearner:
 
 
 
-    def export_gridsearch_results(self, results: pd.DataFrame, fp: str) -> None:
-        """
-        Export GridSearchCV true best results to a JSON file.
-
-        Parameters
-        ----------
-        results : pd.DataFrame
-            The actual gridsearch results as a pandas dataframe.
-        fp : str
-            The filepath where to export the gridsearch results
-
-        Returns
-        -------
-        None
-        """
+    def export_gridsearch_results(self, results: pd.DataFrame) -> None:
+        results["params"] = results["params"].apply(json.dumps) #Binarizing parameters' dictionary
+        self._db_broker.send_sql(f"""
+            INSERT INTO ModelGridSearchCVResults (
+                model_id,
+                road_category_id,
+                params,
+                mean_fit_time,
+                mean_test_r2,
+                mean_train_r2,
+                mean_test_mean_squared_error,
+                mean_train_mean_squared_error,
+                mean_test_root_mean_squared_error,
+                mean_train_root_mean_squared_error,
+                mean_test_mean_absolute_error,
+                mean_train_mean_absolute_error
+            )
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+        """, many=True, many_values=[tuple(row) for row in results.itertuples(index=False, name=None)])
 
         true_best_params = {self._model.name: results["params"].loc[best_params[self._target][self._model.name]]} or {}
         true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) # This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
         true_best_params["best_GridSearchCV_model_scores"] = results.loc[best_params[self._target][self._model.name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
-        if not fp.endswith(".json"):
-            raise ValueError("Trying to export GridSearchCV results to a non-JSON file. Retry with a filename that ends with .json")
-
-        with open(fp, "w", encoding="utf-8") as params_file:
-            json.dump(true_best_params, params_file, indent=4)
+        json.dump(true_best_params, params_file, indent=4)
 
         #TODO TESTING:
         results.to_json(f"./ops/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
