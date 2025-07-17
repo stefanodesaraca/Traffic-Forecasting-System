@@ -7,7 +7,7 @@ from gql.transport.aiohttp import AIOHTTPTransport
 from graphql import ExecutionResult
 from pydantic.types import PositiveInt
 
-from brokers import DBBroker
+from brokers import AIODBBroker
 from pipelines import VolumeExtractionPipeline
 
 simplefilter("ignore")
@@ -194,8 +194,8 @@ async def fetch_trp_volumes(client: Client, trp_id: str, time_start: str, time_e
 
 async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10) -> None:
     semaphore = asyncio.Semaphore(n_async_jobs)  # Limit to n_async_jobs async tasks
-    broker = DBBroker(db_user=db_credentials["user"], db_password=db_credentials["password"],
-                      db_name=db_credentials["name"], db_host=db_credentials["host"])
+    broker = AIODBBroker(db_user=db_credentials["user"], db_password=db_credentials["password"],
+                         db_name=db_credentials["name"], db_host=db_credentials["host"])
     pipeline = VolumeExtractionPipeline(db_broker=broker)
 
     async def download_trp_data(trp_id: str) -> None:

@@ -41,7 +41,7 @@ from tfs_base_config import gp_toolbox, pmm, trp_toolbox
 from ml_configs import grids
 
 from exceptions import WrongEstimatorTypeError, ModelNotSetError, TargetVariableNotFoundError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
-from src.brokers import DBBroker
+from src.brokers import AIODBBroker
 from utils import GlobalDefinitions
 
 
@@ -584,18 +584,18 @@ class TFSLearner:
         A Dask distributed client used to parallelize computation.
     """
 
-    def __init__(self, model: callable, road_category: str, target: str, client: Client | None, db_broker: DBBroker):
+    def __init__(self, model: callable, road_category: str, target: str, client: Client | None, db_broker: AIODBBroker):
         self._scorer: dict[str, Any] = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
             "root_mean_squared_error": make_scorer(root_mean_squared_error),
             "mean_absolute_error": make_scorer(mean_absolute_error)
         }
-        self._client: Client = client
+        self._client: Client | None = client
         self._road_category: str = road_category
         self._target: str = target
         self._model: ModelWrapper = ModelWrapper(model_obj=model, target=self._target)
-        self._db_broker: DBBroker = db_broker
+        self._db_broker: AIODBBroker = db_broker
 
 
     def get_model(self) -> ModelWrapper:
@@ -608,21 +608,6 @@ class TFSLearner:
 
     @staticmethod
     def _load_model(fp: str) -> Any: #TODO LOAD MODEL FROM DB
-        """
-        Load pre-existing model from its corresponding joblib file.
-
-        Parameters
-        ----------
-        fp : str
-            The filepath of the model's joblib file. Must have a .joblib file extension
-
-        Returns
-        -------
-        Any
-            The model object.
-        """
-        if not fp.endswith(".joblib"):
-            raise ValueError("Trying to load a model with a non-joblib file. Retry with a joblib one.")
         return joblib.load(fp)
 
 

@@ -18,7 +18,7 @@ import dask.distributed
 from dask.distributed import Client, LocalCluster
 
 from exceptions import TargetVariableNotFoundError, WrongSplittingMode, TargetDataNotAvailableError
-from src.brokers import DBBroker
+from src.brokers import AIODBBroker
 
 pd.set_option("display.max_columns", None)
 
@@ -159,7 +159,7 @@ class RoadNetworkToolbox(BaseModel):
 
 
 class ForecastingToolbox:
-    def __init__(self, db_broker: DBBroker):
+    def __init__(self, db_broker: AIODBBroker):
         self._db_broker = db_broker
         self.gp_toolbox = GeneralPurposeToolbox()
 

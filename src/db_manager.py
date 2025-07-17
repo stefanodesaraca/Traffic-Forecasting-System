@@ -5,6 +5,7 @@ import asyncio
 import aiofiles
 import asyncpg
 from asyncpg.exceptions import DuplicateDatabaseError
+import psycopg
 from cleantext import clean
 
 from db_config import DBConfig
@@ -12,7 +13,7 @@ from downloader import start_client_async, fetch_areas, fetch_road_categories, f
 
 
 @contextmanager
-async def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost') -> asyncpg.connection:
+async def postgres_conn_async(user: str, password: str, dbname: str, host: str = 'localhost') -> asyncpg.connection:
     try:
         conn = await asyncpg.connect(
             user=user,
@@ -25,7 +26,23 @@ async def postgres_conn(user: str, password: str, dbname: str, host: str = 'loca
         await conn.close()
 
 
-class DBManager:
+@contextmanager
+def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost', autocommit: bool = True) -> asyncpg.connection:
+    try:
+        conn=psycopg.connect(
+            dbname=user,
+            user=password,
+            password=dbname,
+            host=host,
+        )
+        conn.autocommit = autocommit
+        yield conn
+    finally:
+        conn.close()
+
+
+
+class AIODBManager:
 
     def __init__(self, superuser: str, superuser_password: str, tfs_user: str, tfs_password: str, hub_db: str = "tfs_hub", maintenance_db: str = "postgres"):
         self._superuser = superuser
@@ -38,7 +55,8 @@ class DBManager:
 
     @staticmethod
     async def _check_db(dbname: str) -> bool:
-        async with postgres_conn(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value, dbname="postgres") as conn:
+        async with postgres_conn_async(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value,
+                                       dbname="postgres") as conn:
             return await conn.fetchval(
                     "SELECT 1 FROM pg_database WHERE datname = $1",
                     dbname
@@ -149,13 +167,14 @@ class DBManager:
     async def create_project(self, name: str, lang: str, auto_project_setup: bool = True) -> None:
 
         # -- New Project DB Setup --
-        async with postgres_conn(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
+                                       dbname=self._maintenance_db) as conn:
             # Accessing as superuser since some tools may require this configuration to create a new database
             async with conn.transaction():
                 await conn.execute(f"""CREATE DATABASE {name};""")
 
         # -- Project Tables Setup --
-        async with postgres_conn(user=self._tfs_user, password=self._tfs_password, dbname=name) as conn:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=name) as conn:
             async with conn.transaction():
                 # Tables
                 await conn.execute("""
@@ -312,7 +331,8 @@ class DBManager:
                 """)
 
         # -- New Project Metadata Insertions --
-        async with postgres_conn(user=self._tfs_user, password=self._tfs_password, dbname=DBConfig.HUB_DB.value) as conn:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password,
+                                       dbname=DBConfig.HUB_DB.value) as conn:
             new_project = await conn.fetchrow(
                 "INSERT INTO Projects (name, lang) VALUES ($1, $2) RETURNING *",
                 name, lang
@@ -326,7 +346,7 @@ class DBManager:
             print(f"Metadata updated setting {new_project['name']} as current project.")
 
         # -- New Project Setup Insertions --
-        async with postgres_conn(user=self._tfs_user, password=self._tfs_password, dbname=name) as conn:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=name) as conn:
             if auto_project_setup:
                 await self._setup_project(conn=conn)
 
@@ -338,14 +358,16 @@ class DBManager:
         # -- Initialize users and DBs --
 
         #Accessing as superuser and creating tfs user
-        async with postgres_conn(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
+                                       dbname=self._maintenance_db) as conn:
             try:
                 await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
                 print(f"User 'tfs' created.")
             except asyncpg.DuplicateObjectError:
                 print(f"User 'username' already exists.")
 
-        async with postgres_conn(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
+                                       dbname=self._maintenance_db) as conn:
             try:
                 await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
                 print(f"User 'tfs' created.")
@@ -354,7 +376,8 @@ class DBManager:
 
 
         if not await self._check_db(dbname=DBConfig.HUB_DB.value):
-            async with postgres_conn(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value, dbname=DBConfig.HUB_DB.value) as conn:
+            async with postgres_conn_async(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value,
+                                           dbname=DBConfig.HUB_DB.value) as conn:
                 try:
                     await conn.execute(f"""
                     CREATE DATABASE {DBConfig.HUB_DB.value}
@@ -363,7 +386,7 @@ class DBManager:
                     pass
 
             # -- Hub DB Setup (If It Doesn't Exist) --
-            async with postgres_conn(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
+            async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
 
                 #Projects
                 await conn.execute("""
@@ -383,7 +406,7 @@ class DBManager:
 
 
         # -- Check if any projects exist --
-        async with postgres_conn(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
             project_check = await conn.fetchrow("SELECT * FROM Projects LIMIT 1")
 
             #If there aren't any projects, let the user impute one and insert it into the Projects table

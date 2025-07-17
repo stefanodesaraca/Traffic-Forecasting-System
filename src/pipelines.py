@@ -14,7 +14,7 @@ from sklearn.impute import IterativeImputer
 from sklego.meta import ZeroInflatedRegressor
 
 from utils import GlobalDefinitions
-from brokers import DBBroker
+from brokers import AIODBBroker
 
 pd.set_option("display.max_rows", None)
 pd.set_option("display.max_columns", None)
@@ -82,9 +82,9 @@ class ExtractionPipelineMixin:
 
 class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
-    def __init__(self, db_broker: DBBroker, data: dict[str, Any] | None = None):
+    def __init__(self, db_broker: AIODBBroker, data: dict[str, Any] | None = None):
         self.data: dict[str, Any] | pd.DataFrame | dd.DataFrame | None = data
-        self._db_broker: DBBroker = db_broker
+        self._db_broker: AIODBBroker = db_broker
 
 
     @staticmethod
@@ -183,9 +183,9 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
 class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
 
-    def __init__(self, db_broker: DBBroker, data: dict[str, Any] | None = None):
+    def __init__(self, db_broker: AIODBBroker, data: dict[str, Any] | None = None):
         self.data: dict[str, Any] | pd.DataFrame | dd.DataFrame | None = data
-        self._db_broker: DBBroker = db_broker
+        self._db_broker: AIODBBroker = db_broker
 
 
     async def _parse_mean_speed_async(self, speeds: pd.DataFrame) -> pd.DataFrame | dd.DataFrame | None:
