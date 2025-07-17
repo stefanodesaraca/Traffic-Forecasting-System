@@ -268,8 +268,8 @@ class AIODBManager:
                             type TEXT DEFAULT 'Regression',
                             volume_grid JSON NOT NULL,
                             mean_speed_grid JSON NOT NULL,
-                            best_volume_gridsearch_params INT DEFAULT 1,
-                            best_mean_speed_gridsearch_params INT DEFAULT 1
+                            best_volume_gridsearch_params_idx INT DEFAULT 1,
+                            best_mean_speed_gridsearch_params_idx INT DEFAULT 1
                         );
                         
                         CREATE TABLE IF NOT EXISTS MLModelObjects (

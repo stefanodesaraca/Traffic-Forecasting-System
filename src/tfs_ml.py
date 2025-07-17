@@ -6,7 +6,7 @@ import json
 import warnings
 from warnings import simplefilter
 import hashlib
-from datetime import datetime
+import datetime
 from typing import Any, Literal, Generator
 from pydantic import BaseModel as PydanticBaseModel, field_validator
 from pydantic.types import PositiveFloat
@@ -615,7 +615,11 @@ class TFSLearner:
         return None
 
 
-    def export_best_params(self):
+    def export_best_params(self, results: pd.DataFrame):
+
+        best_params_idx = self._db_broker.send_sql(f"""SELECT {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx'} 
+                                                       FROM MLModels
+                                                    """) #TODO DEPENDING ON self._target
 
         true_best_params = {self._model.name: results["params"].loc[best_params[self._target][self._model.name]]} or {}
         true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name])
@@ -662,7 +666,7 @@ class TFSLearner:
         grid = self._model.grid
         model = self._model.get()
 
-        t_start = datetime.now()
+        t_start = datetime.datetime.now()
         print(f"{self._model.name} GridSearchCV started at {t_start}\n")
 
         gridsearch = GridSearchCV(
@@ -679,7 +683,7 @@ class TFSLearner:
         with joblib.parallel_backend("dask"):
             gridsearch.fit(X=X_train, y=y_train)
 
-        t_end = datetime.now()
+        t_end = datetime.datetime.now()
         print(f"{self._model.name} GridSearchCV finished at {t_end}\n")
         print(f"Time passed: {t_end - t_start}")
 
@@ -753,7 +757,7 @@ class OnePointForecaster:
             raise WrongTrainRecordsRetrievalMode("training_mode parameter value is not valid")
 
 
-    def get_future_records(self, target_datetime: datetime) -> dd.DataFrame:
+    def get_future_records(self, target_datetime: datetime.datetime) -> dd.DataFrame:
         """
         Generate records of the future to predict.
 
@@ -770,7 +774,7 @@ class OnePointForecaster:
 
         attr = {"volume": np.nan} if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else {"mean_speed": np.nan, "percentile_85": np.nan}
 
-        def get_batches(iterable: list[dict[str, Any]] | Generator[dict[str, Any], None, None], batch_size: int) -> Generator[list[dict[str, Any]], Any, None, None]:
+        def get_batches(iterable: list[dict[str, Any]] | Generator[dict[str, Any], None, None], batch_size: int) -> Generator[list[dict[str, Any]], None, None]:
             """
             Returns a generator of a maximum of n elements where n is defined by the 'batch_size' parameter.
 
@@ -793,7 +797,8 @@ class OnePointForecaster:
                     break
                 yield batch
 
-        last_available_data_dt = datetime.strptime(pmm.get(key=self._target + ".end_date_iso"), GlobalDefinitions.DT_ISO.value) #TODO LOAD FROM DB AND REMOVE DATETIME TYPE CASTING
+
+        last_available_data_dt = datetime.datetime.strptime(pmm.get(key=self._target + ".end_date_iso"), GlobalDefinitions.DT_ISO.value) #TODO LOAD FROM DB AND REMOVE DATETIME TYPE CASTING
         rows_to_predict = dd.from_delayed([delayed(pd.DataFrame)(batch) for batch in get_batches(
             ({
                 **attr,
@@ -813,13 +818,8 @@ class OnePointForecaster:
 
 
     @staticmethod
-    def export_predictions(y_preds: dd.DataFrame, predictions_metadata: dict[Any, Any], predictions_fp: str, metadata_fp: str) -> None:
-        try:
-            with open(metadata_fp, "w", encoding="utf-8") as m:
-                json.dump(predictions_metadata, m, indent=4)
-            dd.to_csv(y_preds, predictions_fp, single_file=True, encoding="utf-8", **{"index": False})
-        except Exception as e:
-            print(f"Couldn't export data to db, error {e}")
+    def export_predictions(y_preds: dd.DataFrame) -> None:
+        #TODO QUERY INSERT
         return None
 
 
