@@ -1,9 +1,10 @@
-from typing import Any
+from typing import Any, Literal
 import asyncpg
 
 from db_config import DBConfig
 from exceptions import WrongSQLStatement, MissingDataException
 from db_manager import postgres_conn_async, postgres_conn
+
 
 
 class AIODBBroker:
@@ -63,8 +64,8 @@ class DBBroker:
         self._db_host = db_host
 
 
-    def send_sql(self, sql: str, single: bool = False) -> Any:
-        with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
+    def send_sql(self, sql: str, single: bool = False, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> Any:
+        with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host, row_factory=row_factory) as conn:
             with conn.transaction():
                 if any(sql.startswith(prefix) for prefix in ["SELECT", "select"]):
                     if single:

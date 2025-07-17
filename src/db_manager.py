@@ -1,11 +1,12 @@
 import json
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, Literal
 import asyncio
 import aiofiles
 import asyncpg
 from asyncpg.exceptions import DuplicateDatabaseError
 import psycopg
+from psycopg.rows import tuple_row, dict_row
 from cleantext import clean
 
 from db_config import DBConfig
@@ -27,13 +28,18 @@ async def postgres_conn_async(user: str, password: str, dbname: str, host: str =
 
 
 @contextmanager
-def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost', autocommit: bool = True) -> asyncpg.connection:
+def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost', autocommit: bool = True, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> asyncpg.connection:
+    row_factories = {
+        "tuple_row": tuple_row,
+        "dict_row": dict_row
+    }
     try:
         conn=psycopg.connect(
             dbname=user,
             user=password,
             password=dbname,
             host=host,
+            row_factory=row_factories.get(row_factory, tuple_row)
         )
         conn.autocommit = autocommit
         yield conn
@@ -258,7 +264,7 @@ class AIODBManager:
                         
                         CREATE TABLE IF NOT EXISTS MLModels (
                             id SERIAL PRIMARY KEY,
-                            name TEXT NOT NULL,
+                            name TEXT NOT NULL UNIQUE,
                             type TEXT DEFAULT 'Regression',
                             volume_grid JSON NOT NULL,
                             mean_speed_grid JSON NOT NULL,

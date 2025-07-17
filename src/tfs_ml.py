@@ -37,11 +37,10 @@ from sklearn.metrics import (
 from sktime.base import BaseEstimator as SktimeBaseEstimator
 from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastingBaseModel
 
-from tfs_base_config import gp_toolbox, pmm, trp_toolbox
 from ml_configs import grids
 
 from exceptions import WrongEstimatorTypeError, ModelNotSetError, TargetVariableNotFoundError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
-from src.brokers import AIODBBroker
+from src.brokers import DBBroker
 from utils import GlobalDefinitions
 
 
@@ -584,7 +583,7 @@ class TFSLearner:
         A Dask distributed client used to parallelize computation.
     """
 
-    def __init__(self, model: callable, road_category: str, target: str, client: Client | None, db_broker: AIODBBroker):
+    def __init__(self, model: callable, road_category: str, target: str, client: Client | None, db_broker: DBBroker):
         self._scorer: dict[str, Any] = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
@@ -595,7 +594,7 @@ class TFSLearner:
         self._road_category: str = road_category
         self._target: str = target
         self._model: ModelWrapper = ModelWrapper(model_obj=model, target=self._target)
-        self._db_broker: AIODBBroker = db_broker
+        self._db_broker: DBBroker = db_broker
 
 
     def get_model(self) -> ModelWrapper:
@@ -606,9 +605,11 @@ class TFSLearner:
         return self._scorer
 
 
-    @staticmethod
-    def _load_model(fp: str) -> Any: #TODO LOAD MODEL FROM DB
-        return joblib.load(fp)
+    def _load_model(self) -> callable:
+        return pickle.load(self._db_broker.send_sql(f"""SELECT mo.pickle_object
+                                                             FROM MLModels m LEFT JOIN MLModelObjects mo on m.id = mo.id
+                                                             WHERE m.name = {self._model.name}""", single=True)["pickle_object"])
+
 
 
     def export_gridsearch_results(self, results: pd.DataFrame, fp: str) -> None:
