@@ -572,7 +572,9 @@ class TFSLearner:
         dict[str, Any]
             The model's grid for hyperparameter tuning.
         """
-        return self._db_broker.send_sql()
+        return json.loads(self._db_broker.send_sql(sql=f"""SELECT {'volume_grid' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'mean_speed_grid'} 
+                                                           FROM MLModels
+                                                           WHERE id = {self._model.model_id};""", single=True)['volume_grid' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'mean_speed_grid'])
 
 
     def get_model(self) -> ModelWrapper:
@@ -617,11 +619,16 @@ class TFSLearner:
     def export_best_params(self, results: pd.DataFrame):
 
         best_params_idx: int = self._db_broker.send_sql(sql=f"""SELECT {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx'} 
-                                                                FROM MLModels""", single=True)['best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx']
+                                                                FROM MLModels
+                                                                WHERE id = {self._model.model_id};""", single=True)['best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx']
 
         true_best_params = results["params"].iloc[best_params_idx] or {}
         #true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) #TODO READ THE TODO BELOW
         true_best_params["best_GridSearchCV_model_scores"] = results.iloc[best_params_idx].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
+
+        self._db_broker.send_sql(f"""UPDATE MLModels
+                                     SET {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx'} = <new_index>
+                                     WHERE id = '{self._model.model_id}';""")
 
         #TODO TESTING -> CHECK IF AUXILIARY PARAMETERS ARE INCLUDED WITHOUT ADDING THEM SPECIFICALLY
         results.to_json(f"./project_data/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
@@ -661,15 +668,12 @@ class TFSLearner:
         if not self._gp_toolbox.check_target(self._target):
             raise TargetVariableNotFoundError("Wrong target variable in GridSearchCV executor function")
 
-        grid = self._model.grid
-        model = self._model.get()
-
         t_start = datetime.datetime.now()
         print(f"{self._model.name} GridSearchCV started at {t_start}\n")
 
         gridsearch = GridSearchCV(
-            model,
-            param_grid=grid,
+            self._model.get(),
+            param_grid=self._get_grid(),
             scoring=self._scorer,
             refit="mean_absolute_error",
             return_train_score=True,
