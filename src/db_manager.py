@@ -263,7 +263,7 @@ class AIODBManager:
                         );
                         
                         CREATE TABLE IF NOT EXISTS MLModels (
-                            id SERIAL PRIMARY KEY,
+                            id TEXT PRIMARY KEY,
                             name TEXT NOT NULL UNIQUE,
                             type TEXT DEFAULT 'Regression',
                             volume_grid JSON NOT NULL,
@@ -273,7 +273,7 @@ class AIODBManager:
                         );
                         
                         CREATE TABLE IF NOT EXISTS MLModelObjects (
-                            id SERIAL PRIMARY KEY,
+                            id TEXT PRIMARY KEY,
                             joblib_object BYTEA,
                             pickle_object BYTEA NOT NULL,
                             FOREIGN KEY (id) REFERENCES MLModels(id)
@@ -281,7 +281,7 @@ class AIODBManager:
                         
                         CREATE TABLE IF NOT EXISTS ModelGridSearchCVResults (
                             id SERIAL,
-                            model_id INT REFERENCES MLModels(id) ON DELETE CASCADE,
+                            model_id TEXT REFERENCES MLModels(id) ON DELETE CASCADE,
                             road_category_id TEXT REFERENCES RoadCategories(id) ON DELETE CASCADE,
                             params JSON NOT NULL,
                             mean_fit_time FLOAT NOT NULL,

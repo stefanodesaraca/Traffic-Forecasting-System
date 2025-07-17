@@ -1,11 +1,11 @@
+import io
 import math
 import gc
-import sys
 import pickle
 import json
 import warnings
 from warnings import simplefilter
-
+import hashlib
 from datetime import datetime
 from typing import Any, Literal, Generator
 from pydantic import BaseModel as PydanticBaseModel, field_validator
@@ -376,6 +376,11 @@ class ModelWrapper(BaseModel):
 
 
     @property
+    def model_id(self) -> str:
+        return hashlib.sha256(self.name.encode('utf-8')).hexdigest()
+
+
+    @property
     def params(self) -> dict[Any, Any]:
         """
         Get the current model's parameters.
@@ -449,7 +454,7 @@ class ModelWrapper(BaseModel):
         #When self.model_obj is a scikit-learn model (for example: RandomForestRegressor), using "if not self.model_obj" internally tries to evaluate the object in a boolean context.
         # For scikit-learn models like RandomForestRegressor, this can trigger special methods like __len__ or others
         # that assume the model has already been fitted (which would populate attributes like estimators_), leading to the AttributeError.
-        if self.model_obj is None:
+        if self.model_obj is None: #WARNING: keep the condition with "is None", setting the condition like "if not self.model_obj" will raise an error. Read above
             raise ModelNotSetError("Model not passed to the wrapper class")
         return self.model_obj
 
@@ -470,7 +475,6 @@ class ModelWrapper(BaseModel):
         Any
             The trained model object.
         """
-
         with joblib.parallel_backend("dask"):
             return self.model_obj.fit(X_train.compute(), y_train.compute())
 
@@ -534,33 +538,6 @@ class ModelWrapper(BaseModel):
         return {k: np.round(s(y_test, y_pred), decimals=4) for k, s in scorer.items()}
 
 
-    def export(self, filepath: str) -> None: #TODO THIS METHOD WILL BE BROUGHT TO THE TFSLearner CLASS AS WELL
-        """
-        Export the model in joblib and pickle formats.
-
-        Parameters
-        ----------
-        filepath : str
-            The full filepath with filename included without file extension.
-
-        Returns
-        -------
-        None
-
-        Notes
-        -----
-        The model will be saved in two formats:
-        - .joblib format using joblib.dump()
-        - .pkl format using pickle.dump()
-
-        The function will exit the program if export fails.
-        """
-        joblib.dump(self.model_obj, filepath + ".joblib", protocol=pickle.HIGHEST_PROTOCOL)
-        with open(filepath + ".pkl", "wb") as ml_pkl_file:
-            pickle.dump(self.model_obj, ml_pkl_file, protocol=pickle.HIGHEST_PROTOCOL)
-        return None
-
-
 
 class TFSLearner:
     """
@@ -613,7 +590,6 @@ class TFSLearner:
                                                              WHERE m.name = {self._model.name}""", single=True)["pickle_object"])
 
 
-
     def export_gridsearch_results(self, results: pd.DataFrame) -> None:
         results["params"] = results["params"].apply(json.dumps) #Binarizing parameters' dictionary
         self._db_broker.send_sql(f"""
@@ -634,13 +610,16 @@ class TFSLearner:
             VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
+            ON CONFLICT (model_id) DO UPDATE;
         """, many=True, many_values=[tuple(row) for row in results.itertuples(index=False, name=None)])
+        return None
+
+
+    def export_best_params(self):
 
         true_best_params = {self._model.name: results["params"].loc[best_params[self._target][self._model.name]]} or {}
-        true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) # This is just to add the classic parameters which are necessary to get both consistent results and maximise the CPU usage to minimize training time. Also, these are the parameters that aren't included in the grid for the grid search algorithm
+        true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name])
         true_best_params["best_GridSearchCV_model_scores"] = results.loc[best_params[self._target][self._model.name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
-
-        json.dump(true_best_params, params_file, indent=4)
 
         #TODO TESTING:
         results.to_json(f"./ops/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
@@ -677,7 +656,7 @@ class TFSLearner:
         'mean_absolute_error'.
         """
 
-        if not gp_toolbox.check_target(self._target):
+        if not self._gp_toolbox.check_target(self._target):
             raise TargetVariableNotFoundError("Wrong target variable in GridSearchCV executor function")
 
         grid = self._model.grid
@@ -692,7 +671,7 @@ class TFSLearner:
             scoring=self._scorer,
             refit="mean_absolute_error",
             return_train_score=True,
-            n_jobs=gp_toolbox.ml_cpus,
+            n_jobs=self._gp_toolbox.ml_cpus,
             scheduler=self._client,
             cv=TimeSeriesSplit(n_splits=5)  # A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
         )  # The models_gridsearch_parameters is obtained from the tfs_models file
@@ -725,6 +704,18 @@ class TFSLearner:
 
         finally:
             gc.collect()
+
+
+    def export_model(self) -> None:
+        #Serializing model into a joblib object directly in memory through the BytesIO class
+        joblib_bytes = io.BytesIO()
+        joblib.dump(self._model, joblib_bytes)
+        joblib_bytes.seek(0)
+        self._db_broker.send_sql(f"""
+                INSERT INTO MLModelObjects (id, joblib_object, pickle_object)
+                VALUES ($1, $2, $3)
+            """, execute_args=[self._model.model_id, joblib_bytes.read(), pickle.dumps(self._model)])
+        return None
 
 
 
