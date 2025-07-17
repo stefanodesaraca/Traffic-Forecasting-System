@@ -721,11 +721,12 @@ class TFSLearner:
 
 class OnePointForecaster:
 
-    def __init__(self, trp_id: str, road_category: str, target: str, client: Client):
+    def __init__(self, trp_id: str, road_category: str, target: str, client: Client, gp_toolbox: GeneralPurposeToolbox):
         self._trp_id: str = trp_id
         self._road_category: str = road_category
         self._target: str = target
         self._client: Client = client
+        self._gp_toolbox: GeneralPurposeToolbox = gp_toolbox
 
 
     def get_training_records(self, training_mode: Literal[0, 1], limit: int | None = None) -> dd.DataFrame:
@@ -740,13 +741,12 @@ class OnePointForecaster:
         """
         if training_mode == 0:
             if limit is not None:
-                return dd.from_delayed(delayed(dd.read_csv(pmm.get(key="folder_paths.data." + self._target + ".subfolders.clean.path") + self._trp_id + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv").tail(limit).persist()))
+                return dd.read_csv().tail(limit)
             else:
-                return dd.read_csv(pmm.get(key="folder_paths.data." + self._target + ".subfolders.clean.path") + self._trp_id + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv")
+                return dd.read_csv()
         elif training_mode == 1:
             if limit is not None:
-                return dd.from_delayed(delayed(
-                    gp_toolbox.merge(trp_toolbox.get_trp_ids_by_road_category(target=self._target)[self._road_category]).tail(limit).persist()))
+                return gp_toolbox.merge(trp_toolbox.get_trp_ids_by_road_category(target=self._target)[self._road_category]).tail(limit)
             else:
                 return gp_toolbox.merge(trp_toolbox.get_trp_ids_by_road_category(target=self._target)[self._road_category])
         else:
@@ -805,9 +805,9 @@ class OnePointForecaster:
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
         if self._target == GlobalDefinitions.TARGET_DATA.value["V"]:
-            return TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=self._client).preprocess_volumes(z_score=False)
+            return TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=self._client, gp_toolbox=self._gp_toolbox).preprocess_volumes(z_score=False)
         elif self._target == GlobalDefinitions.TARGET_DATA.value["MS"]:
-            return TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=self._client).preprocess_speeds(z_score=False)
+            return TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=self._client, gp_toolbox=self._gp_toolbox).preprocess_speeds(z_score=False)
         else:
             raise TargetVariableNotFoundError("Wrong target variable")
 
