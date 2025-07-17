@@ -3,7 +3,7 @@ import asyncpg
 
 from db_config import DBConfig
 from exceptions import WrongSQLStatement, MissingDataException
-from db_manager import postgres_conn_async
+from db_manager import postgres_conn_async, postgres_conn
 
 
 class AIODBBroker:
@@ -63,9 +63,17 @@ class DBBroker:
         self._db_host = db_host
 
 
-    def send_sql(self, sql: str, single: bool = False, many: bool = False, many_values: list[tuple[Any, ...]] | None = None) -> Any:
-        ...
-
+    def send_sql(self, sql: str, single: bool = False) -> Any:
+        with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
+            with conn.transaction():
+                if any(sql.startswith(prefix) for prefix in ["SELECT", "select"]):
+                    if single:
+                        return conn.fetchone(sql)
+                    return conn.fetchall(sql)
+                elif any(sql.startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "insert", "update", "delete"]):
+                    return conn.execute(sql)
+                else:
+                    raise WrongSQLStatement("The SQL query isn't correct")
 
 
 
