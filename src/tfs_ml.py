@@ -406,19 +406,6 @@ class ModelWrapper(BaseModel):
         return self.model_obj.__sklearn_is_fitted__()
 
 
-    @property
-    def grid(self) -> dict[str, Any]: #TODO TO REMOVE, THE GRID WILL DIRECTLY BE COLLECTED FROM A SPECIFIC METHOD IN THE TFSLearner CLASS
-        """
-        Get the model's custom hyperparameter grid.
-
-        Returns
-        -------
-        dict[str, Any]
-            The model's grid for hyperparameter tuning.
-        """
-        return grids[self.target][self.name]
-
-
     def set(self, model_object: Any) -> None:
         """
         Set the model object in the wrapper. Basically just imputing a model object (not an instance) inside the wrapper
@@ -576,6 +563,18 @@ class TFSLearner:
         self._gp_toolbox: GeneralPurposeToolbox = gp_toolbox
 
 
+    def _get_grid(self) -> dict[str, Any]:
+        """
+        Get the model's custom hyperparameter grid.
+
+        Returns
+        -------
+        dict[str, Any]
+            The model's grid for hyperparameter tuning.
+        """
+        return self._db_broker.send_sql()
+
+
     def get_model(self) -> ModelWrapper:
         return self._model
 
@@ -617,16 +616,15 @@ class TFSLearner:
 
     def export_best_params(self, results: pd.DataFrame):
 
-        best_params_idx = self._db_broker.send_sql(f"""SELECT {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx'} 
-                                                       FROM MLModels
-                                                    """) #TODO DEPENDING ON self._target
+        best_params_idx: int = self._db_broker.send_sql(sql=f"""SELECT {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx'} 
+                                                                FROM MLModels""", single=True)['best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx']
 
-        true_best_params = {self._model.name: results["params"].loc[best_params[self._target][self._model.name]]} or {}
-        true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name])
-        true_best_params["best_GridSearchCV_model_scores"] = results.loc[best_params[self._target][self._model.name]].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
+        true_best_params = results["params"].iloc[best_params_idx] or {}
+        #true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) #TODO READ THE TODO BELOW
+        true_best_params["best_GridSearchCV_model_scores"] = results.iloc[best_params_idx].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
-        #TODO TESTING:
-        results.to_json(f"./ops/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
+        #TODO TESTING -> CHECK IF AUXILIARY PARAMETERS ARE INCLUDED WITHOUT ADDING THEM SPECIFICALLY
+        results.to_json(f"./project_data/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
 
         return None
 
