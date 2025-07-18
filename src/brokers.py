@@ -18,7 +18,7 @@ class AIODBBroker:
         self._db_host = db_host
 
 
-    async def send_sql(self, sql: str, single: bool = False, many: bool = False, many_values: list[tuple[Any, ...]] | None = None) -> Any:
+    async def send_sql_async(self, sql: str, single: bool = False, many: bool = False, many_values: list[tuple[Any, ...]] | None = None) -> Any:
         async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
                 if any(sql.startswith(prefix) for prefix in ["SELECT", "select"]):
@@ -35,13 +35,13 @@ class AIODBBroker:
                     raise WrongSQLStatement("The SQL query isn't correct")
 
 
-    async def get_trp_ids(self) -> list[asyncpg.Record]:
+    async def get_trp_ids_async(self) -> list[asyncpg.Record]:
         async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
                 return await conn.fetch("""SELECT id FROM TrafficRegistrationPoints;""")
 
 
-    async def get_trp_ids_by_road_category(self) -> list[asyncpg.Record]:
+    async def get_trp_ids_by_road_category_async(self) -> list[asyncpg.Record]:
         async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
                 return await conn.fetch("""SELECT json_object_agg(road_category, ids) AS result
@@ -52,7 +52,7 @@ class AIODBBroker:
                                            ) AS sub;""")
 
 
-    async def get_volume_date_boundaries(self) -> dict[str, Any]:
+    async def get_volume_date_boundaries_async(self) -> dict[str, Any]:
         async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
                 result = await conn.fetchrow("""
@@ -62,7 +62,7 @@ class AIODBBroker:
                 return {"min": result["volume_start_date"], "max": result["volume_end_date"]} #Respectively: min and max
 
 
-    async def get_mean_speed_date_boundaries(self) -> dict[str, Any]:
+    async def get_mean_speed_date_boundaries_async(self) -> dict[str, Any]:
         async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
                 result = await conn.fetchrow("""

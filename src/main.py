@@ -156,7 +156,7 @@ def execute_forecast_warmup(functionality: str) -> None:
     def process_functionality(target: str, function: callable) -> None:
         function_name = function.__name__
 
-        for road_category, files in trp_toolbox.get_trp_ids_by_road_category(target=target).items():
+        for road_category, files in trp_toolbox.get_trp_ids_by_road_category_async().items():
             X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
 
             for model in models:
@@ -207,7 +207,7 @@ def execute_forecasting(functionality: str) -> None:
     if functionality == "3.3.1":
 
         with dask_cluster_client(processes=False) as client:
-            trp_ids = trp_toolbox.get_trp_ids()
+            trp_ids = trp_toolbox.get_trp_ids_async()
             print("TRP IDs: ", trp_ids)
             trp_id = input("Insert TRP ID for forecasting: ")
 

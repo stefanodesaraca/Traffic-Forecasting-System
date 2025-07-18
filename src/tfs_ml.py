@@ -726,11 +726,12 @@ class TFSLearner:
 
 class OnePointForecaster:
 
-    def __init__(self, trp_id: str, road_category: str, target: str, client: Client, gp_toolbox: GeneralPurposeToolbox):
+    def __init__(self, trp_id: str, road_category: str, target: str, client: Client, db_broker: DBBroker, gp_toolbox: GeneralPurposeToolbox):
         self._trp_id: str = trp_id
         self._road_category: str = road_category
         self._target: str = target
         self._client: Client = client
+        self._db_broker: DBBroker = db_broker
         self._gp_toolbox: GeneralPurposeToolbox = gp_toolbox
 
 
@@ -751,9 +752,10 @@ class OnePointForecaster:
                 return dd.read_csv()
         elif training_mode == 1:
             if limit is not None:
-                return gp_toolbox.merge(trp_toolbox.get_trp_ids_by_road_category(target=self._target)[self._road_category]).tail(limit)
+                return gp_toolbox.merge(
+                    trp_toolbox.get_trp_ids_by_road_category_async()[self._road_category]).tail(limit)
             else:
-                return gp_toolbox.merge(trp_toolbox.get_trp_ids_by_road_category(target=self._target)[self._road_category])
+                return gp_toolbox.merge(trp_toolbox.get_trp_ids_by_road_category_async()[self._road_category])
         else:
             raise WrongTrainRecordsRetrievalMode("training_mode parameter value is not valid")
 

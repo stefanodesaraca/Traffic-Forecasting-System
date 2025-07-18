@@ -134,7 +134,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
 
         #TODO FOR TESTING PURPOSES
-        context = pd.DataFrame(await self._db_broker.send_sql(sql=f"""SELECT *
+        context = pd.DataFrame(await self._db_broker.send_sql_async(sql=f"""SELECT *
                                                                         FROM Volume
                                                                         ORDER BY zoned_dt_iso DESC
                                                                         LIMIT {mice_past_window};
@@ -147,7 +147,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
         self.data = pd.concat([
                                 self.data[["trp_id", "is_mice", "zoned_dt_iso"]],
-                                await asyncio.to_thread(pd.DataFrame, await self._db_broker.send_sql(sql=f"""SELECT *
+                                await asyncio.to_thread(pd.DataFrame, await self._db_broker.send_sql_async(sql=f"""SELECT *
                                                                                                                      FROM Volume
                                                                                                                      ORDER BY zoned_dt_iso DESC
                                                                                                                      LIMIT {mice_past_window};
@@ -171,9 +171,9 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         if fields:
             self.data = self.data[[fields]]
 
-        await self._db_broker.send_sql(f"""
+        await self._db_broker.send_sql_async(f"""
             INSERT INTO Volume ({', '.join(fields)})
-            VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields)+1))})
+            VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields) + 1))})
             ON CONFLICT ON CONSTRAINT unique_volume_per_trp_and_time DO NOTHING;
         """, many=True, many_values=list(self.data.itertuples(index=False, name=None)))
 
@@ -227,9 +227,9 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
             pass
         if fields:
             self.data = self.data[[fields]]
-        await self._db_broker.send_sql(f"""
+        await self._db_broker.send_sql_async(f"""
             INSERT INTO MeanSpeed ({', '.join(fields)})
-            VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields)+1))})
+            VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields) + 1))})
             ON CONFLICT ON CONSTRAINT unique_mean_speed_per_trp_and_time DO NOTHING;
         """, many=True, many_values=list(self.data.itertuples(index=False, name=None)))
 
