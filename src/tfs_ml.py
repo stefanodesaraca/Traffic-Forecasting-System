@@ -760,13 +760,13 @@ class OnePointForecaster:
             raise WrongTrainRecordsRetrievalMode("training_mode parameter value is not valid")
 
 
-    def get_future_records(self, target_datetime: datetime.datetime) -> dd.DataFrame:
+    def get_future_records(self, forecasting_horizon: datetime.datetime) -> dd.DataFrame:
         """
         Generate records of the future to predict.
 
         Parameters
         ----------
-        target_datetime : datetime
+        forecasting_horizon : datetime
             The target datetime which we want to predict data for and before.
 
         Returns
@@ -777,45 +777,20 @@ class OnePointForecaster:
 
         attr = {"volume": np.nan} if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else {"mean_speed": np.nan, "percentile_85": np.nan}
 
-        def get_batches(iterable: list[dict[str, Any]] | Generator[dict[str, Any], None, None], batch_size: int) -> Generator[list[dict[str, Any]], None, None]:
-            """
-            Returns a generator of a maximum of n elements where n is defined by the 'batch_size' parameter.
-
-            Parameters:
-                iterable: an iterable to slice into batches
-                batch_size: the maximum size of each batch
-
-            Returns:
-                A generator of a batch
-            """
-            iterator = iter(iterable) if isinstance(iterable, list) else iterable
-            while True:
-                batch = []
-                for _ in range(batch_size):
-                    try:
-                        batch.append(next(iterator))
-                    except StopIteration:
-                        break
-                if not batch:
-                    break
-                yield batch
-
-
-        last_available_data_dt = datetime.datetime.strptime() #TODO LOAD FROM DB AND REMOVE DATETIME TYPE CASTING
-        rows_to_predict = dd.from_delayed([delayed(pd.DataFrame)(batch) for batch in get_batches(
-            ({
+        last_available_data_dt = self._db_broker.get_volume_date_boundaries()["max"] if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else self._db_broker.get_mean_speed_date_boundaries()["max"] #TODO LOAD FROM DB AND REMOVE DATETIME TYPE CASTING
+        rows_to_predict = ({
                 **attr,
                 "coverage": np.nan,
                 "zoned_dt_iso": dt,
                 "is_mice": False, #Being a future record to predict it's not a MICEd record
                 "trp_id": self._trp_id
-            } for dt in pd.date_range(start=last_available_data_dt, end=target_datetime, freq="1h")), batch_size=max(1, math.ceil((target_datetime - last_available_data_dt).days * 0.20)))]).repartition(partition_size="512MB").persist()
+            } for dt in pd.date_range(start=last_available_data_dt, end=forecasting_horizon, freq="1h"))
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
         if self._target == GlobalDefinitions.TARGET_DATA.value["V"]:
-            return TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=self._client, gp_toolbox=self._gp_toolbox).preprocess_volumes(z_score=False)
+            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)), road_category=self._road_category, client=self._client, gp_toolbox=self._gp_toolbox).preprocess_volumes(z_score=False)
         elif self._target == GlobalDefinitions.TARGET_DATA.value["MS"]:
-            return TFSPreprocessor(data=rows_to_predict, road_category=self._road_category, client=self._client, gp_toolbox=self._gp_toolbox).preprocess_speeds(z_score=False)
+            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)), road_category=self._road_category, client=self._client, gp_toolbox=self._gp_toolbox).preprocess_speeds(z_score=False)
         else:
             raise TargetVariableNotFoundError("Wrong target variable")
 
