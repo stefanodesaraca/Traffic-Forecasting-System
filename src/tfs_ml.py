@@ -746,16 +746,13 @@ class OnePointForecaster:
                    Example: if we had a limit of 2000, we'll only collect the latest 2000 records.
         """
         if training_mode == 0:
-            if limit is not None:
+            if not limit:
                 return dd.read_csv().tail(limit)
-            else:
-                return dd.read_csv()
+            return dd.read_csv()
         elif training_mode == 1:
-            if limit is not None:
-                return gp_toolbox.merge(
-                    trp_toolbox.get_trp_ids_by_road_category_async()[self._road_category]).tail(limit)
-            else:
-                return gp_toolbox.merge(trp_toolbox.get_trp_ids_by_road_category_async()[self._road_category])
+            if not limit:
+                return self._gp_toolbox.merge(self._db_broker.get_trp_ids_by_road_category()).tail(limit) #TODO convert records to dict and use dd.from_dict?
+            return self._gp_toolbox.merge(self._db_broker.get_trp_ids_by_road_category()) #TODO convert records to dict and use dd.from_dict?
         else:
             raise WrongTrainRecordsRetrievalMode("training_mode parameter value is not valid")
 
