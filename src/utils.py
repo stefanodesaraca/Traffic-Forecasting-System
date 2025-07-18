@@ -161,22 +161,6 @@ class RoadNetworkToolbox(BaseModel):
 class ForecastingToolbox:
     def __init__(self, db_broker: AIODBBroker):
         self._db_broker = db_broker
-        self.gp_toolbox = GeneralPurposeToolbox()
-
-    async def _get_volume_date_boundaries(self) -> dict[str, Any]:
-        result = await self._db_broker.send_sql("""
-            SELECT MIN(zoned_dt_iso) as latest, MAX(zoned_dt_iso) as earliest
-            FROM Volume
-        """)
-        return {"min": result["earliest"], "max": result["latest"]} #Respectively: min and max
-
-
-    async def _get_mean_speed_date_boundaries(self) -> dict[str, Any]:
-        result = await self._db_broker.send_sql("""
-            SELECT MIN(zoned_dt_iso) as latest, MAX(zoned_dt_iso) as earliest
-            FROM MeanSpeed
-        """)
-        return {"min": result["earliest"], "max": result["latest"]} #Respectively: min and max
 
 
     async def set_forecasting_horizon(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
@@ -196,9 +180,9 @@ class ForecastingToolbox:
         print("Maximum number of days to forecast: ", max_forecasting_window_size)
 
         if option == "V":
-            last_available_data_dt = (await self._get_volume_date_boundaries())["max"]
+            last_available_data_dt = (await self._db_broker.get_volume_date_boundaries())["max"]
         elif option == "MS":
-            _, last_available_data_dt = (await self._get_mean_speed_date_boundaries())["max"]
+            _, last_available_data_dt = (await self._db_broker.get_mean_speed_date_boundaries())["max"]
         else:
             raise ValueError("Wrong data option, try again")
 

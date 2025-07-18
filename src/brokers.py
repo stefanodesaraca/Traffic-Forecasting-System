@@ -52,6 +52,26 @@ class AIODBBroker:
                                            ) AS sub;""")
 
 
+    async def get_volume_date_boundaries(self) -> dict[str, Any]:
+        async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
+            async with conn.transaction():
+                result = await conn.fetchrow("""
+                    SELECT volume_start_date, volume_end_date
+                    FROM VolumeMeanSpeedDateRangesView
+                """)
+                return {"min": result["volume_start_date"], "max": result["volume_end_date"]} #Respectively: min and max
+
+
+    async def get_mean_speed_date_boundaries(self) -> dict[str, Any]:
+        async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
+            async with conn.transaction():
+                result = await conn.fetchrow("""
+                    SELECT mean_speed_start_date, mean_speed_end_date
+                    FROM VolumeMeanSpeedDateRangesView
+                """)
+                return {"min": result["mean_speed_start_date"], "max": result["mean_speed_end_date"]} #Respectively: min and max
+
+
 
 class DBBroker:
     #The SyncDBBroker returns records directly from the db without any transformation to ensure

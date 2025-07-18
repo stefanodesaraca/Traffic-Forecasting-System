@@ -713,8 +713,7 @@ class TFSLearner:
 
 
     def export_model(self) -> None:
-        #Serializing model into a joblib object directly in memory through the BytesIO class
-        joblib_bytes = io.BytesIO()
+        joblib_bytes = io.BytesIO() #Serializing model into a joblib object directly in memory through the BytesIO class
         joblib.dump(self._model, joblib_bytes)
         joblib_bytes.seek(0)
         self._db_broker.send_sql(f"""
@@ -800,7 +799,7 @@ class OnePointForecaster:
                 yield batch
 
 
-        last_available_data_dt = datetime.datetime.strptime(pmm.get(key=self._target + ".end_date_iso"), GlobalDefinitions.DT_ISO.value) #TODO LOAD FROM DB AND REMOVE DATETIME TYPE CASTING
+        last_available_data_dt = datetime.datetime.strptime() #TODO LOAD FROM DB AND REMOVE DATETIME TYPE CASTING
         rows_to_predict = dd.from_delayed([delayed(pd.DataFrame)(batch) for batch in get_batches(
             ({
                 **attr,
