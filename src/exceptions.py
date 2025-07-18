@@ -59,3 +59,13 @@ class MissingDataException(Exception):
         super().__init__(self.message)
 
 
+class NoDataError(Exception):
+    def __init__(self, message: str):
+        self.message: str = message
+        super().__init__(self.message)
+
+
+
+
+
+

@@ -17,7 +17,7 @@ from dask import delayed
 import dask.distributed
 from dask.distributed import Client, LocalCluster
 
-from exceptions import TargetVariableNotFoundError, WrongSplittingMode, TargetDataNotAvailableError
+from exceptions import TargetVariableNotFoundError, WrongSplittingMode, TargetDataNotAvailableError, NoDataError
 from src.brokers import AIODBBroker
 
 pd.set_option("display.max_columns", None)
@@ -99,20 +99,20 @@ class GeneralPurposeToolbox(BaseModel):
 
 
     @staticmethod
-    def merge(filepaths: list[str]) -> dd.DataFrame:
+    def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:
         """
-        Data merger function for traffic volumes or average speed data
+        Dask Dataframes merger function
         Parameters:
-            filepaths: a list of files to read data from
+            dfs: a list of Dask Dataframes to concatenate
         """
         try:
-            merged_data = dd.concat([dd.read_csv(trp) for trp in filepaths], axis=0)
-            merged_data = merged_data.repartition(partition_size="512MB")
-            merged_data = merged_data.sort_values(["date"], ascending=True)  # Sorting records by date
-            return merged_data.persist()
+            return (dd.concat(dfs, axis=0)
+                    .repartition(partition_size="512MB")
+                    .sort_values(["zoned_dt_iso"], ascending=True)
+                    .persist())  # Sorting records by date
         except ValueError as e:
-            print(f"\033[91mNo data to concatenate. Error: {e}\033[0m")
-            sys.exit(1)
+            raise NoDataError(f"No data to concatenate. Error: {e}")
+
 
 
     @staticmethod
