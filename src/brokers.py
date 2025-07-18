@@ -101,6 +101,24 @@ class DBBroker:
                     raise WrongSQLStatement("The SQL query isn't correct")
 
 
+    def get_volume_date_boundaries(self) -> dict[str, Any]:
+        with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
+            with conn.transaction():
+                result = conn.fetchone("""
+                    SELECT volume_start_date, volume_end_date
+                    FROM VolumeMeanSpeedDateRangesView
+                """)
+                return {"min": result["volume_start_date"], "max": result["volume_end_date"]} #Respectively: min and max
+
+
+    def get_mean_speed_date_boundaries(self) -> dict[str, Any]:
+        with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
+            with conn.transaction():
+                result = conn.fetchone("""
+                    SELECT mean_speed_start_date, mean_speed_end_date
+                    FROM VolumeMeanSpeedDateRangesView
+                """)
+                return {"min": result["mean_speed_start_date"], "max": result["mean_speed_end_date"]} #Respectively: min and max
 
 
 
