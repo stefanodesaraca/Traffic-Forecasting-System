@@ -1,9 +1,8 @@
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Literal, Generator
+from typing import Literal
 from enum import Enum
 import os
-import sys
 import asyncio
 from functools import lru_cache
 import pandas as pd
@@ -14,7 +13,6 @@ from dateutil.relativedelta import relativedelta
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic.types import PositiveInt
 from dask import delayed
-import dask.distributed
 from dask.distributed import Client, LocalCluster
 
 from exceptions import TargetVariableNotFoundError, WrongSplittingMode, TargetDataNotAvailableError, NoDataError
@@ -114,7 +112,6 @@ class GeneralPurposeToolbox(BaseModel):
             raise NoDataError(f"No data to concatenate. Error: {e}")
 
 
-
     @staticmethod
     def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
         df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
@@ -201,13 +198,13 @@ class ForecastingToolbox:
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
         await self._db_broker.send_sql_async(f"""UPDATE ForecastingSettings
-                                          SET config = jsonb_set(
-                                              config,
-                                              '{'{volume_forecasting_horizon}' if option == "V" else '{mean_speed_forecasting_horizon}'}'
-                                              to_jsonb('{horizon}'::timestamptz::text),
-                                              TRUE
-                                          )
-                                          WHERE id = TRUE;""")
+                                                 SET config = jsonb_set(
+                                                     config,
+                                                     '{'{volume_forecasting_horizon}' if option == "V" else '{mean_speed_forecasting_horizon}'}'
+                                                     to_jsonb('{horizon}'::timestamptz::text),
+                                                     TRUE
+                                                 )
+                                                 WHERE id = TRUE;""")
         #The TRUE after to_jsonb(...) is needed to create the record in case it didn't exist before
 
         return None

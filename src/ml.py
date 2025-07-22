@@ -1,5 +1,4 @@
 import io
-import math
 import gc
 import pickle
 import json
@@ -7,7 +6,7 @@ import warnings
 from warnings import simplefilter
 import hashlib
 import datetime
-from typing import Any, Literal, Generator
+from typing import Any, Literal
 from pydantic import BaseModel as PydanticBaseModel, field_validator
 from pydantic.types import PositiveFloat
 import numpy as np
@@ -15,7 +14,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import joblib
 
-from dask import delayed
 import dask.dataframe as dd
 from dask.distributed import Client
 
@@ -37,10 +35,8 @@ from sklearn.metrics import (
 from sktime.base import BaseEstimator as SktimeBaseEstimator
 from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastingBaseModel
 
-from ml_configs import grids
-
 from exceptions import WrongEstimatorTypeError, ModelNotSetError, TargetVariableNotFoundError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
-from src.brokers import DBBroker
+from brokers import DBBroker
 from utils import GlobalDefinitions, GeneralPurposeToolbox
 
 
@@ -751,10 +747,9 @@ class OnePointForecaster:
             return dd.read_csv()
         elif training_mode == 1:
             if not limit:
-                return self._gp_toolbox.merge(self._db_broker.get_trp_ids_by_road_category()).tail(limit) #TODO convert records to dict and use dd.from_dict?
-            return self._gp_toolbox.merge(self._db_broker.get_trp_ids_by_road_category()) #TODO convert records to dict and use dd.from_dict?
-        else:
-            raise WrongTrainRecordsRetrievalMode("training_mode parameter value is not valid")
+                return self._gp_toolbox.merge(self._db_broker.get_trp_ids_by_road_category()).tail(limit) #TODO convert records to dict and use dd.from_dict? #TODO limit can be None, correct that
+            return self._gp_toolbox.merge(self._db_broker.get_trp_ids_by_road_category()) #TODO convert records to dict and use dd.from_dict? #TODO limit can be None, correct that
+        raise WrongTrainRecordsRetrievalMode("training_mode parameter value is not valid")
 
 
     def get_future_records(self, forecasting_horizon: datetime.datetime) -> dd.DataFrame:

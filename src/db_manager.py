@@ -9,7 +9,6 @@ import psycopg
 from psycopg.rows import tuple_row, dict_row
 from cleantext import clean
 
-from db_config import DBConfig
 from downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
 
 
@@ -59,10 +58,8 @@ class AIODBManager:
         self._maintenance_db = maintenance_db
 
 
-    @staticmethod
-    async def _check_db(dbname: str) -> bool:
-        async with postgres_conn_async(user=DBConfig.SUPERUSER.value, password=DBConfig.SUPERUSER_PASSWORD.value,
-                                       dbname="postgres") as conn:
+    async def _check_db(self, dbname: str) -> bool:
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname="postgres") as conn:
             return await conn.fetchval(
                     "SELECT 1 FROM pg_database WHERE datname = $1",
                     dbname
@@ -173,8 +170,7 @@ class AIODBManager:
     async def create_project(self, name: str, lang: str, auto_project_setup: bool = True) -> None:
 
         # -- New Project DB Setup --
-        async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
-                                       dbname=self._maintenance_db) as conn:
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
             # Accessing as superuser since some tools may require this configuration to create a new database
             async with conn.transaction():
                 await conn.execute(f"""CREATE DATABASE {name};""")
@@ -346,8 +342,7 @@ class AIODBManager:
                 """)
 
         # -- New Project Metadata Insertions --
-        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password,
-                                       dbname=DBConfig.HUB_DB.value) as conn:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
             new_project = await conn.fetchrow(
                 "INSERT INTO Projects (name, lang) VALUES ($1, $2) RETURNING *",
                 name, lang
@@ -373,16 +368,14 @@ class AIODBManager:
         # -- Initialize users and DBs --
 
         #Accessing as superuser and creating tfs user
-        async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
-                                       dbname=self._maintenance_db) as conn:
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
             try:
                 await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
                 print(f"User 'tfs' created.")
             except asyncpg.DuplicateObjectError:
                 print(f"User 'username' already exists.")
 
-        async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
-                                       dbname=self._maintenance_db) as conn:
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
             try:
                 await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
                 print(f"User 'tfs' created.")
@@ -390,12 +383,11 @@ class AIODBManager:
                 print(f"User 'username' already exists.")
 
 
-        if not await self._check_db(dbname=DBConfig.HUB_DB.value):
-            async with postgres_conn_async(user=DBConfig.TFS_USER.value, password=DBConfig.TFS_PASSWORD.value,
-                                           dbname=DBConfig.HUB_DB.value) as conn:
+        if not await self._check_db(dbname=self._hub_db):
+            async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
                 try:
                     await conn.execute(f"""
-                    CREATE DATABASE {DBConfig.HUB_DB.value}
+                    CREATE DATABASE {self._hub_db}
                     """)
                 except DuplicateDatabaseError:
                     pass

@@ -1,5 +1,6 @@
 from typing import Any, Literal
 import asyncpg
+import psycopg
 
 from db_config import DBConfig
 from exceptions import WrongSQLStatement, MissingDataException
@@ -101,21 +102,27 @@ class DBBroker:
                     raise WrongSQLStatement("The SQL query isn't correct")
 
 
-    def get_trp_ids(self) -> list[asyncpg.Record]:
+    def get_trp_ids(self) -> list[tuple[Any, ...]]:
         with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with conn.transaction():
                 return conn.fetchall("""SELECT id FROM TrafficRegistrationPoints;""")
 
 
-    def get_trp_ids_by_road_category(self) -> list[asyncpg.Record]:
+    def get_trp_ids_by_road_category(self) -> list[tuple[Any, ...]]:
         with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with conn.transaction():
                 return conn.fetchall("""SELECT json_object_agg(road_category, ids) AS result
-                                     FROM (
-                                         SELECT road_category, json_agg(id ORDER BY id) AS ids
-                                         FROM TrafficRegistrationPoints
-                                         GROUP BY road_category
-                                     ) AS sub;""")
+                                        FROM (
+                                            SELECT road_category, json_agg(id ORDER BY id) AS ids
+                                            FROM TrafficRegistrationPoints
+                                            GROUP BY road_category
+                                        ) AS sub;
+                                     """)
+            #Output example:
+            #{
+            #    "E": ["17684V2460285", "17900V111222"],
+            #    "R": ["03375V625405"]
+            #}
 
 
     def get_volume_date_boundaries(self) -> dict[str, Any]:

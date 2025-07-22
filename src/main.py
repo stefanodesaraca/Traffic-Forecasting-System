@@ -9,11 +9,22 @@ import dask.dataframe as dd
 
 from exceptions import TRPNotFoundError, TargetVariableNotFoundError, TargetDataNotAvailableError
 
+from db_config import DBConfig
+from db_manager import AIODBManager
 from downloader import volumes_to_db
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
-from tfs_ml import TFSLearner, TFSPreprocessor, OnePointForecaster
-from tfs_road_network import *
+from ml import TFSLearner, TFSPreprocessor, OnePointForecaster
+from road_network import *
 from utils import GlobalDefinitions, dask_cluster_client
+
+
+
+
+async def initialize():
+    db_manager_async = AIODBManager()
+
+
+
 
 
 def manage_ops(functionality: str) -> None:
