@@ -9,6 +9,7 @@ import psycopg
 from psycopg.rows import tuple_row, dict_row
 from cleantext import clean
 
+from exceptions import ProjectDBNotFoundError, ProjectDBNotRegisteredError
 from downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
 
 
@@ -60,10 +61,16 @@ class AIODBManager:
 
     async def _check_db(self, dbname: str) -> bool:
         async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname="postgres") as conn:
-            return await conn.fetchval(
+            project_db_check = await conn.fetchval(
                     "SELECT 1 FROM pg_database WHERE datname = $1",
                     dbname
-                ) == 1
+                ) == 1 #First check layer
+            project_record_check = bool(await conn.fetchrow(f"SELECT * FROM Projects LIMIT 1 WHERE name = {dbname}")) #Second check layer
+            if not project_db_check:
+                raise ProjectDBNotFoundError("Project DB doesn't exist")
+            elif not project_record_check:
+                raise ProjectDBNotRegisteredError("Project DB exists, but hasn't been registered within the ones available")
+            return True
 
 
     @staticmethod
@@ -401,14 +408,14 @@ class AIODBManager:
                             id SERIAL PRIMARY KEY,
                             name TEXT,
                             lang TEXT
-                         )
+                        )
                          
-                         CREATE TABLE IF NOT EXISTS Metadata (
+                        CREATE TABLE IF NOT EXISTS Metadata (
                             id SERIAL PRIMARY KEY,
                             current_project_id TEXT,
                             lang TEXT,
                             FOREIGN KEY (current_project_id) REFERENCES Projects(id)
-                         )
+                        )
                 """)
 
 
@@ -429,10 +436,18 @@ class AIODBManager:
         return None
 
 
+    async def set_current_project(self, name: str) -> None:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
+            await self._check_db(name) #If the project doesn't exist raise error
 
 
 
 
+
+
+    #TODO DELETE PROJECT (BOTH THE DB AND THE RECORD IN Projects)
+    # RESET THE CURRENT PROJECT IF IT WAS THE CURRENT ONE
+    # RESET TO THE ONE WITH THE LATEST CREATION TIMESTAMP OR IF THERE AREN'T ANY OTHER PROJECT LET THE USER CREATE ANOTHER ONE
 
 
 

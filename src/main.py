@@ -34,12 +34,12 @@ async def initialize() -> None:
 
 
 async def manage_global(functionality: str) -> None:
-    db_manager_async = await get_db_manager_async()
+    db_manager_broker_async = await get_aiodbmanager_broker()
     if functionality == "1.1":
-        await db_manager_async.create_project(name=input("Insert new project name: "), lang="en", auto_project_setup=True)
+        await db_manager_broker_async.create_project(name=input("Insert new project name: "), lang="en", auto_project_setup=True)
 
     elif functionality == "1.2":
-        await db_manager_async.set_current_project(gp_toolbox.clean_text(input("Insert the operation to set as active: ")))
+        await db_manager_broker_async.set_current_project(input("Insert the operation to set as active: "))
 
     elif functionality == "1.3":
         print("Current project: ", pjh.get_current_project(), "\n\n")
@@ -48,7 +48,7 @@ async def manage_global(functionality: str) -> None:
         pjh.reset_current_project()
 
     elif functionality == "1.5":
-        pjh.delete_project(gp_toolbox.clean_text(input("Insert the name of the project to delete: "))) #TODO OPERATION NOT PERMITTED???
+        pjh.delete_project(input("Insert the name of the project to delete: ")) #TODO OPERATION NOT PERMITTED???
 
     else:
         print("\033[91mFunctionality not found, try again with a correct one\033[0m")
@@ -333,6 +333,8 @@ def main():
     5.4 Find best model for the current operation
     5.5 Analyze pre-existing road network graph
 0. Exit""")
+
+        asyncio.run(initialize())
 
         option = input("Choice: ")
         print()

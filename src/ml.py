@@ -743,7 +743,7 @@ class OnePointForecaster:
         """
         if training_mode == 0:
             if not limit:
-                return dd.read_csv().tail(limit)
+                return tail(limit)
             return dd.read_csv()
         elif training_mode == 1:
             if not limit:

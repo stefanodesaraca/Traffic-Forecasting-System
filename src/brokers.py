@@ -179,9 +179,9 @@ class AIODBManagerBroker:
         return None
 
 
-
-
-
+    async def create_project(self, name: str, lang: str = "en", auto_project_setup: bool = True) -> None:
+        await (await self._get_db_manager_async()).create_project(name=name, lang=lang, auto_project_setup=auto_project_setup)
+        return None
 
 
 
