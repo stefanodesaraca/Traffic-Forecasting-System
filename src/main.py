@@ -9,7 +9,7 @@ import dask.dataframe as dd
 from exceptions import TRPNotFoundError, TargetVariableNotFoundError, TargetDataNotAvailableError
 
 from db_config import DBConfig
-from db_manager import AIODBManager
+from brokers import AIODBManagerBroker
 from downloader import volumes_to_db
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
 from ml import TFSLearner, TFSPreprocessor, OnePointForecaster
@@ -19,25 +19,27 @@ from utils import GlobalDefinitions, dask_cluster_client
 
 
 
+
+
 async def initialize() -> None:
-    db_manager_async = AIODBManager(superuser=DBConfig.SUPERUSER.value,
-                                    superuser_password=DBConfig.SUPERUSER_PASSWORD.value,
-                                    tfs_user=DBConfig.TFS_USER.value,
-                                    tfs_password=DBConfig.TFS_PASSWORD.value,
-                                    hub_db=DBConfig.HUB_DB.value,
-                                    maintenance_db=DBConfig.MAINTENANCE_DB.value
-    )
-    await db_manager_async.init(auto_project_setup=True)
+    broker = AIODBManagerBroker(DBConfig.SUPERUSER.value,
+                                DBConfig.SUPERUSER_PASSWORD.value,
+                                DBConfig.TFS_USER.value,
+                                DBConfig.TFS_PASSWORD.value,
+                                DBConfig.HUB_DB.value,
+                                DBConfig.MAINTENANCE_DB.value)
+    await (await get_db_manager_async()).init(auto_project_setup=True)
     return None
 
 
 
-def manage_ops(functionality: str) -> None:
+async def manage_global(functionality: str) -> None:
+    db_manager_async = await get_db_manager_async()
     if functionality == "1.1":
-        pjh.create_project(gp_toolbox.clean_text(input("Insert new project name: ")))
+        await db_manager_async.create_project(name=input("Insert new project name: "), lang="en", auto_project_setup=True)
 
     elif functionality == "1.2":
-        pjh.set_current_project(gp_toolbox.clean_text(input("Insert the operation to set as active: ")))
+        await db_manager_async.set_current_project(gp_toolbox.clean_text(input("Insert the operation to set as active: ")))
 
     elif functionality == "1.3":
         print("Current project: ", pjh.get_current_project(), "\n\n")
@@ -272,11 +274,11 @@ def manage_road_network(functionality: str) -> None:
 
 def main():
     menu_options = {
-        "1.1": manage_ops,
-        "1.2": manage_ops,
-        "1.3": manage_ops,
-        "1.4": manage_ops,
-        "1.5": manage_ops,
+        "1.1": manage_global,
+        "1.2": manage_global,
+        "1.3": manage_global,
+        "1.4": manage_global,
+        "1.5": manage_global,
         "2.1": download_volumes,
         "2.2": download_volumes,
         "3.1.1": manage_forecasting_horizon,

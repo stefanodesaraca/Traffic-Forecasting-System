@@ -2,9 +2,8 @@ from typing import Any, Literal
 import asyncpg
 import psycopg
 
-from db_config import DBConfig
 from exceptions import WrongSQLStatement, MissingDataException
-from db_manager import postgres_conn_async, postgres_conn
+from db_manager import AIODBManager, postgres_conn_async, postgres_conn
 
 
 
@@ -146,7 +145,32 @@ class DBBroker:
 
 
 
+class AIODBManagerBroker:
 
+    def __init__(self,
+                 superuser: str | None = None,
+                 superuser_password: str | None = None,
+                 tfs_user: str | None = None,
+                 tfs_password: str | None = None,
+                 hub_db: str | None = None,
+                 maintenance_db: str | None = None):
+        self._superuser: str | None = superuser
+        self._superuser_password: str | None = superuser_password
+        self._tfs_user: str | None = tfs_user
+        self._tfs_password: str | None = tfs_password
+        self._hub_db: str | None = hub_db
+        self._maintenance_db: str | None = maintenance_db
+
+    async def get_db_manager_async(self) -> AIODBManager:
+        if none_params := [name for name, value in locals().items() if value is None]:
+            raise ValueError(f"Missing required parameters: {', '.join(none_params)}")
+        return AIODBManager(superuser=self._superuser,
+                            superuser_password=self._superuser_password,
+                            tfs_user=self._tfs_user,
+                            tfs_password=self._tfs_password,
+                            hub_db=self._hub_db,
+                            maintenance_db=self._maintenance_db
+        )
 
 
 

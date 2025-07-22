@@ -1,4 +1,6 @@
 python == 3.11.9
+asyncpg
+psycopg
 numpy
 pandas
 matplotlib
