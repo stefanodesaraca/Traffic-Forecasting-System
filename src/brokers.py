@@ -161,7 +161,8 @@ class AIODBManagerBroker:
         self._hub_db: str | None = hub_db
         self._maintenance_db: str | None = maintenance_db
 
-    async def get_db_manager_async(self) -> AIODBManager:
+
+    async def _get_db_manager_async(self) -> AIODBManager:
         if none_params := [name for name, value in locals().items() if value is None]:
             raise ValueError(f"Missing required parameters: {', '.join(none_params)}")
         return AIODBManager(superuser=self._superuser,
@@ -173,6 +174,9 @@ class AIODBManagerBroker:
         )
 
 
+    async def init(self, auto_project_setup: bool = True) -> None:
+        await (await self._get_db_manager_async()).init(auto_project_setup=auto_project_setup)
+        return None
 
 
 

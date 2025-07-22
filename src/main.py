@@ -18,17 +18,17 @@ from utils import GlobalDefinitions, dask_cluster_client
 
 
 
-
+async def get_aiodbmanager_broker():
+    return AIODBManagerBroker(superuser=DBConfig.SUPERUSER.value,
+                                superuser_password=DBConfig.SUPERUSER_PASSWORD.value,
+                                tfs_user=DBConfig.TFS_USER.value,
+                                tfs_password=DBConfig.TFS_PASSWORD.value,
+                                hub_db=DBConfig.HUB_DB.value,
+                                maintenance_db=DBConfig.MAINTENANCE_DB.value)
 
 
 async def initialize() -> None:
-    broker = AIODBManagerBroker(DBConfig.SUPERUSER.value,
-                                DBConfig.SUPERUSER_PASSWORD.value,
-                                DBConfig.TFS_USER.value,
-                                DBConfig.TFS_PASSWORD.value,
-                                DBConfig.HUB_DB.value,
-                                DBConfig.MAINTENANCE_DB.value)
-    await (await get_db_manager_async()).init(auto_project_setup=True)
+    await (await get_aiodbmanager_broker()).init()
     return None
 
 
