@@ -27,7 +27,7 @@ async def postgres_conn_async(user: str, password: str, dbname: str, host: str =
 
 
 @contextmanager
-def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost', autocommit: bool = True, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> asyncpg.connection:
+def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost', autocommit: bool = True, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> psycopg.connection:
     row_factories = {
         "tuple_row": tuple_row,
         "dict_row": dict_row

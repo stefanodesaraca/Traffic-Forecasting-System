@@ -2,7 +2,6 @@ import sys
 import time
 import asyncio
 from typing import cast
-from asyncio import Semaphore
 import pandas as pd
 import dask
 import dask.dataframe as dd
@@ -20,10 +19,16 @@ from utils import GlobalDefinitions, dask_cluster_client
 
 
 
-async def initialize():
-    db_manager_async = AIODBManager()
-
-
+async def initialize() -> None:
+    db_manager_async = AIODBManager(superuser=DBConfig.SUPERUSER.value,
+                                    superuser_password=DBConfig.SUPERUSER_PASSWORD.value,
+                                    tfs_user=DBConfig.TFS_USER.value,
+                                    tfs_password=DBConfig.TFS_PASSWORD.value,
+                                    hub_db=DBConfig.HUB_DB.value,
+                                    maintenance_db=DBConfig.MAINTENANCE_DB.value
+    )
+    await db_manager_async.init(auto_project_setup=True)
+    return None
 
 
 
