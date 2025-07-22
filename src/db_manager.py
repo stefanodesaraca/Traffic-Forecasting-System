@@ -377,17 +377,10 @@ class AIODBManager:
         #Accessing as superuser and creating tfs user
         async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
             try:
-                await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
-                print(f"User 'tfs' created.")
+                await conn.execute(f"CREATE USER '{self._tfs_user}' WITH PASSWORD '{self._tfs_password}'")
+                print(f"User '{self._tfs_user}' created.")
             except asyncpg.DuplicateObjectError:
-                print(f"User 'username' already exists.")
-
-        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
-            try:
-                await conn.execute(f"CREATE USER 'tfs' WITH PASSWORD 'tfs'")
-                print(f"User 'tfs' created.")
-            except asyncpg.DuplicateObjectError:
-                print(f"User 'username' already exists.")
+                print(f"User '{self._tfs_user}' already exists.")
 
 
         if not await self._check_db(dbname=self._hub_db):
@@ -416,7 +409,7 @@ class AIODBManager:
                             lang TEXT,
                             FOREIGN KEY (current_project_id) REFERENCES Projects(id)
                         )
-                """)
+                """) #TODO is_current??
 
 
         # -- Check if any projects exist --
@@ -439,7 +432,10 @@ class AIODBManager:
     async def set_current_project(self, name: str) -> None:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
             await self._check_db(name) #If the project doesn't exist raise error
-
+            await conn.execute("""
+                
+            
+            """)
 
 
 
