@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone, timedelta
 from contextlib import contextmanager
 from typing import Any, Literal
 import asyncio
@@ -351,8 +352,8 @@ class AIODBManager:
         # -- New Project Metadata Insertions --
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
             new_project = await conn.fetchrow(
-                "INSERT INTO Projects (name, lang, is_current) VALUES ($1, $2, $3) RETURNING *",
-                name, lang, False
+                "INSERT INTO Projects (name, lang, is_current, creation_zoned_dt) VALUES ($1, $2, $3, $4) RETURNING *",
+                name, lang, False, datetime.now(tz=timezone(timedelta(hours=1)))
             )
             print(f"New project created: {new_project}")
 
@@ -362,6 +363,10 @@ class AIODBManager:
                 await self._setup_project(conn=conn)
 
         return None
+
+
+    async def delete_project(self, name: str) -> None:
+        ...
 
 
     async def init(self, auto_project_setup: bool = True) -> None:
@@ -379,6 +384,7 @@ class AIODBManager:
 
         # -- Hub DB Initialization --
         if not await self._check_db(dbname=self._hub_db):
+            # -- Hub DB Creation --
             async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
                 try:
                     await conn.execute(f"""
@@ -389,14 +395,14 @@ class AIODBManager:
 
             # -- Hub DB Setup (If It Doesn't Exist) --
             async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
-
-                #Hub DB Projects
+                #Hub DB Tables (Projects)
                 await conn.execute("""
                         CREATE TABLE IF NOT EXISTS Projects (
                             id SERIAL PRIMARY KEY,
                             name TEXT NOT NULL,
                             lang TEXT,
-                            is_current BOOL NOT NULL
+                            is_current BOOL NOT NULL,
+                            creation_zoned_dt TIMESTAMPTZ NOT NULL
                         )
                 """)
 
@@ -448,10 +454,6 @@ class AIODBManager:
 
 
     async def reset_current_project(self, name: str) -> None:
-        ...
-
-
-    async def delete_project(self, name: str) -> None:
         ...
 
 
