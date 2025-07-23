@@ -367,23 +367,22 @@ class AIODBManager:
 
     async def delete_project(self, name: str) -> None:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
-
             # Step 1: Deleting the actual project database
             await conn.execute(f"""
                 DROP DATABASE IF EXISTS {name}
             """)
-
             # Step 2: Deleting the project record from the Projects table in the Hub DB
-            #Executing a transaction directly from the SQL statement
+            # Creating a function that deletes a project by its name and executing a transaction directly from the SQL statement
             await conn.execute(f"""
-                DO $$
+                CREATE OR REPLACE FUNCTION delete_project_by_name(p_name TEXT)
+                RETURNS BOOLEAN AS $$
                 DECLARE
                     deleted_is_current BOOLEAN;
                 BEGIN
                     DELETE FROM Projects
-                    WHERE name = $1
+                    WHERE name = p_name
                     RETURNING is_current INTO deleted_is_current;
-        
+                
                     IF deleted_is_current THEN
                         UPDATE Projects
                         SET is_current = TRUE
@@ -394,13 +393,22 @@ class AIODBManager:
                             LIMIT 1
                         );
                     END IF;
-                END $$;
-                """, name)
-
-        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._maintenance_db) as conn:
-
-
-
+                
+                    RETURN deleted_is_current;
+                END;
+                $$ LANGUAGE plpgsql;
+                """)
+            deleted_is_current = await conn.fetchval("SELECT delete_project_by_name($1)", name)
+            if deleted_is_current and (current_project := await self.get_current_project()): #If deleted_is_current is True...
+                print(f"The deleted project was the current one, now the current project is: {current_project}")
+            else:
+                print("The deleted project was the only one existing. Create a new one or exit the program? - 1: Yes | 0: Exit")
+                if choice := await asyncio.to_thread(lambda: input("Choice: ")) == "1":
+                    await self.init()
+                elif choice == "0":
+                    exit()
+                else:
+                    raise Exception(f"Wrong input {choice}")
         return None
 
 
@@ -465,7 +473,7 @@ class AIODBManager:
         return None
 
 
-    async def get_current_project(self) -> asyncpg.Record:
+    async def get_current_project(self) -> asyncpg.Record | None:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
             async with conn.transaction():
                 return await conn.fetchrow("""
@@ -492,8 +500,6 @@ class AIODBManager:
         ...
 
 
-    #TODO DELETE PROJECT (BOTH THE DB AND THE RECORD IN Projects)
-    # RESET THE CURRENT PROJECT IF IT WAS THE CURRENT ONE
     # RESET TO THE ONE WITH THE LATEST CREATION TIMESTAMP OR IF THERE AREN'T ANY OTHER PROJECT LET THE USER CREATE ANOTHER ONE
 
 
