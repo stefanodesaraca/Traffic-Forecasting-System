@@ -367,28 +367,40 @@ class AIODBManager:
 
     async def delete_project(self, name: str) -> None:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
+
+            # Step 1: Deleting the actual project database
+            await conn.execute(f"""
+                DROP DATABASE IF EXISTS {name}
+            """)
+
+            # Step 2: Deleting the project record from the Projects table in the Hub DB
             #Executing a transaction directly from the SQL statement
-            await conn.execute("""
-            DO $$
-            DECLARE
-                deleted_is_current BOOLEAN;
-            BEGIN
-                DELETE FROM Projects
-                WHERE name = $1
-                RETURNING is_current INTO deleted_is_current;
-    
-                IF deleted_is_current THEN
-                    UPDATE Projects
-                    SET is_current = TRUE
-                    WHERE id = (
-                        SELECT id
-                        FROM Projects
-                        ORDER BY creation_zoned_dt DESC
-                        LIMIT 1
-                    );
-                END IF;
-            END $$;
-            """, name)
+            await conn.execute(f"""
+                DO $$
+                DECLARE
+                    deleted_is_current BOOLEAN;
+                BEGIN
+                    DELETE FROM Projects
+                    WHERE name = $1
+                    RETURNING is_current INTO deleted_is_current;
+        
+                    IF deleted_is_current THEN
+                        UPDATE Projects
+                        SET is_current = TRUE
+                        WHERE id = (
+                            SELECT id
+                            FROM Projects
+                            ORDER BY creation_zoned_dt DESC
+                            LIMIT 1
+                        );
+                    END IF;
+                END $$;
+                """, name)
+
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._maintenance_db) as conn:
+
+
+
         return None
 
 
