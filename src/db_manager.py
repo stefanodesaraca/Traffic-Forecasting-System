@@ -356,10 +356,7 @@ class AIODBManager:
             )
             print(f"New project created: {new_project}")
 
-            await conn.execute(
-                "INSERT INTO Metadata (current_project_id, lang) VALUES ($1, $2)",
-                new_project['id'], new_project['lang']
-            )
+
             print(f"Metadata updated setting {new_project['name']} as current project.")
 
         # -- New Project Setup Insertions --
@@ -395,21 +392,21 @@ class AIODBManager:
             # -- Hub DB Setup (If It Doesn't Exist) --
             async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
 
-                #Projects
+                #Hub DB Projects
                 await conn.execute("""
                         CREATE TABLE IF NOT EXISTS Projects (
                             id SERIAL PRIMARY KEY,
-                            name TEXT,
-                            lang TEXT
-                        )
-                         
-                        CREATE TABLE IF NOT EXISTS Metadata (
-                            id SERIAL PRIMARY KEY,
-                            current_project_id TEXT,
+                            name TEXT NOT NULL,
                             lang TEXT,
-                            FOREIGN KEY (current_project_id) REFERENCES Projects(id)
+                            is_current BOOL NOT NULL
                         )
-                """) #TODO is_current??
+                """)
+
+                #Hub DB Constraints
+                await conn.execute("""
+                        CREATE UNIQUE INDEX one_current_project ON Projects (is_current)
+                        WHERE is_current = TRUE;
+                """)
 
 
         # -- Check if any projects exist --
@@ -429,14 +426,26 @@ class AIODBManager:
         return None
 
 
+    async def get_current_project(self) -> asyncpg.Record:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
+            async with conn.transaction():
+                return await conn.fetchrow("""
+                        SELECT *
+                        FROM Projects
+                        WHERE is_current = TRUE;
+                """)
+
+
     async def set_current_project(self, name: str) -> None:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
             await self._check_db(name) #If the project doesn't exist raise error
-            await conn.execute("""
-                
-            
-            """)
-
+            async with conn.transaction(): #Needing to execute both of the operations in one transaction because otherwise the one_current_project constraint wouldn't be respected. Checkout the Hub DB Constraints sections to learn more
+                await conn.execute("UPDATE Projects SET is_current = FALSE WHERE is_current = TRUE;")
+                await conn.execute(f"""                
+                    UPDATE Projects
+                    SET is_current = TRUE
+                    WHERE name = {name};
+                """)
 
 
 
