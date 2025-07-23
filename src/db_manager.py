@@ -351,13 +351,10 @@ class AIODBManager:
         # -- New Project Metadata Insertions --
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
             new_project = await conn.fetchrow(
-                "INSERT INTO Projects (name, lang) VALUES ($1, $2) RETURNING *",
-                name, lang
+                "INSERT INTO Projects (name, lang, is_current) VALUES ($1, $2, $3) RETURNING *",
+                name, lang, False
             )
             print(f"New project created: {new_project}")
-
-
-            print(f"Metadata updated setting {new_project['name']} as current project.")
 
         # -- New Project Setup Insertions --
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=name) as conn:
@@ -380,6 +377,7 @@ class AIODBManager:
                 print(f"User '{self._tfs_user}' already exists.")
 
 
+        # -- Hub DB Initialization --
         if not await self._check_db(dbname=self._hub_db):
             async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
                 try:
@@ -446,8 +444,15 @@ class AIODBManager:
                     SET is_current = TRUE
                     WHERE name = {name};
                 """)
+        return None
 
 
+    async def reset_current_project(self, name: str) -> None:
+        ...
+
+
+    async def delete_project(self, name: str) -> None:
+        ...
 
 
     #TODO DELETE PROJECT (BOTH THE DB AND THE RECORD IN Projects)
