@@ -398,8 +398,7 @@ class AIODBManager:
                 END;
                 $$ LANGUAGE plpgsql;
                 """)
-            deleted_is_current = await conn.fetchval("SELECT delete_project_by_name($1)", name)
-            if deleted_is_current and (current_project := await self.get_current_project()): #If deleted_is_current is True...
+            if (await conn.fetchval("SELECT delete_project_by_name($1)", name)) is True and (current_project := await self.get_current_project()): #If the deleted project was the current one then... (if the return statement of delete_project_by_name is True then the deleted project was the current one)
                 print(f"The deleted project was the current one, now the current project is: {current_project}")
             else:
                 print("The deleted project was the only one existing. Create a new one or exit the program? - 1: Yes | 0: Exit")
@@ -442,7 +441,7 @@ class AIODBManager:
                 await conn.execute("""
                         CREATE TABLE IF NOT EXISTS Projects (
                             id SERIAL PRIMARY KEY,
-                            name TEXT NOT NULL,
+                            name TEXT NOT NULL UNIQUE,
                             lang TEXT,
                             is_current BOOL NOT NULL,
                             creation_zoned_dt TIMESTAMPTZ NOT NULL
@@ -497,7 +496,16 @@ class AIODBManager:
 
 
     async def reset_current_project(self, name: str) -> None:
-        ...
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
+            await self._check_db(name) #If the project doesn't exist raise error
+            async with conn.transaction():
+                await conn.execute("""
+                    UPDATE Projects
+                    SET is_current = FALSE
+                    WHERE is_current = TRUE;
+                """)
+        return None
+
 
 
     # RESET TO THE ONE WITH THE LATEST CREATION TIMESTAMP OR IF THERE AREN'T ANY OTHER PROJECT LET THE USER CREATE ANOTHER ONE
