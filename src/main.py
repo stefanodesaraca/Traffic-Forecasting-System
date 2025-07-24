@@ -9,12 +9,12 @@ import dask.dataframe as dd
 from exceptions import TRPNotFoundError, TargetVariableNotFoundError, TargetDataNotAvailableError
 
 from db_config import DBConfig
-from brokers import AIODBManagerBroker
+from brokers import AIODBManagerBroker, AIODBBroker
 from downloader import volumes_to_db
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
 from ml import TFSLearner, TFSPreprocessor, OnePointForecaster
 from road_network import *
-from utils import GlobalDefinitions, dask_cluster_client
+from utils import GlobalDefinitions, dask_cluster_client, ForecastingToolbox
 
 
 
@@ -24,7 +24,16 @@ async def get_aiodbmanager_broker():
                                 tfs_user=DBConfig.TFS_USER.value,
                                 tfs_password=DBConfig.TFS_PASSWORD.value,
                                 hub_db=DBConfig.HUB_DB.value,
-                                maintenance_db=DBConfig.MAINTENANCE_DB.value)
+                                maintenance_db=DBConfig.MAINTENANCE_DB.value
+    )
+
+
+async def get_db_broker_async():
+    return AIODBBroker(db_user=DBConfig.TFS_USER.value,
+                       db_password=DBConfig.TFS_PASSWORD.value,
+                       db_name=await (await get_aiodbmanager_broker()).get_current_project(),
+                       db_host=DBConfig.DB_HOST.value
+    )
 
 
 async def initialize() -> None:
@@ -60,12 +69,9 @@ async def manage_global(functionality: str) -> None:
 
 async def download_volumes(functionality: str) -> None:
     if functionality == "2.1":
-        try:
-            print("\nDownloading traffic registration points information for the active operation...")
-            await trps_to_json()
-            print("Traffic registration points information downloaded successfully\n\n")
-        except Exception as e:
-            raise Exception(f"Couldn't download traffic registration points information for the active operation. Error: {e}")
+        print("\nDownloading traffic registration points information for the active operation...")
+        #TODO CREATE A TRPS_TO_DB FUNCTION IN downloader.py
+        print("Traffic registration points information downloaded successfully\n\n")
 
     elif functionality == "2.2":
         time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
@@ -87,20 +93,22 @@ async def download_volumes(functionality: str) -> None:
     return None
 
 
-def manage_forecasting_horizon(functionality: str) -> None:
+async def manage_forecasting_horizon(functionality: str) -> None:
+    ft = ForecastingToolbox(db_broker_async=await get_db_broker_async())
+
     if functionality == "3.1.1":
         print("-- Forecasting horizon setter --")
-        forecasting_toolbox.set_forecasting_horizon()
+        await ft.set_forecasting_horizon()
 
     elif functionality == "3.1.2":
         print("-- Forecasting horizon reader --")
-        target = input("V = Volumes | MS = Mean Speed")
-        print("Target datetime: ", forecasting_toolbox.get_forecasting_horizon(target=target), "\n\n")
+        target = asyncio.to_thread(input, "V: Volumes | MS: Mean Speed")
+        print("Target datetime: ", await ft.get_forecasting_horizon(target=target), "\n\n")
 
     elif functionality == "3.1.3":
         print("-- Forecasting horizon reset --")
-        target = input("V = Volumes | MS = Mean Speed")
-        forecasting_toolbox.reset_forecasting_horizon(target=target)
+        target = asyncio.to_thread(input, "V: Volumes | MS: Mean Speed")
+        await ft.reset_forecasting_horizon(target=target)
 
     return None
 

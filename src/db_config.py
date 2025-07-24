@@ -9,6 +9,8 @@ class DBConfig(Enum):
     HUB_DB = "tfs_hub"
     MAINTENANCE_DB = "postgres"
 
+    DB_HOST = "localhost"
+
 
 
 
