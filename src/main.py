@@ -74,18 +74,8 @@ async def download_volumes(functionality: str) -> None:
         print("Traffic registration points information downloaded successfully\n\n")
 
     elif functionality == "2.2":
-        time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
-        time_end = input("Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ")
-
-        if not gp_toolbox.check_datetime_format(time_start) and not gp_toolbox.check_datetime_format(time_end):
-            print("\033[91mWrong datetime format, try again with a correct one\033[0m")
-            print("Returning to the main menu...\n\n")
-            main()
-
-        time_start += ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
-        time_end += ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
-
-
+        time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
+        time_end = input("Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
         print("Downloading traffic volumes data for every registration point for the active operation...")
 
         #TODO USE download_volumes()
@@ -115,16 +105,14 @@ async def manage_forecasting_horizon(functionality: str) -> None:
 
 def execute_eda() -> None:
     trp_data = trp_toolbox.trps_data()
-    clean_volumes_folder = pmm.get(key="folder_paths.data." + GlobalDefinitions.VOLUME.value + ".subfolders.clean.path")
-    clean_speeds_folder = pmm.get(key="folder_paths.data." + GlobalDefinitions.MEAN_SPEED.value + ".subfolders.clean.path")
 
-    for v in (trp_id for trp_id in trp_data.keys() if tmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_VOLUME_CHECK.value)):
-        volumes = pd.read_csv(clean_volumes_folder + v + GlobalDefinitions.CLEAN_VOLUME_FILENAME_ENDING.value + ".csv")
+    for v in (trp_id for trp_id in trp_data.keys() if ....get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_VOLUME_CHECK.value)):
+        volumes = ...
         analyze_volume(volumes)
         volume_multicollinearity_test(volumes)
 
-    for s in (trp_id for trp_id in trp_data.keys() if tmm.get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value)):
-        speeds = pd.read_csv(clean_speeds_folder + s + GlobalDefinitions.CLEAN_MEAN_SPEED_FILENAME_ENDING.value + ".csv")
+    for s in (trp_id for trp_id in trp_data.keys() if ....get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value)):
+        speeds = ...
         analyze_mean_speed(speeds)
         mean_speed_multicollinearity_test(speeds)
 
@@ -240,7 +228,7 @@ def execute_forecasting(functionality: str) -> None:
             if trp_id not in trp_ids:
                 raise TRPNotFoundError("TRP ID not in available TRP IDs list")
 
-            trp_metadata = pmm.get_trp_metadata(trp_id)
+            trp_metadata = ....get_trp_metadata(trp_id)
 
             if not trp_metadata["checks"][GlobalDefinitions.HAS_VOLUME_CHECK.value if option == GlobalDefinitions.TARGET_DATA.value["V"] else GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]:
                 raise TargetDataNotAvailableError(f"Target data not available for TRP: {trp_id}")
