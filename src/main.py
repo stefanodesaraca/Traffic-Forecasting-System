@@ -121,7 +121,7 @@ async def manage_forecasting_horizon(functionality: str) -> None:
 
 
 def execute_eda() -> None:
-    trp_data = trp_toolbox.trps_data()
+    trp_data = ...
 
     for v in (trp_id for trp_id in trp_data.keys() if ....get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_VOLUME_CHECK.value)):
         volumes = ...
@@ -144,6 +144,18 @@ def execute_eda() -> None:
 # TODO IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL. EXPLICITELY PRINT THAT FILES METADATA IS NEEDED BEFORE EXECUTING THE WARMUP
 def execute_forecast_warmup(functionality: str) -> None:
     models = ... #TODO GET BINARY OBJECTS FROM DB
+    #TODO STUCTURE models = {
+    # model_x: {
+    #   binary_obj: ...,
+    #   base_parameters = ...,
+    #   best_parameters = ...
+    # },
+    # model y: {
+    #   binary_obj: ...,
+    #   base_parameters = ...,
+    #   best_parameters = ...
+    #  }
+    # }
     gp_toolbox = get_gp_toolbox()
     db_broker = get_db_broker()
 
@@ -193,11 +205,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             X_train, X_test, y_train, y_test = preprocess(dfs=..., target=target, road_category=road_category)
 
             for model in models:
-                if function_name != "execute_gridsearch":
-                    #TODO READ MODEL PARAMS
-                    params = json.load(params_reader)[model.__name__]
-                else:
-                    params = model_definitions["auxiliary_parameters"].get(model.__name__, {})
+                params = models[model]["best_params"] if function_name != "execute_gridsearch" else models[model]["auxiliary_parameters"]
 
                 learner = TFSLearner(model=model(**params), road_category=road_category, target=cast(Literal["V", "MS"], target), client=client, db_broker=db_broker, gp_toolbox=gp_toolbox)
                 function(X_train if function_name in ["execute_gridsearch", "execute_training"] else X_test,
@@ -229,6 +237,8 @@ def execute_forecast_warmup(functionality: str) -> None:
 
 
 def execute_forecasting(functionality: str) -> None:
+    gp_toolbox = get_gp_toolbox()
+    db_broker = get_db_broker()
 
     print("Enter target data to forecast: ")
     print("V: Volumes | MS: Mean Speed")
@@ -240,7 +250,7 @@ def execute_forecasting(functionality: str) -> None:
     if functionality == "3.3.1":
 
         with dask_cluster_client(processes=False) as client:
-            trp_ids = trp_toolbox.get_trp_ids_async()
+            trp_ids = db_broker.get_trp_ids() #TODO ADD A TARGET VARIABLE SUBSETTING ATTRIBUTE (AND CLAUSE IN QUERY) "subset_attr: str" and "subset_val: str" #subset_val = THE VALUE TO INCLUDE IN "WHERE subset_attr = subset_val"
             print("TRP IDs: ", trp_ids)
             trp_id = input("Insert TRP ID for forecasting: ")
 
@@ -249,27 +259,26 @@ def execute_forecasting(functionality: str) -> None:
 
             trp_metadata = ....get_trp_metadata(trp_id)
 
-            if not trp_metadata["checks"][GlobalDefinitions.HAS_VOLUME_CHECK.value if option == GlobalDefinitions.TARGET_DATA.value["V"] else GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value]:
-                raise TargetDataNotAvailableError(f"Target data not available for TRP: {trp_id}")
-
-            trp_road_category = trp_metadata["trp_data"]["location"]["roadReference"]["roadCategory"]["id"]
+            trp_road_category = ... #TODO TAKE IF FROM trp_metadata
             print("\nTRP road category: ", trp_road_category)
 
-            forecaster = OnePointForecaster(trp_id=trp_id, road_category=trp_road_category, target=GlobalDefinitions.TARGET_DATA.value[option], client=client)
-            future_records = forecaster.get_future_records(
-                forecasting_horizon=forecasting_toolbox.get_forecasting_horizon(
-                    target=GlobalDefinitions.TARGET_DATA.value[option]))  #Already preprocessed
+            forecaster = OnePointForecaster(trp_id=trp_id,
+                                            road_category=trp_road_category,
+                                            target=GlobalDefinitions.TARGET_DATA.value[option],
+                                            client=client,
+                                            db_broker=db_broker,
+                                            gp_toolbox=gp_toolbox)
+            future_records = forecaster.get_future_records(forecasting_horizon=forecasting_toolbox.get_forecasting_horizon(target=GlobalDefinitions.TARGET_DATA.value[option]))  #Already preprocessed
 
             #TODO TEST training_mode = BOTH 0 AND 1
             model_training_dataset = forecaster.get_training_records(training_mode=0, limit=future_records.shape[0].compute() * 24)
             X, y = gp_toolbox.split_data(model_training_dataset, target=GlobalDefinitions.TARGET_DATA.value[option], mode=1)
 
-            for name, model in model_definitions["class_instances"].items():
+            for name, model in ....items(): #TODO LOAD MODELS
 
-                with open(pmm.get(key="folder_paths.ml.models_parameters.subfolders." + GlobalDefinitions.TARGET_DATA.value[option] + ".subfolders." + trp_road_category + ".path") + pjhmm.get_current_project() + "_" + trp_road_category + "_" + name + "_parameters.json", "r") as params_reader:
-                    best_params = json.load(params_reader)[name] # Attributes which aren't included in the gridsearch grid are already included in best_params since they were first gathered together and then exported
+                best_params = json.load(...) #TODO LOAD MODEL'S BEST PARAMETERS (ONLY IF THEY EXIST)
 
-                learner = TFSLearner(model=model(**best_params), road_category=trp_road_category, target=GlobalDefinitions.TARGET_DATA.value[option], client=client)
+                learner = TFSLearner(model=model(**best_params), road_category=trp_road_category, target=GlobalDefinitions.TARGET_DATA.value[option], client=client, db_broker=db_broker, gp_toolbox=gp_toolbox)
                 model = learner.get_model().fit(X, y)
                 predictions = model.predict(future_records)
                 print(predictions)
