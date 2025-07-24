@@ -48,7 +48,7 @@ async def manage_global(functionality: str) -> None:
         await db_manager_broker_async.reset_current_project(await asyncio.to_thread(input, "Insert the project to reset: "))
 
     elif functionality == "1.5":
-        pjh.delete_project(input("Insert the name of the project to delete: ")) #TODO OPERATION NOT PERMITTED???
+        await db_manager_broker_async.delete_project(await asyncio.to_thread(input,"Insert the name of the project to delete: "))
 
     else:
         print("\033[91mFunctionality not found, try again with a correct one\033[0m")
