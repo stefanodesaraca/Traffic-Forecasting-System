@@ -270,6 +270,7 @@ class AIODBManager:
                             id TEXT PRIMARY KEY,
                             name TEXT NOT NULL UNIQUE,
                             type TEXT DEFAULT 'Regression',
+                            base_params JSON NOT NULL,
                             volume_grid JSON NOT NULL,
                             mean_speed_grid JSON NOT NULL,
                             best_volume_gridsearch_params_idx INT DEFAULT 1,

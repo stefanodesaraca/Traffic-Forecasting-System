@@ -167,6 +167,8 @@ class TFSPreprocessor:
         7. Dropping unnecessary columns
         """
 
+        #TODO CREATE hour, week, day, month
+
         # ------------------ Cyclical variables encoding ------------------
 
         self._data["hour_sin"] = self._data["hour"].map_partitions(self.sin_encoder, timeframe=24)
@@ -224,6 +226,7 @@ class TFSPreprocessor:
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
+        #TODO DROP OTHER USELESS COLUMNS, CHANGE "date" TO "zoned_dt_iso"
         self._data = self._data.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist()  # Keeping year and hour data and the encoded_trp_id
 
         # print("Volumes dataframe head: ")
@@ -262,6 +265,8 @@ class TFSPreprocessor:
         6. Creating COVID dummy variables
         7. Dropping unnecessary columns
         """
+
+        #TODO CREATE hour, week, day, month
 
         # ------------------ Cyclical variables encoding ------------------
 
@@ -327,6 +332,7 @@ class TFSPreprocessor:
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
+        #TODO DROP OTHER USELESS COLUMNS, CHANGE "date" TO "zoned_dt_iso"
         self._data = self._data.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist()
 
         # print("Average speeds dataframe head: ")

@@ -107,7 +107,7 @@ class DBBroker:
                 return conn.fetchall("""SELECT id FROM TrafficRegistrationPoints;""")
 
 
-    def get_trp_ids_by_road_category(self) -> list[tuple[Any, ...]]:
+    def get_trp_ids_by_road_category(self) -> dict[Any, ...]:
         with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with conn.transaction():
                 return conn.fetchall("""SELECT json_object_agg(road_category, ids) AS result

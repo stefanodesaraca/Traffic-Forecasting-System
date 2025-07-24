@@ -9,12 +9,12 @@ import dask.dataframe as dd
 from exceptions import TRPNotFoundError, TargetVariableNotFoundError, TargetDataNotAvailableError
 
 from db_config import DBConfig
-from brokers import AIODBManagerBroker, AIODBBroker
+from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
 from downloader import volumes_to_db
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
 from ml import TFSLearner, TFSPreprocessor, OnePointForecaster
 from road_network import *
-from utils import GlobalDefinitions, dask_cluster_client, ForecastingToolbox
+from utils import GlobalDefinitions, dask_cluster_client, GeneralPurposeToolbox, ForecastingToolbox
 
 
 
@@ -28,7 +28,7 @@ async def get_aiodbmanager_broker():
     )
 
 
-async def get_db_broker_async():
+async def get_aiodb_broker():
     return AIODBBroker(db_user=DBConfig.TFS_USER.value,
                        db_password=DBConfig.TFS_PASSWORD.value,
                        db_name=await (await get_aiodbmanager_broker()).get_current_project(),
@@ -36,9 +36,22 @@ async def get_db_broker_async():
     )
 
 
+def get_db_broker():
+    aiodbmanager_broker = asyncio.run(get_aiodbmanager_broker())
+    return DBBroker(db_user=DBConfig.TFS_USER.value,
+                    db_password=DBConfig.TFS_PASSWORD.value,
+                    db_name=asyncio.run(aiodbmanager_broker.get_current_project()),
+                    db_host=DBConfig.DB_HOST.value
+    )
+
+
 async def initialize() -> None:
     await (await get_aiodbmanager_broker()).init()
     return None
+
+
+def get_gp_toolbox():
+    return GeneralPurposeToolbox()
 
 
 
@@ -76,15 +89,19 @@ async def download_volumes(functionality: str) -> None:
     elif functionality == "2.2":
         time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
         time_end = input("Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
-        print("Downloading traffic volumes data for every registration point for the active operation...")
+        print("Downloading traffic volumes data for every registration point for the current project...")
 
         #TODO USE download_volumes()
 
     return None
 
 
+#TODO EXECUTE PIPELINES
+
+
+
 async def manage_forecasting_horizon(functionality: str) -> None:
-    ft = ForecastingToolbox(db_broker_async=await get_db_broker_async())
+    ft = ForecastingToolbox(db_broker_async=await get_aiodb_broker())
 
     if functionality == "3.1.1":
         print("-- Forecasting horizon setter --")
@@ -126,14 +143,15 @@ def execute_eda() -> None:
 
 # TODO IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL. EXPLICITELY PRINT THAT FILES METADATA IS NEEDED BEFORE EXECUTING THE WARMUP
 def execute_forecast_warmup(functionality: str) -> None:
-    models = model_definitions["class_instance"].values()
+    models = ... #TODO GET BINARY OBJECTS FROM DB
+    gp_toolbox = get_gp_toolbox()
+    db_broker = get_db_broker()
 
-
-    def preprocess_data(files: list[str], road_category: str, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
+    def preprocess(road_category: str, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
 
         print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 
-        preprocessor = TFSPreprocessor(data=gp_toolbox.merge(files), road_category=road_category, client=client)
+        preprocessor = TFSPreprocessor(data=..., road_category=road_category, client=client, gp_toolbox=gp_toolbox) #TODO MERGE ISN'T EVEN NEEDED, JUST SELECT ALL DATA WHERE ROAD CATEGORY = ... AND TRP_ID IS WITHIN A LIST OF TRP_IDS
         print(f"Shape of the merged data for road category {road_category}: ", preprocessor.shape)
 
         if target == GlobalDefinitions.TARGET_DATA.value["V"]:
@@ -144,7 +162,7 @@ def execute_forecast_warmup(functionality: str) -> None:
             raise TargetVariableNotFoundError("Wrong target variable imputed")
 
 
-    def execute_gridsearch(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
+    def ml_gridsearch(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
 
         gridsearch_result = learner.gridsearch(X_train, y_train)
         learner.export_gridsearch_results(gridsearch_result)
@@ -154,13 +172,13 @@ def execute_forecast_warmup(functionality: str) -> None:
         return None
 
 
-    def execute_training(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
+    def ml_training(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
         learner.get_model().fit(X_train, y_train).export()
         print("Fitting phase ended")
         return None
 
 
-    def execute_testing(X_test: dd.DataFrame, y_test: dd.DataFrame, learner: callable) -> None:
+    def ml_testing(X_test: dd.DataFrame, y_test: dd.DataFrame, learner: callable) -> None:
         model = learner.get_model()
         y_pred = model.predict(X_test)
         print(model.evaluate_regression(y_test=y_test, y_pred=y_pred, scorer=learner.get_scorer()))
@@ -170,17 +188,18 @@ def execute_forecast_warmup(functionality: str) -> None:
     def process_functionality(target: str, function: callable) -> None:
         function_name = function.__name__
 
-        for road_category, files in trp_toolbox.get_trp_ids_by_road_category_async().items():
-            X_train, X_test, y_train, y_test = preprocess_data(files=files, target=target, road_category=road_category)
+        for road_category, trp_ids in db_broker.get_trp_ids_by_road_category().items():
+            #TODO GET ALL DATA WHERE trp_id IS IN trp_id
+            X_train, X_test, y_train, y_test = preprocess(dfs=..., target=target, road_category=road_category)
 
             for model in models:
                 if function_name != "execute_gridsearch":
-                    with open(pmm.get(key="folder_paths.ml.models_parameters.subfolders." + target + ".subfolders." + road_category + ".path") + pjhmm.get_current_project() + "_" + road_category + "_" + model.__name__ + "_parameters.json", "r", encoding="utf-8") as params_reader:
-                        params = json.load(params_reader)[model.__name__]
+                    #TODO READ MODEL PARAMS
+                    params = json.load(params_reader)[model.__name__]
                 else:
                     params = model_definitions["auxiliary_parameters"].get(model.__name__, {})
 
-                learner = TFSLearner(model=model(**params), road_category=road_category, target=cast(Literal["V", "MS"], target), client=client)
+                learner = TFSLearner(model=model(**params), road_category=road_category, target=cast(Literal["V", "MS"], target), client=client, db_broker=db_broker, gp_toolbox=gp_toolbox)
                 function(X_train if function_name in ["execute_gridsearch", "execute_training"] else X_test,
                          y_train if function_name in ["execute_gridsearch", "execute_training"] else y_test,
                          learner)
@@ -189,12 +208,12 @@ def execute_forecast_warmup(functionality: str) -> None:
 
     with dask_cluster_client(processes=False) as client:
         functionality_mapping = {
-            "3.2.1": (GlobalDefinitions.TARGET_DATA.value["V"], execute_gridsearch),
-            "3.2.2": (GlobalDefinitions.TARGET_DATA.value["MS"], execute_gridsearch),
-            "3.2.3": (GlobalDefinitions.TARGET_DATA.value["V"], execute_training),
-            "3.2.4": (GlobalDefinitions.TARGET_DATA.value["MS"], execute_training),
-            "3.2.5": (GlobalDefinitions.TARGET_DATA.value["V"], execute_testing),
-            "3.2.6": (GlobalDefinitions.TARGET_DATA.value["MS"], execute_testing)
+            "3.2.1": (GlobalDefinitions.TARGET_DATA.value["V"], ml_gridsearch),
+            "3.2.2": (GlobalDefinitions.TARGET_DATA.value["MS"], ml_gridsearch),
+            "3.2.3": (GlobalDefinitions.TARGET_DATA.value["V"], ml_training),
+            "3.2.4": (GlobalDefinitions.TARGET_DATA.value["MS"], ml_training),
+            "3.2.5": (GlobalDefinitions.TARGET_DATA.value["V"], ml_testing),
+            "3.2.6": (GlobalDefinitions.TARGET_DATA.value["MS"], ml_testing)
         }
 
         if functionality in functionality_mapping:
