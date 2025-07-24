@@ -143,21 +143,21 @@ def execute_eda() -> None:
 
 # TODO IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL. EXPLICITELY PRINT THAT FILES METADATA IS NEEDED BEFORE EXECUTING THE WARMUP
 def execute_forecast_warmup(functionality: str) -> None:
-    models = ... #TODO GET BINARY OBJECTS FROM DB
-    #TODO STUCTURE models = {
-    # model_x: {
-    #   binary_obj: ...,
-    #   base_parameters = ...,
-    #   best_parameters = ...
-    # },
-    # model y: {
-    #   binary_obj: ...,
-    #   base_parameters = ...,
-    #   best_parameters = ...
-    #  }
-    # }
     gp_toolbox = get_gp_toolbox()
     db_broker = get_db_broker()
+    models = db_broker.send_sql("""SELECT
+                                        m.name,
+                                        mo.pickle_object AS binary_obj,
+                                        m.base_params AS base_parameters,
+                                        m.volume_grid AS volume_best_parameters
+                                        m.mean_speed_grid AS mean_speed_best_parameters
+                                    FROM
+                                        MLModels m
+                                    JOIN
+                                        MLModelObjects mo ON m.id = mo.id;
+                                    """)
+
+
 
     def preprocess(road_category: str, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
 
@@ -224,11 +224,11 @@ def execute_forecast_warmup(functionality: str) -> None:
             "3.2.6": (GlobalDefinitions.TARGET_DATA.value["MS"], ml_testing)
         }
 
-        if functionality in functionality_mapping:
-            target, operation = functionality_mapping[functionality]
-            process_functionality(target, operation)
-        else:
+        if functionality not in functionality_mapping:
             raise ValueError(f"Unknown functionality: {functionality}")
+
+        target, operation = functionality_mapping[functionality]
+        process_functionality(target, operation)
 
         print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
         time.sleep(1)  # To cool down the system
