@@ -469,6 +469,12 @@ class AIODBManager:
 
                 await self.create_project(name=name, lang=lang, auto_project_setup=auto_project_setup)
 
+
+        #TODO IF SOME PROJECTS EXIST CHECK WHICH IS THE CURRENT ONE, IF THE RETURN IS NONE SET IT AS CURRENT. ALSO, ADD THE ABILITY TO DO THAT INSIDE CREATE_PROJECT VIA A PARAMETER (NOT AN INPUT)
+        # LIKE auto_current_setup: bool = False
+        # ALSO IF auto_current_setup IS TRUE, CHECK DO reset_current_project() FIRST AND THEN SET IT
+
+
         return None
 
 
@@ -507,8 +513,6 @@ class AIODBManager:
         return None
 
 
-
-    # RESET TO THE ONE WITH THE LATEST CREATION TIMESTAMP OR IF THERE AREN'T ANY OTHER PROJECT LET THE USER CREATE ANOTHER ONE
 
 
 
