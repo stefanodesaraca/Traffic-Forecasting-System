@@ -62,7 +62,7 @@ class BatchStreamLoader:
            FROM MeanSpeed ms JOIN TrafficRegistrationPoints t ON ms.trp_id = t.id
            WHERE {"ms.trp_id = ANY(%s)" if trp_list_filter else "1=1"}
            AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
-        """, filters=[f for f in [trp_list_filter, road_category_filter]], batch_size=batch_size, row_factory="tuple_row") as stream_cursor:
+        """, filters=tuple(f for f in [trp_list_filter, road_category_filter]), batch_size=batch_size, row_factory="tuple_row") as stream_cursor:
             # WARNING: the order of the filters in the list within the list comprehension must be the same as the order of conditions inside the sql query
             while rows := stream_cursor.fetchmany(500):
                 df_partitions.append(dd.from_pandas(pd.DataFrame.from_records(rows)))
