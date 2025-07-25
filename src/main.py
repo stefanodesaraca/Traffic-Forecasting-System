@@ -160,7 +160,6 @@ def execute_forecast_warmup(functionality: str) -> None:
                                                                                                                             MLModelObjects mo ON m.id = mo.id;""")}
 
 
-
     def preprocess(data: dd.DataFrame, road_category: str, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
 
         preprocessor = TFSPreprocessor(data=data, road_category=road_category,
@@ -206,10 +205,10 @@ def execute_forecast_warmup(functionality: str) -> None:
 
             print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 
-            X_train, X_test, y_train, y_test = preprocess(data=..., target=target, road_category=road_category)
+            X_train, X_test, y_train, y_test = preprocess(data=dd.from_dict, target=target, road_category=road_category)
 
-            for model in models:
-                params = models[model]["best_params"] if function_name != "execute_gridsearch" else models[model]["auxiliary_parameters"]
+            for model, metadata in models:
+                params = models[model]["best_params"] if function_name != "execute_gridsearch" else models[model]["base_params"]
 
                 learner = TFSLearner(model=model(**params), road_category=road_category,
                                      target=cast(Literal["V", "MS"], target), client=client, db_broker=db_broker)

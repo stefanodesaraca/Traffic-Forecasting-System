@@ -222,7 +222,7 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
 
     async def ingest(self, fp: str, fields: list[str]) -> None:
         self.data = await self._parse_mean_speed_async(
-            await asyncio.to_thread(pd.read_csv, fp, sep=";", **{"engine": "c"}))
+            await asyncio.to_thread(pd.read_csv, fp, sep=";", **{"engine": "c"})) #TODO OR dd.read_csv()
         if not self.data:
             pass
         if fields:

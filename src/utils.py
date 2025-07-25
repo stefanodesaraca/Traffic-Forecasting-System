@@ -68,7 +68,6 @@ def check_target(target: str) -> bool:
     return True
 
 
-
 def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
         df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
         return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
@@ -123,7 +122,6 @@ class GeneralPurposeToolbox(BaseModel):
                     .persist())  # Sorting records by date
         except ValueError as e:
             raise NoDataError(f"No data to concatenate. Error: {e}")
-
 
 
     @staticmethod
@@ -188,13 +186,13 @@ class ForecastingToolbox:
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
         await self._db_broker_async.send_sql_async(f"""UPDATE ForecastingSettings
-                                                 SET config = jsonb_set(
-                                                     config,
-                                                     '{'{volume_forecasting_horizon}' if option == "V" else '{mean_speed_forecasting_horizon}'}'
-                                                     to_jsonb('{horizon}'::timestamptz::text),
-                                                     TRUE
-                                                 )
-                                                 WHERE id = TRUE;""")
+                                                       SET config = jsonb_set(
+                                                           config,
+                                                           '{'{volume_forecasting_horizon}' if option == "V" else '{mean_speed_forecasting_horizon}'}'
+                                                           to_jsonb('{horizon}'::timestamptz::text),
+                                                           TRUE
+                                                       )
+                                                       WHERE id = TRUE;""")
         #The TRUE after to_jsonb(...) is needed to create the record in case it didn't exist before
 
         return None
@@ -204,17 +202,17 @@ class ForecastingToolbox:
             if not check_target(target):
                 raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
             return (await self._db_broker_async.send_sql_async(
-                f"""SELECT config -> {'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'} AS volume_horizon
-                                                      FROM ForecastingSettings
-                                                      WHERE id = TRUE;"""))[target]
+                                                f"""SELECT config -> {'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'} AS volume_horizon
+                                                    FROM ForecastingSettings
+                                                    WHERE id = TRUE;"""))[target]
 
 
     async def reset_forecasting_horizon(self, target: str) -> None:
         if not check_target(target):
             raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
         await self._db_broker_async.send_sql_async(f"""UPDATE ForecastingSettings
-                                          SET config = jsonb_set(config, '{'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'}', 'null'::jsonb)
-                                          WHERE id = TRUE;""")
+                                                       SET config = jsonb_set(config, '{'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'}', 'null'::jsonb)
+                                                       WHERE id = TRUE;""")
         return None
 
 

@@ -784,11 +784,9 @@ class OnePointForecaster:
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
         if self._target == GlobalDefinitions.TARGET_DATA.value["V"]:
-            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)), road_category=self._road_category,
-                                   client=self._client).preprocess_volumes(z_score=False)
+            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)), road_category=self._road_category, client=self._client).preprocess_volumes(z_score=False)
         elif self._target == GlobalDefinitions.TARGET_DATA.value["MS"]:
-            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)), road_category=self._road_category,
-                                   client=self._client).preprocess_speeds(z_score=False)
+            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)), road_category=self._road_category, client=self._client).preprocess_speeds(z_score=False)
         else:
             raise TargetVariableNotFoundError("Wrong target variable")
 
