@@ -14,7 +14,7 @@ from downloader import volumes_to_db
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
 from ml import TFSLearner, TFSPreprocessor, OnePointForecaster
 from road_network import *
-from utils import GlobalDefinitions, dask_cluster_client, GeneralPurposeToolbox, ForecastingToolbox
+from utils import GlobalDefinitions, dask_cluster_client, GeneralPurposeToolbox, ForecastingToolbox, check_target
 
 
 
@@ -141,29 +141,29 @@ def execute_eda() -> None:
     return None
 
 
-# TODO IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL. EXPLICITELY PRINT THAT FILES METADATA IS NEEDED BEFORE EXECUTING THE WARMUP
+# NOTE IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL. EXPLICITELY PRINT THAT FILES METADATA IS NEEDED BEFORE EXECUTING THE WARMUP
 def execute_forecast_warmup(functionality: str) -> None:
     gp_toolbox = get_gp_toolbox()
     db_broker = get_db_broker()
-    models = db_broker.send_sql("""SELECT
-                                        m.name,
-                                        mo.pickle_object AS binary_obj,
-                                        m.base_params AS base_parameters,
-                                        m.volume_grid AS volume_best_parameters
-                                        m.mean_speed_grid AS mean_speed_best_parameters
-                                    FROM
-                                        MLModels m
-                                    JOIN
-                                        MLModelObjects mo ON m.id = mo.id;
-                                    """)
+    models = {m["name"]: {"binary_obj": m["binary_obj"],
+                          "base_parameters": m["base_parameters"],
+                          "volume_best_parameters": m["volume_best_parameters"],
+                          "mean_speed_best_parameters": m["mean_speed_best_parameters"]} for m in db_broker.send_sql("""SELECT
+                                                                                                                            m.name,
+                                                                                                                            mo.pickle_object AS binary_obj,
+                                                                                                                            m.base_params AS base_parameters,
+                                                                                                                            m.volume_grid AS volume_best_parameters
+                                                                                                                            m.mean_speed_grid AS mean_speed_best_parameters
+                                                                                                                        FROM
+                                                                                                                            MLModels m
+                                                                                                                        JOIN
+                                                                                                                            MLModelObjects mo ON m.id = mo.id;""")}
 
 
 
-    def preprocess(road_category: str, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
+    def preprocess(data: dd.DataFrame, road_category: str, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
 
-        print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
-
-        preprocessor = TFSPreprocessor(data=..., road_category=road_category, client=client, gp_toolbox=gp_toolbox) #TODO MERGE ISN'T EVEN NEEDED, JUST SELECT ALL DATA WHERE ROAD CATEGORY = ... AND TRP_ID IS WITHIN A LIST OF TRP_IDS
+        preprocessor = TFSPreprocessor(data=data, road_category=road_category, client=client, gp_toolbox=gp_toolbox) #TODO MERGE ISN'T EVEN NEEDED, JUST SELECT ALL DATA WHERE ROAD CATEGORY = ... AND TRP_ID IS WITHIN A LIST OF TRP_IDS
         print(f"Shape of the merged data for road category {road_category}: ", preprocessor.shape)
 
         if target == GlobalDefinitions.TARGET_DATA.value["V"]:
@@ -202,7 +202,10 @@ def execute_forecast_warmup(functionality: str) -> None:
 
         for road_category, trp_ids in db_broker.get_trp_ids_by_road_category().items():
             #TODO GET ALL DATA WHERE trp_id IS IN trp_id
-            X_train, X_test, y_train, y_test = preprocess(dfs=..., target=target, road_category=road_category)
+
+            print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
+
+            X_train, X_test, y_train, y_test = preprocess(data=..., target=target, road_category=road_category)
 
             for model in models:
                 params = models[model]["best_params"] if function_name != "execute_gridsearch" else models[model]["auxiliary_parameters"]
@@ -244,7 +247,7 @@ def execute_forecasting(functionality: str) -> None:
     print("V: Volumes | MS: Mean Speed")
     option = input("Choice: ").upper()
 
-    if not gp_toolbox.check_target(option):
+    if not check_target(option):
         raise TargetDataNotAvailableError("Invalid target variable")
 
     if functionality == "3.3.1":

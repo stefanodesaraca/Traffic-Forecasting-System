@@ -4,7 +4,6 @@ from typing import Literal
 from enum import Enum
 import os
 import asyncio
-from functools import lru_cache
 import pandas as pd
 import dask.dataframe as dd
 from cleantext import clean
@@ -12,10 +11,9 @@ import geojson
 from dateutil.relativedelta import relativedelta
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic.types import PositiveInt
-from dask import delayed
 from dask.distributed import Client, LocalCluster
 
-from exceptions import TargetVariableNotFoundError, WrongSplittingMode, TargetDataNotAvailableError, NoDataError
+from exceptions import WrongSplittingMode, TargetDataNotAvailableError, NoDataError
 from src.brokers import AIODBBroker
 
 pd.set_option("display.max_columns", None)
@@ -58,6 +56,15 @@ class GlobalDefinitions(Enum):
 
     NORWEGIAN_UTC_TIME_ZONE = "+01:00"
 
+    COVID_YEARS = [2020, 2021, 2022]
+
+
+
+def check_target(target: str) -> bool:
+    if not target in GlobalDefinitions.TARGET_DATA.value.keys() or not target in GlobalDefinitions.TARGET_DATA.value.values():
+        return False
+    return True
+
 
 
 class GeneralPurposeToolbox(BaseModel):
@@ -78,9 +85,6 @@ class GeneralPurposeToolbox(BaseModel):
             X_train, X_test, y_train, y_test
         """
 
-        if target not in GlobalDefinitions.TARGET_DATA.value.values():
-            raise TargetVariableNotFoundError("Wrong target variable in the split_data() function. Must be 'volume' or 'mean_speed'.")
-
         X = data.drop(columns=[target])
         y = data[[target]]
 
@@ -89,9 +93,10 @@ class GeneralPurposeToolbox(BaseModel):
         elif mode == 0:
             n_rows = data.shape[0].compute()
             p_70 = int(n_rows * 0.70)
-            return dd.from_delayed(delayed(X.head(p_70))), dd.from_delayed(
-                delayed(X.tail(n_rows - p_70))), dd.from_delayed(delayed(y.head(p_70))), dd.from_delayed(
-                delayed(y.tail(n_rows - p_70)))
+            return (dd.from_pandas(X.head(p_70)),
+                    dd.from_pandas(X.tail(n_rows - p_70)),
+                    dd.from_pandas(y.head(p_70)),
+                    dd.from_pandas(y.tail(n_rows - p_70)))
         else:
             raise WrongSplittingMode("Wrong splitting mode imputed")
 
@@ -123,16 +128,6 @@ class GeneralPurposeToolbox(BaseModel):
         return clean(text, no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True, no_urls=True).replace(" ", "_").lower()
 
 
-    @staticmethod
-    def check_target(target: str) -> bool:
-        if not target in [GlobalDefinitions.TARGET_DATA.value.keys(), GlobalDefinitions.TARGET_DATA.value.values()]:
-            return False
-        return True
-
-
-    @property
-    def covid_years(self) -> list[int]:
-        return [2020, 2021, 2022]
 
 
     @property
@@ -211,7 +206,7 @@ class ForecastingToolbox:
 
 
     async def get_forecasting_horizon(self, target: str) -> datetime:
-            if not self.gp_toolbox.check_target(target):
+            if not check_target(target):
                 raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
             return (await self._db_broker_async.send_sql_async(
                 f"""SELECT config -> {'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'} AS volume_horizon
@@ -220,7 +215,7 @@ class ForecastingToolbox:
 
 
     async def reset_forecasting_horizon(self, target: str) -> None:
-        if not self.gp_toolbox.check_target(target):
+        if not check_target(target):
             raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
         await self._db_broker_async.send_sql_async(f"""UPDATE ForecastingSettings
                                           SET config = jsonb_set(config, '{'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'}', 'null'::jsonb)

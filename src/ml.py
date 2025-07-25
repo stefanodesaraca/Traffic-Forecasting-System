@@ -37,7 +37,7 @@ from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastin
 
 from exceptions import WrongEstimatorTypeError, ModelNotSetError, TargetVariableNotFoundError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
 from brokers import DBBroker
-from utils import GlobalDefinitions, GeneralPurposeToolbox
+from utils import GlobalDefinitions, GeneralPurposeToolbox, check_target
 
 
 simplefilter(action="ignore", category=FutureWarning)
@@ -222,7 +222,7 @@ class TFSPreprocessor:
 
         # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
 
-        self._data["is_covid_year"] = (self._data["year"].isin(self._gp_toolbox.covid_years)).astype("int")  # Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
+        self._data["is_covid_year"] = (self._data["year"].isin(GlobalDefinitions.COVID_YEARS.value)).astype("int")  # Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
@@ -328,7 +328,7 @@ class TFSPreprocessor:
 
         # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
 
-        self._data["is_covid_year"] = self._data["year"].isin(self._gp_toolbox.covid_years).astype("int")  # Creating a dummy variable which indicates if the average speed for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
+        self._data["is_covid_year"] = self._data["year"].isin(GlobalDefinitions.COVID_YEARS.value).astype("int")  # Creating a dummy variable which indicates if the average speed for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
@@ -667,7 +667,7 @@ class TFSLearner:
         'mean_absolute_error'.
         """
 
-        if not self._gp_toolbox.check_target(self._target):
+        if not check_target(self._target):
             raise TargetVariableNotFoundError("Wrong target variable in GridSearchCV executor function")
 
         t_start = datetime.datetime.now()
