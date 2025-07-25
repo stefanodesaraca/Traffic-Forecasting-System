@@ -102,7 +102,7 @@ class DBBroker:
                     raise WrongSQLStatement("The SQL query isn't correct")
 
 
-    def get_stream(self, sql: str, batch_size: PositiveInt, filters: list[Any], row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> Iterator:
+    def get_stream(self, sql: str, batch_size: PositiveInt, filters: tuple[Any] | tuple[list[Any], ...], row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> Iterator:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host, row_factory=row_factory) as conn:
             with conn.cursor().stream(query=sql, *filters, size=batch_size) as cursor:
                 return cursor
