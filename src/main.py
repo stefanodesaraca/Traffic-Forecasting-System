@@ -205,7 +205,7 @@ def execute_forecast_warmup(functionality: str) -> None:
 
             print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 
-            X_train, X_test, y_train, y_test = preprocess(data=dd.from_dict, target=target, road_category=road_category)
+            X_train, X_test, y_train, y_test = preprocess(data=, target=target, road_category=road_category)
 
             for model, metadata in models:
                 params = models[model]["best_params"] if function_name != "execute_gridsearch" else models[model]["base_params"]
