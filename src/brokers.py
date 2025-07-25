@@ -1,4 +1,5 @@
-from typing import Any, Literal
+from typing import Any, Literal, Iterator
+from pydantic.types import PositiveInt
 import asyncpg
 import psycopg
 
@@ -99,6 +100,12 @@ class DBBroker:
                     return conn.execute(sql, *execute_args) if execute_args else conn.execute(sql)
                 else:
                     raise WrongSQLStatement("The SQL query isn't correct")
+
+
+    def get_stream(self, sql: str, batch_size: PositiveInt, filters: list[Any], row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> Iterator:
+        with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host, row_factory=row_factory) as conn:
+            with conn.cursor().stream(query=sql, *filters, size=batch_size) as cursor:
+                return cursor
 
 
     def get_trp_ids(self) -> list[tuple[Any, ...]]:
