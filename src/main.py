@@ -163,7 +163,8 @@ def execute_forecast_warmup(functionality: str) -> None:
 
     def preprocess(data: dd.DataFrame, road_category: str, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
 
-        preprocessor = TFSPreprocessor(data=data, road_category=road_category, client=client, gp_toolbox=gp_toolbox) #TODO MERGE ISN'T EVEN NEEDED, JUST SELECT ALL DATA WHERE ROAD CATEGORY = ... AND TRP_ID IS WITHIN A LIST OF TRP_IDS
+        preprocessor = TFSPreprocessor(data=data, road_category=road_category,
+                                       client=client)  #TODO MERGE ISN'T EVEN NEEDED, JUST SELECT ALL DATA WHERE ROAD CATEGORY = ... AND TRP_ID IS WITHIN A LIST OF TRP_IDS
         print(f"Shape of the merged data for road category {road_category}: ", preprocessor.shape)
 
         if target == GlobalDefinitions.TARGET_DATA.value["V"]:

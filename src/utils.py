@@ -69,6 +69,12 @@ def check_target(target: str) -> bool:
 
 
 
+def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
+        df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
+        return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
+
+
+
 class GeneralPurposeToolbox(BaseModel):
 
     @staticmethod
@@ -118,11 +124,6 @@ class GeneralPurposeToolbox(BaseModel):
         except ValueError as e:
             raise NoDataError(f"No data to concatenate. Error: {e}")
 
-
-    @staticmethod
-    def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
-        df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
-        return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
 
 
     @staticmethod

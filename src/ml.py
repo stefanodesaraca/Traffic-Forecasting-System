@@ -37,7 +37,7 @@ from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastin
 
 from exceptions import WrongEstimatorTypeError, ModelNotSetError, TargetVariableNotFoundError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
 from brokers import DBBroker
-from utils import GlobalDefinitions, GeneralPurposeToolbox, check_target
+from utils import GlobalDefinitions, GeneralPurposeToolbox, check_target, ZScore
 
 
 simplefilter(action="ignore", category=FutureWarning)
@@ -48,11 +48,10 @@ pd.set_option("display.max_columns", None)
 
 class TFSPreprocessor:
 
-    def __init__(self, data: dd.DataFrame, road_category: str, client: Client, gp_toolbox: GeneralPurposeToolbox):
+    def __init__(self, data: dd.DataFrame, road_category: str, client: Client):
         self._data: dd.DataFrame = data
         self.road_category: str = road_category
         self.client: Client = client
-        self._gp_toolbox: GeneralPurposeToolbox = gp_toolbox
 
 
     @property
@@ -188,7 +187,7 @@ class TFSPreprocessor:
         # ------------------ Outliers filtering with Z-Score ------------------
 
         if z_score:
-            self._data = self._gp_toolbox.ZScore(self._data, "volume")
+            self._data = ZScore(self._data, "volume")
 
         self._data = self._data.sort_values(by=["date"], ascending=True)
 
@@ -287,7 +286,7 @@ class TFSPreprocessor:
         # ------------------ Outliers filtering with Z-Score ------------------
 
         if z_score:
-            self._data = self._gp_toolbox.ZScore(self._data, "mean_speed")
+            self._data = ZScore(self._data, "mean_speed")
 
         self._data = self._data.sort_values(by=["date"], ascending=True)
 
@@ -785,9 +784,11 @@ class OnePointForecaster:
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
         if self._target == GlobalDefinitions.TARGET_DATA.value["V"]:
-            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)), road_category=self._road_category, client=self._client, gp_toolbox=self._gp_toolbox).preprocess_volumes(z_score=False)
+            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)), road_category=self._road_category,
+                                   client=self._client).preprocess_volumes(z_score=False)
         elif self._target == GlobalDefinitions.TARGET_DATA.value["MS"]:
-            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)), road_category=self._road_category, client=self._client, gp_toolbox=self._gp_toolbox).preprocess_speeds(z_score=False)
+            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)), road_category=self._road_category,
+                                   client=self._client).preprocess_speeds(z_score=False)
         else:
             raise TargetVariableNotFoundError("Wrong target variable")
 
