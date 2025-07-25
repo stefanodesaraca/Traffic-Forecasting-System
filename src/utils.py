@@ -57,6 +57,8 @@ class GlobalDefinitions(Enum):
     NORWEGIAN_UTC_TIME_ZONE = "+01:00"
 
     COVID_YEARS = [2020, 2021, 2022]
+    ML_CPUS = int(os.cpu_count() * 0.75)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
+    # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
 
 
 
@@ -126,14 +128,6 @@ class GeneralPurposeToolbox(BaseModel):
     @staticmethod
     def clean_text(text: str) -> str:
         return clean(text, no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True, no_urls=True).replace(" ", "_").lower()
-
-
-
-
-    @property
-    def ml_cpus(self) -> int:
-        return int(os.cpu_count() * 0.75)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
-        # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
 
 
 

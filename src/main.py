@@ -210,7 +210,8 @@ def execute_forecast_warmup(functionality: str) -> None:
             for model in models:
                 params = models[model]["best_params"] if function_name != "execute_gridsearch" else models[model]["auxiliary_parameters"]
 
-                learner = TFSLearner(model=model(**params), road_category=road_category, target=cast(Literal["V", "MS"], target), client=client, db_broker=db_broker, gp_toolbox=gp_toolbox)
+                learner = TFSLearner(model=model(**params), road_category=road_category,
+                                     target=cast(Literal["V", "MS"], target), client=client, db_broker=db_broker)
                 function(X_train if function_name in ["execute_gridsearch", "execute_training"] else X_test,
                          y_train if function_name in ["execute_gridsearch", "execute_training"] else y_test,
                          learner)
@@ -281,7 +282,9 @@ def execute_forecasting(functionality: str) -> None:
 
                 best_params = json.load(...) #TODO LOAD MODEL'S BEST PARAMETERS (ONLY IF THEY EXIST)
 
-                learner = TFSLearner(model=model(**best_params), road_category=trp_road_category, target=GlobalDefinitions.TARGET_DATA.value[option], client=client, db_broker=db_broker, gp_toolbox=gp_toolbox)
+                learner = TFSLearner(model=model(**best_params), road_category=trp_road_category,
+                                     target=GlobalDefinitions.TARGET_DATA.value[option], client=client,
+                                     db_broker=db_broker)
                 model = learner.get_model().fit(X, y)
                 predictions = model.predict(future_records)
                 print(predictions)

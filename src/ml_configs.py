@@ -46,7 +46,7 @@ grids = {
                 "friedman_mse",
             ],  # Setting "absolute_error" within the metrics to try in the grid will raise errors due to the NaNs present in the lag features
             "ccp_alpha": [0.002, 0.0002],  # ccp_alpha = 1 overfits
-            "n_jobs": gp_toolbox.ml_cpus,
+            "n_jobs": GlobalDefinitions.ML_CPUS.value,
             "random_state": 100
         },
         "DecisionTreeRegressor": {

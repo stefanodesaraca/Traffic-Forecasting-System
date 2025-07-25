@@ -550,7 +550,7 @@ class TFSLearner:
         A Dask distributed client used to parallelize computation.
     """
 
-    def __init__(self, model: callable, road_category: str, target: str, client: Client | None, db_broker: DBBroker, gp_toolbox: GeneralPurposeToolbox):
+    def __init__(self, model: callable, road_category: str, target: str, client: Client | None, db_broker: DBBroker):
         self._scorer: dict[str, Any] = {
             "r2": make_scorer(r2_score),
             "mean_squared_error": make_scorer(mean_squared_error),
@@ -562,7 +562,6 @@ class TFSLearner:
         self._target: str = target
         self._model: ModelWrapper = ModelWrapper(model_obj=model, target=self._target)
         self._db_broker: DBBroker = db_broker
-        self._gp_toolbox: GeneralPurposeToolbox = gp_toolbox
 
 
     def _get_grid(self) -> dict[str, Any]:
@@ -679,7 +678,7 @@ class TFSLearner:
             scoring=self._scorer,
             refit="mean_absolute_error",
             return_train_score=True,
-            n_jobs=self._gp_toolbox.ml_cpus,
+            n_jobs=GlobalDefinitions.ML_CPUS.value,
             scheduler=self._client,
             cv=TimeSeriesSplit(n_splits=5)  # A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
         )  # The models_gridsearch_parameters is obtained from the tfs_models file
