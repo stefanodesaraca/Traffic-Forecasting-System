@@ -37,7 +37,7 @@ from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastin
 
 from exceptions import WrongEstimatorTypeError, ModelNotSetError, TargetVariableNotFoundError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
 from brokers import DBBroker
-from utils import GlobalDefinitions, GeneralPurposeToolbox, check_target, ZScore
+from utils import GlobalDefinitions, check_target, ZScore, merge
 
 
 simplefilter(action="ignore", category=FutureWarning)
@@ -726,13 +726,12 @@ class TFSLearner:
 
 class OnePointForecaster:
 
-    def __init__(self, trp_id: str, road_category: str, target: str, client: Client, db_broker: DBBroker, gp_toolbox: GeneralPurposeToolbox):
+    def __init__(self, trp_id: str, road_category: str, target: str, client: Client, db_broker: DBBroker):
         self._trp_id: str = trp_id
         self._road_category: str = road_category
         self._target: str = target
         self._client: Client = client
         self._db_broker: DBBroker = db_broker
-        self._gp_toolbox: GeneralPurposeToolbox = gp_toolbox
 
 
     def get_training_records(self, training_mode: Literal[0, 1], limit: int | None = None) -> dd.DataFrame:
@@ -751,8 +750,8 @@ class OnePointForecaster:
             return dd.read_csv()
         elif training_mode == 1:
             if not limit:
-                return self._gp_toolbox.merge(self._db_broker.get_trp_ids_by_road_category()).tail(limit) #TODO convert records to dict and use dd.from_dict? #TODO limit can be None, correct that
-            return self._gp_toolbox.merge(self._db_broker.get_trp_ids_by_road_category()) #TODO convert records to dict and use dd.from_dict? #TODO limit can be None, correct that
+                return merge(self._db_broker.get_trp_ids_by_road_category()).tail(limit) #TODO convert records to dict and use dd.from_dict? #TODO limit can be None, correct that
+            return merge(self._db_broker.get_trp_ids_by_road_category()) #TODO convert records to dict and use dd.from_dict? #TODO limit can be None, correct that
         raise WrongTrainRecordsRetrievalMode("training_mode parameter value is not valid")
 
 

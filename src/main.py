@@ -288,12 +288,9 @@ def execute_forecasting(functionality: str) -> None:
             trp_road_category = ... #TODO TAKE IF FROM trp_metadata
             print("\nTRP road category: ", trp_road_category)
 
-            forecaster = OnePointForecaster(trp_id=trp_id,
-                                            road_category=trp_road_category,
-                                            target=GlobalDefinitions.TARGET_DATA.value[option],
-                                            client=client,
-                                            db_broker=db_broker,
-                                            gp_toolbox=gp_toolbox)
+            forecaster = OnePointForecaster(trp_id=trp_id, road_category=trp_road_category,
+                                            target=GlobalDefinitions.TARGET_DATA.value[option], client=client,
+                                            db_broker=db_broker)
             future_records = forecaster.get_future_records(forecasting_horizon=forecasting_toolbox.get_forecasting_horizon(target=GlobalDefinitions.TARGET_DATA.value[option]))  #Already preprocessed
 
             #TODO TEST training_mode = BOTH 0 AND 1

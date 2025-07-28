@@ -103,6 +103,8 @@ class DBBroker:
 
 
     def get_stream(self, sql: str, batch_size: PositiveInt, filters: tuple[Any] | tuple[list[Any], ...], row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> Iterator:
+        if "SELECT" not in sql:
+            raise WrongSQLStatement("Cannot return a data stream from a non selective statement (SELECT)")
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host, row_factory=row_factory) as conn:
             with conn.cursor().stream(query=sql, *filters, size=batch_size) as cursor:
                 return cursor

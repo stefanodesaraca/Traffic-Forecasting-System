@@ -104,28 +104,19 @@ def split_by_target(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tup
         raise WrongSplittingMode("Wrong splitting mode imputed")
 
 
-
-class GeneralPurposeToolbox(BaseModel):
-
-    @staticmethod
-    def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:
-        """
-        Dask Dataframes merger function
-        Parameters:
-            dfs: a list of Dask Dataframes to concatenate
-        """
-        try:
-            return (dd.concat(dfs, axis=0)
-                    .repartition(partition_size="512MB")
-                    .sort_values(["zoned_dt_iso"], ascending=True)
-                    .persist())  # Sorting records by date
-        except ValueError as e:
-            raise NoDataError(f"No data to concatenate. Error: {e}")
-
-
-    @staticmethod
-    def clean_text(text: str) -> str:
-        return clean(text, no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True, no_urls=True).replace(" ", "_").lower()
+def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:
+    """
+    Dask Dataframes merger function
+    Parameters:
+        dfs: a list of Dask Dataframes to concatenate
+    """
+    try:
+        return (dd.concat(dfs, axis=0)
+                .repartition(partition_size="512MB")
+                .sort_values(["zoned_dt_iso"], ascending=True)
+                .persist())  # Sorting records by date
+    except ValueError as e:
+        raise NoDataError(f"No data to concatenate. Error: {e}")
 
 
 
