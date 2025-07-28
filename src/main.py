@@ -182,69 +182,6 @@ def forecasts_warmup(functionality: str) -> None:
         return None
 
 
-    def ml_pipeline(
-            operation: str,
-            X_train: dd.DataFrame | None = None,
-            y_train: dd.DataFrame | None = None,
-            X_test: dd.DataFrame | None = None,
-            y_test: dd.DataFrame | None = None,
-            learner: callable = None
-    ) -> None:
-        """
-        Automated ML pipeline that executes gridsearch, training, or testing operations.
-
-        Parameters:
-            operation (str): The operation to perform. Options: 'gridsearch', 'training', 'testing'
-            X_train (dd.DataFrame, optional): Training features
-            y_train (dd.DataFrame, optional): Training targets
-            X_test (dd.DataFrame, optional): Testing features
-            y_test (dd.DataFrame, optional): Testing targets
-            learner (callable): The ML learner object
-
-        Returns:
-            None
-
-        Raises:
-            ValueError: If operation is not recognized or required parameters are missing
-        """
-
-        # Validate operation type
-        valid_operations = ['gridsearch', 'training', 'testing']
-        if operation not in valid_operations:
-            raise ValueError(f"Invalid operation '{operation}'. Must be one of: {valid_operations}")
-
-        # Validate learner
-        if learner is None:
-            raise ValueError("Learner parameter is required for all operations")
-
-        # Execute based on operation type
-        if operation == 'gridsearch':
-            # Validate required parameters for gridsearch
-            if X_train is None or y_train is None:
-                raise ValueError("X_train and y_train are required for gridsearch operation")
-
-            print(f"Starting grid search for {learner.get_model().name}...")
-            ml_gridsearch(X_train, y_train, learner)
-
-        elif operation == 'training':
-            # Validate required parameters for training
-            if X_train is None or y_train is None:
-                raise ValueError("X_train and y_train are required for training operation")
-
-            print(f"Starting training for {learner.get_model().name}...")
-            ml_training(X_train, y_train, learner)
-
-        elif operation == 'testing':
-            # Validate required parameters for testing
-            if X_test is None or y_test is None:
-                raise ValueError("X_test and y_test are required for testing operation")
-
-            print(f"Starting testing for {learner.get_model().name}...")
-            ml_testing(X_test, y_test, learner)
-
-        print(f"Pipeline operation '{operation}' completed successfully.")
-
-
     def process_functionality(func: callable) -> None:
         function_name = func.__name__
 
