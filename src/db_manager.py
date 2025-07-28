@@ -327,6 +327,7 @@ class AIODBManager:
                 CREATE OR REPLACE VIEW TrafficRegistrationPointsMetadataView AS
                 SELECT
                     trp.id AS trp_id,
+                    trp.road_category as road_category,
                     BOOL_OR(v.volume IS NOT NULL) AS has_volume,
                     BOOL_OR(ms.mean_speed IS NOT NULL) AS has_mean_speed,
                     MIN(CASE WHEN v.volume IS NOT NULL THEN v.zoned_dt_iso END) AS volume_start_date,
