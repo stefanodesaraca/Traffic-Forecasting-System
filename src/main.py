@@ -247,24 +247,23 @@ def forecasts_warmup(functionality: str) -> None:
         print(f"Pipeline operation '{operation}' completed successfully.")
 
 
-
     def process_functionality(func: callable) -> None:
         function_name = func.__name__
 
         for road_category, trp_ids in db_broker.get_trp_ids_by_road_category().items():
 
-            (batch_size=5000, trp_list_filter=trp_ids, road_category_filter=road_category)
-
             print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
-            preprocessor = TFSPreprocessor(
-                data="INSERT DATA HERE",
-                road_category=road_category,
-                client=client
+
+            X_train, X_test, y_train, y_test = split_by_target(
+                data=getattr(preprocessor := TFSPreprocessor(
+                    data=getattr(loader, functionality_mapping[functionality]["loading_method"])(batch_size=5000, trp_list_filter=trp_ids, road_category_filter=road_category),
+                    road_category=road_category,
+                    client=client
+                ), functionality_mapping[functionality]["preprocessing_method"]),
+                target=actual_target,
+                mode=0
             )
             print(f"Shape of the merged data for road category {road_category}: ", preprocessor.shape)
-
-            X_train, X_test, y_train, y_test = getattr(preprocessor, functionality_mapping[functionality]["preprocessing_method"])
-
 
             for model, metadata in models:
                 params = models[model]["best_params"] if function_name != "ml_gridsearch" else models[model]["base_params"]
@@ -282,31 +281,37 @@ def forecasts_warmup(functionality: str) -> None:
                 "func": ml_gridsearch,
                 "target": "3.2.1",
                 "preprocessing_method": "preprocess_volume",
+                "loading_method": "get_volume"
             },
             "3.2.2": {
                 "func": ml_gridsearch,
                 "target": "3.2.2",
                 "preprocessing_method": "preprocess_mean_speed",
+                "loading_method": "get_mean_speed"
             },
             "3.2.3": {
                 "func": ml_training,
                 "target": "3.2.3",
                 "preprocessing_method": "preprocess_volume",
+                "loading_method": "get_volume"
             },
             "3.2.4": {
                 "func": ml_training,
                 "target": "3.2.4",
                 "preprocessing_method": "preprocess_mean_speed",
+                "loading_method": "get_mean_speed"
             },
             "3.2.5": {
                 "func": ml_testing,
                 "target": "3.2.5",
                 "preprocessing_method": "preprocess_volume",
+                "loading_method": "get_volume"
             },
             "3.2.6": {
                 "func": ml_testing,
                 "target": "3.2.6",
-                "preprocessing_method": "preprocess_mean_speed"
+                "preprocessing_method": "preprocess_mean_speed",
+                "loading_method": "get_mean_speed"
             }
         }
 
