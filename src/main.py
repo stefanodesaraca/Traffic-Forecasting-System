@@ -277,7 +277,7 @@ def execute_forecasting(functionality: str) -> None:
             if trp_id not in trp_ids:
                 raise TRPNotFoundError("TRP ID not in available TRP IDs list")
 
-            trp_metadata = ....get_trp_metadata(trp_id)
+            trp_metadata = db_broker.get_trp_metadata(trp_id)
 
             trp_road_category = ... #TODO TAKE IF FROM trp_metadata
             print("\nTRP road category: ", trp_road_category)
