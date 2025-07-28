@@ -6,7 +6,6 @@ import os
 import asyncio
 import pandas as pd
 import dask.dataframe as dd
-from cleantext import clean
 import geojson
 from dateutil.relativedelta import relativedelta
 from pydantic import BaseModel as PydanticBaseModel
@@ -14,7 +13,7 @@ from pydantic.types import PositiveInt
 from dask.distributed import Client, LocalCluster
 
 from exceptions import WrongSplittingMode, TargetDataNotAvailableError, NoDataError
-from src.brokers import AIODBBroker
+from src.brokers import AIODBBroker, DBBroker
 
 pd.set_option("display.max_columns", None)
 
@@ -42,7 +41,7 @@ class BaseModel(PydanticBaseModel):
         arbitrary_types_allowed = True
 
 
-
+#TODO USE Pydantic's Base Model IN THE FUTURE
 class GlobalDefinitions(Enum):
     TARGET_DATA = {"V": "volume", "MS": "mean_speed"}
     ROAD_CATEGORIES = ["E", "R", "F", "K", "P"]
@@ -134,11 +133,70 @@ class RoadNetworkToolbox(BaseModel):
 
 
 class ForecastingToolbox:
-    def __init__(self, db_broker_async: AIODBBroker):
-        self._db_broker_async = db_broker_async
+    def __init__(self, db_broker_async: AIODBBroker | None = None, db_broker: DBBroker | None = None):
+        self._db_broker_async: AIODBBroker | None = db_broker_async
+        self._db_broker: DBBroker | None = db_broker
 
 
-    async def set_forecasting_horizon(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
+    def set_forecasting_horizon(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
+        max_forecasting_window_size: int = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value, forecasting_window_size)
+
+        print("V = Volume | MS = Mean Speed")
+        option = input("Target: ")
+        print("Maximum number of days to forecast: ", max_forecasting_window_size)
+
+        if option == "V":
+            last_available_data_dt = self._db_broker.get_volume_date_boundaries()["max"]
+        elif option == "MS":
+            _, last_available_data_dt = self._db_broker.get_mean_speed_date_boundaries()["max"]
+        else:
+            raise ValueError("Wrong data option, try again")
+
+        if not last_available_data_dt:
+            raise Exception("End date not set. Run download or set it first")
+
+        print("Latest data available: ", last_available_data_dt)
+        print("Maximum settable date: ", relativedelta(last_available_data_dt, days=GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value))
+
+        horizon = input("Insert forecasting horizon (YYYY-MM-DDTHH): ") #TODO CONVERT INTO TIMEZONED DATETIME
+
+        assert horizon > last_available_data_dt, "Forecasting target datetime is prior to the latest data available"
+        assert (horizon - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"
+
+        self._db_broker.send_sql(f"""UPDATE ForecastingSettings
+                                     SET config = jsonb_set(
+                                         config,
+                                         '{'{volume_forecasting_horizon}' if option == "V" else '{mean_speed_forecasting_horizon}'}',
+                                         to_jsonb('{horizon}'::timestamptz::text),
+                                         TRUE
+                                     )
+                                     WHERE id = TRUE;""")
+
+        return None
+
+
+    def get_forecasting_horizon(self, target: str) -> datetime:
+        if not check_target(target):
+            raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
+        return self._db_broker.send_sql(
+            f"""SELECT config -> {'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'} AS volume_horizon
+                FROM ForecastingSettings
+                WHERE id = TRUE;"""
+        )[target]
+
+
+    def reset_forecasting_horizon(self, target: str) -> None:
+        if not check_target(target):
+            raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
+        self._db_broker.send_sql(
+            f"""UPDATE ForecastingSettings
+                SET config = jsonb_set(config, '{'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'}', 'null'::jsonb)
+                WHERE id = TRUE;"""
+        )
+        return None
+
+
+    async def set_forecasting_horizon_async(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
         """
         Parameters:
             forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24.
@@ -165,7 +223,7 @@ class ForecastingToolbox:
             raise Exception("End date not set. Run download or set it first")
 
         print("Latest data available: ", last_available_data_dt)
-        print("Maximum settable date: ", relativedelta(last_available_data_dt, days=14))
+        print("Maximum settable date: ", relativedelta(last_available_data_dt, days=GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value))
 
         horizon = input("Insert forecasting horizon (YYYY-MM-DDTHH): ")  #TODO CONVERT INTO TIMEZONED DATETIME
         # The month number must be zero-padded, for example: 01, 02, etc. #TODO NOT TO KEEP
@@ -188,7 +246,7 @@ class ForecastingToolbox:
         return None
 
 
-    async def get_forecasting_horizon(self, target: str) -> datetime:
+    async def get_forecasting_horizon_async(self, target: str) -> datetime:
             if not check_target(target):
                 raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
             return (await self._db_broker_async.send_sql_async(
@@ -197,7 +255,7 @@ class ForecastingToolbox:
                                                     WHERE id = TRUE;"""))[target]
 
 
-    async def reset_forecasting_horizon(self, target: str) -> None:
+    async def reset_forecasting_horizon_async(self, target: str) -> None:
         if not check_target(target):
             raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
         await self._db_broker_async.send_sql_async(f"""UPDATE ForecastingSettings

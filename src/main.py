@@ -14,7 +14,7 @@ from downloader import volumes_to_db
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
 from ml import TFSLearner, TFSPreprocessor, OnePointForecaster
 from road_network import *
-from utils import GlobalDefinitions, dask_cluster_client, GeneralPurposeToolbox, ForecastingToolbox, check_target, split_by_target
+from utils import GlobalDefinitions, dask_cluster_client, ForecastingToolbox, check_target, split_by_target
 
 
 
@@ -100,17 +100,17 @@ async def manage_forecasting_horizon(functionality: str) -> None:
 
     if functionality == "3.1.1":
         print("-- Forecasting horizon setter --")
-        await ft.set_forecasting_horizon()
+        await ft.set_forecasting_horizon_async()
 
     elif functionality == "3.1.2":
         print("-- Forecasting horizon reader --")
         target = asyncio.to_thread(input, "V: Volumes | MS: Mean Speed")
-        print("Target datetime: ", await ft.get_forecasting_horizon(target=target), "\n\n")
+        print("Target datetime: ", await ft.get_forecasting_horizon_async(target=target), "\n\n")
 
     elif functionality == "3.1.3":
         print("-- Forecasting horizon reset --")
         target = asyncio.to_thread(input, "V: Volumes | MS: Mean Speed")
-        await ft.reset_forecasting_horizon(target=target)
+        await ft.reset_forecasting_horizon_async(target=target)
 
     return None
 
@@ -288,7 +288,8 @@ def execute_forecasting(functionality: str) -> None:
                                             client=client,
                                             db_broker=db_broker
             )
-            future_records = forecaster.get_future_records(forecasting_horizon=forecasting_toolbox.get_forecasting_horizon(target=GlobalDefinitions.TARGET_DATA.value[option]))  #Already preprocessed
+            future_records = forecaster.get_future_records(forecasting_horizon=forecasting_toolbox.get_forecasting_horizon_async(
+                target=GlobalDefinitions.TARGET_DATA.value[option]))  #Already preprocessed
 
             #TODO TEST training_mode = BOTH 0 AND 1
             model_training_dataset = forecaster.get_training_records(training_mode=0, limit=future_records.shape[0].compute() * 24)
@@ -298,8 +299,10 @@ def execute_forecasting(functionality: str) -> None:
 
                 best_params = json.load(...) #TODO LOAD MODEL'S BEST PARAMETERS (ONLY IF THEY EXIST)
 
-                learner = TFSLearner(model=model(**best_params), road_category=trp_road_category,
-                                     target=GlobalDefinitions.TARGET_DATA.value[option], client=client,
+                learner = TFSLearner(model=model(**best_params),
+                                     road_category=trp_road_category,
+                                     target=GlobalDefinitions.TARGET_DATA.value[option],
+                                     client=client,
                                      db_broker=db_broker)
                 model = learner.get_model().fit(X, y)
                 predictions = model.predict(future_records)
