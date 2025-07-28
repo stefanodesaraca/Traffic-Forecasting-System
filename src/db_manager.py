@@ -349,7 +349,7 @@ class AIODBManager:
                     MIN(ms.zoned_dt_iso) AS mean_speed_start_date,
                     MAX(ms.zoned_dt_iso) AS mean_speed_end_date
                 FROM Volume v
-                FULL OUTER JOIN MeanSpeed ms ON false;  -- force Cartesian for aggregation without joining
+                FULL OUTER JOIN MeanSpeed ms ON false;  -- Force Cartesian for aggregation without joining
                 """)
 
         # -- New Project Metadata Insertions --

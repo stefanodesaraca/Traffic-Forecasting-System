@@ -50,11 +50,6 @@ async def initialize() -> None:
     return None
 
 
-def get_gp_toolbox():
-    return GeneralPurposeToolbox()
-
-
-
 async def manage_global(functionality: str) -> None:
     db_manager_broker_async = await get_aiodbmanager_broker()
     if functionality == "1.1":
@@ -263,7 +258,6 @@ def forecasts_warmup(functionality: str) -> None:
 
 
 def execute_forecasting(functionality: str) -> None:
-    gp_toolbox = get_gp_toolbox()
     db_broker = get_db_broker()
 
     print("Enter target data to forecast: ")
