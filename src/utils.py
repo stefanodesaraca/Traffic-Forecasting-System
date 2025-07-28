@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Literal
 from enum import Enum
 import os
+from functools import wraps
 import asyncio
 import pandas as pd
 import dask.dataframe as dd
@@ -12,7 +13,7 @@ from pydantic import BaseModel as PydanticBaseModel
 from pydantic.types import PositiveInt
 from dask.distributed import Client, LocalCluster
 
-from exceptions import WrongSplittingMode, TargetDataNotAvailableError, NoDataError
+from exceptions import WrongSplittingMode, TargetDataNotAvailableError, NoDataError, WrongDBBrokerError
 from src.brokers import AIODBBroker, DBBroker
 
 pd.set_option("display.max_columns", None)
@@ -118,6 +119,17 @@ def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:
         raise NoDataError(f"No data to concatenate. Error: {e}")
 
 
+def validate_db_broker(db_broker: AIODBBroker | DBBroker):
+    def broker_validator(func: callable):
+        if asyncio.iscoroutinefunction(func) and db_broker.__class__ is not AIODBBroker or db_broker is None:
+            raise WrongDBBrokerError("Wrong DB broker used or not set. Your function is a coroutine and you need to use an asynchronous DB broker like AIODBBroker")
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+        return wrapper
+    return broker_validator
+
+
 
 class RoadNetworkToolbox(BaseModel):
 
@@ -138,6 +150,22 @@ class ForecastingToolbox:
         self._db_broker: DBBroker | None = db_broker
 
 
+    def validate_broker_intermediary(self, func: callable):
+        if asyncio.iscoroutinefunction(func):
+            @validate_db_broker(self._db_broker_async) #TODO SNCE IT VALIDATES wrapper (WHICH IS NOT A COROUTINE) THE ACTUAL PURPOSE TO VALIDATE THE TYPE OF FUNCTION (func, WHICH IS DECORATED BY validate_broker_intermediary) IS NOT SERVED
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                return func(*args, **kwargs)
+            return wrapper
+
+        @validate_db_broker(self._db_broker)
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+        return wrapper
+
+
+    @validate_broker_intermediary
     def set_forecasting_horizon(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
         max_forecasting_window_size: int = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value, forecasting_window_size)
 
@@ -174,7 +202,7 @@ class ForecastingToolbox:
 
         return None
 
-
+    @validate_broker_intermediary
     def get_forecasting_horizon(self, target: str) -> datetime:
         if not check_target(target):
             raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
@@ -184,7 +212,7 @@ class ForecastingToolbox:
                 WHERE id = TRUE;"""
         )[target]
 
-
+    @validate_broker_intermediary
     def reset_forecasting_horizon(self, target: str) -> None:
         if not check_target(target):
             raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
@@ -195,7 +223,7 @@ class ForecastingToolbox:
         )
         return None
 
-
+    @validate_broker_intermediary
     async def set_forecasting_horizon_async(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
         """
         Parameters:
@@ -245,7 +273,7 @@ class ForecastingToolbox:
 
         return None
 
-
+    @validate_broker_intermediary
     async def get_forecasting_horizon_async(self, target: str) -> datetime:
             if not check_target(target):
                 raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
@@ -254,7 +282,7 @@ class ForecastingToolbox:
                                                     FROM ForecastingSettings
                                                     WHERE id = TRUE;"""))[target]
 
-
+    @validate_broker_intermediary
     async def reset_forecasting_horizon_async(self, target: str) -> None:
         if not check_target(target):
             raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
