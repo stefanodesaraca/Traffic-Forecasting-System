@@ -73,40 +73,39 @@ def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
         return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
 
 
+def split_by_target(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
+    """
+    Splits the Dask DataFrame into training and testing sets based on the target column and mode.
+
+    Parameters:
+        data: dd.DataFrame
+        target: str ("volume" or "mean_speed")
+        mode: the mode which indicates the kind of split it's intended to execute.
+                0 - Stands for the classic 4 section train-test-split (X_train, X_test, y_train, y_test)
+                1 - Indicates a forecasted specific train-test-split (X, y)
+
+    Returns:
+        X_train, X_test, y_train, y_test
+    """
+
+    X = data.drop(columns=[target])
+    y = data[[target]]
+
+    if mode == 1:
+        return X.persist(), y.persist()
+    elif mode == 0:
+        n_rows = data.shape[0].compute()
+        p_70 = int(n_rows * 0.70)
+        return (dd.from_pandas(X.head(p_70)),
+                dd.from_pandas(X.tail(n_rows - p_70)),
+                dd.from_pandas(y.head(p_70)),
+                dd.from_pandas(y.tail(n_rows - p_70)))
+    else:
+        raise WrongSplittingMode("Wrong splitting mode imputed")
+
+
 
 class GeneralPurposeToolbox(BaseModel):
-
-    @staticmethod
-    def split_data(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
-        """
-        Splits the Dask DataFrame into training and testing sets based on the target column and mode.
-
-        Parameters:
-            data: dd.DataFrame
-            target: str ("volume" or "mean_speed")
-            mode: the mode which indicates the kind of split it's intended to execute.
-                    0 - Stands for the classic 4 section train-test-split (X_train, X_test, y_train, y_test)
-                    1 - Indicates a forecasted specific train-test-split (X, y)
-
-        Returns:
-            X_train, X_test, y_train, y_test
-        """
-
-        X = data.drop(columns=[target])
-        y = data[[target]]
-
-        if mode == 1:
-            return X.persist(), y.persist()
-        elif mode == 0:
-            n_rows = data.shape[0].compute()
-            p_70 = int(n_rows * 0.70)
-            return (dd.from_pandas(X.head(p_70)),
-                    dd.from_pandas(X.tail(n_rows - p_70)),
-                    dd.from_pandas(y.head(p_70)),
-                    dd.from_pandas(y.tail(n_rows - p_70)))
-        else:
-            raise WrongSplittingMode("Wrong splitting mode imputed")
-
 
     @staticmethod
     def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:

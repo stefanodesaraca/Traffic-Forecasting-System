@@ -140,7 +140,7 @@ class TFSPreprocessor:
         return (angle_rad * 360) / (2 * np.pi)
 
 
-    def preprocess_volumes(self, z_score: bool = True) -> dd.DataFrame:
+    def preprocess_volume(self, z_score: bool = True) -> dd.DataFrame:
         """
         Preprocess traffic volume data for machine learning models.
 
@@ -189,7 +189,7 @@ class TFSPreprocessor:
         if z_score:
             self._data = ZScore(self._data, "volume")
 
-        self._data = self._data.sort_values(by=["date"], ascending=True)
+        self._data = self._data.sort_values(by=["zoned_dt_iso"], ascending=True)
 
         # ------------------ TRP ID Target-Encoding ------------------
 
@@ -225,8 +225,8 @@ class TFSPreprocessor:
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
-        #TODO DROP OTHER USELESS COLUMNS, CHANGE "date" TO "zoned_dt_iso"
-        self._data = self._data.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist()  # Keeping year and hour data and the encoded_trp_id
+        #TODO DROP OTHER USELESS COLUMNS
+        self._data = self._data.drop(columns=["year", "month", "week", "day", "trp_id", "zoned_dt_iso"], axis=1).persist()  # Keeping year and hour data and the encoded_trp_id
 
         # print("Volumes dataframe head: ")
         # print(self._data.head(5), "\n")
@@ -239,7 +239,7 @@ class TFSPreprocessor:
         return self._data #TODO IN THE FUTURE THIS COULD BE DIFFERENT, POSSIBLY IT WON'T RETURN ANYTHING
 
 
-    def preprocess_speeds(self, z_score: bool = True) -> dd.DataFrame:
+    def preprocess_mean_speed(self, z_score: bool = True) -> dd.DataFrame:
         """
         Preprocess average speed data for machine learning models.
 
@@ -288,7 +288,7 @@ class TFSPreprocessor:
         if z_score:
             self._data = ZScore(self._data, "mean_speed")
 
-        self._data = self._data.sort_values(by=["date"], ascending=True)
+        self._data = self._data.sort_values(by=["zoned_dt_iso"], ascending=True)
 
         # ------------------ TRP ID Target-Encoding ------------------
 
@@ -331,8 +331,8 @@ class TFSPreprocessor:
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
-        #TODO DROP OTHER USELESS COLUMNS, CHANGE "date" TO "zoned_dt_iso"
-        self._data = self._data.drop(columns=["year", "month", "week", "day", "trp_id", "date"], axis=1).persist()
+        #TODO DROP OTHER USELESS COLUMNS
+        self._data = self._data.drop(columns=["year", "month", "week", "day", "trp_id", "zoned_dt_iso"], axis=1).persist()
 
         # print("Average speeds dataframe head: ")
         # print(self._data.head(5), "\n")
@@ -784,9 +784,11 @@ class OnePointForecaster:
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
         if self._target == GlobalDefinitions.TARGET_DATA.value["V"]:
-            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)), road_category=self._road_category, client=self._client).preprocess_volumes(z_score=False)
+            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)), road_category=self._road_category,
+                                   client=self._client).preprocess_volume(z_score=False)
         elif self._target == GlobalDefinitions.TARGET_DATA.value["MS"]:
-            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)), road_category=self._road_category, client=self._client).preprocess_speeds(z_score=False)
+            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)), road_category=self._road_category,
+                                   client=self._client).preprocess_mean_speed(z_score=False)
         else:
             raise TargetVariableNotFoundError("Wrong target variable")
 

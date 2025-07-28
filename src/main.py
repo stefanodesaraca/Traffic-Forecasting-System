@@ -1,20 +1,22 @@
 import sys
 import time
+from functools import partial
 import asyncio
 from typing import cast
 import pandas as pd
 import dask
 import dask.dataframe as dd
 
-from exceptions import TRPNotFoundError, TargetVariableNotFoundError, TargetDataNotAvailableError
+from exceptions import TRPNotFoundError, TargetDataNotAvailableError
 
 from db_config import DBConfig
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
+from loader import BatchStreamLoader
 from downloader import volumes_to_db
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
 from ml import TFSLearner, TFSPreprocessor, OnePointForecaster
 from road_network import *
-from utils import GlobalDefinitions, dask_cluster_client, GeneralPurposeToolbox, ForecastingToolbox, check_target
+from utils import GlobalDefinitions, dask_cluster_client, GeneralPurposeToolbox, ForecastingToolbox, check_target, split_by_target
 
 
 
@@ -141,10 +143,10 @@ def execute_eda() -> None:
     return None
 
 
-# NOTE IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL. EXPLICITELY PRINT THAT FILES METADATA IS NEEDED BEFORE EXECUTING THE WARMUP
-def execute_forecast_warmup(functionality: str) -> None:
-    gp_toolbox = get_gp_toolbox()
+# NOTE IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL
+def forecasts_warmup(functionality: str) -> None:
     db_broker = get_db_broker()
+    loader = BatchStreamLoader(db_broker=db_broker)
     models = {m["name"]: {"binary_obj": m["binary_obj"],
                           "base_parameters": m["base_parameters"],
                           "volume_best_parameters": m["volume_best_parameters"],
@@ -158,29 +160,14 @@ def execute_forecast_warmup(functionality: str) -> None:
                                                                                                                             MLModels m
                                                                                                                         JOIN
                                                                                                                             MLModelObjects mo ON m.id = mo.id;""")}
-
-
-    def preprocess(data: dd.DataFrame, road_category: str, target: str) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]:
-
-        preprocessor = TFSPreprocessor(data=data, road_category=road_category,
-                                       client=client)  #TODO MERGE ISN'T EVEN NEEDED, JUST SELECT ALL DATA WHERE ROAD CATEGORY = ... AND TRP_ID IS WITHIN A LIST OF TRP_IDS
-        print(f"Shape of the merged data for road category {road_category}: ", preprocessor.shape)
-
-        if target == GlobalDefinitions.TARGET_DATA.value["V"]:
-            return gp_toolbox.split_data(preprocessor.preprocess_volumes(), target=target, mode=0)
-        elif target == GlobalDefinitions.TARGET_DATA.value["MS"]:
-            return gp_toolbox.split_data(preprocessor.preprocess_speeds(), target=target, mode=0)
-        else:
-            raise TargetVariableNotFoundError("Wrong target variable imputed")
+    actual_target: str | None = None
 
 
     def ml_gridsearch(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
-
         gridsearch_result = learner.gridsearch(X_train, y_train)
         learner.export_gridsearch_results(gridsearch_result)
         print(f"============== {learner.get_model().name} grid search results ==============\n")
         print(gridsearch_result, "\n")
-
         return None
 
 
@@ -197,42 +184,137 @@ def execute_forecast_warmup(functionality: str) -> None:
         return None
 
 
-    def process_functionality(target: str, function: callable) -> None:
-        function_name = function.__name__
+    def ml_pipeline(
+            operation: str,
+            X_train: dd.DataFrame | None = None,
+            y_train: dd.DataFrame | None = None,
+            X_test: dd.DataFrame | None = None,
+            y_test: dd.DataFrame | None = None,
+            learner: callable = None
+    ) -> None:
+        """
+        Automated ML pipeline that executes gridsearch, training, or testing operations.
+
+        Parameters:
+            operation (str): The operation to perform. Options: 'gridsearch', 'training', 'testing'
+            X_train (dd.DataFrame, optional): Training features
+            y_train (dd.DataFrame, optional): Training targets
+            X_test (dd.DataFrame, optional): Testing features
+            y_test (dd.DataFrame, optional): Testing targets
+            learner (callable): The ML learner object
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If operation is not recognized or required parameters are missing
+        """
+
+        # Validate operation type
+        valid_operations = ['gridsearch', 'training', 'testing']
+        if operation not in valid_operations:
+            raise ValueError(f"Invalid operation '{operation}'. Must be one of: {valid_operations}")
+
+        # Validate learner
+        if learner is None:
+            raise ValueError("Learner parameter is required for all operations")
+
+        # Execute based on operation type
+        if operation == 'gridsearch':
+            # Validate required parameters for gridsearch
+            if X_train is None or y_train is None:
+                raise ValueError("X_train and y_train are required for gridsearch operation")
+
+            print(f"Starting grid search for {learner.get_model().name}...")
+            ml_gridsearch(X_train, y_train, learner)
+
+        elif operation == 'training':
+            # Validate required parameters for training
+            if X_train is None or y_train is None:
+                raise ValueError("X_train and y_train are required for training operation")
+
+            print(f"Starting training for {learner.get_model().name}...")
+            ml_training(X_train, y_train, learner)
+
+        elif operation == 'testing':
+            # Validate required parameters for testing
+            if X_test is None or y_test is None:
+                raise ValueError("X_test and y_test are required for testing operation")
+
+            print(f"Starting testing for {learner.get_model().name}...")
+            ml_testing(X_test, y_test, learner)
+
+        print(f"Pipeline operation '{operation}' completed successfully.")
+
+
+
+    def process_functionality(func: callable) -> None:
+        function_name = func.__name__
 
         for road_category, trp_ids in db_broker.get_trp_ids_by_road_category().items():
-            #TODO GET ALL DATA WHERE trp_id IS IN trp_id
+
+            (batch_size=5000, trp_list_filter=trp_ids, road_category_filter=road_category)
 
             print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
+            preprocessor = TFSPreprocessor(
+                data="INSERT DATA HERE",
+                road_category=road_category,
+                client=client
+            )
+            print(f"Shape of the merged data for road category {road_category}: ", preprocessor.shape)
 
-            X_train, X_test, y_train, y_test = preprocess(data=, target=target, road_category=road_category)
+            X_train, X_test, y_train, y_test = getattr(preprocessor, functionality_mapping[functionality]["preprocessing_method"])
+
 
             for model, metadata in models:
-                params = models[model]["best_params"] if function_name != "execute_gridsearch" else models[model]["base_params"]
+                params = models[model]["best_params"] if function_name != "ml_gridsearch" else models[model]["base_params"]
 
-                learner = TFSLearner(model=model(**params), road_category=road_category,
-                                     target=cast(Literal["V", "MS"], target), client=client, db_broker=db_broker)
-                function(X_train if function_name in ["execute_gridsearch", "execute_training"] else X_test,
-                         y_train if function_name in ["execute_gridsearch", "execute_training"] else y_test,
-                         learner)
+                learner = TFSLearner(model=model(**params), road_category=road_category, target=cast(Literal["V", "MS"], target), client=client, db_broker=db_broker)
+                func(X_train if function_name in ["ml_gridsearch", "ml_training"] else X_test,
+                     y_train if function_name in ["ml_gridsearch", "ml_training"] else y_test,
+                     learner)
 
         return None
 
     with dask_cluster_client(processes=False) as client:
         functionality_mapping = {
-            "3.2.1": (GlobalDefinitions.TARGET_DATA.value["V"], ml_gridsearch),
-            "3.2.2": (GlobalDefinitions.TARGET_DATA.value["MS"], ml_gridsearch),
-            "3.2.3": (GlobalDefinitions.TARGET_DATA.value["V"], ml_training),
-            "3.2.4": (GlobalDefinitions.TARGET_DATA.value["MS"], ml_training),
-            "3.2.5": (GlobalDefinitions.TARGET_DATA.value["V"], ml_testing),
-            "3.2.6": (GlobalDefinitions.TARGET_DATA.value["MS"], ml_testing)
+            "3.2.1": {
+                "func": ml_gridsearch,
+                "target": "3.2.1",
+                "preprocessing_method": "preprocess_volume",
+            },
+            "3.2.2": {
+                "func": ml_gridsearch,
+                "target": "3.2.2",
+                "preprocessing_method": "preprocess_mean_speed",
+            },
+            "3.2.3": {
+                "func": ml_training,
+                "target": "3.2.3",
+                "preprocessing_method": "preprocess_volume",
+            },
+            "3.2.4": {
+                "func": ml_training,
+                "target": "3.2.4",
+                "preprocessing_method": "preprocess_mean_speed",
+            },
+            "3.2.5": {
+                "func": ml_testing,
+                "target": "3.2.5",
+                "preprocessing_method": "preprocess_volume",
+            },
+            "3.2.6": {
+                "func": ml_testing,
+                "target": "3.2.6",
+                "preprocessing_method": "preprocess_mean_speed"
+            }
         }
 
         if functionality not in functionality_mapping:
             raise ValueError(f"Unknown functionality: {functionality}")
 
-        target, operation = functionality_mapping[functionality]
-        process_functionality(target, operation)
+        actual_target = functionality_mapping[functionality]["target"]
+        process_functionality(functionality_mapping[functionality]["func"]) #Process the chosen operation
 
         print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
         time.sleep(1)  # To cool down the system
@@ -276,7 +358,7 @@ def execute_forecasting(functionality: str) -> None:
 
             #TODO TEST training_mode = BOTH 0 AND 1
             model_training_dataset = forecaster.get_training_records(training_mode=0, limit=future_records.shape[0].compute() * 24)
-            X, y = gp_toolbox.split_data(model_training_dataset, target=GlobalDefinitions.TARGET_DATA.value[option], mode=1)
+            X, y = split_by_target(model_training_dataset, target=GlobalDefinitions.TARGET_DATA.value[option], mode=1)
 
             for name, model in ....items(): #TODO LOAD MODELS
 
@@ -314,12 +396,12 @@ def main():
         "3.1.1": manage_forecasting_horizon,
         "3.1.2": manage_forecasting_horizon,
         "3.1.3": manage_forecasting_horizon,
-        "3.2.1": execute_forecast_warmup,
-        "3.2.2": execute_forecast_warmup,
-        "3.2.3": execute_forecast_warmup,
-        "3.2.4": execute_forecast_warmup,
-        "3.2.5": execute_forecast_warmup,
-        "3.2.6": execute_forecast_warmup,
+        "3.2.1": forecasts_warmup,
+        "3.2.2": forecasts_warmup,
+        "3.2.3": forecasts_warmup,
+        "3.2.4": forecasts_warmup,
+        "3.2.5": forecasts_warmup,
+        "3.2.6": forecasts_warmup,
         "3.3.1": execute_forecasting,
         "4.1": manage_road_network,
         "4.2": manage_road_network,
