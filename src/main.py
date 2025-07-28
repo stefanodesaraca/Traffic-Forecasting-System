@@ -1,8 +1,6 @@
 import sys
 import time
-from functools import partial
 import asyncio
-from typing import cast
 import pandas as pd
 import dask
 import dask.dataframe as dd
@@ -154,8 +152,8 @@ def forecasts_warmup(functionality: str) -> None:
                                                                                                                             m.name,
                                                                                                                             mo.pickle_object AS binary_obj,
                                                                                                                             m.base_params AS base_parameters,
-                                                                                                                            m.volume_grid AS volume_best_parameters
-                                                                                                                            m.mean_speed_grid AS mean_speed_best_parameters
+                                                                                                                            m.volume_best_params AS volume_best_parameters
+                                                                                                                            m.mean_speed_best_params AS mean_speed_best_parameters
                                                                                                                         FROM
                                                                                                                             MLModels m
                                                                                                                         JOIN
@@ -266,9 +264,9 @@ def forecasts_warmup(functionality: str) -> None:
             print(f"Shape of the merged data for road category {road_category}: ", preprocessor.shape)
 
             for model, metadata in models:
-                params = models[model]["best_params"] if function_name != "ml_gridsearch" else models[model]["base_params"]
+                params = models[model][f"{actual_target}_best_params"] if function_name != "ml_gridsearch" else models[model]["base_params"]
 
-                learner = TFSLearner(model=model(**params), road_category=road_category, target=cast(Literal["V", "MS"], target), client=client, db_broker=db_broker)
+                learner = TFSLearner(model=model(**params), road_category=road_category, target=actual_target, client=client, db_broker=db_broker)
                 func(X_train if function_name in ["ml_gridsearch", "ml_training"] else X_test,
                      y_train if function_name in ["ml_gridsearch", "ml_training"] else y_test,
                      learner)
