@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import pickle
@@ -10,6 +11,7 @@ from exceptions import TRPNotFoundError, TargetDataNotAvailableError, ModelBestP
 
 from db_config import DBConfig
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
+from pipelines import MeanSpeedExtractionPipeline
 from loader import BatchStreamLoader
 from downloader import start_client_async, volumes_to_db
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
@@ -102,8 +104,14 @@ async def download_volumes(functionality: str) -> None:
     return None
 
 
-#TODO EXECUTE PIPELINES
+async def mean_speeds_to_db() -> None:
+    pipeline = MeanSpeedExtractionPipeline(db_broker_async=await get_aiodb_broker())
+    cwd = await asyncio.to_thread(os.getcwd,)
+    #TODO FIND THE SPECIFIC FOLDER WHERE MEAN SPEED FILES ARE LOCATED
+    all(await pipeline.ingest(fp=cwd + file, fields=GlobalDefinitions.MEAN_SPEED_INGESTION_FIELDS.value) for file in await asyncio.to_thread(os.listdir,))
+    return None
 
+#TODO CHECK HOW BEST PARAMETERS ARE INSERTED INTO DB AND IF THERE'S A DEFAULT IDX
 
 
 async def manage_forecasting_horizon(functionality: str) -> None:

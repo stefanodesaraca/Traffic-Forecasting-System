@@ -45,6 +45,7 @@ class BaseModel(PydanticBaseModel):
 #TODO USE Pydantic's Base Model IN THE FUTURE
 class GlobalDefinitions(Enum):
     VOLUME_INGESTION_FIELDS = ["trp_id", "volume", "coverage", "is_mice", "zoned_dt_iso"]
+    MEAN_SPEED_INGESTION_FIELDS = ["trp_id", "mean_speed", "percentile_85", "coverage", "is_mice", "zoned_dt_iso"]
     TARGET_DATA = {"V": "volume", "MS": "mean_speed"}
     ROAD_CATEGORIES = ["E", "R", "F", "K", "P"]
     DEFAULT_MAX_FORECASTING_WINDOW_SIZE = 14

@@ -183,9 +183,9 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
 class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
 
-    def __init__(self, db_broker: AIODBBroker, data: dict[str, Any] | None = None):
+    def __init__(self, db_broker_async: AIODBBroker, data: dict[str, Any] | None = None):
         self.data: dict[str, Any] | pd.DataFrame | dd.DataFrame | None = data
-        self._db_broker: AIODBBroker = db_broker
+        self._db_broker_async: AIODBBroker = db_broker_async
 
 
     async def _parse_mean_speed_async(self, speeds: pd.DataFrame) -> pd.DataFrame | dd.DataFrame | None:
@@ -227,7 +227,7 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
             pass
         if fields:
             self.data = self.data[[fields]]
-        await self._db_broker.send_sql_async(f"""
+        await self._db_broker_async.send_sql_async(f"""
             INSERT INTO MeanSpeed ({', '.join(fields)})
             VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields) + 1))})
             ON CONFLICT ON CONSTRAINT unique_mean_speed_per_trp_and_time DO NOTHING;
