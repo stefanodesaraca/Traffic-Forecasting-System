@@ -81,9 +81,9 @@ class ExtractionPipelineMixin:
 
 class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
-    def __init__(self, db_broker: AIODBBroker, data: dict[str, Any] | None = None):
+    def __init__(self, db_broker_async: AIODBBroker, data: dict[str, Any] | None = None):
         self.data: dict[str, Any] | pd.DataFrame | dd.DataFrame | None = data
-        self._db_broker: AIODBBroker = db_broker
+        self._db_broker_async: AIODBBroker = db_broker_async
 
 
     @staticmethod
@@ -133,11 +133,12 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
 
         #TODO FOR TESTING PURPOSES
-        context = pd.DataFrame(await self._db_broker.send_sql_async(sql=f"""SELECT *
-                                                                        FROM Volume
-                                                                        ORDER BY zoned_dt_iso DESC
-                                                                        LIMIT {mice_past_window};
-                                                                     """))
+        context = pd.DataFrame(await self._db_broker_async.send_sql_async(sql=f"""
+                                                                                SELECT *
+                                                                                FROM Volume
+                                                                                ORDER BY zoned_dt_iso DESC
+                                                                                LIMIT {mice_past_window};
+                                                                               """))
         print(context)
         print(context.shape)
         print(context.describe())
@@ -146,7 +147,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
         self.data = pd.concat([
                                 self.data[["trp_id", "is_mice", "zoned_dt_iso"]],
-                                await asyncio.to_thread(pd.DataFrame, await self._db_broker.send_sql_async(sql=f"""SELECT *
+                                await asyncio.to_thread(pd.DataFrame, await self._db_broker_async.send_sql_async(sql=f"""SELECT *
                                                                                                                      FROM Volume
                                                                                                                      ORDER BY zoned_dt_iso DESC
                                                                                                                      LIMIT {mice_past_window};
@@ -170,7 +171,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         if fields:
             self.data = self.data[[fields]]
 
-        await self._db_broker.send_sql_async(f"""
+        await self._db_broker_async.send_sql_async(f"""
             INSERT INTO Volume ({', '.join(fields)})
             VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields) + 1))})
             ON CONFLICT ON CONSTRAINT unique_volume_per_trp_and_time DO NOTHING;

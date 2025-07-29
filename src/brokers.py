@@ -240,3 +240,21 @@ class AIODBManagerBroker:
         return None
 
 
+    async def trps_to_db(self, data: dict[str, Any]) -> None:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -11,7 +11,7 @@ from exceptions import TRPNotFoundError, TargetDataNotAvailableError
 from db_config import DBConfig
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
 from loader import BatchStreamLoader
-from downloader import volumes_to_db
+from downloader import start_client_async, volumes_to_db
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
 from ml import TFSLearner, TFSPreprocessor, OnePointForecaster
 from road_network import *
@@ -83,12 +83,20 @@ async def download_volumes(functionality: str) -> None:
         print("Traffic registration points information downloaded successfully\n\n")
 
     elif functionality == "2.2":
-        time_start = input("Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
-        time_end = input("Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
+        time_start = await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
+        time_end = await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
         print("Downloading traffic volumes data for every registration point for the current project...")
-
-        #TODO USE download_volumes()
-
+        await volumes_to_db(gql_client=await start_client_async(),
+                            db_credentials={
+                                "db_user": DBConfig.TFS_USER.value,
+                                "db_password": DBConfig.TFS_PASSWORD.value,
+                                "db_name": await (await get_aiodbmanager_broker()).get_current_project(),
+                                "db_host": DBConfig.DB_HOST.value
+                            },
+                            time_start=time_start,
+                            time_end=time_end,
+                            n_async_jobs=5,
+                            max_retries=5)
     return None
 
 

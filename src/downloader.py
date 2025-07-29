@@ -9,6 +9,7 @@ from pydantic.types import PositiveInt
 
 from brokers import AIODBBroker
 from pipelines import VolumeExtractionPipeline
+from utils import GlobalDefinitions
 
 simplefilter("ignore")
 
@@ -194,9 +195,9 @@ async def fetch_trp_volumes(client: Client, trp_id: str, time_start: str, time_e
 
 async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10) -> None:
     semaphore = asyncio.Semaphore(n_async_jobs)  # Limit to n_async_jobs async tasks
-    broker = AIODBBroker(db_user=db_credentials["user"], db_password=db_credentials["password"],
-                         db_name=db_credentials["name"], db_host=db_credentials["host"])
-    pipeline = VolumeExtractionPipeline(db_broker=broker)
+    broker = AIODBBroker(db_user=db_credentials["db_user"], db_password=db_credentials["db_password"],
+                         db_name=db_credentials["db_name"], db_host=db_credentials["db_host"])
+    pipeline = VolumeExtractionPipeline(db_broker_async=broker)
 
     async def download_trp_data(trp_id: str) -> None:
         pages_counter = 0
@@ -215,7 +216,7 @@ async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time
                 page_info = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]
                 end_cursor = page_info["endCursor"] if page_info["hasNextPage"] else None
 
-                await pipeline.ingest(payload=query_result, fields=["trp_id", "volume", "coverage", "is_mice", "zoned_dt_iso"])
+                await pipeline.ingest(payload=query_result, fields=GlobalDefinitions.VOLUME_INGESTION_FIELDS.value)
 
                 pages_counter += 1
                 if end_cursor is None:
@@ -239,10 +240,6 @@ async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time
 
 
     return None
-
-
-async def trps_to_db(gql_client: Client, db_credentials: dict[str, str], max_retries: PositiveInt = 10) -> None:
-
 
 
 
