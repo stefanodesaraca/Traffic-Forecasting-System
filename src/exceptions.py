@@ -77,10 +77,34 @@ class ProjectDBNotRegisteredError(Exception):
         super().__init__(self.message)
 
 
-class WrongDBBrokerError(Exception):
+class WrongDBBrokerError(ValueError):
     def __init__(self, message: str):
         self.message: str = message
         super().__init__(self.message)
+
+
+class ModelBestParametersNotFound(Exception):
+    def __init__(self, message: str):
+        self.message: str = message
+        super().__init__(self.message)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

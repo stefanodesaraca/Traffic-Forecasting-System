@@ -6,7 +6,7 @@ import pandas as pd
 import dask
 import dask.dataframe as dd
 
-from exceptions import TRPNotFoundError, TargetDataNotAvailableError
+from exceptions import TRPNotFoundError, TargetDataNotAvailableError, ModelBestParametersNotFound
 
 from db_config import DBConfig
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
@@ -302,15 +302,19 @@ def execute_forecasting(functionality: str) -> None:
             future_records = forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=GlobalDefinitions.TARGET_DATA.value[option]))  #Already preprocessed
 
             #TODO TEST training_mode = BOTH 0 AND 1
-            model_training_dataset = forecaster.get_training_records(training_mode=0, limit=future_records.shape[0].compute() * 24)
-            X, y = split_by_target(model_training_dataset, target=GlobalDefinitions.TARGET_DATA.value[option], mode=1)
+            model_training_dataset = forecaster.get_training_records(training_mode=0,
+                                                                     limit=future_records.shape[0].compute() * 24)
+            X, y = split_by_target(data=model_training_dataset,
+                                   target=GlobalDefinitions.TARGET_DATA.value[option],
+                                   mode=1)
 
             for name, data in db_broker.get_model_objects()["model_data"].items(): #Load model name and data (pickle object, best parameters and so on)
 
                 model = pickle.load(data[name]["pickle_object"])
                 best_params = data[name][f"{GlobalDefinitions.TARGET_DATA.value[option]}_best_params"]
 
-                #TODO CHECK IF THE BEST PARAMETERS AREN'T NULL
+                if best_params is None:
+                    raise ModelBestParametersNotFound("Model's best parameters are None, check if the model has been trained or has best parameters set")
 
                 learner = TFSLearner(model=model(**best_params),
                                      road_category=trp_road_category,
