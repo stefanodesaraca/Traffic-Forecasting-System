@@ -58,13 +58,14 @@ async def manage_global(functionality: str) -> None:
         await db_manager_broker_async.create_project(name=await asyncio.to_thread(input,"Insert new project name: "), lang="en", auto_project_setup=True)
 
     elif functionality == "1.2":
-        await db_manager_broker_async.set_current_project(await asyncio.to_thread(input, "Insert the project to set as current: "))
+        await db_manager_broker_async.set_current_project(
+            await asyncio.to_thread(input, "Insert the project to set as current: "))
 
     elif functionality == "1.3":
         print("Current project: ", await db_manager_broker_async.get_current_project(), "\n\n")
 
     elif functionality == "1.4":
-        await db_manager_broker_async.reset_current_project(await asyncio.to_thread(input, "Insert the project to reset: "))
+        await db_manager_broker_async.reset_current_project()
 
     elif functionality == "1.5":
         await db_manager_broker_async.delete_project(await asyncio.to_thread(input,"Insert the name of the project to delete: "))
@@ -303,10 +304,12 @@ def execute_forecasting(functionality: str) -> None:
 
             #TODO TEST training_mode = BOTH 0 AND 1
             model_training_dataset = forecaster.get_training_records(training_mode=0,
-                                                                     limit=future_records.shape[0].compute() * 24)
+                                                                     limit=future_records.shape[0].compute() * 24
+            )
             X, y = split_by_target(data=model_training_dataset,
                                    target=GlobalDefinitions.TARGET_DATA.value[option],
-                                   mode=1)
+                                   mode=1
+            )
 
             for name, data in db_broker.get_model_objects()["model_data"].items(): #Load model name and data (pickle object, best parameters and so on)
 
@@ -320,7 +323,8 @@ def execute_forecasting(functionality: str) -> None:
                                      road_category=trp_road_category,
                                      target=GlobalDefinitions.TARGET_DATA.value[option],
                                      client=client,
-                                     db_broker=db_broker)
+                                     db_broker=db_broker
+                )
                 data = learner.get_model().fit(X, y)
                 predictions = data.predict(future_records)
                 print(predictions)

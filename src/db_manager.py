@@ -507,9 +507,8 @@ class AIODBManager:
         return None
 
 
-    async def reset_current_project(self, name: str) -> None:
+    async def reset_current_project(self) -> None:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
-            await self._check_db(name) #If the project doesn't exist raise error
             async with conn.transaction():
                 await conn.execute("""
                     UPDATE Projects

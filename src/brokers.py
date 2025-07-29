@@ -238,8 +238,8 @@ class AIODBManagerBroker:
         return None
 
 
-    async def reset_current_project(self, name: str) -> None:
-        await (await self._get_db_manager_async()).reset_current_project(name=name)
+    async def reset_current_project(self) -> None:
+        await (await self._get_db_manager_async()).reset_current_project()
         return None
 
 
