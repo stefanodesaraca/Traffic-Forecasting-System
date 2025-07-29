@@ -25,7 +25,8 @@ async def get_aiodbmanager_broker():
                                 tfs_user=DBConfig.TFS_USER.value,
                                 tfs_password=DBConfig.TFS_PASSWORD.value,
                                 hub_db=DBConfig.HUB_DB.value,
-                                maintenance_db=DBConfig.MAINTENANCE_DB.value
+                                maintenance_db=DBConfig.MAINTENANCE_DB.value,
+                                db_host=DBConfig.DB_HOST.value
     )
 
 
@@ -79,7 +80,7 @@ async def manage_global(functionality: str) -> None:
 async def download_volumes(functionality: str) -> None:
     if functionality == "2.1":
         print("\nDownloading traffic registration points information for the active operation...")
-        #TODO CREATE A TRPS_TO_DB FUNCTION IN downloader.py
+        await (await get_aiodbmanager_broker()).trps_to_db()
         print("Traffic registration points information downloaded successfully\n\n")
 
     elif functionality == "2.2":

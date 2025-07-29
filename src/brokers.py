@@ -5,6 +5,7 @@ import psycopg
 
 from exceptions import WrongSQLStatement, MissingDataException
 from db_manager import AIODBManager, postgres_conn_async, postgres_conn
+from downloader import start_client_async, fetch_trps
 
 
 
@@ -189,13 +190,15 @@ class AIODBManagerBroker:
                  tfs_user: str | None = None,
                  tfs_password: str | None = None,
                  hub_db: str | None = None,
-                 maintenance_db: str | None = None):
+                 maintenance_db: str | None = None,
+                 db_host: str | None = None):
         self._superuser: str | None = superuser
         self._superuser_password: str | None = superuser_password
         self._tfs_user: str | None = tfs_user
         self._tfs_password: str | None = tfs_password
         self._hub_db: str | None = hub_db
         self._maintenance_db: str | None = maintenance_db
+        self._db_host: str | None = db_host
 
 
     async def _get_db_manager_async(self) -> AIODBManager:
@@ -240,9 +243,10 @@ class AIODBManagerBroker:
         return None
 
 
-    async def trps_to_db(self, data: dict[str, Any]) -> None:
-
-
+    async def trps_to_db(self) -> None:
+        async with postgres_conn_async(self._tfs_user, password=self._tfs_password, dbname=await self.get_current_project(), host=self._db_host) as conn:
+            await (await self._get_db_manager_async()).insert_trps(conn=conn, data=await fetch_trps(client=await start_client_async()))
+        return None
 
 
 
