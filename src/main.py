@@ -299,7 +299,9 @@ def execute_forecasting(functionality: str) -> None:
             for name, data in db_broker.get_model_objects()["model_data"].items(): #Load model name and data (pickle object, best parameters and so on)
 
                 model = pickle.load(data[name]["pickle_object"])
-                best_params = data[name][f"{GlobalDefinitions.TARGET_DATA.value[option]}_best_params"] #TODO LOAD MODEL'S BEST PARAMETERS (ONLY IF THEY EXIST)
+                best_params = data[name][f"{GlobalDefinitions.TARGET_DATA.value[option]}_best_params"]
+
+                #TODO CHECK IF THE BEST PARAMETERS AREN'T NULL
 
                 learner = TFSLearner(model=model(**best_params),
                                      road_category=trp_road_category,

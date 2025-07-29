@@ -626,14 +626,24 @@ class TFSLearner:
         #true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) #TODO READ THE TODO BELOW
         true_best_params["best_GridSearchCV_model_scores"] = results.iloc[best_params_idx].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
-        self._db_broker.send_sql(f"""UPDATE MLModels
-                                     SET {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx'} = <new_index>
-                                     WHERE id = '{self._model.model_id}';""")
-
         #TODO TESTING -> CHECK IF AUXILIARY PARAMETERS ARE INCLUDED WITHOUT ADDING THEM SPECIFICALLY
         results.to_json(f"./project_data/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
 
         return None
+
+
+    def set_best_params_idx(self, idx: int, model_id: str | None = None) -> None:
+        self._db_broker.send_sql(f"""UPDATE MLModels
+                                     SET {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx'} = {idx}
+                                     WHERE id = '{model_id or self._model.model_id}';""")
+        return None
+
+
+    def set_best_params_idxs(self, index_dict: dict[str, int]) -> None:
+        for model_id, idx in index_dict:
+            self.set_best_params_idx(model_id=model_id, idx=idx)
+        return None
+
 
 
     def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> pd.DataFrame | None:
