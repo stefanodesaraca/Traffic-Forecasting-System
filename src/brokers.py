@@ -162,7 +162,7 @@ class DBBroker:
                     WHERE trp_id = %s;
                 """, trp_id)
 
-
+    #TODO TRANSFER THIS OPERATION DIRECTLY INTO main.py AND USE send_sql()
     def get_model_objects(self) -> dict[str, dict[str, Any]]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with conn.transaction():
@@ -178,6 +178,7 @@ class DBBroker:
                     FROM MLModels m
                     JOIN MLModelObjects o ON m.id = o.id;
                 """)
+
 
 
 class AIODBManagerBroker:

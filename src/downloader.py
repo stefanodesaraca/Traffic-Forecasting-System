@@ -241,6 +241,8 @@ async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time
     return None
 
 
+async def trps_to_db(gql_client: Client, db_credentials: dict[str, str], max_retries: PositiveInt = 10) -> None:
+
 
 
 
