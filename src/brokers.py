@@ -163,6 +163,23 @@ class DBBroker:
                 """, trp_id)
 
 
+    def get_model_objects(self) -> dict[str, dict[str, Any]]:
+        with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
+            with conn.transaction():
+                return conn.fetchall("""
+                    SELECT json_object_agg(
+                        m.name,
+                        json_build_object(
+                            'pickle_object', o.pickle_object,
+                            'volume_best_params', m.volume_best_params,
+                            'mean_speed_best_params', m.mean_speed_best_params
+                        )
+                    ) AS model_data
+                    FROM MLModels m
+                    JOIN MLModelObjects o ON m.id = o.id;
+                """)
+
+
 class AIODBManagerBroker:
 
     def __init__(self,

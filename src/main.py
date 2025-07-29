@@ -1,5 +1,6 @@
 import sys
 import time
+import pickle
 import asyncio
 import pandas as pd
 import dask
@@ -259,6 +260,7 @@ def forecasts_warmup(functionality: str) -> None:
 
 def execute_forecasting(functionality: str) -> None:
     db_broker = get_db_broker()
+    ft = ForecastingToolbox(db_broker=db_broker)
 
     print("Enter target data to forecast: ")
     print("V: Volumes | MS: Mean Speed")
@@ -288,24 +290,24 @@ def execute_forecasting(functionality: str) -> None:
                                             client=client,
                                             db_broker=db_broker
             )
-            future_records = forecaster.get_future_records(forecasting_horizon=forecasting_toolbox.get_forecasting_horizon_async(
-                target=GlobalDefinitions.TARGET_DATA.value[option]))  #Already preprocessed
+            future_records = forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=GlobalDefinitions.TARGET_DATA.value[option]))  #Already preprocessed
 
             #TODO TEST training_mode = BOTH 0 AND 1
             model_training_dataset = forecaster.get_training_records(training_mode=0, limit=future_records.shape[0].compute() * 24)
             X, y = split_by_target(model_training_dataset, target=GlobalDefinitions.TARGET_DATA.value[option], mode=1)
 
-            for name, model in ....items(): #TODO LOAD MODELS
+            for name, data in db_broker.get_model_objects()["model_data"].items(): #Load model name and data (pickle object, best parameters and so on)
 
-                best_params = json.load(...) #TODO LOAD MODEL'S BEST PARAMETERS (ONLY IF THEY EXIST)
+                model = pickle.load(data[name]["pickle_object"])
+                best_params = data[name][f"{GlobalDefinitions.TARGET_DATA.value[option]}_best_params"] #TODO LOAD MODEL'S BEST PARAMETERS (ONLY IF THEY EXIST)
 
                 learner = TFSLearner(model=model(**best_params),
                                      road_category=trp_road_category,
                                      target=GlobalDefinitions.TARGET_DATA.value[option],
                                      client=client,
                                      db_broker=db_broker)
-                model = learner.get_model().fit(X, y)
-                predictions = model.predict(future_records)
+                data = learner.get_model().fit(X, y)
+                predictions = data.predict(future_records)
                 print(predictions)
 
     return None
