@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from pathlib import Path
 from datetime import datetime
 from typing import Literal
 from enum import Enum
@@ -61,6 +62,8 @@ class GlobalDefinitions(Enum):
     COVID_YEARS = [2020, 2021, 2022]
     ML_CPUS = int(os.cpu_count() * 0.75)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
     # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
+
+    MEAN_SPEED_DIR = Path("data", str(MEAN_SPEED.value))
 
 
 

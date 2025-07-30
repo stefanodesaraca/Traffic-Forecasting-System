@@ -645,7 +645,6 @@ class TFSLearner:
         return None
 
 
-
     def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> pd.DataFrame | None:
         """
         Perform grid search cross-validation for hyperparameter tuning.

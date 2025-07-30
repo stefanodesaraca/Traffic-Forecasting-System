@@ -50,6 +50,7 @@ def get_db_broker():
 
 
 async def initialize() -> None:
+    os.makedirs(GlobalDefinitions.MEAN_SPEED_DIR.value, exist_ok=True) #The directory where mean speed files need to be placed
     await (await get_aiodbmanager_broker()).init()
     return None
 
@@ -106,9 +107,7 @@ async def download_volumes(functionality: str) -> None:
 
 async def mean_speeds_to_db() -> None:
     pipeline = MeanSpeedExtractionPipeline(db_broker_async=await get_aiodb_broker())
-    cwd = await asyncio.to_thread(os.getcwd,)
-    #TODO FIND THE SPECIFIC FOLDER WHERE MEAN SPEED FILES ARE LOCATED
-    all(await pipeline.ingest(fp=cwd + file, fields=GlobalDefinitions.MEAN_SPEED_INGESTION_FIELDS.value) for file in await asyncio.to_thread(os.listdir,))
+    all(await pipeline.ingest(fp=GlobalDefinitions.MEAN_SPEED_DIR.value / file, fields=GlobalDefinitions.MEAN_SPEED_INGESTION_FIELDS.value) for file in await asyncio.to_thread(os.listdir,))
     return None
 
 #TODO CHECK HOW BEST PARAMETERS ARE INSERTED INTO DB AND IF THERE'S A DEFAULT IDX
