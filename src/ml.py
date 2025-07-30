@@ -767,7 +767,7 @@ class OnePointForecaster:
             return ...
         elif training_mode == 1:
             if not limit:
-                return loading_functions_mapping[self._target](road_category_filter=[self._road_category]).tail(limit)
+                return loading_functions_mapping[self._target](road_category_filter=[self._road_category])
             return loading_functions_mapping[self._target](road_category_filter=[self._road_category])
         raise WrongTrainRecordsRetrievalMode("training_mode parameter value is not valid")
 
