@@ -577,72 +577,20 @@ class TFSLearner:
                                                            WHERE id = {self._model.model_id};""", single=True)['volume_grid' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'mean_speed_grid'])
 
 
-    def get_model(self) -> ModelWrapper:
-        return self._model
-
-
-    def get_scorer(self) -> dict[str, Any]:
-        return self._scorer
-
-
     def _load_model(self) -> callable:
         return pickle.load(self._db_broker.send_sql(f"""SELECT mo.pickle_object
                                                              FROM MLModels m LEFT JOIN MLModelObjects mo on m.id = mo.id
                                                              WHERE m.name = {self._model.name}""", single=True)["pickle_object"])
 
 
-    def export_gridsearch_results(self, results: pd.DataFrame) -> None:
-        results["params"] = results["params"].apply(json.dumps) #Binarizing parameters' dictionary
-        self._db_broker.send_sql(f"""
-            INSERT INTO ModelGridSearchCVResults (
-                model_id,
-                road_category_id,
-                params,
-                mean_fit_time,
-                mean_test_r2,
-                mean_train_r2,
-                mean_test_mean_squared_error,
-                mean_train_mean_squared_error,
-                mean_test_root_mean_squared_error,
-                mean_train_root_mean_squared_error,
-                mean_test_mean_absolute_error,
-                mean_train_mean_absolute_error
-            )
-            VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-            )
-            ON CONFLICT (model_id) DO UPDATE;
-        """, many=True, many_values=[tuple(row) for row in results.itertuples(index=False, name=None)])
-        return None
+    @property
+    def model(self) -> ModelWrapper:
+        return self._model
 
 
-    def export_best_params(self, results: pd.DataFrame):
-
-        best_params_idx: int = self._db_broker.send_sql(sql=f"""SELECT {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx'} 
-                                                                FROM MLModels
-                                                                WHERE id = {self._model.model_id};""", single=True)['best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx']
-
-        true_best_params = results["params"].iloc[best_params_idx] or {}
-        #true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) #TODO READ THE TODO BELOW
-        true_best_params["best_GridSearchCV_model_scores"] = results.iloc[best_params_idx].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
-
-        #TODO TESTING -> CHECK IF AUXILIARY PARAMETERS ARE INCLUDED WITHOUT ADDING THEM SPECIFICALLY
-        results.to_json(f"./project_data/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
-
-        return None
-
-
-    def set_best_params_idx(self, idx: int, model_id: str | None = None) -> None:
-        self._db_broker.send_sql(f"""UPDATE MLModels
-                                     SET {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx'} = {idx}
-                                     WHERE id = '{model_id or self._model.model_id}';""")
-        return None
-
-
-    def set_best_params_idxs(self, index_dict: dict[str, int]) -> None:
-        for model_id, idx in index_dict:
-            self.set_best_params_idx(model_id=model_id, idx=idx)
-        return None
+    @property
+    def scorer(self) -> dict[str, Any]:
+        return self._scorer
 
 
     def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> pd.DataFrame | None:
@@ -719,6 +667,60 @@ class TFSLearner:
 
         finally:
             gc.collect()
+
+
+    def set_best_params_idx(self, idx: int, model_id: str | None = None) -> None:
+        self._db_broker.send_sql(f"""UPDATE MLModels
+                                     SET {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx'} = {idx}
+                                     WHERE id = '{model_id or self._model.model_id}';""")
+        return None
+
+
+    def set_best_params_idxs(self, index_dict: dict[str, int]) -> None:
+        for model_id, idx in index_dict:
+            self.set_best_params_idx(model_id=model_id, idx=idx)
+        return None
+
+
+    def export_gridsearch_results(self, results: pd.DataFrame) -> None:
+        results["params"] = results["params"].apply(json.dumps) #Binarizing parameters' dictionary
+        self._db_broker.send_sql(f"""
+            INSERT INTO ModelGridSearchCVResults (
+                model_id,
+                road_category_id,
+                params,
+                mean_fit_time,
+                mean_test_r2,
+                mean_train_r2,
+                mean_test_mean_squared_error,
+                mean_train_mean_squared_error,
+                mean_test_root_mean_squared_error,
+                mean_train_root_mean_squared_error,
+                mean_test_mean_absolute_error,
+                mean_train_mean_absolute_error
+            )
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+            ON CONFLICT (model_id) DO UPDATE;
+        """, many=True, many_values=[tuple(row) for row in results.itertuples(index=False, name=None)])
+        return None
+
+
+    def export_best_params(self, results: pd.DataFrame):
+
+        best_params_idx: int = self._db_broker.send_sql(sql=f"""SELECT {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx'} 
+                                                                FROM MLModels
+                                                                WHERE id = {self._model.model_id};""", single=True)['best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx']
+
+        true_best_params = results["params"].iloc[best_params_idx] or {}
+        #true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) #TODO READ THE TODO BELOW
+        true_best_params["best_GridSearchCV_model_scores"] = results.iloc[best_params_idx].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
+
+        #TODO TESTING -> CHECK IF AUXILIARY PARAMETERS ARE INCLUDED WITHOUT ADDING THEM SPECIFICALLY
+        results.to_json(f"./project_data/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
+
+        return None
 
 
     def export_model(self) -> None:

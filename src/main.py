@@ -178,21 +178,21 @@ def forecasts_warmup(functionality: str) -> None:
     def ml_gridsearch(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
         gridsearch_result = learner.gridsearch(X_train, y_train)
         learner.export_gridsearch_results(gridsearch_result)
-        print(f"============== {learner.get_model().name} grid search results ==============\n")
+        print(f"============== {learner.model.name} grid search results ==============\n")
         print(gridsearch_result, "\n")
         return None
 
 
     def ml_training(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
-        learner.get_model().fit(X_train, y_train).export()
+        learner.model.fit(X_train, y_train).export()
         print("Fitting phase ended")
         return None
 
 
     def ml_testing(X_test: dd.DataFrame, y_test: dd.DataFrame, learner: callable) -> None:
-        model = learner.get_model()
+        model = learner.model
         y_pred = model.predict(X_test)
-        print(model.evaluate_regression(y_test=y_test, y_pred=y_pred, scorer=learner.get_scorer()))
+        print(model.evaluate_regression(y_test=y_test, y_pred=y_pred, scorer=learner.scorer))
         return None
 
 
@@ -333,7 +333,7 @@ def execute_forecasting(functionality: str) -> None:
                                      client=client,
                                      db_broker=db_broker
                 )
-                data = learner.get_model().fit(X, y)
+                data = learner.model.fit(X, y)
                 predictions = data.predict(future_records)
                 print(predictions)
 

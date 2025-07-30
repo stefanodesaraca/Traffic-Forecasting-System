@@ -15,7 +15,7 @@ grids = {
             "max_depth": [
                 20,
                 40,
-            ],  # NOTE max_depth ABSOLUTELY SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE 10 CRASHES THE GRIDSEARCH ALGORITHM
+            ],  # NOTE max_depth ABSOLUTELY SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE: 10 CRASHES THE ALGORITHM
             "criterion": ["friedman_mse"],
             "ccp_alpha": [0, 0.00002],  # ccp_alpha = 1 overfits
         },
@@ -40,7 +40,7 @@ grids = {
             "max_depth": [
                 40,
                 70,
-            ],  # NOTE max_depth ABSOLUTELY SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE 10 CRASHES THE GRIDSEARCH ALGORITHM
+            ],  # NOTE max_depth ABSOLUTELY SHOULDN'T BE LESS THAN 20 OR 30.. FOR EXAMPLE: 10 CRASHES THE ALGORITHM
             "criterion": [
                 "squared_error",
                 "friedman_mse",
