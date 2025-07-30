@@ -111,7 +111,7 @@ class DBBroker:
                 return cursor
 
 
-    def get_trp_ids(self, road_category_filter: list[str]) -> list[tuple[Any, ...]]:
+    def get_trp_ids(self, road_category_filter: list[str] | None = None) -> list[tuple[Any, ...]]:
         with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with conn.transaction():
                 return conn.fetchall(f"""
