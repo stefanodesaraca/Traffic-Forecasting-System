@@ -1,10 +1,10 @@
 from contextlib import contextmanager
 from pathlib import Path
-from datetime import datetime
-from typing import Literal
+import datetime
+from datetime import timezone, timedelta, tzinfo
+from typing import Literal, cast
 from enum import Enum
 import os
-from functools import wraps
 import asyncio
 import pandas as pd
 import dask.dataframe as dd
@@ -13,7 +13,7 @@ from pydantic import BaseModel as PydanticBaseModel
 from pydantic.types import PositiveInt
 from dask.distributed import Client, LocalCluster
 
-from exceptions import WrongSplittingMode, TargetDataNotAvailableError, NoDataError, WrongDBBrokerError
+from exceptions import WrongSplittingMode, TargetDataNotAvailableError, NoDataError
 from src.brokers import AIODBBroker, DBBroker
 
 pd.set_option("display.max_columns", None)
@@ -42,7 +42,8 @@ class BaseModel(PydanticBaseModel):
         arbitrary_types_allowed = True
 
 
-#TODO USE Pydantic's Base Model IN THE FUTURE
+#TODO USE Pydantic's BaseModel IN THE FUTURE
+#TODO REMOVE cast() WHEN Pydantic's BaseModel WILL BE USED
 class GlobalDefinitions(Enum):
     VOLUME_INGESTION_FIELDS = ["trp_id", "volume", "coverage", "is_mice", "zoned_dt_iso"]
     MEAN_SPEED_INGESTION_FIELDS = ["trp_id", "mean_speed", "percentile_85", "coverage", "is_mice", "zoned_dt_iso"]
@@ -56,7 +57,9 @@ class GlobalDefinitions(Enum):
     VOLUME = "volume"
     MEAN_SPEED = "mean_speed"
 
+    DT_INPUT_FORMAT = "%Y-%m-%dT%H"
     NORWEGIAN_UTC_TIME_ZONE = "+01:00"
+    NORWEGIAN_UTC_TIME_ZONE_TIMEDELTA = timezone(timedelta(hours=1))
 
     COVID_YEARS = [2020, 2021, 2022]
     ML_CPUS = int(os.cpu_count() * 0.75)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
@@ -68,7 +71,7 @@ class GlobalDefinitions(Enum):
 
 
 def check_target(target: str) -> bool:
-    if not target in GlobalDefinitions.TARGET_DATA.value.keys() or not target in GlobalDefinitions.TARGET_DATA.value.values():
+    if not target in cast(dict, GlobalDefinitions.TARGET_DATA.value).keys() or not target in cast(dict, GlobalDefinitions.TARGET_DATA.value).values():
         return False
     return True
 
@@ -132,8 +135,8 @@ class ForecastingToolbox:
 
 
 
-    def set_forecasting_horizon(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
-        max_forecasting_window_size: int = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value, forecasting_window_size)
+    def set_forecasting_horizon(self, forecasting_window_size: PositiveInt = cast(int, GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value)) -> None:
+        max_forecasting_window_size: int = max(cast(int, GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value), forecasting_window_size)
 
         print("V = Volume | MS = Mean Speed")
         option = input("Target: ")
@@ -150,9 +153,9 @@ class ForecastingToolbox:
             raise Exception("End date not set. Run download or set it first")
 
         print("Latest data available: ", last_available_data_dt)
-        print("Maximum settable date: ", relativedelta(last_available_data_dt, days=GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value))
+        print("Maximum settable date: ", relativedelta(last_available_data_dt, days=cast(int, GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value))) #Using cast to avoid type checker warnings
 
-        horizon = input("Insert forecasting horizon (YYYY-MM-DDTHH): ") #TODO CONVERT INTO TIMEZONED DATETIME
+        horizon = datetime.datetime.strptime(input("Insert forecasting horizon (YYYY-MM-DDTHH): "), cast(str, GlobalDefinitions.DT_INPUT_FORMAT.value)).replace(tzinfo=cast(tzinfo, GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE_TIMEDELTA.value)).isoformat()
 
         assert horizon > last_available_data_dt, "Forecasting target datetime is prior to the latest data available"
         assert (horizon - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"
@@ -169,7 +172,7 @@ class ForecastingToolbox:
         return None
 
 
-    def get_forecasting_horizon(self, target: str) -> datetime:
+    def get_forecasting_horizon(self, target: str) -> datetime.datetime:
         if not check_target(target):
             raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
         return self._db_broker.send_sql(
@@ -190,7 +193,7 @@ class ForecastingToolbox:
         return None
 
 
-    async def set_forecasting_horizon_async(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value) -> None:
+    async def set_forecasting_horizon_async(self, forecasting_window_size: PositiveInt = cast(int, GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value)) -> None:
         """
         Parameters:
             forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24.
@@ -200,7 +203,7 @@ class ForecastingToolbox:
         Returns:
             None
         """
-        max_forecasting_window_size: int = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
+        max_forecasting_window_size: int = max(cast(int, GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value), forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
         print("V = Volume | MS = Mean Speed")
         option = input("Target: ")
@@ -217,10 +220,10 @@ class ForecastingToolbox:
             raise Exception("End date not set. Run download or set it first")
 
         print("Latest data available: ", last_available_data_dt)
-        print("Maximum settable date: ", relativedelta(last_available_data_dt, days=GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value))
+        print("Maximum settable date: ", relativedelta(last_available_data_dt, days=cast(int, GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value)))
 
-        horizon = input("Insert forecasting horizon (YYYY-MM-DDTHH): ")  #TODO CONVERT INTO TIMEZONED DATETIME
-        # The month number must be zero-padded, for example: 01, 02, etc. #TODO NOT TO KEEP
+        horizon = datetime.datetime.strptime(input("Insert forecasting horizon (YYYY-MM-DDTHH): "), cast(str, GlobalDefinitions.DT_INPUT_FORMAT.value)).replace(tzinfo=cast(tzinfo, GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE_TIMEDELTA.value)).isoformat()
+        # The month number must be zero-padded, for example: 01, 02, etc.
 
         assert horizon > last_available_data_dt, "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
         assert (horizon - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
@@ -240,7 +243,7 @@ class ForecastingToolbox:
         return None
 
 
-    async def get_forecasting_horizon_async(self, target: str) -> datetime:
+    async def get_forecasting_horizon_async(self, target: str) -> datetime.datetime:
             if not check_target(target):
                 raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
             return (await self._db_broker_async.send_sql_async(
