@@ -6,6 +6,7 @@ import asyncio
 import pandas as pd
 import dask
 import dask.dataframe as dd
+import geojson
 
 from exceptions import TRPNotFoundError, TargetDataNotAvailableError, ModelBestParametersNotFound
 
@@ -340,6 +341,17 @@ def execute_forecasting(functionality: str) -> None:
 
 
 def manage_road_network(functionality: str) -> None:
+
+    def retrieve_edges(self) -> dict:
+        with open(f"{self.get('folder_paths.rn_graph.edges.path')}/traffic-nodes-2024_2025-02-28.geojson", "r", encoding="utf-8") as e:
+            return geojson.load(e)["features"]
+
+
+    def retrieve_arches(self) -> dict:
+        with open(f"{self.get('folder_paths.rn_graph.arches.path')}/traffic_links_2024_2025-02-27.geojson", "r", encoding="utf-8") as a:
+            return geojson.load(a)["features"]
+
+
     if functionality == "4.1":
         ...
 

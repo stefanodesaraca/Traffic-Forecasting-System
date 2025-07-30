@@ -8,7 +8,6 @@ from functools import wraps
 import asyncio
 import pandas as pd
 import dask.dataframe as dd
-import geojson
 from dateutil.relativedelta import relativedelta
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic.types import PositiveInt
@@ -64,6 +63,7 @@ class GlobalDefinitions(Enum):
     # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
 
     MEAN_SPEED_DIR = Path("data", str(MEAN_SPEED.value))
+    MODEL_GRIDS_DIR = Path("data", "model_grids")
 
 
 
@@ -122,19 +122,6 @@ def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:
                 .persist())  # Sorting records by date
     except ValueError as e:
         raise NoDataError(f"No data to concatenate. Error: {e}")
-
-
-
-class RoadNetworkToolbox(BaseModel):
-
-    def retrieve_edges(self) -> dict:
-        with open(f"{self.get('folder_paths.rn_graph.edges.path')}/traffic-nodes-2024_2025-02-28.geojson", "r", encoding="utf-8") as e:
-            return geojson.load(e)["features"]
-
-
-    def retrieve_arches(self) -> dict:
-        with open(f"{self.get('folder_paths.rn_graph.arches.path')}/traffic_links_2024_2025-02-27.geojson", "r", encoding="utf-8") as a:
-            return geojson.load(a)["features"]
 
 
 
