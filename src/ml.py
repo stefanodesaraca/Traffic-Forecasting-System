@@ -762,12 +762,12 @@ class OnePointForecaster:
             GlobalDefinitions.TARGET_DATA.value["MS"]: self._loader.get_mean_speed
         }
         if training_mode == 0:
-            if not limit:
-                return ....tail(limit)
-            return ...
+            if limit:
+                return loading_functions_mapping[self._target](road_category_filter=[self._road_category], trp_list_filter=[self._trp_id], limit=limit)
+            return loading_functions_mapping[self._target](road_category_filter=[self._road_category], trp_list_filter=[self._trp_id])
         elif training_mode == 1:
-            if not limit:
-                return loading_functions_mapping[self._target](road_category_filter=[self._road_category])
+            if limit:
+                return loading_functions_mapping[self._target](road_category_filter=[self._road_category], limit=limit)
             return loading_functions_mapping[self._target](road_category_filter=[self._road_category])
         raise WrongTrainRecordsRetrievalMode("training_mode parameter value is not valid")
 

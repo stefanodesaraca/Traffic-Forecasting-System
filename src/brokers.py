@@ -114,7 +114,10 @@ class DBBroker:
     def get_trp_ids(self, road_category_filter: list[str]) -> list[tuple[Any, ...]]:
         with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with conn.transaction():
-                return conn.fetchall("""SELECT id FROM TrafficRegistrationPoints;""")
+                return conn.fetchall(f"""
+                    SELECT id FROM TrafficRegistrationPoints;
+                    WHERE {"road_category = ANY(%s)" if road_category_filter else "1=1"}
+                """, *tuple(*road_category_filter)) #We can add more filters in the future by just adding , *new_filter within the tuple() function
 
 
     def get_trp_ids_by_road_category(self) -> dict[Any, ...]:
