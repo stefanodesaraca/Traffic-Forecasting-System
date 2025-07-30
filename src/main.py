@@ -13,7 +13,7 @@ from exceptions import TRPNotFoundError, TargetDataNotAvailableError, ModelBestP
 from db_config import DBConfig
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
 from pipelines import MeanSpeedExtractionPipeline
-from loader import BatchStreamLoader
+from loaders import BatchStreamLoader
 from downloader import start_client_async, volumes_to_db
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
 from ml import TFSLearner, TFSPreprocessor, OnePointForecaster

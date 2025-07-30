@@ -167,7 +167,7 @@ class ForecastingToolbox:
                                          to_jsonb('{horizon}'::timestamptz::text),
                                          TRUE
                                      )
-                                     WHERE id = TRUE;""")
+                                     WHERE id = TRUE;""") #The horizon datetime value is already in zoned datetime format
 
         return None
 
@@ -237,7 +237,7 @@ class ForecastingToolbox:
                                                            to_jsonb('{horizon}'::timestamptz::text),
                                                            TRUE
                                                        )
-                                                       WHERE id = TRUE;""")
+                                                       WHERE id = TRUE;""") #The horizon datetime value is already in zoned datetime format
         #The TRUE after to_jsonb(...) is needed to create the record in case it didn't exist before
 
         return None

@@ -37,6 +37,7 @@ from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastin
 
 from exceptions import WrongEstimatorTypeError, ModelNotSetError, TargetVariableNotFoundError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
 from brokers import DBBroker
+from loaders import BatchStreamLoader
 from utils import GlobalDefinitions, check_target, ZScore, merge
 
 
@@ -737,12 +738,13 @@ class TFSLearner:
 
 class OnePointForecaster:
 
-    def __init__(self, trp_id: str, road_category: str, target: str, client: Client, db_broker: DBBroker):
+    def __init__(self, trp_id: str, road_category: str, target: str, client: Client, db_broker: DBBroker, loader: BatchStreamLoader):
         self._trp_id: str = trp_id
         self._road_category: str = road_category
         self._target: str = target
         self._client: Client = client
         self._db_broker: DBBroker = db_broker
+        self._loader: BatchStreamLoader = loader
 
 
     def get_training_records(self, training_mode: Literal[0, 1], limit: int | None = None) -> dd.DataFrame:
@@ -755,14 +757,18 @@ class OnePointForecaster:
                    If None, we'll just return all records available.
                    Example: if we had a limit of 2000, we'll only collect the latest 2000 records.
         """
+        loading_functions_mapping = {
+            GlobalDefinitions.TARGET_DATA.value["V"]: self._loader.get_volume,
+            GlobalDefinitions.TARGET_DATA.value["MS"]: self._loader.get_mean_speed
+        }
         if training_mode == 0:
             if not limit:
-                return tail(limit)
-            return dd.read_csv()
+                return ....tail(limit)
+            return ...
         elif training_mode == 1:
             if not limit:
-                return merge(self._db_broker.get_trp_ids_by_road_category()).tail(limit) #TODO convert records to dict and use dd.from_dict? #TODO limit can be None, correct that
-            return merge(self._db_broker.get_trp_ids_by_road_category()) #TODO convert records to dict and use dd.from_dict? #TODO limit can be None, correct that
+                return loading_functions_mapping[self._target](road_category_filter=[self._road_category]).tail(limit)
+            return loading_functions_mapping[self._target](road_category_filter=[self._road_category])
         raise WrongTrainRecordsRetrievalMode("training_mode parameter value is not valid")
 
 
@@ -794,10 +800,12 @@ class OnePointForecaster:
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
         if self._target == GlobalDefinitions.TARGET_DATA.value["V"]:
-            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)), road_category=self._road_category,
+            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)),
+                                   road_category=self._road_category,
                                    client=self._client).preprocess_volume(z_score=False)
         elif self._target == GlobalDefinitions.TARGET_DATA.value["MS"]:
-            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)), road_category=self._road_category,
+            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)),
+                                   road_category=self._road_category,
                                    client=self._client).preprocess_mean_speed(z_score=False)
         else:
             raise TargetVariableNotFoundError("Wrong target variable")
