@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timezone, timedelta
-from contextlib import contextmanager
+from contextlib import contextmanager, asynccontextmanager
 from typing import Any, Literal
 import asyncio
 import aiofiles
@@ -14,7 +14,7 @@ from exceptions import ProjectDBNotFoundError, ProjectDBNotRegisteredError
 from downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
 
 
-@contextmanager
+@asynccontextmanager
 async def postgres_conn_async(user: str, password: str, dbname: str, host: str = 'localhost') -> asyncpg.connection:
     conn = None
     try:
@@ -25,6 +25,8 @@ async def postgres_conn_async(user: str, password: str, dbname: str, host: str =
             host=host
         )
         yield conn
+    except Exception as e:
+        print(f"\03391m]Exception raised: {e}\0330m]")
     finally:
         await conn.close()
 
@@ -46,6 +48,8 @@ def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost'
         )
         conn.autocommit = autocommit
         yield conn
+    except Exception as e:
+        print(f"\03391m]Exception raised: {e}\0330m]")
     finally:
         conn.close()
 

@@ -1,7 +1,8 @@
 from enum import Enum
+from src.dbsecrets import superuser
 
 class DBConfig(Enum):
-    SUPERUSER = "postgres"
+    SUPERUSER = superuser
     SUPERUSER_PASSWORD = ""
     TFS_USER = "tfs"
     TFS_PASSWORD = "tfs"
