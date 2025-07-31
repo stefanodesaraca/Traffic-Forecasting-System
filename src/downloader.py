@@ -193,11 +193,9 @@ async def fetch_trp_volumes(client: Client, trp_id: str, time_start: str, time_e
         """))
 
 
-async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10) -> None:
+async def volumes_to_db(gql_client: Client, db_broker_async: AIODBBroker, time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10) -> None:
     semaphore = asyncio.Semaphore(n_async_jobs)  # Limit to n_async_jobs async tasks
-    broker = AIODBBroker(db_user=db_credentials["db_user"], db_password=db_credentials["db_password"],
-                         db_name=db_credentials["db_name"], db_host=db_credentials["db_host"])
-    pipeline = VolumeExtractionPipeline(db_broker_async=broker)
+    pipeline = VolumeExtractionPipeline(db_broker_async=db_broker_async)
 
     async def download_trp_data(trp_id: str) -> None:
         pages_counter = 0
@@ -236,7 +234,7 @@ async def volumes_to_db(gql_client: Client, db_credentials: dict[str, str], time
             return await download_trp_data(trp_id)
 
     # Run all downloads in parallel with a maximum of 5 processes at the same time
-    await asyncio.gather(*(limited_task(trp_id) for trp_id in [trp_record["id"] for trp_record in await broker.get_trp_ids_async()]))
+    await asyncio.gather(*(limited_task(trp_id) for trp_id in [trp_record["id"] for trp_record in await db_broker_async.get_trp_ids_async()]))
 
 
     return None

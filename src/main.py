@@ -11,7 +11,7 @@ import geojson
 from exceptions import TRPNotFoundError, TargetDataNotAvailableError, ModelBestParametersNotFound
 from db_config import DBConfig
 
-from downloader import start_client_async, volumes_to_db
+from downloader import start_client_async, volumes_to_db, fetch_trps
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
 from pipelines import MeanSpeedExtractionPipeline
 from loaders import BatchStreamLoader
@@ -85,10 +85,10 @@ async def manage_global(functionality: str) -> None:
     return None
 
 
-async def download_volumes(functionality: str) -> None:
+async def manage_downloads(functionality: str) -> None:
     if functionality == "2.1":
         print("\nDownloading traffic registration points information for the active operation...")
-        await (await get_aiodbmanager_broker()).trps_to_db()
+        await (await get_aiodbmanager_broker()).insert_trps(data=await fetch_trps(client=await start_client_async()))
         print("Traffic registration points information downloaded successfully\n\n")
 
     elif functionality == "2.2":
@@ -96,12 +96,7 @@ async def download_volumes(functionality: str) -> None:
         time_end = await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
         print("Downloading traffic volumes data for every registration point for the current project...")
         await volumes_to_db(gql_client=await start_client_async(),
-                            db_credentials={
-                                "db_user": DBConfig.TFS_USER.value,
-                                "db_password": DBConfig.TFS_PASSWORD.value,
-                                "db_name": await (await get_aiodbmanager_broker()).get_current_project(),
-                                "db_host": DBConfig.DB_HOST.value
-                            },
+                            db_broker_async=await get_aiodb_broker(),
                             time_start=time_start,
                             time_end=time_end,
                             n_async_jobs=5,
@@ -374,8 +369,8 @@ def main():
         "1.3": manage_global,
         "1.4": manage_global,
         "1.5": manage_global,
-        "2.1": download_volumes,
-        "2.2": download_volumes,
+        "2.1": manage_downloads,
+        "2.2": manage_downloads,
         "3.1.1": manage_forecasting_horizon,
         "3.1.2": manage_forecasting_horizon,
         "3.1.3": manage_forecasting_horizon,

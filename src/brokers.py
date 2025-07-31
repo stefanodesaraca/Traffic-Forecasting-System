@@ -4,7 +4,6 @@ import asyncpg
 
 from exceptions import WrongSQLStatement, MissingDataException
 from db_manager import AIODBManager, postgres_conn_async, postgres_conn
-from downloader import start_client_async, fetch_trps
 
 
 
@@ -269,9 +268,9 @@ class AIODBManagerBroker:
                 """)
 
 
-    async def trps_to_db(self) -> None:
+    async def insert_trps(self, data: dict[str, Any]) -> None:
         async with postgres_conn_async(self._tfs_user, password=self._tfs_password, dbname=await self.get_current_project(), host=self._db_host) as conn:
-            await (await self._get_db_manager_async()).insert_trps(conn=conn, data=await fetch_trps(client=await start_client_async()))
+            await (await self._get_db_manager_async()).insert_trps(conn=conn, data=data)
         return None
 
 
