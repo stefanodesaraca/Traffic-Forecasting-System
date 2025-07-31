@@ -1,7 +1,6 @@
 from typing import Any, Literal, Iterator
 from pydantic.types import PositiveInt
 import asyncpg
-import psycopg
 
 from exceptions import WrongSQLStatement, MissingDataException
 from db_manager import AIODBManager, postgres_conn_async, postgres_conn
@@ -259,6 +258,15 @@ class AIODBManagerBroker:
     async def reset_current_project(self) -> None:
         await (await self._get_db_manager_async()).reset_current_project()
         return None
+
+
+    async def list_all_projects(self) -> list[asyncpg.Record]:
+        with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._hub_db, host=self._db_host) as conn:
+            with conn.transaction():
+                return conn.fetch("""
+                    SELECT name
+                    FROM Projects
+                """)
 
 
     async def trps_to_db(self) -> None:

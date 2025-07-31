@@ -74,6 +74,9 @@ async def manage_global(functionality: str) -> None:
     elif functionality == "1.5":
         await db_manager_broker_async.delete_project(await asyncio.to_thread(input,"Insert the name of the project to delete: "))
 
+    elif functionality == "1.6":
+        print(await db_manager_broker_async.list_all_projects())
+
     else:
         print("\033[91mFunctionality not found, try again with a correct one\033[0m")
         print("\033[91mReturning to the main menu...\033[0m\n\n")
@@ -397,6 +400,7 @@ def main():
     1.3 Check the current project's name
     1.4 Reset current project
     1.5 Delete a project
+    1.6 List all projects
 2. Download data (Trafikkdata API)
     2.1 Traffic registration points information
     2.2 Traffic volumes for every registration point
