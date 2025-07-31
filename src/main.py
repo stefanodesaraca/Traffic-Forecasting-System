@@ -135,19 +135,20 @@ async def manage_forecasting_horizon(functionality: str) -> None:
 
 
 def execute_eda() -> None:
-    trp_data = ...
+    db_broker = get_db_broker()
+    trps_data = db_broker.get_all_trps_metadata()
 
-    for v in (trp_id for trp_id in trp_data.keys() if ....get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_VOLUME_CHECK.value)):
+    for v in ...: #TODO TRPS WHICH ACTUALLY HAVE VOLUME DATA, CHECK METADATA VIEW
         volumes = ...
         analyze_volume(volumes)
         volume_multicollinearity_test(volumes)
 
-    for s in (trp_id for trp_id in trp_data.keys() if ....get_trp_metadata(trp_id=trp_id)["checks"].get(GlobalDefinitions.HAS_MEAN_SPEED_CHECK.value)):
+    for s in ...: #TODO TRPS WHICH ACTUALLY HAVE MEAN SPEED DATA, CHECK METADATA VIEW
         speeds = ...
         analyze_mean_speed(speeds)
         mean_speed_multicollinearity_test(speeds)
 
-    volumes_speeds = (vs for vs in (trp_id for trp_id in trp_data.keys() if trp_data[trp_id]["checks"]["has_" + GlobalDefinitions.TARGET_DATA.value["V"]] and trp_data[trp_id]["checks"]["has_" + GlobalDefinitions.TARGET_DATA.value["MS"]]))
+    volumes_speeds = ... #TODO TRPS WHICH ACTUALLY HAVE BOTH VOLUME AND MEAN SPEED DATA
     # Determining the TRPs which have both traffic volumes and speed data
 
     print("\n\n")

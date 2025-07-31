@@ -160,6 +160,18 @@ class DBBroker:
                 return {"min": result["mean_speed_start_date"], "max": result["mean_speed_end_date"]} #Respectively: min and max
 
 
+    def get_all_trps_metadata(self) -> dict[str, dict[str, Any]]:
+        with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
+            with conn.transaction():
+                return conn.fetchone()("""
+                    SELECT jsonb_object_agg(trp_id, to_jsonb(t) - 'trp_id') AS trp_metadata
+                    FROM (
+                        SELECT *
+                        FROM TrafficRegistrationPointsMetadataView
+                    ) AS t;
+                """)
+
+
     def get_trp_metadata(self, trp_id: str) -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with conn.transaction():
