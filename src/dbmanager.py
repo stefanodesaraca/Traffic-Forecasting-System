@@ -57,13 +57,15 @@ def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost'
 
 class AIODBManager:
 
-    def __init__(self, superuser: str, superuser_password: str, tfs_user: str, tfs_password: str, hub_db: str = "tfs_hub", maintenance_db: str = "postgres"):
-        self._superuser = superuser
-        self._superuser_password = superuser_password
-        self._tfs_user = tfs_user
-        self._tfs_password = tfs_password
-        self._hub_db = hub_db
-        self._maintenance_db = maintenance_db
+    def __init__(self, superuser: str, superuser_password: str, tfs_user: str, tfs_password: str, tfs_role: str, tfs_role_password: str, hub_db: str = "tfs_hub", maintenance_db: str = "postgres"):
+        self._superuser: str = superuser
+        self._superuser_password: str = superuser_password
+        self._tfs_user: str = tfs_user
+        self._tfs_password: str = tfs_password
+        self._hub_db: str = hub_db
+        self._maintenance_db: str = maintenance_db
+        self._tfs_role: str = tfs_role
+        self._tfs_role_password: str = tfs_role_password
 
 
     async def _check_db(self, dbname: str) -> bool:
@@ -430,13 +432,15 @@ class AIODBManager:
         #Accessing as superuser and creating tfs user
         async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
             try:
-                async with conn.transaction():
-                    await conn.execute(f"CREATE USER {self._tfs_user} WITH PASSWORD {self._tfs_password};")
-                    await conn.execute(f"CREATE ROLE {self._tfs_user} WITH LOGIN;")
+                await conn.execute(f"CREATE USER {self._tfs_user} WITH PASSWORD '{self._tfs_password}';")
                 print(f"User {self._tfs_user} created.")
             except asyncpg.DuplicateObjectError:
                 print(f"User {self._tfs_user} already exists.")
-
+            try:
+                await conn.execute(f"CREATE ROLE {self._tfs_role} WITH LOGIN PASSWORD '{self._tfs_role_password}';")
+                print(f"Role {self._tfs_role} created.")
+            except asyncpg.DuplicateObjectError:
+                print(f"Role {self._tfs_role} already exists.")
 
         # -- Hub DB Initialization --
         if not await self._check_db(dbname=self._hub_db):

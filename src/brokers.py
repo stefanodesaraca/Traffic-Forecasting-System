@@ -205,6 +205,8 @@ class AIODBManagerBroker:
                  superuser_password: str | None = None,
                  tfs_user: str | None = None,
                  tfs_password: str | None = None,
+                 tfs_role: str | None = None,
+                 tfs_role_password: str | None = None,
                  hub_db: str | None = None,
                  maintenance_db: str | None = None,
                  db_host: str | None = None):
@@ -212,6 +214,8 @@ class AIODBManagerBroker:
         self._superuser_password: str | None = superuser_password
         self._tfs_user: str | None = tfs_user
         self._tfs_password: str | None = tfs_password
+        self._tfs_role: str | None = tfs_role
+        self._tfs_role_password: str | None = tfs_role_password
         self._hub_db: str | None = hub_db
         self._maintenance_db: str | None = maintenance_db
         self._db_host: str | None = db_host
@@ -224,6 +228,8 @@ class AIODBManagerBroker:
                             superuser_password=self._superuser_password,
                             tfs_user=self._tfs_user,
                             tfs_password=self._tfs_password,
+                            tfs_role=self._tfs_password,
+                            tfs_role_password=self._tfs_password,
                             hub_db=self._hub_db,
                             maintenance_db=self._maintenance_db
         )

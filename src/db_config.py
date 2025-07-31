@@ -6,6 +6,8 @@ class DBConfig(Enum):
     SUPERUSER_PASSWORD = ""
     TFS_USER = "tfs"
     TFS_PASSWORD = "tfs"
+    TFS_ROLE = "tfs"
+    TFS_ROLE_PASSWORD = "tfs"
 
     HUB_DB = "tfs_hub"
     MAINTENANCE_DB = "postgres"

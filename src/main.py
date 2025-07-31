@@ -23,13 +23,16 @@ from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_
 
 
 async def get_aiodbmanager_broker():
-    return AIODBManagerBroker(superuser=DBConfig.SUPERUSER.value,
-                                superuser_password=DBConfig.SUPERUSER_PASSWORD.value,
-                                tfs_user=DBConfig.TFS_USER.value,
-                                tfs_password=DBConfig.TFS_PASSWORD.value,
-                                hub_db=DBConfig.HUB_DB.value,
-                                maintenance_db=DBConfig.MAINTENANCE_DB.value,
-                                db_host=DBConfig.DB_HOST.value
+    return AIODBManagerBroker(
+        superuser=DBConfig.SUPERUSER.value,
+        superuser_password=DBConfig.SUPERUSER_PASSWORD.value,
+        tfs_user=DBConfig.TFS_USER.value,
+        tfs_password=DBConfig.TFS_PASSWORD.value,
+        tfs_role=DBConfig.TFS_ROLE.value,
+        tfs_role_password=DBConfig.TFS_ROLE_PASSWORD.value,
+        hub_db=DBConfig.HUB_DB.value,
+        maintenance_db=DBConfig.MAINTENANCE_DB.value,
+        db_host=DBConfig.DB_HOST.value
     )
 
 
