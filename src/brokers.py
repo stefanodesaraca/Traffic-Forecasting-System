@@ -3,7 +3,7 @@ from pydantic.types import PositiveInt
 import asyncpg
 
 from exceptions import WrongSQLStatement, MissingDataException
-from db_manager import AIODBManager, postgres_conn_async, postgres_conn
+from dbmanager import AIODBManager, postgres_conn_async, postgres_conn
 
 
 
