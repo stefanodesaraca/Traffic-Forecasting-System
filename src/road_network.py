@@ -213,7 +213,7 @@ class RoadNetwork(BaseModel):
         """
 
         # If a RoadNetwork class instance has been created and already been provided with vertices it's important to ensure that the ones that are located outside
-        # of the desired municipality get filtered
+        #  the desired municipality get filtered
         if self._vertices is not None:
             self._vertices = [v for v in self._vertices if any(i in municipality_id_filter for i in v.municipality_ids) is False]  # Only keeping the vertex if all municipalities of the vertex aren't included in the ones to be filtered out
         else:
@@ -236,7 +236,7 @@ class RoadNetwork(BaseModel):
         """
 
         # If a RoadNetwork class instance has been created and already been provided with arches it's important to ensure that the ones that are located outside
-        # of the desired municipality get filtered
+        # the desired municipality get filtered
         if self._arches is not None:
             self._arches = [a for a in self._arches if any(i in municipality_id_filter for i in a.municipality_ids) is False]  # Only keeping the arch if all municipalities of the arch itself aren't included in the ones to be filtered out
         else:
@@ -258,8 +258,8 @@ class RoadNetwork(BaseModel):
             None
         """
 
-        # If a RoadNetwork class instance has been created and already been provided with traffic registration points it's important to ensure that the ones that are located outside
-        # of the desired municipality get filtered
+        #If a RoadNetwork class instance has been created and already been provided with traffic registration points it's important to ensure that the ones that are located outside
+        # the desired municipality get filtered
         if self._trps is not None:
             self._trps = [trp for trp in self._trps if trp.municipality_number not in municipality_id_filter]  # Only keeping the TRP if the municipality of the TRP isn't included in the ones to be filtered out
         else:
@@ -344,9 +344,9 @@ class RoadNetwork(BaseModel):
         return None
 
 
-    def to_json(self, filepath: str) -> None:
+    def to_json(self, filepath: str) -> None: #TODO -> to_db
         """
-        Exports the graph (contained into the self._network attribute into a json file.
+        Exports the graph (contained into the self._network attribute into a json file).
         """
         assert filepath.endswith(".json") is True, "File extension missing or not json"
         with open(filepath, "w", encoding="utf-8") as g_dumper:

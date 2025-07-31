@@ -2,7 +2,7 @@ import datetime
 import asyncio
 import dask.dataframe as dd
 import pandas as pd
-from typing import Any
+from typing import Any, cast
 from pydantic import BaseModel
 from pydantic.types import PositiveInt
 
@@ -42,8 +42,8 @@ class ExtractionPipelineMixin:
             data: the data with missing values
             r: the regressor kind. Has to be within a specific list or regressors available
         """
-        if r not in RegressorTypes.model_fields.keys():
-            raise ValueError(f"Regressor type '{r}' is not supported. Must be one of: {RegressorTypes.model_fields.keys()}")
+        if r not in cast(dict, RegressorTypes.model_fields).keys(): #cast is used to silence static type checker warnings
+            raise ValueError(f"Regressor type '{r}' is not supported. Must be one of: {cast(dict, RegressorTypes.model_fields).keys()}")
 
         reg = None
         if r == "lasso":

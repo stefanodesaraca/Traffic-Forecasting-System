@@ -8,7 +8,6 @@ import hashlib
 import datetime
 from typing import Any, Literal
 from pydantic import BaseModel as PydanticBaseModel, field_validator
-from pydantic.types import PositiveFloat
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -38,7 +37,7 @@ from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastin
 from exceptions import WrongEstimatorTypeError, ModelNotSetError, TargetVariableNotFoundError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
 from brokers import DBBroker
 from loaders import BatchStreamLoader
-from utils import GlobalDefinitions, check_target, ZScore, merge
+from utils import GlobalDefinitions, check_target, ZScore
 
 
 simplefilter(action="ignore", category=FutureWarning)
@@ -61,7 +60,7 @@ class TFSPreprocessor:
 
 
     @staticmethod
-    def sin_encoder(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
+    def sin_encoder(data: float | dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
         """
         Apply sine transformation for cyclical encoding.
 
@@ -91,7 +90,7 @@ class TFSPreprocessor:
 
 
     @staticmethod
-    def cos_encoder(data: dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
+    def cos_encoder(data: float | dd.Series | dd.DataFrame, timeframe: int) -> dd.Series | dd.DataFrame:
         """
         Apply cosine transformation for cyclical encoding.
 
@@ -496,15 +495,15 @@ class ModelWrapper(BaseModel):
             with joblib.parallel_backend("dask"):
                 return self.model_obj.predict(X_test.compute()) # type: ignore[attr-defined] # <- WARNING: this comment is used to avoid seeing a useless warning since the model will indeed have a predict method, but the scikit-learn BaseEstimator class doesn't
         elif isinstance(self.model_obj, PyTorchForecastingBaseModel):
-            pass #NOTE STILL TO IMPLEMENT
+            return ... #NOTE STILL TO IMPLEMENT
         elif isinstance(self.model_obj, SktimeBaseEstimator):
-            pass #NOTE STILL TO IMPLEMENT
+            return ... #NOTE STILL TO IMPLEMENT
         else:
             raise TypeError(f"Unsupported model type: {type(self.model_obj)}")
 
 
     @staticmethod
-    def evaluate_regression(y_test: dd.DataFrame, y_pred: dd.DataFrame, scorer: dict[str, callable]) -> dict[str, Any]:
+    def evaluate_regression(y_test: dd.DataFrame, y_pred: dd.DataFrame, scorer: dict[str, type[callable]]) -> dict[str, Any]:
         """
         Calculate prediction errors for regression model testing.
 

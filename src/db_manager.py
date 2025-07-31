@@ -16,6 +16,7 @@ from downloader import start_client_async, fetch_areas, fetch_road_categories, f
 
 @contextmanager
 async def postgres_conn_async(user: str, password: str, dbname: str, host: str = 'localhost') -> asyncpg.connection:
+    conn = None
     try:
         conn = await asyncpg.connect(
             user=user,
@@ -34,6 +35,7 @@ def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost'
         "tuple_row": tuple_row,
         "dict_row": dict_row
     }
+    conn = None
     try:
         conn=psycopg.connect(
             dbname=user,

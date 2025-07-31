@@ -158,7 +158,7 @@ class ForecastingToolbox:
         horizon = datetime.datetime.strptime(input("Insert forecasting horizon (YYYY-MM-DDTHH): "), cast(str, GlobalDefinitions.DT_INPUT_FORMAT.value)).replace(tzinfo=cast(tzinfo, GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE_TIMEDELTA.value)).isoformat()
 
         assert horizon > last_available_data_dt, "Forecasting target datetime is prior to the latest data available"
-        assert (horizon - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"
+        assert (cast(datetime.datetime, horizon) - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"
 
         self._db_broker.send_sql(f"""UPDATE ForecastingSettings
                                      SET config = jsonb_set(
@@ -226,7 +226,7 @@ class ForecastingToolbox:
         # The month number must be zero-padded, for example: 01, 02, etc.
 
         assert horizon > last_available_data_dt, "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
-        assert (horizon - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
+        assert (cast(datetime.datetime, horizon) - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
         # The number of days to forecast
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
