@@ -26,7 +26,7 @@ async def postgres_conn_async(user: str, password: str, dbname: str, host: str =
         )
         yield conn
     except Exception as e:
-        print(f"\03391m]Exception raised: {e}\0330m]")
+        print(f"\033[91mException raised: {e}\033[0m")
     finally:
         await conn.close()
 
@@ -49,7 +49,7 @@ def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost'
         conn.autocommit = autocommit
         yield conn
     except Exception as e:
-        print(f"\03391m]Exception raised: {e}\0330m]")
+        print(f"\033[91mException raised: {e}\033[0m")
     finally:
         conn.close()
 
@@ -430,10 +430,12 @@ class AIODBManager:
         #Accessing as superuser and creating tfs user
         async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
             try:
-                await conn.execute(f"CREATE USER '{self._tfs_user}' WITH PASSWORD '{self._tfs_password}'")
-                print(f"User '{self._tfs_user}' created.")
+                async with conn.transaction():
+                    await conn.execute(f"CREATE USER {self._tfs_user} WITH PASSWORD {self._tfs_password};")
+                    await conn.execute(f"CREATE ROLE {self._tfs_user} WITH LOGIN;")
+                print(f"User {self._tfs_user} created.")
             except asyncpg.DuplicateObjectError:
-                print(f"User '{self._tfs_user}' already exists.")
+                print(f"User {self._tfs_user} already exists.")
 
 
         # -- Hub DB Initialization --

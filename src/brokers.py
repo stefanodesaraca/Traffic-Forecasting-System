@@ -260,8 +260,8 @@ class AIODBManagerBroker:
 
 
     async def list_all_projects(self) -> list[asyncpg.Record]:
-        with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._hub_db, host=self._db_host) as conn:
-            with conn.transaction():
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._hub_db, host=self._db_host) as conn:
+            async with conn.transaction():
                 return conn.fetch("""
                     SELECT name
                     FROM Projects
