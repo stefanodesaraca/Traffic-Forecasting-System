@@ -20,9 +20,9 @@ pd.set_option("display.max_columns", None)
 
 
 class RegressorTypes(BaseModel):
-    lasso = "lasso"
-    gamma = "gamma"
-    quantile = "quantile"
+    lasso: str = "lasso"
+    gamma: str = "gamma"
+    quantile: str = "quantile"
 
     class Config:
         frozen=True

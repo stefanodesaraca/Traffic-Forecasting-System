@@ -64,7 +64,7 @@ class GlobalDefinitions(Enum):
     ML_CPUS = int(os.cpu_count() * 0.75)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
     # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
 
-    MEAN_SPEED_DIR = Path("data", str(MEAN_SPEED.value))
+    MEAN_SPEED_DIR = Path("data", cast(str, MEAN_SPEED))
     MODEL_GRIDS_DIR = Path("data", "model_grids")
 
 
