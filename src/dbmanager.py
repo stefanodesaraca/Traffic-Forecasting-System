@@ -74,7 +74,9 @@ class AIODBManager:
                     "SELECT 1 FROM pg_database WHERE datname = $1",
                     dbname
                 ) == 1 #First check layer
-            project_record_check = bool(await conn.fetchrow(f"SELECT * FROM Projects LIMIT 1 WHERE name = {dbname}")) #Second check layer
+            print("SONO QUI2")
+            project_record_check = bool(await conn.fetchrow(f"SELECT * FROM Projects WHERE name = {dbname} LIMIT 1")) #Second check layer
+            print("SONO QUI3")
             if not project_db_check:
                 raise ProjectDBNotFoundError("Project DB doesn't exist")
             elif not project_record_check:
