@@ -13,7 +13,6 @@ from sklearn.impute import IterativeImputer
 from sklego.meta import ZeroInflatedRegressor
 
 from utils import GlobalDefinitions
-from brokers import AIODBBroker
 
 pd.set_option("display.max_rows", None)
 pd.set_option("display.max_columns", None)
@@ -81,9 +80,9 @@ class ExtractionPipelineMixin:
 
 class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
-    def __init__(self, db_broker_async: AIODBBroker, data: dict[str, Any] | None = None):
+    def __init__(self, db_broker_async: Any, data: dict[str, Any] | None = None):
         self.data: dict[str, Any] | pd.DataFrame | dd.DataFrame | None = data
-        self._db_broker_async: AIODBBroker = db_broker_async
+        self._db_broker_async: Any = db_broker_async
 
 
     @staticmethod
@@ -183,9 +182,9 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
 class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
 
-    def __init__(self, db_broker_async: AIODBBroker, data: dict[str, Any] | None = None):
+    def __init__(self, db_broker_async: Any, data: dict[str, Any] | None = None):
         self.data: dict[str, Any] | pd.DataFrame | dd.DataFrame | None = data
-        self._db_broker_async: AIODBBroker = db_broker_async
+        self._db_broker_async: Any = db_broker_async
 
 
     async def _parse_mean_speed_async(self, speeds: pd.DataFrame) -> pd.DataFrame | dd.DataFrame | None:

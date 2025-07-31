@@ -95,12 +95,14 @@ async def manage_downloads(functionality: str) -> None:
         time_start = await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
         time_end = await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
         print("Downloading traffic volumes data for every registration point for the current project...")
-        await volumes_to_db(gql_client=await start_client_async(),
-                            db_broker_async=await get_aiodb_broker(),
-                            time_start=time_start,
-                            time_end=time_end,
-                            n_async_jobs=5,
-                            max_retries=5)
+        await volumes_to_db(
+            gql_client=await start_client_async(),
+            db_broker_async=await get_aiodb_broker(),
+            time_start=time_start,
+            time_end=time_end,
+            n_async_jobs=5,
+            max_retries=5
+        )
     return None
 
 

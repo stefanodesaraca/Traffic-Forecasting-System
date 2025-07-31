@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import datetime
 from datetime import timezone, timedelta, tzinfo
-from typing import Literal, cast
+from typing import Literal, Any, cast
 from enum import Enum
 import os
 import asyncio
@@ -14,7 +14,6 @@ from pydantic.types import PositiveInt
 from dask.distributed import Client, LocalCluster
 
 from exceptions import WrongSplittingMode, TargetDataNotAvailableError, NoDataError
-from src.brokers import AIODBBroker, DBBroker
 
 pd.set_option("display.max_columns", None)
 
@@ -129,9 +128,9 @@ def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:
 
 
 class ForecastingToolbox:
-    def __init__(self, db_broker_async: AIODBBroker | None = None, db_broker: DBBroker | None = None):
-        self._db_broker_async: AIODBBroker | None = db_broker_async
-        self._db_broker: DBBroker | None = db_broker
+    def __init__(self, db_broker_async: Any | None = None, db_broker: Any | None = None):
+        self._db_broker_async: Any | None = db_broker_async
+        self._db_broker: Any | None = db_broker
 
 
 

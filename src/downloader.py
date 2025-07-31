@@ -1,4 +1,5 @@
 import random
+from typing import Any
 import asyncio
 from warnings import simplefilter
 from gql import gql, Client
@@ -7,7 +8,6 @@ from gql.transport.aiohttp import AIOHTTPTransport
 from graphql import ExecutionResult
 from pydantic.types import PositiveInt
 
-from brokers import AIODBBroker
 from pipelines import VolumeExtractionPipeline
 from utils import GlobalDefinitions
 
@@ -193,7 +193,7 @@ async def fetch_trp_volumes(client: Client, trp_id: str, time_start: str, time_e
         """))
 
 
-async def volumes_to_db(gql_client: Client, db_broker_async: AIODBBroker, time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10) -> None:
+async def volumes_to_db(gql_client: Client, db_broker_async: Any, time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10) -> None:
     semaphore = asyncio.Semaphore(n_async_jobs)  # Limit to n_async_jobs async tasks
     pipeline = VolumeExtractionPipeline(db_broker_async=db_broker_async)
 
