@@ -39,7 +39,7 @@ class BatchStreamLoader:
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
             ORDER BY zoned_dt_iso DESC
             {f"LIMIT {limit}" if limit else ""}
-        """, filters=tuple(f for f in [trp_list_filter, road_category_filter]), batch_size=batch_size, row_factory="tuple_row") as stream_cursor:
+        """, filters=tuple(f for f in [trp_list_filter, road_category_filter] if f), batch_size=batch_size, row_factory="tuple_row") as stream_cursor:
         # The ORDER BY (descending order) is necessary since in time series forecasting the order of the records is fundamental
 
         # WARNING: the order of the filters in the list within the list comprehension must be the same as the order of conditions inside the sql query
@@ -70,7 +70,7 @@ class BatchStreamLoader:
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
             ORDER BY zoned_dt_iso DESC
             {f"LIMIT {limit}" if limit else ""}
-        """, filters=tuple(f for f in [trp_list_filter, road_category_filter]), batch_size=batch_size, row_factory="tuple_row") as stream_cursor:
+        """, filters=tuple(f for f in [trp_list_filter, road_category_filter] if f), batch_size=batch_size, row_factory="tuple_row") as stream_cursor:
         # The ORDER BY (descending order) is necessary since in time series forecasting the order of the records is fundamental
 
         # WARNING: the order of the filters in the list within the list comprehension must be the same as the order of conditions inside the sql query

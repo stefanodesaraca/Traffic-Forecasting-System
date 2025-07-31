@@ -37,10 +37,13 @@ class AIODBBroker:
                     raise WrongSQLStatement("The SQL query isn't correct")
 
 
-    async def get_trp_ids_async(self) -> list[asyncpg.Record]:
+    async def get_trp_ids_async(self, road_category_filter: list[str] | None = None) -> list[asyncpg.Record]:
         async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
-                return await conn.fetch("""SELECT id FROM TrafficRegistrationPoints;""")
+                return await conn.fetch(f"""
+                    SELECT id FROM TrafficRegistrationPoints;
+                    {"WHERE road_category = ANY($1)" if road_category_filter else ""}
+                """, *tuple(f for f in [road_category_filter] if f))
 
 
     async def get_trp_ids_by_road_category_async(self) -> list[asyncpg.Record]:
@@ -116,8 +119,8 @@ class DBBroker:
             with conn.transaction():
                 return conn.fetchall(f"""
                     SELECT id FROM TrafficRegistrationPoints;
-                    WHERE {"road_category = ANY(%s)" if road_category_filter else "1=1"}
-                """, *tuple(*road_category_filter)) #We can add more filters in the future by just adding , *new_filter within the tuple() function
+                    {"WHERE road_category = ANY(%s)" if road_category_filter else ""}
+                """, *tuple(f for f in [road_category_filter] if f))
 
 
     def get_trp_ids_by_road_category(self) -> dict[Any, ...]:

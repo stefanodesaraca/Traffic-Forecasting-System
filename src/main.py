@@ -278,6 +278,7 @@ def forecasts_warmup(functionality: str) -> None:
 
 def execute_forecasting(functionality: str) -> None:
     db_broker = get_db_broker()
+    loader = BatchStreamLoader(db_broker=db_broker)
     ft = ForecastingToolbox(db_broker=db_broker)
 
     print("Enter target data to forecast: ")
@@ -290,7 +291,7 @@ def execute_forecasting(functionality: str) -> None:
     if functionality == "3.3.1":
 
         with dask_cluster_client(processes=False) as client:
-            trp_ids = db_broker.get_trp_ids() #TODO ADD A TARGET VARIABLE SUBSETTING ATTRIBUTE (AND CLAUSE IN QUERY) "subset_attr: str" and "subset_val: str" #subset_val = THE VALUE TO INCLUDE IN "WHERE subset_attr = subset_val"
+            trp_ids = db_broker.get_trp_ids()
             print("TRP IDs: ", trp_ids)
             trp_id = input("Insert TRP ID for forecasting: ")
 
@@ -306,7 +307,8 @@ def execute_forecasting(functionality: str) -> None:
                                             road_category=trp_road_category,
                                             target=GlobalDefinitions.TARGET_DATA.value[option],
                                             client=client,
-                                            db_broker=db_broker
+                                            db_broker=db_broker,
+                                            loader=loader
             )
             future_records = forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=GlobalDefinitions.TARGET_DATA.value[option]))  #Already preprocessed
 
