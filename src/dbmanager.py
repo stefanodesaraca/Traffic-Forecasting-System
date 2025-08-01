@@ -70,15 +70,15 @@ class AIODBManager:
 
     async def _check_db(self, dbname: str) -> bool:
         async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname="postgres") as conn:
-            project_db_check = await conn.fetchval(
+            if not (project_db_check := await conn.fetchval(
                     "SELECT 1 FROM pg_database WHERE datname = $1",
                     dbname
-                ) == 1 #First check layer
-            print("SONO QUI2")
+                ) == 1):
+                return False #First check layer
             project_record_check = bool(await conn.fetchrow(f"""SELECT * FROM "Projects" WHERE name = {dbname} LIMIT 1""")) #Second check layer
-            print("SONO QUI3")
+            #TODO THIS MEAN THAT THE EXCEPTION COMES DIRECTLY FROM THE DBMS, SO LET'S CHECK IF project_db_check IS FALSE BEFORE
             if not project_db_check:
-                raise ProjectDBNotFoundError("Project DB doesn't exist")
+                return False
             elif not project_record_check:
                 raise ProjectDBNotRegisteredError("Project DB exists, but hasn't been registered within the ones available")
             return True
@@ -510,7 +510,8 @@ class AIODBManager:
 
     async def set_current_project(self, name: str) -> None:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
-            await self._check_db(name) #If the project doesn't exist raise error
+            if not await self._check_db(name): #If the project doesn't exist raise error
+                raise ProjectDBNotFoundError("Project DB doesn't exist")
             async with conn.transaction(): #Needing to execute both of the operations in one transaction because otherwise the one_current_project constraint wouldn't be respected. Checkout the Hub DB Constraints sections to learn more
                 await conn.execute("UPDATE Projects SET is_current = FALSE WHERE is_current = TRUE;")
                 await conn.execute(f"""                
