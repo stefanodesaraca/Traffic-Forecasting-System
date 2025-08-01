@@ -320,7 +320,6 @@ class AIODBManager:
                         );
                 """)
 
-
                 #Constraints
                 await conn.execute("""
                             ALTER TABLE Volume
@@ -331,7 +330,6 @@ class AIODBManager:
                             ADD CONSTRAINT unique_mean_speed_per_trp_and_time
                             UNIQUE (trp_id, zoned_dt_iso);
                 """) #There can only be one registration at one specific time and location (where the location is the place where the TRP lies)
-
 
                 # Views
                 await conn.execute("""
@@ -363,6 +361,25 @@ class AIODBManager:
                 FROM Volume v
                 FULL OUTER JOIN MeanSpeed ms ON false;  -- Force Cartesian for aggregation without joining
                 """)
+
+                # Granting permission to access to all tables to the TFS user
+                await conn.execute(f"""
+                    GRANT SELECT, INSERT, UPDATE ON TABLE 
+                        RoadCategories,
+                        CountryParts,
+                        Counties,
+                        Municipalities,
+                        TrafficRegistrationPoints,
+                        Volume,
+                        MeanSpeed,
+                        TrafficRegistrationPointsMetadata,
+                        MLModels,
+                        MLModelObjects,
+                        ModelGridSearchCVResults,
+                        ForecastingSettings 
+                    TO {self._tfs_role};
+                """)
+
 
         # -- New Project Metadata Insertions --
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
@@ -429,8 +446,7 @@ class AIODBManager:
     async def init(self, auto_project_setup: bool = True) -> None:
 
         # -- Initialize users and DBs --
-        """GRANT SELECT, INSERT, UPDATE ON TABLE {} TO {self._tfs_role};"""
-        """"""
+
         #Accessing as superuser and creating tfs user
         async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
             try:
@@ -488,7 +504,7 @@ class AIODBManager:
 
                 #Permissions grants to the TFS role
                 await conn.execute(f"""
-                    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE {self._hub_db} TO {self._tfs_role};
+                    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE Projects TO {self._tfs_role};
                 """)
 
         # -- Check if any projects exist --
