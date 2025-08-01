@@ -460,7 +460,7 @@ class AIODBManager:
 
             try:
                 await conn.execute(f"""
-                    CREATE USER {self._tfs_user} WITH PASSWORD '{self._tfs_password}' CREATEDB IN ROLE {self._tfs_role};
+                    CREATE USER {self._tfs_user} WITH PASSWORD '{self._tfs_password}' IN ROLE {self._tfs_role};
                 """)
                 print(f"User {self._tfs_user} created.")
             except asyncpg.DuplicateObjectError:
@@ -469,7 +469,7 @@ class AIODBManager:
         # -- Hub DB Initialization --
         if not await self._check_db(dbname=self._hub_db):
             # -- Hub DB Creation --
-            async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._maintenance_db) as conn:
+            async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
                 #It's important to specify that in this specific connection the maintenance db is used because the hub db doesn't exist yet, so trying to connect to it would result in an error (exception)
                 #After creating the database there's the setup section, where we can actually start to use the hub db
                 try:
