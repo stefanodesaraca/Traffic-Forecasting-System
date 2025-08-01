@@ -76,7 +76,6 @@ class AIODBManager:
                 ) == 1):
                 return False #First check layer
             project_record_check = bool(await conn.fetchrow(f"""SELECT * FROM "Projects" WHERE name = {dbname} LIMIT 1""")) #Second check layer
-            #TODO THIS MEAN THAT THE EXCEPTION COMES DIRECTLY FROM THE DBMS, SO LET'S CHECK IF project_db_check IS FALSE BEFORE
             if not project_db_check:
                 return False
             elif not project_record_check:
@@ -430,28 +429,41 @@ class AIODBManager:
     async def init(self, auto_project_setup: bool = True) -> None:
 
         # -- Initialize users and DBs --
-
+        """GRANT SELECT, INSERT, UPDATE ON TABLE {} TO {self._tfs_role};"""
+        """"""
         #Accessing as superuser and creating tfs user
         async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db) as conn:
             try:
-                await conn.execute(f"CREATE USER {self._tfs_user} WITH PASSWORD '{self._tfs_password}';")
-                print(f"User {self._tfs_user} created.")
-            except asyncpg.DuplicateObjectError:
-                print(f"User {self._tfs_user} already exists.")
-            try:
-                await conn.execute(f"CREATE ROLE {self._tfs_role} WITH LOGIN PASSWORD '{self._tfs_role_password}';")
+                await conn.execute(f"""
+                    CREATE ROLE {self._tfs_role} WITH LOGIN PASSWORD '{self._tfs_role_password}';
+                    GRANT CONNECT ON DATABASE {self._maintenance_db} TO {self._tfs_role};
+                """)
                 print(f"Role {self._tfs_role} created.")
             except asyncpg.DuplicateObjectError:
                 print(f"Role {self._tfs_role} already exists.")
 
+            try:
+                await conn.execute(f"""
+                    CREATE USER {self._tfs_user} WITH PASSWORD '{self._tfs_password}' IN ROLE {self._tfs_role};
+                """)
+                print(f"User {self._tfs_user} created.")
+            except asyncpg.DuplicateObjectError:
+                print(f"User {self._tfs_user} already exists.")
+
         # -- Hub DB Initialization --
         if not await self._check_db(dbname=self._hub_db):
             # -- Hub DB Creation --
-            async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
+            async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._maintenance_db) as conn:
+                #It's important to specify that in this specific connection the maintenance db is used because the hub db doesn't exist yet, so trying to connect to it would result in an error (exception)
+                #After creating the database there's the setup section, where we can actually start to use the hub db
                 try:
                     await conn.execute(f"""
-                    CREATE DATABASE {self._hub_db}
+                        CREATE DATABASE {self._hub_db}
                     """)
+                    #Granting permission to connect to the database to the TFS role
+                    await conn.execute(f"""
+                        GRANT CONNECT ON DATABASE {self._hub_db} TO {self._tfs_role};
+                    """) #Once created we can finally grant access to the tfs role to the hub db
                 except DuplicateDatabaseError:
                     pass
 
@@ -474,6 +486,10 @@ class AIODBManager:
                         WHERE is_current = TRUE;
                 """)
 
+                #Permissions grants to the TFS role
+                await conn.execute(f"""
+                    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE {self._hub_db} TO {self._tfs_role};
+                """)
 
         # -- Check if any projects exist --
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db) as conn:
