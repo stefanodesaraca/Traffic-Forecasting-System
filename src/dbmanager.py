@@ -460,7 +460,7 @@ class AIODBManager:
 
             try:
                 await conn.execute(f"""
-                    CREATE USER {self._tfs_user} WITH PASSWORD '{self._tfs_password}' IN ROLE {self._tfs_role};
+                    CREATE USER {self._tfs_user} WITH PASSWORD '{self._tfs_password}' CREATEDB IN ROLE {self._tfs_role};
                 """)
                 print(f"User {self._tfs_user} created.")
             except asyncpg.DuplicateObjectError:
