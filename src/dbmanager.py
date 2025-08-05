@@ -10,7 +10,7 @@ import psycopg
 from psycopg.rows import tuple_row, dict_row
 from cleantext import clean
 
-from exceptions import ProjectDBNotFoundError, ProjectDBNotRegisteredError
+from exceptions import ProjectDBNotFoundError
 from downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
 
 
@@ -458,8 +458,6 @@ class AIODBManager:
             except asyncpg.DuplicateObjectError:
                 print(f"User {self._tfs_user} already exists.")
 
-        print("HELLO")
-
         # -- Hub DB Initialization --
         if not await self._check_db(dbname=self._hub_db):
             # -- Hub DB Creation --
@@ -505,7 +503,7 @@ class AIODBManager:
 
         # -- Check if any projects exist --
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
-            project_check = await conn.fetchrow("SELECT * FROM Projects LIMIT 1")
+            project_check = await conn.fetchrow("""SELECT * FROM "Projects" LIMIT 1""")
 
             #If there aren't any projects, let the user impute one and insert it into the Projects table
             if not project_check:
