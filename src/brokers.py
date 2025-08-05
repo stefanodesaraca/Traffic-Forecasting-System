@@ -224,14 +224,15 @@ class AIODBManagerBroker:
     async def _get_db_manager_async(self) -> AIODBManager:
         if none_params := [name for name, value in locals().items() if value is None]:
             raise ValueError(f"Missing required parameters: {', '.join(none_params)}")
-        return AIODBManager(superuser=self._superuser,
-                            superuser_password=self._superuser_password,
-                            tfs_user=self._tfs_user,
-                            tfs_password=self._tfs_password,
-                            tfs_role=self._tfs_password,
-                            tfs_role_password=self._tfs_password,
-                            hub_db=self._hub_db,
-                            maintenance_db=self._maintenance_db
+        return AIODBManager(
+            superuser=self._superuser,
+            superuser_password=self._superuser_password,
+            tfs_user=self._tfs_user,
+            tfs_password=self._tfs_password,
+            tfs_role=self._tfs_password,
+            tfs_role_password=self._tfs_password,
+            hub_db=self._hub_db,
+            maintenance_db=self._maintenance_db
         )
 
 
