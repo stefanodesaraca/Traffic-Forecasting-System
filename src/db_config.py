@@ -1,9 +1,9 @@
 from enum import Enum
-from src.dbsecrets import superuser
+from dbsecrets import superuser, superuser_password
 
 class DBConfig(Enum):
     SUPERUSER = superuser
-    SUPERUSER_PASSWORD = ""
+    SUPERUSER_PASSWORD = superuser_password
     TFS_USER = "tfs"
     TFS_PASSWORD = "tfs"
     TFS_ROLE = "tfs"

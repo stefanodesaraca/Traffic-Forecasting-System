@@ -37,19 +37,21 @@ async def get_aiodbmanager_broker():
 
 
 async def get_aiodb_broker():
-    return AIODBBroker(db_user=DBConfig.TFS_USER.value,
-                       db_password=DBConfig.TFS_PASSWORD.value,
-                       db_name=await (await get_aiodbmanager_broker()).get_current_project(),
-                       db_host=DBConfig.DB_HOST.value
+    return AIODBBroker(
+       db_user=DBConfig.TFS_USER.value,
+       db_password=DBConfig.TFS_PASSWORD.value,
+       db_name=await (await get_aiodbmanager_broker()).get_current_project(),
+       db_host=DBConfig.DB_HOST.value
     )
 
 
 def get_db_broker():
     aiodbmanager_broker = asyncio.run(get_aiodbmanager_broker())
-    return DBBroker(db_user=DBConfig.TFS_USER.value,
-                    db_password=DBConfig.TFS_PASSWORD.value,
-                    db_name=asyncio.run(aiodbmanager_broker.get_current_project()),
-                    db_host=DBConfig.DB_HOST.value
+    return DBBroker(
+        db_user=DBConfig.TFS_USER.value,
+        db_password=DBConfig.TFS_PASSWORD.value,
+        db_name=asyncio.run(aiodbmanager_broker.get_current_project()),
+        db_host=DBConfig.DB_HOST.value
     )
 
 
@@ -62,7 +64,7 @@ async def initialize() -> None:
 async def manage_global(functionality: str) -> None:
     db_manager_broker_async = await get_aiodbmanager_broker()
     if functionality == "1.1":
-        await db_manager_broker_async.create_project(name=await asyncio.to_thread(input,"Insert new project name: "), lang="en", auto_project_setup=True)
+        await db_manager_broker_async.create_project(name=await asyncio.to_thread(input, "Insert new project name: "), lang="en", auto_project_setup=True)
 
     elif functionality == "1.2":
         await db_manager_broker_async.set_current_project(
@@ -75,7 +77,7 @@ async def manage_global(functionality: str) -> None:
         await db_manager_broker_async.reset_current_project()
 
     elif functionality == "1.5":
-        await db_manager_broker_async.delete_project(await asyncio.to_thread(input,"Insert the name of the project to delete: "))
+        await db_manager_broker_async.delete_project(await asyncio.to_thread(input, "Insert the name of the project to delete: "))
 
     elif functionality == "1.6":
         print(await db_manager_broker_async.list_all_projects())
@@ -307,22 +309,25 @@ def execute_forecasting(functionality: str) -> None:
 
             print("\nTRP road category: ", trp_road_category)
 
-            forecaster = OnePointForecaster(trp_id=trp_id,
-                                            road_category=trp_road_category,
-                                            target=GlobalDefinitions.TARGET_DATA.value[option],
-                                            client=client,
-                                            db_broker=db_broker,
-                                            loader=loader
+            forecaster = OnePointForecaster(
+                trp_id=trp_id,
+                road_category=trp_road_category,
+                target=GlobalDefinitions.TARGET_DATA.value[option],
+                client=client,
+                db_broker=db_broker,
+                loader=loader
             )
             future_records = forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=GlobalDefinitions.TARGET_DATA.value[option]))  #Already preprocessed
 
             #TODO TEST training_mode = BOTH 0 AND 1
-            model_training_dataset = forecaster.get_training_records(training_mode=0,
-                                                                     limit=future_records.shape[0].compute() * 24
+            model_training_dataset = forecaster.get_training_records(
+                training_mode=0,
+                limit=future_records.shape[0].compute() * 24
             )
-            X, y = split_by_target(data=model_training_dataset,
-                                   target=GlobalDefinitions.TARGET_DATA.value[option],
-                                   mode=1
+            X, y = split_by_target(
+                data=model_training_dataset,
+                target=GlobalDefinitions.TARGET_DATA.value[option],
+                mode=1
             )
 
             for name, data in db_broker.get_model_objects()["model_data"].items(): #Load model name and data (pickle object, best parameters and so on)
@@ -333,11 +338,12 @@ def execute_forecasting(functionality: str) -> None:
                 if best_params is None:
                     raise ModelBestParametersNotFound("Model's best parameters are None, check if the model has been trained or has best parameters set")
 
-                learner = TFSLearner(model=model(**best_params),
-                                     road_category=trp_road_category,
-                                     target=GlobalDefinitions.TARGET_DATA.value[option],
-                                     client=client,
-                                     db_broker=db_broker
+                learner = TFSLearner(
+                    model=model(**best_params),
+                    road_category=trp_road_category,
+                    target=GlobalDefinitions.TARGET_DATA.value[option],
+                    client=client,
+                    db_broker=db_broker
                 )
                 data = learner.model.fit(X, y)
                 predictions = data.predict(future_records)
