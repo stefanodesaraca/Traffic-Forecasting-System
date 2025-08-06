@@ -40,9 +40,9 @@ def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost'
     conn = None
     try:
         conn=psycopg.connect(
-            dbname=user,
-            user=password,
-            password=dbname,
+            dbname=dbname,
+            user=user,
+            password=password,
             host=host,
             row_factory=row_factories.get(row_factory, tuple_row)
         )
@@ -99,16 +99,16 @@ class AIODBManager:
     @staticmethod
     async def insert_areas(conn: asyncpg.connection, data: dict[str, Any]) -> None:
         all((await conn.execute(
-            "INSERT INTO CountryParts (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+            f"INSERT INTO {ProjectTables.CountryParts.value} (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
             part["id"], part["name"]
         ),
              all((await conn.execute(
-                 "INSERT INTO Counties (number, name, country_part_id) VALUES ($1, $2, $3) ON CONFLICT (number) DO NOTHING",
+                 f"INSERT INTO {ProjectTables.Counties.value} (number, name, country_part_id) VALUES ($1, $2, $3) ON CONFLICT (number) DO NOTHING",
                  county["number"], county["name"], part["id"]
              ),
                   all(await conn.execute(
-                      """
-                      INSERT INTO Municipalities (number, name, county_number, country_part_id)
+                      f"""
+                      INSERT INTO {ProjectTables.Municipalities.value} (number, name, county_number, country_part_id)
                       VALUES ($1, $2, $3, $4)
                       ON CONFLICT (number) DO NOTHING
                       """,
@@ -120,8 +120,8 @@ class AIODBManager:
     @staticmethod
     async def insert_road_categories(conn: asyncpg.connection, data: dict[str, Any]) -> None:
         all(await conn.execute(
-            """
-            INSERT INTO RoadCategories (id, name)
+            f"""
+            INSERT INTO {ProjectTables.RoadCategories.value} (id, name)
             VALUES ($1, $2)
             ON CONFLICT (id) DO NOTHING
             """,
@@ -133,35 +133,35 @@ class AIODBManager:
     async def insert_trps(conn: asyncpg.connection, data: dict[str, Any]) -> None:
         all(await conn.execute(
             f"""
-                        INSERT INTO TrafficRegistrationPoints (
-                            id, name, lat, lon,
-                            road_reference_short_form, road_category,
-                            road_link_sequence, relative_position,
-                            county, country_part_id, country_part_name,
-                            county_number, geographic_number,
-                            traffic_registration_type,
-                            first_data, first_data_with_quality_metrics
-                        )
-                        VALUES (
-                            {trp["id"]}, 
-                            {trp["name"]}, 
-                            {trp["location"]["coordinates"]["latLon"]["lat"]}, 
-                            {trp["location"]["coordinates"]["latLon"]["lon"]},
-                            {trp["location"].get("roadReference", {}).get("shortForm")}, 
-                            {trp["location"].get("roadReference", {}).get("shortForm").get("roadCategory", {}).get("id")}, 
-                            {trp["location"].get("roadLinkSequence", {}).get("roadLinkSequenceId")}, 
-                            {trp["location"].get("roadLinkSequence", {}).get("relativePosition")},
-                            {trp["location"].get("county", {}).get("name")}, 
-                            {str(trp["location"].get("county", {}).get("countryPart", {}).get("id")) if trp["location"].get("county", {}).get("countryPart", {}).get("id") is not None else None}, 
-                            {trp["location"].get("county", {}).get("countryPart", {}).get("name")}, 
-                            {trp["location"].get("county", {}).get("number")},
-                            {trp["location"].get("county", {}).get("geographicNumber")}, 
-                            {trp.get("trafficRegistrationType")},
-                            {trp.get("dataTimeSpan", {}).get("firstData")}, 
-                            {trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics")})
-                        ON CONFLICT (id) DO NOTHING
-                        """
-        ) for trp in data["data"]["trafficRegistrationPoints"])
+            INSERT INTO {ProjectTables.TrafficRegistrationPoints.value} (
+                id, name, lat, lon,
+                road_reference_short_form, road_category,
+                road_link_sequence, relative_position,
+                county, country_part_id, country_part_name,
+                county_number, geographic_number,
+                traffic_registration_type,
+                first_data, first_data_with_quality_metrics
+            )
+            VALUES (
+                {trp["id"]}, 
+                {trp["name"]}, 
+                {trp["location"]["coordinates"]["latLon"]["lat"]}, 
+                {trp["location"]["coordinates"]["latLon"]["lon"]},
+                {trp["location"].get("roadReference", {}).get("shortForm")}, 
+                {trp["location"].get("roadReference", {}).get("shortForm").get("roadCategory", {}).get("id")}, 
+                {trp["location"].get("roadLinkSequence", {}).get("roadLinkSequenceId")}, 
+                {trp["location"].get("roadLinkSequence", {}).get("relativePosition")},
+                {trp["location"].get("county", {}).get("name")}, 
+                {str(trp["location"].get("county", {}).get("countryPart", {}).get("id")) if trp["location"].get("county", {}).get("countryPart", {}).get("id") is not None else None}, 
+                {trp["location"].get("county", {}).get("countryPart", {}).get("name")}, 
+                {trp["location"].get("county", {}).get("number")},
+                {trp["location"].get("county", {}).get("geographicNumber")}, 
+                {trp.get("trafficRegistrationType")},
+                {trp.get("dataTimeSpan", {}).get("firstData")}, 
+                {trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics")})
+            ON CONFLICT (id) DO NOTHING
+            """
+        ) for trp in data["data"]["trafficRegistrationPoints"]) #TODO TRANSFORM THIS INTO A PARAMETRIZED QUERY
         return None
 
 
@@ -203,34 +203,40 @@ class AIODBManager:
     async def create_project(self, name: str, lang: str, auto_project_setup: bool = True) -> None:
 
         # -- New Project DB Setup --
-        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db, host=self._db_host) as conn:
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._hub_db, host=self._db_host) as conn:
             # Accessing as superuser since some tools may require this configuration to create a new database
             async with conn.transaction():
                 await conn.execute(f"""CREATE DATABASE {name};""")
+
+                await conn.execute(f"""
+                   GRANT CREATE, USAGE ON SCHEMA public TO {self._tfs_role};
+                   GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+                   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO {self._tfs_role};
+               """)
 
         # -- Project Tables Setup --
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=name, host=self._db_host) as conn:
             async with conn.transaction():
                 # Tables
                 await conn.execute(f"""
-                        CREATE TABLE IF NOT EXISTS {ProjectTables.RoadCategories.value} (
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadCategories.value}" (
                             id TEXT PRIMARY KEY,
                             name TEXT NOT NULL
                         );
 
-                        CREATE TABLE IF NOT EXISTS {ProjectTables.CountryParts.value} (
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.CountryParts.value}" (
                             id INTEGER PRIMARY KEY,
                             name TEXT NOT NULL
                         );
 
-                        CREATE TABLE IF NOT EXISTS {ProjectTables.Counties.value} (
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.Counties.value}" (
                             number INTEGER PRIMARY KEY,
                             name TEXT NOT NULL,
                             country_part_id TEXT NOT NULL,
                             FOREIGN KEY (country_part_id) REFERENCES {ProjectTables.CountryParts.value}(id)
                         );
 
-                        CREATE TABLE IF NOT EXISTS {ProjectTables.Municipalities.value} (
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.Municipalities.value}" (
                             number INTEGER PRIMARY KEY,
                             name TEXT NOT NULL,
                             county_number INTEGER NOT NULL,
@@ -239,7 +245,7 @@ class AIODBManager:
                             FOREIGN KEY (country_part_id) REFERENCES {ProjectTables.CountryParts.value}(id)
                         );
 
-                        CREATE TABLE IF NOT EXISTS {ProjectTables.TrafficRegistrationPoints.value} (
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.TrafficRegistrationPoints.value}" (
                             id TEXT PRIMARY KEY,
                             name TEXT NOT NULL,
                             lat FLOAT NOT NULL,
@@ -259,7 +265,7 @@ class AIODBManager:
                             FOREIGN KEY (road_category) REFERENCES {ProjectTables.RoadCategories.value}(name)
                         );
 
-                        CREATE TABLE IF NOT EXISTS {ProjectTables.Volume.value} (
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.Volume.value}" (
                             row_idx SERIAL PRIMARY KEY,
                             trp_id TEXT NOT NULL,
                             volume INTEGER NOT NULL,
@@ -269,7 +275,7 @@ class AIODBManager:
                             FOREIGN KEY (trp_id) REFERENCES {ProjectTables.TrafficRegistrationPoints.value}(id)
                         );
 
-                        CREATE TABLE IF NOT EXISTS {ProjectTables.MeanSpeed.value}(
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.MeanSpeed.value}" (
                             row_idx SERIAL PRIMARY KEY,
                             trp_id TEXT NOT NULL,
                             mean_speed FLOAT NOT NULL,
@@ -280,7 +286,7 @@ class AIODBManager:
                             FOREIGN KEY (trp_id) REFERENCES {ProjectTables.TrafficRegistrationPoints.value}(id)
                         );
 
-                        CREATE TABLE IF NOT EXISTS {ProjectTables.TrafficRegistrationPointsMetadata.value} (
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.TrafficRegistrationPointsMetadata.value}" (
                             trp_id TEXT PRIMARY KEY,
                             has_volume BOOLEAN DEFAULT FALSE,
                             has_mean_speed BOOLEAN DEFAULT FALSE,
@@ -291,7 +297,7 @@ class AIODBManager:
                             FOREIGN KEY (trp_id) REFERENCES {ProjectTables.TrafficRegistrationPoints.value}(id)
                         );
                         
-                        CREATE TABLE IF NOT EXISTS {ProjectTables.MLModels.value} (
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.MLModels.value}" (
                             id TEXT PRIMARY KEY,
                             name TEXT NOT NULL UNIQUE,
                             type TEXT DEFAULT 'Regression',
@@ -304,14 +310,14 @@ class AIODBManager:
                             best_mean_speed_gridsearch_params_idx INT DEFAULT 1
                         );
                         
-                        CREATE TABLE IF NOT EXISTS {ProjectTables.MLModelObjects.value} (
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.MLModelObjects.value}" (
                             id TEXT PRIMARY KEY,
                             joblib_object BYTEA,
                             pickle_object BYTEA NOT NULL,
                             FOREIGN KEY (id) REFERENCES {ProjectTables.MLModels.value}(id)
                         );
                         
-                        CREATE TABLE IF NOT EXISTS {ProjectTables.ModelGridSearchCVResults.value} (
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.ModelGridSearchCVResults.value}" (
                             id SERIAL,
                             model_id TEXT REFERENCES {ProjectTables.MLModels.value}(id) ON DELETE CASCADE,
                             road_category_id TEXT REFERENCES {ProjectTables.RoadCategories.value}(id) ON DELETE CASCADE,
@@ -328,7 +334,7 @@ class AIODBManager:
                             PRIMARY KEY (id, model_id, road_category_id)
                         );
                         
-                        CREATE TABLE IF NOT EXISTS {ProjectTables.ForecastingSettings.value} (
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.ForecastingSettings.value}" (
                             id BOOLEAN PRIMARY KEY CHECK (id = TRUE),
                             config JSONB DEFAULT {"volume_forecasting_horizon": NULL, "mean_speed_forecasting_horizon": NULL}
                         );
@@ -466,13 +472,9 @@ class AIODBManager:
             try:
                 await conn.execute(f"""
                     CREATE ROLE {self._tfs_role} WITH LOGIN PASSWORD '{self._tfs_role_password}';
-                    GRANT CONNECT ON DATABASE {self._maintenance_db} TO {self._tfs_role};
-                """)
-                await conn.execute(f""""
-                    GRANT USAGE, CREATE ON SCHEMA {AIODBMInternalConfig.DEFAULT_INFORMATION_SCHEMA.value} TO {self._tfs_role};                
                 """)
                 await conn.execute(f"""
-                    GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {AIODBMInternalConfig.DEFAULT_INFORMATION_SCHEMA.value} TO {self._tfs_role};
+                    GRANT USAGE, SELECT ON ALL TABLES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
                 """)
                 print(f"Role {self._tfs_role} created.")
             except asyncpg.DuplicateObjectError:
@@ -503,11 +505,40 @@ class AIODBManager:
                 except DuplicateDatabaseError:
                     pass
 
+
             # -- Hub DB Setup (If It Doesn't Exist) --
+            async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._hub_db, host=self._db_host) as conn:
+
+                # Grant CREATE privilege on public schema to the TFS role
+                await conn.execute(f"""
+                    GRANT CREATE, USAGE ON SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+                """)
+
+                # Grant privileges on sequences (needed for SERIAL columns)
+                await conn.execute(f"""
+                    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+                """)
+
+                # Set default privileges for future sequences
+                await conn.execute(f"""
+                    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO {self._tfs_role};
+                """)
+
+                # -- Granting permissions to the TFS role --
+                await conn.execute(f"""
+                    GRANT USAGE, SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+                """)
+
+                # Granting permissions to operate the public schema in the Hub DB
+                await conn.execute(f"""
+                    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {self._tfs_role};
+                """)
+
+            # -- DB Content Setup --
             async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
                 #Hub DB Tables (Projects)
                 await conn.execute(f"""
-                        CREATE TABLE IF NOT EXISTS {HubDBTables.PROJECTS.value} (
+                        CREATE TABLE IF NOT EXISTS "{HubDBTables.PROJECTS.value}" (
                             id SERIAL PRIMARY KEY,
                             name TEXT NOT NULL UNIQUE,
                             lang TEXT,
@@ -524,7 +555,7 @@ class AIODBManager:
 
                 #Permissions grants to the TFS role
                 await conn.execute(f"""
-                    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE Projects TO {self._tfs_role};
+                    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE {HubDBTables.PROJECTS.value} TO {self._tfs_role};
                 """)
 
         await self._check_hub_db_integrity()

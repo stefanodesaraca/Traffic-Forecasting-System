@@ -6,7 +6,7 @@ class DBConfig(Enum):
     SUPERUSER_PASSWORD = superuser_password
     TFS_USER = "tfs"
     TFS_PASSWORD = "tfs"
-    TFS_ROLE = "tfs"
+    TFS_ROLE = "tfs_admin"
     TFS_ROLE_PASSWORD = "tfs"
 
     HUB_DB = "tfs_hub"
@@ -17,7 +17,7 @@ class DBConfig(Enum):
 
 
 class AIODBManagerInternalConfig(Enum):
-    DEFAULT_INFORMATION_SCHEMA = "public"
+    PUBLIC_SCHEMA = "public"
     HUB_DB_TABLES_SCHEMA = "public" #NOTE BY DEFAULT ALL TABLES FOR WHICH ISN'T SPECIFIED A SCHEMA GET ASSIGNED TO THE "public" SCHEMA. IN THE FUTURE WE'LL DEFINE SPECIFIC SCHEMAS FOR THE TABLES USED IN THE PROJECT
 
 
