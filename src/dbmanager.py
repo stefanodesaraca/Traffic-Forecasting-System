@@ -342,18 +342,18 @@ class AIODBManager:
 
                 #Constraints
                 await conn.execute(f"""
-                            ALTER TABLE {ProjectTables.Volume.value}
-                            ADD CONSTRAINT {ProjectConstraints.UNIQUE_VOLUME_PER_TRP_AND_TIME.value}
+                            ALTER TABLE "{ProjectTables.Volume.value}"
+                            ADD CONSTRAINT "{ProjectConstraints.UNIQUE_VOLUME_PER_TRP_AND_TIME.value}"
                             UNIQUE (trp_id, zoned_dt_iso);
                             
-                            ALTER TABLE {ProjectTables.MeanSpeed.value}
-                            ADD CONSTRAINT {ProjectConstraints.UNIQUE_MEAN_SPEED_PER_TRP_AND_TIME.value}
+                            ALTER TABLE "{ProjectTables.MeanSpeed.value}"
+                            ADD CONSTRAINT "{ProjectConstraints.UNIQUE_MEAN_SPEED_PER_TRP_AND_TIME.value}"
                             UNIQUE (trp_id, zoned_dt_iso);
                 """) #There can only be one registration at one specific time and location (where the location is the place where the TRP lies)
 
                 # Views
                 await conn.execute(f"""
-                CREATE OR REPLACE VIEW {ProjectViews.TrafficRegistrationPointsMetadataView.value} AS
+                CREATE OR REPLACE VIEW "{ProjectViews.TrafficRegistrationPointsMetadataView.value}" AS
                 SELECT
                     trp.id AS trp_id,
                     trp.road_category as road_category,
@@ -372,7 +372,7 @@ class AIODBManager:
                 GROUP BY
                     trp.id;
                 
-                CREATE OR REPLACE VIEW {ProjectViews.VolumeMeanSpeedDateRangesView.value} AS
+                CREATE OR REPLACE VIEW "{ProjectViews.VolumeMeanSpeedDateRangesView.value}" AS
                 SELECT
                     MIN(v.zoned_dt_iso) AS volume_start_date,
                     MAX(v.zoned_dt_iso) AS volume_end_date,
@@ -397,7 +397,7 @@ class AIODBManager:
                         {ProjectTables.MLModelObjects.value},
                         {ProjectTables.ModelGridSearchCVResults.value},
                         {ProjectTables.ForecastingSettings.value}
-                    TO {self._tfs_role};
+                    TO "{self._tfs_role}";
                 """)
 
 
@@ -549,13 +549,13 @@ class AIODBManager:
 
                 #Hub DB Constraints
                 await conn.execute(f"""
-                        CREATE UNIQUE INDEX {HUBDBConstraints.ONE_CURRENT_PROJECT.value} ON {HubDBTables.PROJECTS.value} (is_current)
+                        CREATE UNIQUE INDEX "{HUBDBConstraints.ONE_CURRENT_PROJECT.value}" ON "{HubDBTables.PROJECTS.value}" (is_current)
                         WHERE is_current = TRUE;
                 """)
 
                 #Permissions grants to the TFS role
                 await conn.execute(f"""
-                    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE {HubDBTables.PROJECTS.value} TO {self._tfs_role};
+                    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "{HubDBTables.PROJECTS.value}" TO "{self._tfs_role}";
                 """)
 
         await self._check_hub_db_integrity()
