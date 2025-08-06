@@ -469,7 +469,10 @@ class AIODBManager:
                     GRANT CONNECT ON DATABASE {self._maintenance_db} TO {self._tfs_role};
                 """)
                 await conn.execute(f""""
-                    GRANT USAGE, CREATE, INSERT, UPDATE, DELETE ON SCHEMA public TO {self._tfs_role};                
+                    GRANT USAGE, CREATE ON SCHEMA {AIODBMInternalConfig.DEFAULT_INFORMATION_SCHEMA.value} TO {self._tfs_role};                
+                """)
+                await conn.execute(f"""
+                    GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {AIODBMInternalConfig.DEFAULT_INFORMATION_SCHEMA.value} TO {self._tfs_role};
                 """)
                 print(f"Role {self._tfs_role} created.")
             except asyncpg.DuplicateObjectError:
