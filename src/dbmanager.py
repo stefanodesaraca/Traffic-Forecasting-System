@@ -69,14 +69,14 @@ class AIODBManager:
 
     async def _check_table_existance(self, table: str) -> bool:
         async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db, host=self._db_host) as conn:
-            return conn.fetchone(f"""
+            return (await conn.fetchval(f"""
             SELECT EXISTS (
                 SELECT 1
                 FROM information_schema.tables 
                 WHERE table_schema = '{AIODBMInternalConfig.HUB_DB_TABLES_SCHEMA.value}'  -- or another schema name
                   AND table_name = '{table}'
             );
-            """)[0]
+            """))
 
 
     async def _check_db(self, dbname: str) -> bool: # First check layer
@@ -89,13 +89,11 @@ class AIODBManager:
 
 
     async def _check_hub_db_integrity(self) -> bool:
-
-        #Check the "Projects" table existance
-        await self._check_table_existance(HubDBTables.PROJECTS.value)
-
-
-
-        return
+        #Steps:
+        #1. Check the "Projects" table existance
+        if any(check is False for check in [await self._check_table_existance(HubDBTables.PROJECTS.value)]):
+            return False
+        return True
 
 
     @staticmethod
@@ -470,6 +468,9 @@ class AIODBManager:
                     CREATE ROLE {self._tfs_role} WITH LOGIN PASSWORD '{self._tfs_role_password}';
                     GRANT CONNECT ON DATABASE {self._maintenance_db} TO {self._tfs_role};
                 """)
+                await conn.execute(f""""
+                    GRANT USAGE, CREATE, INSERT, UPDATE, DELETE ON SCHEMA public TO {self._tfs_role};                
+                """)
                 print(f"Role {self._tfs_role} created.")
             except asyncpg.DuplicateObjectError:
                 print(f"Role {self._tfs_role} already exists.")
@@ -523,9 +524,7 @@ class AIODBManager:
                     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE Projects TO {self._tfs_role};
                 """)
 
-
-        #TODO ADD ADDITIONAL INTEGRITY CHECK HERE
-
+        await self._check_hub_db_integrity()
 
         # -- Check if any projects exist --
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
