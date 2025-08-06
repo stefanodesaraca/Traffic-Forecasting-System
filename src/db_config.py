@@ -16,4 +16,63 @@ class DBConfig(Enum):
 
 
 
+class AIODBManagerInternalConfig(Enum):
+    HUB_DB_TABLES_SCHEMA = "public" #NOTE BY DEFAULT ALL TABLES FOR WHICH ISN'T SPECIFIED A SCHEMA GET ASSIGNED TO THE "public" SCHEMA. IN THE FUTURE WE'LL DEFINE SPECIFIC SCHEMAS FOR THE TABLES USED IN THE PROJECT
+
+
+
+class HubDBTables(Enum):
+    PROJECTS = "Projects"
+
+
+
+class HUBDBConstraints(Enum):
+    ONE_CURRENT_PROJECT = "one_current_project"
+
+
+
+class ProjectTables(Enum):
+    RoadCategories = "RoadCategories"
+    CountryParts = "CountryParts"
+    Counties = "Counties"
+    Municipalities = "Municipalities"
+    TrafficRegistrationPoints = "TrafficRegistrationPoints"
+    Volume = "Volume"
+    MeanSpeed = "MeanSpeed"
+    TrafficRegistrationPointsMetadata = "TrafficRegistrationPointsMetadata"
+    MLModels = "MLModels"
+    MLModelObjects = "MLModelObjects"
+    ModelGridSearchCVResults = "ModelGridSearchCVResults"
+    ForecastingSettings = "ForecastingSettings"
+
+
+
+class ProjectConstraints(Enum):
+    UNIQUE_VOLUME_PER_TRP_AND_TIME = "unique_volume_per_trp_and_time"
+    UNIQUE_MEAN_SPEED_PER_TRP_AND_TIME = "unique_mean_speed_per_trp_and_time"
+
+
+
+class ProjectViews(Enum):
+    TrafficRegistrationPointsMetadataView = "TrafficRegistrationPointsMetadataView"
+    VolumeMeanSpeedDateRangesView = "VolumeMeanSpeedDateRangesView"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

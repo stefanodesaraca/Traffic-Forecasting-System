@@ -11,7 +11,9 @@ from psycopg.rows import tuple_row, dict_row
 from cleantext import clean
 
 from exceptions import ProjectDBNotFoundError
+from db_config import HubDBTables, HUBDBConstraints, ProjectTables, ProjectConstraints, ProjectViews, AIODBManagerInternalConfig as AIODBMInternalConfig
 from downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
+
 
 
 @asynccontextmanager
@@ -65,13 +67,35 @@ class AIODBManager:
         self._db_host: str = db_host
 
 
+    async def _check_table_existance(self, table: str) -> bool:
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db, host=self._db_host) as conn:
+            return conn.fetchone(f"""
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.tables 
+                WHERE table_schema = '{AIODBMInternalConfig.HUB_DB_TABLES_SCHEMA.value}'  -- or another schema name
+                  AND table_name = '{table}'
+            );
+            """)[0]
+
+
     async def _check_db(self, dbname: str) -> bool: # First check layer
-        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname="postgres", host=self._db_host) as conn:
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db, host=self._db_host) as conn:
             if not await conn.fetchval(
                     "SELECT 1 FROM pg_database WHERE datname = $1",
                     dbname)== 1:
                 return False #First check layer
             return True
+
+
+    async def _check_hub_db_integrity(self) -> bool:
+
+        #Check the "Projects" table existance
+        await self._check_table_existance(HubDBTables.PROJECTS.value)
+
+
+
+        return
 
 
     @staticmethod
@@ -190,34 +214,34 @@ class AIODBManager:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=name, host=self._db_host) as conn:
             async with conn.transaction():
                 # Tables
-                await conn.execute("""
-                        CREATE TABLE IF NOT EXISTS RoadCategories (
+                await conn.execute(f"""
+                        CREATE TABLE IF NOT EXISTS {ProjectTables.RoadCategories.value} (
                             id TEXT PRIMARY KEY,
                             name TEXT NOT NULL
                         );
 
-                        CREATE TABLE IF NOT EXISTS CountryParts (
+                        CREATE TABLE IF NOT EXISTS {ProjectTables.CountryParts.value} (
                             id INTEGER PRIMARY KEY,
                             name TEXT NOT NULL
                         );
 
-                        CREATE TABLE IF NOT EXISTS Counties (
+                        CREATE TABLE IF NOT EXISTS {ProjectTables.Counties.value} (
                             number INTEGER PRIMARY KEY,
                             name TEXT NOT NULL,
                             country_part_id TEXT NOT NULL,
-                            FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
+                            FOREIGN KEY (country_part_id) REFERENCES {ProjectTables.CountryParts.value}(id)
                         );
 
-                        CREATE TABLE IF NOT EXISTS Municipalities (
+                        CREATE TABLE IF NOT EXISTS {ProjectTables.Municipalities.value} (
                             number INTEGER PRIMARY KEY,
                             name TEXT NOT NULL,
                             county_number INTEGER NOT NULL,
                             country_part_id TEXT NOT NULL,
-                            FOREIGN KEY (county_number) REFERENCES Counties(number),
-                            FOREIGN KEY (country_part_id) REFERENCES CountryParts(id)
+                            FOREIGN KEY (county_number) REFERENCES {ProjectTables.Counties.value}(number),
+                            FOREIGN KEY (country_part_id) REFERENCES {ProjectTables.CountryParts.value}(id)
                         );
 
-                        CREATE TABLE IF NOT EXISTS TrafficRegistrationPoints (
+                        CREATE TABLE IF NOT EXISTS {ProjectTables.TrafficRegistrationPoints.value} (
                             id TEXT PRIMARY KEY,
                             name TEXT NOT NULL,
                             lat FLOAT NOT NULL,
@@ -234,20 +258,20 @@ class AIODBManager:
                             traffic_registration_type TEXT NOT NULL,
                             first_data TIMESTAMPTZ,
                             first_data_with_quality_metrics TIMESTAMPTZ,
-                            FOREIGN KEY (road_category) REFERENCES RoadCategories(name)
+                            FOREIGN KEY (road_category) REFERENCES {ProjectTables.RoadCategories.value}(name)
                         );
 
-                        CREATE TABLE IF NOT EXISTS Volume (
+                        CREATE TABLE IF NOT EXISTS {ProjectTables.Volume.value} (
                             row_idx SERIAL PRIMARY KEY,
                             trp_id TEXT NOT NULL,
                             volume INTEGER NOT NULL,
                             coverage FLOAT NOT NULL,
                             is_mice BOOLEAN DEFAULT FALSE,
                             zoned_dt_iso TIMESTAMPTZ NOT NULL,
-                            FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
+                            FOREIGN KEY (trp_id) REFERENCES {ProjectTables.TrafficRegistrationPoints.value}(id)
                         );
 
-                        CREATE TABLE IF NOT EXISTS MeanSpeed(
+                        CREATE TABLE IF NOT EXISTS {ProjectTables.MeanSpeed.value}(
                             row_idx SERIAL PRIMARY KEY,
                             trp_id TEXT NOT NULL,
                             mean_speed FLOAT NOT NULL,
@@ -255,10 +279,10 @@ class AIODBManager:
                             is_mice BOOLEAN DEFAULT FALSE,
                             percentile_85 FLOAT NOT NULL,
                             zoned_dt_iso TIMESTAMPTZ NOT NULL,
-                            FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
+                            FOREIGN KEY (trp_id) REFERENCES {ProjectTables.TrafficRegistrationPoints.value}(id)
                         );
 
-                        CREATE TABLE IF NOT EXISTS TrafficRegistrationPointsMetadata (
+                        CREATE TABLE IF NOT EXISTS {ProjectTables.TrafficRegistrationPointsMetadata.value} (
                             trp_id TEXT PRIMARY KEY,
                             has_volume BOOLEAN DEFAULT FALSE,
                             has_mean_speed BOOLEAN DEFAULT FALSE,
@@ -266,10 +290,10 @@ class AIODBManager:
                             volume_end_date TIMESTAMPTZ,
                             mean_speed_start_date TIMESTAMPTZ,
                             mean_speed_end_date TIMESTAMPTZ,
-                            FOREIGN KEY (trp_id) REFERENCES TrafficRegistrationPoints(id)
+                            FOREIGN KEY (trp_id) REFERENCES {ProjectTables.TrafficRegistrationPoints.value}(id)
                         );
                         
-                        CREATE TABLE IF NOT EXISTS MLModels (
+                        CREATE TABLE IF NOT EXISTS {ProjectTables.MLModels.value} (
                             id TEXT PRIMARY KEY,
                             name TEXT NOT NULL UNIQUE,
                             type TEXT DEFAULT 'Regression',
@@ -282,17 +306,17 @@ class AIODBManager:
                             best_mean_speed_gridsearch_params_idx INT DEFAULT 1
                         );
                         
-                        CREATE TABLE IF NOT EXISTS MLModelObjects (
+                        CREATE TABLE IF NOT EXISTS {ProjectTables.MLModelObjects.value} (
                             id TEXT PRIMARY KEY,
                             joblib_object BYTEA,
                             pickle_object BYTEA NOT NULL,
-                            FOREIGN KEY (id) REFERENCES MLModels(id)
+                            FOREIGN KEY (id) REFERENCES {ProjectTables.MLModels.value}(id)
                         );
                         
-                        CREATE TABLE IF NOT EXISTS ModelGridSearchCVResults (
+                        CREATE TABLE IF NOT EXISTS {ProjectTables.ModelGridSearchCVResults.value} (
                             id SERIAL,
-                            model_id TEXT REFERENCES MLModels(id) ON DELETE CASCADE,
-                            road_category_id TEXT REFERENCES RoadCategories(id) ON DELETE CASCADE,
+                            model_id TEXT REFERENCES {ProjectTables.MLModels.value}(id) ON DELETE CASCADE,
+                            road_category_id TEXT REFERENCES {ProjectTables.RoadCategories.value}(id) ON DELETE CASCADE,
                             params JSON NOT NULL,
                             mean_fit_time FLOAT NOT NULL,
                             mean_test_r2 FLOAT NOT NULL,
@@ -306,26 +330,26 @@ class AIODBManager:
                             PRIMARY KEY (id, model_id, road_category_id)
                         );
                         
-                        CREATE TABLE IF NOT EXISTS ForecastingSettings (
+                        CREATE TABLE IF NOT EXISTS {ProjectTables.ForecastingSettings.value} (
                             id BOOLEAN PRIMARY KEY CHECK (id = TRUE),
-                            config JSONB DEFAULT {'volume_forecasting_horizon": NULL, 'mean_speed_forecasting_horizon": NULL}
+                            config JSONB DEFAULT {"volume_forecasting_horizon": NULL, "mean_speed_forecasting_horizon": NULL}
                         );
                 """)
 
                 #Constraints
-                await conn.execute("""
-                            ALTER TABLE Volume
-                            ADD CONSTRAINT unique_volume_per_trp_and_time
+                await conn.execute(f"""
+                            ALTER TABLE {ProjectTables.Volume.value}
+                            ADD CONSTRAINT {ProjectConstraints.UNIQUE_VOLUME_PER_TRP_AND_TIME.value}
                             UNIQUE (trp_id, zoned_dt_iso);
                             
-                            ALTER TABLE MeanSpeed
-                            ADD CONSTRAINT unique_mean_speed_per_trp_and_time
+                            ALTER TABLE {ProjectTables.MeanSpeed.value}
+                            ADD CONSTRAINT {ProjectConstraints.UNIQUE_MEAN_SPEED_PER_TRP_AND_TIME.value}
                             UNIQUE (trp_id, zoned_dt_iso);
                 """) #There can only be one registration at one specific time and location (where the location is the place where the TRP lies)
 
                 # Views
-                await conn.execute("""
-                CREATE OR REPLACE VIEW TrafficRegistrationPointsMetadataView AS
+                await conn.execute(f"""
+                CREATE OR REPLACE VIEW {ProjectViews.TrafficRegistrationPointsMetadataView.value} AS
                 SELECT
                     trp.id AS trp_id,
                     trp.road_category as road_category,
@@ -336,39 +360,39 @@ class AIODBManager:
                     MIN(CASE WHEN ms.mean_speed IS NOT NULL THEN ms.zoned_dt_iso END) AS mean_speed_start_date,
                     MAX(CASE WHEN ms.mean_speed IS NOT NULL THEN ms.zoned_dt_iso END) AS mean_speed_end_date
                 FROM
-                    TrafficRegistrationPoints trp
+                    {ProjectTables.TrafficRegistrationPoints.value} trp
                 LEFT JOIN
-                    Volume v ON trp.id = v.trp_id
+                    {ProjectTables.Volume.value} v ON trp.id = v.trp_id
                 LEFT JOIN
-                    MeanSpeed ms ON trp.id = ms.trp_id
+                    {ProjectTables.MeanSpeed.value} ms ON trp.id = ms.trp_id
                 GROUP BY
                     trp.id;
                 
-                CREATE OR REPLACE VIEW VolumeMeanSpeedDateRangesView AS
+                CREATE OR REPLACE VIEW {ProjectViews.VolumeMeanSpeedDateRangesView.value} AS
                 SELECT
                     MIN(v.zoned_dt_iso) AS volume_start_date,
                     MAX(v.zoned_dt_iso) AS volume_end_date,
                     MIN(ms.zoned_dt_iso) AS mean_speed_start_date,
                     MAX(ms.zoned_dt_iso) AS mean_speed_end_date
-                FROM Volume v
-                FULL OUTER JOIN MeanSpeed ms ON false;  -- Force Cartesian for aggregation without joining
+                FROM {ProjectTables.Volume.value} v
+                FULL OUTER JOIN {ProjectTables.MeanSpeed.value} ms ON false;  -- Force Cartesian for aggregation without joining
                 """)
 
                 # Granting permission to access to all tables to the TFS user
                 await conn.execute(f"""
                     GRANT SELECT, INSERT, UPDATE ON TABLE 
-                        RoadCategories,
-                        CountryParts,
-                        Counties,
-                        Municipalities,
-                        TrafficRegistrationPoints,
-                        Volume,
-                        MeanSpeed,
-                        TrafficRegistrationPointsMetadata,
-                        MLModels,
-                        MLModelObjects,
-                        ModelGridSearchCVResults,
-                        ForecastingSettings 
+                        {ProjectTables.RoadCategories.value},
+                        {ProjectTables.CountryParts.value},
+                        {ProjectTables.Counties.value},
+                        {ProjectTables.Municipalities.value},
+                        {ProjectTables.TrafficRegistrationPoints.value},
+                        {ProjectTables.Volume.value},
+                        {ProjectTables.MeanSpeed.value},
+                        {ProjectTables.TrafficRegistrationPointsMetadata.value},
+                        {ProjectTables.MLModels.value},
+                        {ProjectTables.MLModelObjects.value},
+                        {ProjectTables.ModelGridSearchCVResults.value},
+                        {ProjectTables.ForecastingSettings.value}
                     TO {self._tfs_role};
                 """)
 
@@ -376,7 +400,7 @@ class AIODBManager:
         # -- New Project Metadata Insertions --
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
             new_project = await conn.fetchrow(
-                "INSERT INTO Projects (name, lang, is_current, creation_zoned_dt) VALUES ($1, $2, $3, $4) RETURNING *",
+                f"INSERT INTO {HubDBTables.PROJECTS.value} (name, lang, is_current, creation_zoned_dt) VALUES ($1, $2, $3, $4) RETURNING *",
                 name, lang, False, datetime.now(tz=timezone(timedelta(hours=1)))
             )
             print(f"New project created: {new_project}")
@@ -478,8 +502,8 @@ class AIODBManager:
             # -- Hub DB Setup (If It Doesn't Exist) --
             async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
                 #Hub DB Tables (Projects)
-                await conn.execute("""
-                        CREATE TABLE IF NOT EXISTS Projects (
+                await conn.execute(f"""
+                        CREATE TABLE IF NOT EXISTS {HubDBTables.PROJECTS.value} (
                             id SERIAL PRIMARY KEY,
                             name TEXT NOT NULL UNIQUE,
                             lang TEXT,
@@ -488,11 +512,9 @@ class AIODBManager:
                         )
                 """)
 
-                print("HELLO")
-
                 #Hub DB Constraints
-                await conn.execute("""
-                        CREATE UNIQUE INDEX one_current_project ON Projects (is_current)
+                await conn.execute(f"""
+                        CREATE UNIQUE INDEX {HUBDBConstraints.ONE_CURRENT_PROJECT.value} ON {HubDBTables.PROJECTS.value} (is_current)
                         WHERE is_current = TRUE;
                 """)
 
@@ -501,9 +523,13 @@ class AIODBManager:
                     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE Projects TO {self._tfs_role};
                 """)
 
+
+        #TODO ADD ADDITIONAL INTEGRITY CHECK HERE
+
+
         # -- Check if any projects exist --
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
-            project_check = await conn.fetchrow("""SELECT * FROM "Projects" LIMIT 1""")
+            project_check = await conn.fetchrow(f"""SELECT * FROM "{HubDBTables.PROJECTS.value}" LIMIT 1""")
 
             #If there aren't any projects, let the user impute one and insert it into the Projects table
             if not project_check:
@@ -527,9 +553,9 @@ class AIODBManager:
     async def get_current_project(self) -> asyncpg.Record | None:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
             async with conn.transaction():
-                return await conn.fetchrow("""
+                return await conn.fetchrow(f"""
                         SELECT *
-                        FROM Projects
+                        FROM {HubDBTables.PROJECTS.value}
                         WHERE is_current = TRUE;
                 """)
 
@@ -541,7 +567,7 @@ class AIODBManager:
             async with conn.transaction(): #Needing to execute both of the operations in one transaction because otherwise the one_current_project constraint wouldn't be respected. Checkout the Hub DB Constraints sections to learn more
                 await conn.execute("UPDATE Projects SET is_current = FALSE WHERE is_current = TRUE;")
                 await conn.execute(f"""                
-                    UPDATE Projects
+                    UPDATE {HubDBTables.PROJECTS.value}
                     SET is_current = TRUE
                     WHERE name = {name};
                 """)
@@ -551,8 +577,8 @@ class AIODBManager:
     async def reset_current_project(self) -> None:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
             async with conn.transaction():
-                await conn.execute("""
-                    UPDATE Projects
+                await conn.execute(f"""
+                    UPDATE {HubDBTables.PROJECTS.value}
                     SET is_current = FALSE
                     WHERE is_current = TRUE;
                 """)
