@@ -239,7 +239,7 @@ class AIODBManager:
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.Counties.value}" (
                             number INTEGER PRIMARY KEY,
                             name TEXT NOT NULL,
-                            country_part_id TEXT NOT NULL,
+                            country_part_id INTEGER NOT NULL,
                             FOREIGN KEY (country_part_id) REFERENCES "{ProjectTables.CountryParts.value}"(id)
                         );
 
@@ -247,7 +247,7 @@ class AIODBManager:
                             number INTEGER PRIMARY KEY,
                             name TEXT NOT NULL,
                             county_number INTEGER NOT NULL,
-                            country_part_id TEXT NOT NULL,
+                            country_part_id INTEGER NOT NULL,
                             FOREIGN KEY (county_number) REFERENCES "{ProjectTables.Counties.value}"(number),
                             FOREIGN KEY (country_part_id) REFERENCES "{ProjectTables.CountryParts.value}"(id)
                         );
@@ -262,14 +262,14 @@ class AIODBManager:
                             road_link_sequence INTEGER NOT NULL,
                             relative_position FLOAT NOT NULL,
                             county TEXT NOT NULL,
-                            country_part_id TEXT NOT NULL,
+                            country_part_id INTEGER NOT NULL,
                             country_part_name TEXT NOT NULL,
                             county_number INTEGER NOT NULL,
                             geographic_number INTEGER NOT NULL,
                             traffic_registration_type TEXT NOT NULL,
                             first_data TIMESTAMPTZ,
                             first_data_with_quality_metrics TIMESTAMPTZ,
-                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(name)
+                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id)
                         );
 
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.Volume.value}" (
@@ -343,7 +343,7 @@ class AIODBManager:
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.ForecastingSettings.value}" (
                             id BOOLEAN PRIMARY KEY CHECK (id = TRUE),
-                            config JSONB DEFAULT '{{"volume_forecasting_horizon": NULL, "mean_speed_forecasting_horizon": NULL}}'
+                            config JSONB DEFAULT '{{"volume_forecasting_horizon": null, "mean_speed_forecasting_horizon": null}}'
                         );
                 """)
 
