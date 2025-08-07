@@ -11,7 +11,8 @@ from psycopg.rows import tuple_row, dict_row
 from cleantext import clean
 
 from exceptions import ProjectDBNotFoundError
-from db_config import HubDBTables, HUBDBConstraints, ProjectTables, ProjectConstraints, ProjectViews, AIODBManagerInternalConfig as AIODBMInternalConfig
+from db_config import HubDBTables, HUBDBConstraints, ProjectTables, ProjectConstraints, ProjectViews, \
+    AIODBManagerInternalConfig as AIODBMInternalConfig
 from downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
 
 from pprint import pprint
@@ -33,14 +34,15 @@ async def postgres_conn_async(user: str, password: str, dbname: str, host: str =
 
 
 @contextmanager
-def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost', autocommit: bool = True, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> psycopg.connection:
+def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost', autocommit: bool = True,
+                  row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> psycopg.connection:
     row_factories = {
         "tuple_row": tuple_row,
         "dict_row": dict_row
     }
     conn = None
     try:
-        conn=psycopg.connect(
+        conn = psycopg.connect(
             dbname=dbname,
             user=user,
             password=password,
@@ -53,10 +55,11 @@ def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost'
         conn.close()
 
 
-
 class AIODBManager:
 
-    def __init__(self, superuser: str, superuser_password: str, tfs_user: str, tfs_password: str, tfs_role: str, tfs_role_password: str, hub_db: str = "tfs_hub", maintenance_db: str = "postgres", db_host: str = "localhost"):
+    def __init__(self, superuser: str, superuser_password: str, tfs_user: str, tfs_password: str, tfs_role: str,
+                 tfs_role_password: str, hub_db: str = "tfs_hub", maintenance_db: str = "postgres",
+                 db_host: str = "localhost"):
         self._superuser: str = superuser
         self._superuser_password: str = superuser_password
         self._tfs_user: str = tfs_user
@@ -67,9 +70,9 @@ class AIODBManager:
         self._tfs_role_password: str = tfs_role_password
         self._db_host: str = db_host
 
-
     async def _check_table_existance(self, table: str) -> bool:
-        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db, host=self._db_host) as conn:
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
+                                       dbname=self._maintenance_db, host=self._db_host) as conn:
             return (await conn.fetchval(f"""
             SELECT EXISTS (
                 SELECT 1
@@ -79,15 +82,14 @@ class AIODBManager:
             );
             """))
 
-
-    async def _check_db(self, dbname: str) -> bool: # First check layer
-        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db, host=self._db_host) as conn:
+    async def _check_db(self, dbname: str) -> bool:  # First check layer
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
+                                       dbname=self._maintenance_db, host=self._db_host) as conn:
             if not await conn.fetchval(
                     "SELECT 1 FROM pg_database WHERE datname = $1",
-                    dbname)== 1:
-                return False #First check layer
+                    dbname) == 1:
+                return False  #First check layer
             return True
-
 
     async def _check_hub_db_integrity(self) -> bool:
         #Steps:
@@ -96,26 +98,48 @@ class AIODBManager:
             return False
         return True
 
-
     @staticmethod
     async def insert_areas(conn: asyncpg.connection, data: dict[str, Any]) -> None:
-        all((await conn.execute(
-            f"""INSERT INTO "{ProjectTables.CountryParts.value}" (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING""",
-            part["id"], part["name"]
-        ),
-             all((await conn.execute(
-                 f"""INSERT INTO "{ProjectTables.Counties.value}" (number, name, country_part_id) VALUES ($1, $2, $3) ON CONFLICT (number) DO NOTHING""",
-                 county["number"], county["name"], part["id"]
-             ),
-                  all(await conn.execute(
-                      f"""
-                      INSERT INTO "{ProjectTables.Municipalities.value}" (number, name, county_number, country_part_id)
-                      VALUES ($1, $2, $3, $4)
-                      ON CONFLICT (number) DO NOTHING
-                      """,
-                      muni["number"], muni["name"], county["number"], part["id"]
-                  ) for muni in county.get("municipalities", []))
-                  ) for county in part["counties"])) for part in data["data"]["areas"]["countryParts"])
+        country_part_tasks = []
+        county_tasks = []
+        municipality_tasks = []
+
+        for part in data["areas"]["countryParts"]:
+            # Country part insert task
+            country_part_tasks.append(
+                conn.execute(
+                    f"""INSERT INTO "{ProjectTables.CountryParts.value}" (id, name) 
+                        VALUES ($1, $2) ON CONFLICT (id) DO NOTHING""",
+                    part["id"], part["name"]
+                )
+            )
+
+            for county in part["counties"]:
+                # County insert task
+                county_tasks.append(
+                    conn.execute(
+                        f"""INSERT INTO "{ProjectTables.Counties.value}" (number, name, country_part_id) 
+                            VALUES ($1, $2, $3) ON CONFLICT (number) DO NOTHING""",
+                        county["number"], county["name"], part["id"]
+                    )
+                )
+
+                # Municipality insert tasks
+                for muni in county.get("municipalities", []):
+                    municipality_tasks.append(
+                        conn.execute(
+                            f"""INSERT INTO "{ProjectTables.Municipalities.value}" 
+                                (number, name, county_number, country_part_id)
+                                VALUES ($1, $2, $3, $4)
+                                ON CONFLICT (number) DO NOTHING""",
+                            muni["number"], muni["name"], county["number"], part["id"]
+                        )
+                    )
+
+        await asyncio.gather(*country_part_tasks)
+        await asyncio.gather(*county_tasks)
+        await asyncio.gather(*municipality_tasks)
+
         return None
 
     @staticmethod
@@ -127,7 +151,7 @@ class AIODBManager:
             ON CONFLICT (id) DO NOTHING
             """,
             cat["id"], cat["name"]
-        ) for cat in data["data"]["roadCategories"])
+        ) for cat in data["roadCategories"])
         return None
 
     @staticmethod
@@ -162,7 +186,7 @@ class AIODBManager:
                 {trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics")})
             ON CONFLICT (id) DO NOTHING
             """
-        ) for trp in data["data"]["trafficRegistrationPoints"]) #TODO TRANSFORM THIS INTO A PARAMETRIZED QUERY
+        ) for trp in data["data"]["trafficRegistrationPoints"])  #TODO TRANSFORM THIS INTO A PARAMETRIZED QUERY
         return None
 
 
@@ -185,14 +209,14 @@ class AIODBManager:
                            "Enter json TRPs' data file path: ")
 
         print("Setting up necessary data...")
-        for fetch, insert, td, sd, fd, jed in zip(fetch_funcs, insert_funcs, try_desc, success_desc, fail_desc, json_enter_desc, strict=True):
+        for fetch, insert, td, sd, fd, jed in zip(fetch_funcs, insert_funcs, try_desc, success_desc, fail_desc,
+                                                  json_enter_desc, strict=True):
             print(td)
             data = await fetch(await start_client_async())
             if data:
                 pprint(data)
-                async with conn.transaction():
-                    await insert(conn=conn, data=data)
-                    print(sd)
+                await insert(conn=conn, data=data)
+                print(sd)
             else:
                 print(fd)
                 json_file = input(jed)
@@ -200,7 +224,6 @@ class AIODBManager:
                     await insert(conn=conn, data=json.load(a))
 
         return None
-
 
     async def create_project(self, name: str, lang: str, auto_project_setup: bool = True) -> None:
 
@@ -358,7 +381,7 @@ class AIODBManager:
                             ALTER TABLE "{ProjectTables.MeanSpeed.value}"
                             ADD CONSTRAINT "{ProjectConstraints.UNIQUE_MEAN_SPEED_PER_TRP_AND_TIME.value}"
                             UNIQUE (trp_id, zoned_dt_iso);
-                """) #There can only be one registration at one specific time and location (where the location is the place where the TRP lies)
+                """)  #There can only be one registration at one specific time and location (where the location is the place where the TRP lies)
 
                 # Views
                 await conn.execute(f"""
@@ -409,7 +432,6 @@ class AIODBManager:
                     TO {self._tfs_role};
                 """)
 
-
         # -- New Project Metadata Insertions --
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
             new_project = await conn.fetchrow(
@@ -425,9 +447,9 @@ class AIODBManager:
 
         return None
 
-
     async def delete_project(self, name: str) -> None:
-        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db,
+                                       host=self._db_host) as conn:
             # Step 1: Deleting the actual project database
             await conn.execute(f"""
                 DROP DATABASE IF EXISTS {name}
@@ -459,10 +481,12 @@ class AIODBManager:
                 END;
                 $$ LANGUAGE plpgsql;
                 """)
-            if (await conn.fetchval("SELECT delete_project_by_name($1)", name)) is True and (current_project := await self.get_current_project()): #If the deleted project was the current one then... (if the return statement of delete_project_by_name is True then the deleted project was the current one)
+            if (await conn.fetchval("SELECT delete_project_by_name($1)", name)) is True and (
+            current_project := await self.get_current_project()):  #If the deleted project was the current one then... (if the return statement of delete_project_by_name is True then the deleted project was the current one)
                 print(f"The deleted project was the current one, now the current project is: {current_project}")
             else:
-                print("The deleted project was the only one existing. Create a new one or exit the program? - 1: Yes | 0: Exit")
+                print(
+                    "The deleted project was the only one existing. Create a new one or exit the program? - 1: Yes | 0: Exit")
                 if choice := await asyncio.to_thread(lambda: input("Choice: ")) == "1":
                     await self.init()
                 elif choice == "0":
@@ -471,13 +495,13 @@ class AIODBManager:
                     raise Exception(f"Wrong input {choice}")
         return None
 
-
     async def init(self, auto_project_setup: bool = True) -> None:
 
         # -- Initialize users and DBs --
 
         #Accessing as superuser and creating tfs user
-        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db, host=self._db_host) as conn:
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
+                                       dbname=self._maintenance_db, host=self._db_host) as conn:
             try:
                 await conn.execute(f"""
                     CREATE ROLE {self._tfs_role} WITH LOGIN PASSWORD '{self._tfs_role_password}';
@@ -500,7 +524,8 @@ class AIODBManager:
         # -- Hub DB Initialization --
         if not await self._check_db(dbname=self._hub_db):
             # -- Hub DB Creation --
-            async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db, host=self._db_host) as conn:
+            async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
+                                           dbname=self._maintenance_db, host=self._db_host) as conn:
                 #It's important to specify that in this specific connection the maintenance db is used because the hub db doesn't exist yet, so trying to connect to it would result in an error (exception)
                 #After creating the database there's the setup section, where we can actually start to use the hub db
                 try:
@@ -510,13 +535,13 @@ class AIODBManager:
                     #Granting permission to connect to the database to the TFS role
                     await conn.execute(f"""
                         GRANT CONNECT ON DATABASE "{self._hub_db}" TO {self._tfs_role};
-                    """) #Once created we can finally grant access to the tfs role to the hub db
+                    """)  #Once created we can finally grant access to the tfs role to the hub db
                 except DuplicateDatabaseError:
                     pass
 
-
             # -- Hub DB Setup (If It Doesn't Exist) --
-            async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._hub_db, host=self._db_host) as conn:
+            async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._hub_db,
+                                           host=self._db_host) as conn:
 
                 # Grant CREATE privilege on public schema to the TFS role
                 await conn.execute(f"""
@@ -544,7 +569,8 @@ class AIODBManager:
                 """)
 
             # -- DB Content Setup --
-            async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
+            async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db,
+                                           host=self._db_host) as conn:
                 #Hub DB Tables (Projects)
                 await conn.execute(f"""
                         CREATE TABLE IF NOT EXISTS "{HubDBTables.Projects.value}" (
@@ -570,30 +596,31 @@ class AIODBManager:
         await self._check_hub_db_integrity()
 
         # -- Check if any projects exist --
-        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
-            project_check = await conn.fetchrow(f"""SELECT * FROM "{HubDBTables.Projects.value}" LIMIT 1""")
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db,
+                                       host=self._db_host) as conn:
+            project_check = await conn.fetchrow(
+                f"""SELECT * FROM "{HubDBTables.Projects.value}" LIMIT 1""")  #TODO ADD DATABASE EXISTANCE CHECK. IF THE DB DOESN'T EXIST, BUT THERE'S A RECORD WITH THAT NAME IN Projects, THEN JUST REPLACE IT
 
             #If there aren't any projects, let the user impute one and insert it into the Projects table
             if not project_check:
                 print("Initialize the program. Create your first project!")
-                name = clean(input("Enter project name: "), no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True, no_urls=True, normalize_whitespace=True, lower=True)
+                name = clean(input("Enter project name: "), no_emoji=True, no_punct=True, no_emails=True,
+                             no_currency_symbols=True, no_urls=True, normalize_whitespace=True, lower=True)
                 lang = input("Enter project language: ")
                 print("Cleaned project DB name: ", name)
                 print("Project language: ", lang)
 
                 await self.create_project(name=name, lang=lang, auto_project_setup=auto_project_setup)
 
-
         #TODO IF SOME Projects EXIST CHECK WHICH IS THE CURRENT ONE, IF THE RETURN IS NONE SET IT AS CURRENT. ALSO, ADD THE ABILITY TO DO THAT INSIDE CREATE_PROJECT VIA A PARAMETER (NOT AN INPUT)
         # LIKE auto_current_setup: bool = False
         # ALSO IF auto_current_setup IS TRUE, CHECK DO reset_current_project() FIRST AND THEN SET IT
 
-
         return None
 
-
     async def get_current_project(self) -> asyncpg.Record | None:
-        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db,
+                                       host=self._db_host) as conn:
             async with conn.transaction():
                 return await conn.fetchrow(f"""
                         SELECT *
@@ -601,13 +628,14 @@ class AIODBManager:
                         WHERE is_current = TRUE;
                 """)
 
-
     async def set_current_project(self, name: str) -> None:
-        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
-            if not await self._check_db(name): #If the project doesn't exist raise error
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db,
+                                       host=self._db_host) as conn:
+            if not await self._check_db(name):  #If the project doesn't exist raise error
                 raise ProjectDBNotFoundError("Project DB doesn't exist")
-            async with conn.transaction(): #Needing to execute both of the operations in one transaction because otherwise the one_current_project constraint wouldn't be respected. Checkout the Hub DB Constraints sections to learn more
-                await conn.execute(f"""UPDATE "{HubDBTables.Projects.value}" SET is_current = FALSE WHERE is_current = TRUE;""")
+            async with conn.transaction():  #Needing to execute both of the operations in one transaction because otherwise the one_current_project constraint wouldn't be respected. Checkout the Hub DB Constraints sections to learn more
+                await conn.execute(
+                    f"""UPDATE "{HubDBTables.Projects.value}" SET is_current = FALSE WHERE is_current = TRUE;""")
                 await conn.execute(f"""                
                     UPDATE "{HubDBTables.Projects.value}"
                     SET is_current = TRUE
@@ -615,9 +643,9 @@ class AIODBManager:
                 """)
         return None
 
-
     async def reset_current_project(self) -> None:
-        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db,
+                                       host=self._db_host) as conn:
             async with conn.transaction():
                 await conn.execute(f"""
                     UPDATE "{HubDBTables.Projects.value}"
@@ -625,54 +653,3 @@ class AIODBManager:
                     WHERE is_current = TRUE;
                 """)
         return None
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
