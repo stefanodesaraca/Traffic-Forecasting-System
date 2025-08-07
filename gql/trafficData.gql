@@ -1,0 +1,55 @@
+{
+  trafficData(trafficRegistrationPointId: "TRP_ID") {
+    trafficRegistrationPoint {
+      id
+      name
+    }
+    volume {
+      byHour(from: "TIME_START", to: "TIME_END", after: "LAST_END_CURSOR") {
+        edges {
+          node {
+            from
+            to
+            total {
+              volumeNumbers {
+                volume
+              }
+              coverage {
+                percentage
+              }
+            }
+            byLane {
+              lane {
+                laneNumberAccordingToRoadLink
+                laneNumberAccordingToMetering
+              }
+              total {
+                coverage {
+                  percentage
+                }
+                volumeNumbers {
+                  volume
+                }
+              }
+            }
+            byDirection {
+              heading
+              total {
+                coverage {
+                  percentage
+                }
+                volumeNumbers {
+                  volume
+                }
+              }
+            }
+          }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+}
