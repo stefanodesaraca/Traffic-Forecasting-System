@@ -4,6 +4,7 @@ import asyncpg
 
 from exceptions import WrongSQLStatement, MissingDataException
 from dbmanager import AIODBManager, postgres_conn_async, postgres_conn
+from db_config import HubDBTables, ProjectTables, ProjectViews
 
 
 
@@ -39,7 +40,7 @@ class AIODBBroker:
         async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
                 return await conn.fetch(f"""
-                    SELECT id FROM TrafficRegistrationPoints;
+                    SELECT id FROM "{ProjectTables.TrafficRegistrationPoints.value}";
                     {"WHERE road_category = ANY($1)" if road_category_filter else ""}
                 """, *tuple(f for f in [road_category_filter] if f))
 
@@ -47,10 +48,10 @@ class AIODBBroker:
     async def get_trp_ids_by_road_category_async(self) -> list[asyncpg.Record]:
         async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
-                return await conn.fetch("""SELECT json_object_agg(road_category, ids) AS result
+                return await conn.fetch(f"""SELECT json_object_agg(road_category, ids) AS result
                                            FROM (
                                                SELECT road_category, json_agg(id ORDER BY id) AS ids
-                                               FROM TrafficRegistrationPoints
+                                               FROM "{ProjectTables.TrafficRegistrationPoints.value}"
                                                GROUP BY road_category
                                            ) AS sub;""")
 
@@ -58,9 +59,9 @@ class AIODBBroker:
     async def get_volume_date_boundaries_async(self) -> dict[str, Any]:
         async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
-                result = await conn.fetchrow("""
+                result = await conn.fetchrow(f"""
                     SELECT volume_start_date, volume_end_date
-                    FROM VolumeMeanSpeedDateRangesView
+                    FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
                 """)
                 return {"min": result["volume_start_date"], "max": result["volume_end_date"]} #Respectively: min and max
 
@@ -68,9 +69,9 @@ class AIODBBroker:
     async def get_mean_speed_date_boundaries_async(self) -> dict[str, Any]:
         async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
-                result = await conn.fetchrow("""
+                result = await conn.fetchrow(f"""
                     SELECT mean_speed_start_date, mean_speed_end_date
-                    FROM VolumeMeanSpeedDateRangesView
+                    FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
                 """)
                 return {"min": result["mean_speed_start_date"], "max": result["mean_speed_end_date"]} #Respectively: min and max
 
@@ -116,7 +117,7 @@ class DBBroker:
         with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with conn.transaction():
                 return conn.fetchall(f"""
-                    SELECT id FROM TrafficRegistrationPoints;
+                    SELECT id FROM "{ProjectTables.TrafficRegistrationPoints.value}";
                     {"WHERE road_category = ANY(%s)" if road_category_filter else ""}
                 """, *tuple(f for f in [road_category_filter] if f))
 
@@ -124,10 +125,10 @@ class DBBroker:
     def get_trp_ids_by_road_category(self) -> dict[Any, ...]:
         with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with conn.transaction():
-                return conn.fetchall("""SELECT json_object_agg(road_category, ids) AS result
+                return conn.fetchall(f"""SELECT json_object_agg(road_category, ids) AS result
                                         FROM (
                                             SELECT road_category, json_agg(id ORDER BY id) AS ids
-                                            FROM TrafficRegistrationPoints
+                                            FROM "{ProjectTables.TrafficRegistrationPoints.value}"
                                             GROUP BY road_category
                                         ) AS sub;
                                      """)
@@ -141,9 +142,9 @@ class DBBroker:
     def get_volume_date_boundaries(self) -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with conn.transaction():
-                result = conn.fetchone("""
+                result = conn.fetchone(f"""
                     SELECT volume_start_date, volume_end_date
-                    FROM VolumeMeanSpeedDateRangesView
+                    FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
                 """)
                 return {"min": result["volume_start_date"], "max": result["volume_end_date"]} #Respectively: min and max
 
@@ -151,9 +152,9 @@ class DBBroker:
     def get_mean_speed_date_boundaries(self) -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with conn.transaction():
-                result = conn.fetchone("""
+                result = conn.fetchone(f"""
                     SELECT mean_speed_start_date, mean_speed_end_date
-                    FROM VolumeMeanSpeedDateRangesView
+                    FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
                 """)
                 return {"min": result["mean_speed_start_date"], "max": result["mean_speed_end_date"]} #Respectively: min and max
 
@@ -161,11 +162,11 @@ class DBBroker:
     def get_all_trps_metadata(self) -> dict[str, dict[str, Any]]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with conn.transaction():
-                return conn.fetchone()("""
+                return conn.fetchone()(f"""
                     SELECT jsonb_object_agg(trp_id, to_jsonb(t) - 'trp_id') AS trp_metadata
                     FROM (
                         SELECT *
-                        FROM TrafficRegistrationPointsMetadataView
+                        FROM "{ProjectViews.TrafficRegistrationPointsMetadataView.value}"
                     ) AS t;
                 """)
 
@@ -173,9 +174,9 @@ class DBBroker:
     def get_trp_metadata(self, trp_id: str) -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with conn.transaction():
-                return conn.fetchone("""
+                return conn.fetchone(f"""
                     SELECT TO_JSONB(t)
-                    FROM TrafficRegistrationPointsMetadataView t
+                    FROM "{ProjectViews.TrafficRegistrationPointsMetadataView.value}" t
                     WHERE trp_id = %s;
                 """, trp_id)
 
@@ -183,7 +184,7 @@ class DBBroker:
     def get_model_objects(self) -> dict[str, dict[str, Any]]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with conn.transaction():
-                return conn.fetchall("""
+                return conn.fetchall(f"""
                     SELECT json_object_agg(
                         m.name,
                         json_build_object(
@@ -192,8 +193,8 @@ class DBBroker:
                             'mean_speed_best_params', m.mean_speed_best_params
                         )
                     ) AS model_data
-                    FROM MLModels m
-                    JOIN MLModelObjects o ON m.id = o.id;
+                    FROM {ProjectTables.MLModels.value} m
+                    JOIN {ProjectTables.MLModelObjects.value} o ON m.id = o.id;
                 """)
 
 
@@ -269,9 +270,9 @@ class AIODBManagerBroker:
     async def list_all_projects(self) -> list[asyncpg.Record]:
         async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._hub_db, host=self._db_host) as conn:
             async with conn.transaction():
-                return conn.fetch("""
+                return conn.fetch(f"""
                     SELECT name
-                    FROM Projects
+                    FROM {HubDBTables.Projects.value}
                 """)
 
 
