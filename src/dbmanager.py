@@ -206,7 +206,6 @@ class AIODBManager:
             print(td)
             data = await fetch(await start_client_async())
             if data:
-                pprint(data)
                 await insert(conn=conn, data=data)
                 print(sd)
             else:
