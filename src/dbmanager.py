@@ -210,10 +210,15 @@ class AIODBManager:
             except asyncpg.DuplicateDatabaseError:
                 pass  # Database already exists
 
+        # -- Grant permissions on the NEW project database --
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=name, host=self._db_host) as conn:
+            # Grant permissions on the public schema of the NEW database
             await conn.execute(f"""
                GRANT CREATE, USAGE ON SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
                GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
-               ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO {self._tfs_role};
+               ALTER DEFAULT PRIVILEGES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} GRANT USAGE, SELECT ON SEQUENCES TO {self._tfs_role};
+               GRANT USAGE, SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+               ALTER DEFAULT PRIVILEGES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {self._tfs_role};
            """)
 
         # -- Project Tables Setup --
@@ -235,7 +240,7 @@ class AIODBManager:
                             number INTEGER PRIMARY KEY,
                             name TEXT NOT NULL,
                             country_part_id TEXT NOT NULL,
-                            FOREIGN KEY (country_part_id) REFERENCES {ProjectTables.CountryParts.value}(id)
+                            FOREIGN KEY (country_part_id) REFERENCES "{ProjectTables.CountryParts.value}"(id)
                         );
 
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.Municipalities.value}" (
@@ -243,8 +248,8 @@ class AIODBManager:
                             name TEXT NOT NULL,
                             county_number INTEGER NOT NULL,
                             country_part_id TEXT NOT NULL,
-                            FOREIGN KEY (county_number) REFERENCES {ProjectTables.Counties.value}(number),
-                            FOREIGN KEY (country_part_id) REFERENCES {ProjectTables.CountryParts.value}(id)
+                            FOREIGN KEY (county_number) REFERENCES "{ProjectTables.Counties.value}"(number),
+                            FOREIGN KEY (country_part_id) REFERENCES "{ProjectTables.CountryParts.value}"(id)
                         );
 
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.TrafficRegistrationPoints.value}" (
@@ -264,7 +269,7 @@ class AIODBManager:
                             traffic_registration_type TEXT NOT NULL,
                             first_data TIMESTAMPTZ,
                             first_data_with_quality_metrics TIMESTAMPTZ,
-                            FOREIGN KEY (road_category) REFERENCES {ProjectTables.RoadCategories.value}(name)
+                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(name)
                         );
 
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.Volume.value}" (
@@ -274,7 +279,7 @@ class AIODBManager:
                             coverage FLOAT NOT NULL,
                             is_mice BOOLEAN DEFAULT FALSE,
                             zoned_dt_iso TIMESTAMPTZ NOT NULL,
-                            FOREIGN KEY (trp_id) REFERENCES {ProjectTables.TrafficRegistrationPoints.value}(id)
+                            FOREIGN KEY (trp_id) REFERENCES "{ProjectTables.TrafficRegistrationPoints.value}"(id)
                         );
 
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.MeanSpeed.value}" (
@@ -285,7 +290,7 @@ class AIODBManager:
                             is_mice BOOLEAN DEFAULT FALSE,
                             percentile_85 FLOAT NOT NULL,
                             zoned_dt_iso TIMESTAMPTZ NOT NULL,
-                            FOREIGN KEY (trp_id) REFERENCES {ProjectTables.TrafficRegistrationPoints.value}(id)
+                            FOREIGN KEY (trp_id) REFERENCES "{ProjectTables.TrafficRegistrationPoints.value}"(id)
                         );
 
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.TrafficRegistrationPointsMetadata.value}" (
@@ -296,7 +301,7 @@ class AIODBManager:
                             volume_end_date TIMESTAMPTZ,
                             mean_speed_start_date TIMESTAMPTZ,
                             mean_speed_end_date TIMESTAMPTZ,
-                            FOREIGN KEY (trp_id) REFERENCES {ProjectTables.TrafficRegistrationPoints.value}(id)
+                            FOREIGN KEY (trp_id) REFERENCES "{ProjectTables.TrafficRegistrationPoints.value}"(id)
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.MLModels.value}" (
@@ -316,13 +321,13 @@ class AIODBManager:
                             id TEXT PRIMARY KEY,
                             joblib_object BYTEA,
                             pickle_object BYTEA NOT NULL,
-                            FOREIGN KEY (id) REFERENCES {ProjectTables.MLModels.value}(id)
+                            FOREIGN KEY (id) REFERENCES "{ProjectTables.MLModels.value}"(id)
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.ModelGridSearchCVResults.value}" (
                             id SERIAL,
-                            model_id TEXT REFERENCES {ProjectTables.MLModels.value}(id) ON DELETE CASCADE,
-                            road_category_id TEXT REFERENCES {ProjectTables.RoadCategories.value}(id) ON DELETE CASCADE,
+                            model_id TEXT REFERENCES "{ProjectTables.MLModels.value}"(id) ON DELETE CASCADE,
+                            road_category_id TEXT REFERENCES "{ProjectTables.RoadCategories.value}"(id) ON DELETE CASCADE,
                             params JSON NOT NULL,
                             mean_fit_time FLOAT NOT NULL,
                             mean_test_r2 FLOAT NOT NULL,
