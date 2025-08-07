@@ -14,6 +14,7 @@ from pydantic.types import PositiveInt
 from dask.distributed import Client, LocalCluster
 
 from exceptions import WrongSplittingMode, TargetDataNotAvailableError, NoDataError
+from db_config import ProjectTables
 
 pd.set_option("display.max_columns", None)
 
@@ -159,7 +160,7 @@ class ForecastingToolbox:
         assert horizon > last_available_data_dt, "Forecasting target datetime is prior to the latest data available"
         assert (cast(datetime.datetime, horizon) - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"
 
-        self._db_broker.send_sql(f"""UPDATE ForecastingSettings
+        self._db_broker.send_sql(f"""UPDATE "{ProjectTables.ForecastingSettings.value}"
                                      SET config = jsonb_set(
                                          config,
                                          '{'{volume_forecasting_horizon}' if option == "V" else '{mean_speed_forecasting_horizon}'}',
@@ -176,7 +177,7 @@ class ForecastingToolbox:
             raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
         return self._db_broker.send_sql(
             f"""SELECT config -> {'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'} AS volume_horizon
-                FROM ForecastingSettings
+                FROM "{ProjectTables.ForecastingSettings.value}"
                 WHERE id = TRUE;"""
         )[target]
 
@@ -185,7 +186,7 @@ class ForecastingToolbox:
         if not check_target(target):
             raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
         self._db_broker.send_sql(
-            f"""UPDATE ForecastingSettings
+            f"""UPDATE "{ProjectTables.ForecastingSettings.value}"
                 SET config = jsonb_set(config, '{'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'}', 'null'::jsonb)
                 WHERE id = TRUE;"""
         )
@@ -229,7 +230,7 @@ class ForecastingToolbox:
         # The number of days to forecast
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
-        await self._db_broker_async.send_sql_async(f"""UPDATE ForecastingSettings
+        await self._db_broker_async.send_sql_async(f"""UPDATE "{ProjectTables.ForecastingSettings.value}"
                                                        SET config = jsonb_set(
                                                            config,
                                                            '{'{volume_forecasting_horizon}' if option == "V" else '{mean_speed_forecasting_horizon}'}'
@@ -247,14 +248,14 @@ class ForecastingToolbox:
                 raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
             return (await self._db_broker_async.send_sql_async(
                                                 f"""SELECT config -> {'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'} AS volume_horizon
-                                                    FROM ForecastingSettings
+                                                    FROM "{ProjectTables.ForecastingSettings.value}"
                                                     WHERE id = TRUE;"""))[target]
 
 
     async def reset_forecasting_horizon_async(self, target: str) -> None:
         if not check_target(target):
             raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
-        await self._db_broker_async.send_sql_async(f"""UPDATE ForecastingSettings
+        await self._db_broker_async.send_sql_async(f"""UPDATE "{ProjectTables.ForecastingSettings.value}"
                                                        SET config = jsonb_set(config, '{'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'}', 'null'::jsonb)
                                                        WHERE id = TRUE;""")
         return None

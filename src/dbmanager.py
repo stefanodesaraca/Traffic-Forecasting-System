@@ -91,7 +91,7 @@ class AIODBManager:
     async def _check_hub_db_integrity(self) -> bool:
         #Steps:
         #1. Check the "Projects" table existance
-        if any(check is False for check in [await self._check_table_existance(HubDBTables.PROJECTS.value)]):
+        if any(check is False for check in [await self._check_table_existance(HubDBTables.Projects.value)]):
             return False
         return True
 
@@ -387,18 +387,18 @@ class AIODBManager:
                 # Granting permission to access to all tables to the TFS user
                 await conn.execute(f"""
                     GRANT SELECT, INSERT, UPDATE ON TABLE 
-                        {ProjectTables.RoadCategories.value},
-                        {ProjectTables.CountryParts.value},
-                        {ProjectTables.Counties.value},
-                        {ProjectTables.Municipalities.value},
-                        {ProjectTables.TrafficRegistrationPoints.value},
-                        {ProjectTables.Volume.value},
-                        {ProjectTables.MeanSpeed.value},
-                        {ProjectTables.TrafficRegistrationPointsMetadata.value},
-                        {ProjectTables.MLModels.value},
-                        {ProjectTables.MLModelObjects.value},
-                        {ProjectTables.ModelGridSearchCVResults.value},
-                        {ProjectTables.ForecastingSettings.value}
+                        "{ProjectTables.RoadCategories.value}",
+                        "{ProjectTables.CountryParts.value}",
+                        "{ProjectTables.Counties.value}",
+                        "{ProjectTables.Municipalities.value}",
+                        "{ProjectTables.TrafficRegistrationPoints.value}",
+                        "{ProjectTables.Volume.value}",
+                        "{ProjectTables.MeanSpeed.value}",
+                        "{ProjectTables.TrafficRegistrationPointsMetadata.value}",
+                        "{ProjectTables.MLModels.value}",
+                        "{ProjectTables.MLModelObjects.value}",
+                        "{ProjectTables.ModelGridSearchCVResults.value}",
+                        "{ProjectTables.ForecastingSettings.value}"
                     TO "{self._tfs_role}";
                 """)
 
@@ -406,7 +406,7 @@ class AIODBManager:
         # -- New Project Metadata Insertions --
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
             new_project = await conn.fetchrow(
-                f"""INSERT INTO "{HubDBTables.PROJECTS.value}" (name, lang, is_current, creation_zoned_dt) VALUES ($1, $2, $3, $4) RETURNING *""",
+                f"""INSERT INTO "{HubDBTables.Projects.value}" (name, lang, is_current, creation_zoned_dt) VALUES ($1, $2, $3, $4) RETURNING *""",
                 name, lang, False, datetime.now(tz=timezone(timedelta(hours=1)))
             )
             print(f"New project created: {new_project}")
@@ -433,16 +433,16 @@ class AIODBManager:
                 DECLARE
                     deleted_is_current BOOLEAN;
                 BEGIN
-                    DELETE FROM Projects
+                    DELETE FROM "{HubDBTables.Projects.value}"
                     WHERE name = p_name
                     RETURNING is_current INTO deleted_is_current;
                 
                     IF deleted_is_current THEN
-                        UPDATE Projects
+                        UPDATE "{HubDBTables.Projects.value}"
                         SET is_current = TRUE
                         WHERE id = (
                             SELECT id
-                            FROM Projects
+                            FROM "{HubDBTables.Projects.value}"
                             ORDER BY creation_zoned_dt DESC
                             LIMIT 1
                         );
@@ -540,7 +540,7 @@ class AIODBManager:
             async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
                 #Hub DB Tables (Projects)
                 await conn.execute(f"""
-                        CREATE TABLE IF NOT EXISTS "{HubDBTables.PROJECTS.value}" (
+                        CREATE TABLE IF NOT EXISTS "{HubDBTables.Projects.value}" (
                             id SERIAL PRIMARY KEY,
                             name TEXT NOT NULL UNIQUE,
                             lang TEXT,
@@ -551,20 +551,20 @@ class AIODBManager:
 
                 #Hub DB Constraints
                 await conn.execute(f"""
-                        CREATE UNIQUE INDEX "{HUBDBConstraints.ONE_CURRENT_PROJECT.value}" ON "{HubDBTables.PROJECTS.value}" (is_current)
+                        CREATE UNIQUE INDEX "{HUBDBConstraints.ONE_CURRENT_PROJECT.value}" ON "{HubDBTables.Projects.value}" (is_current)
                         WHERE is_current = TRUE;
                 """)
 
                 #Permissions grants to the TFS role
                 await conn.execute(f"""
-                    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "{HubDBTables.PROJECTS.value}" TO "{self._tfs_role}";
+                    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "{HubDBTables.Projects.value}" TO "{self._tfs_role}";
                 """)
 
         await self._check_hub_db_integrity()
 
         # -- Check if any projects exist --
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
-            project_check = await conn.fetchrow(f"""SELECT * FROM "{HubDBTables.PROJECTS.value}" LIMIT 1""")
+            project_check = await conn.fetchrow(f"""SELECT * FROM "{HubDBTables.Projects.value}" LIMIT 1""")
 
             #If there aren't any projects, let the user impute one and insert it into the Projects table
             if not project_check:
@@ -577,7 +577,7 @@ class AIODBManager:
                 await self.create_project(name=name, lang=lang, auto_project_setup=auto_project_setup)
 
 
-        #TODO IF SOME PROJECTS EXIST CHECK WHICH IS THE CURRENT ONE, IF THE RETURN IS NONE SET IT AS CURRENT. ALSO, ADD THE ABILITY TO DO THAT INSIDE CREATE_PROJECT VIA A PARAMETER (NOT AN INPUT)
+        #TODO IF SOME Projects EXIST CHECK WHICH IS THE CURRENT ONE, IF THE RETURN IS NONE SET IT AS CURRENT. ALSO, ADD THE ABILITY TO DO THAT INSIDE CREATE_PROJECT VIA A PARAMETER (NOT AN INPUT)
         # LIKE auto_current_setup: bool = False
         # ALSO IF auto_current_setup IS TRUE, CHECK DO reset_current_project() FIRST AND THEN SET IT
 
@@ -590,7 +590,7 @@ class AIODBManager:
             async with conn.transaction():
                 return await conn.fetchrow(f"""
                         SELECT *
-                        FROM {HubDBTables.PROJECTS.value}
+                        FROM {HubDBTables.Projects.value}
                         WHERE is_current = TRUE;
                 """)
 
@@ -600,9 +600,9 @@ class AIODBManager:
             if not await self._check_db(name): #If the project doesn't exist raise error
                 raise ProjectDBNotFoundError("Project DB doesn't exist")
             async with conn.transaction(): #Needing to execute both of the operations in one transaction because otherwise the one_current_project constraint wouldn't be respected. Checkout the Hub DB Constraints sections to learn more
-                await conn.execute("UPDATE Projects SET is_current = FALSE WHERE is_current = TRUE;")
+                await conn.execute(f"""UPDATE "{HubDBTables.Projects.value}" SET is_current = FALSE WHERE is_current = TRUE;""")
                 await conn.execute(f"""                
-                    UPDATE {HubDBTables.PROJECTS.value}
+                    UPDATE "{HubDBTables.Projects.value}"
                     SET is_current = TRUE
                     WHERE name = {name};
                 """)
@@ -613,7 +613,7 @@ class AIODBManager:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
             async with conn.transaction():
                 await conn.execute(f"""
-                    UPDATE {HubDBTables.PROJECTS.value}
+                    UPDATE "{HubDBTables.Projects.value}"
                     SET is_current = FALSE
                     WHERE is_current = TRUE;
                 """)

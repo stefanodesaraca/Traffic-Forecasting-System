@@ -3,6 +3,7 @@ import pandas as pd
 from pydantic.types import PositiveInt
 
 from brokers import DBBroker
+from db_config import ProjectTables
 
 
 
@@ -29,7 +30,7 @@ class BatchStreamLoader:
                 v.is_mice AS is_mice,
                 v.zoned_dt_iso AS zoned_dt_iso,
                 t.road_category AS road_category
-            FROM Volume v JOIN TrafficRegistrationPoints t ON v.trp_id = t.id
+            FROM "{ProjectTables.Volume.value}" v JOIN "{ProjectTables.TrafficRegistrationPoints.value}" t ON v.trp_id = t.id
             WHERE {"v.trp_id = ANY(%s)" if trp_list_filter else "1=1"}
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
             ORDER BY zoned_dt_iso DESC
@@ -60,7 +61,7 @@ class BatchStreamLoader:
                  ms.is_mice AS is_mice,
                  ms.zoned_dt_iso AS zoned_dt_iso,
                  t.road_category AS road_category
-            FROM MeanSpeed ms JOIN TrafficRegistrationPoints t ON ms.trp_id = t.id
+            FROM "{ProjectTables.MeanSpeed.value}" ms JOIN "{ProjectTables.TrafficRegistrationPoints.value}" t ON ms.trp_id = t.id
             WHERE {"ms.trp_id = ANY(%s)" if trp_list_filter else "1=1"}
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
             ORDER BY zoned_dt_iso DESC

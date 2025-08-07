@@ -23,7 +23,7 @@ class AIODBManagerInternalConfig(Enum):
 
 
 class HubDBTables(Enum):
-    PROJECTS = "Projects"
+    Projects = "Projects"
 
 
 
