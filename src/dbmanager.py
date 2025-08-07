@@ -399,7 +399,7 @@ class AIODBManager:
                         "{ProjectTables.MLModelObjects.value}",
                         "{ProjectTables.ModelGridSearchCVResults.value}",
                         "{ProjectTables.ForecastingSettings.value}"
-                    TO "{self._tfs_role}";
+                    TO {self._tfs_role};
                 """)
 
 
@@ -498,11 +498,11 @@ class AIODBManager:
                 #After creating the database there's the setup section, where we can actually start to use the hub db
                 try:
                     await conn.execute(f"""
-                        CREATE DATABASE {self._hub_db}
+                        CREATE DATABASE "{self._hub_db}"
                     """)
                     #Granting permission to connect to the database to the TFS role
                     await conn.execute(f"""
-                        GRANT CONNECT ON DATABASE {self._hub_db} TO {self._tfs_role};
+                        GRANT CONNECT ON DATABASE "{self._hub_db}" TO {self._tfs_role};
                     """) #Once created we can finally grant access to the tfs role to the hub db
                 except DuplicateDatabaseError:
                     pass
@@ -557,7 +557,7 @@ class AIODBManager:
 
                 #Permissions grants to the TFS role
                 await conn.execute(f"""
-                    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "{HubDBTables.Projects.value}" TO "{self._tfs_role}";
+                    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "{HubDBTables.Projects.value}" TO {self._tfs_role};
                 """)
 
         await self._check_hub_db_integrity()
