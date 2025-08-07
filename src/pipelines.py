@@ -13,6 +13,7 @@ from sklearn.impute import IterativeImputer
 from sklego.meta import ZeroInflatedRegressor
 
 from utils import GlobalDefinitions
+from db_config import ProjectTables
 
 pd.set_option("display.max_rows", None)
 pd.set_option("display.max_columns", None)
@@ -134,7 +135,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         #TODO FOR TESTING PURPOSES
         context = pd.DataFrame(await self._db_broker_async.send_sql_async(sql=f"""
                                                                                 SELECT *
-                                                                                FROM Volume
+                                                                                FROM "{ProjectTables.Volume.value}"
                                                                                 ORDER BY zoned_dt_iso DESC
                                                                                 LIMIT {mice_past_window};
                                                                                """))
@@ -147,10 +148,10 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         self.data = pd.concat([
                                 self.data[["trp_id", "is_mice", "zoned_dt_iso"]],
                                 await asyncio.to_thread(pd.DataFrame, await self._db_broker_async.send_sql_async(sql=f"""SELECT *
-                                                                                                                     FROM Volume
-                                                                                                                     ORDER BY zoned_dt_iso DESC
-                                                                                                                     LIMIT {mice_past_window};
-                                                                                                                 """)), #Extracting data from the past to improve MICE regression model performances
+                                                                                                                               FROM "{ProjectTables.Volume.value}"
+                                                                                                                               ORDER BY zoned_dt_iso DESC
+                                                                                                                               LIMIT {mice_past_window};
+                                                                                                                           """)), #Extracting data from the past to improve MICE regression model performances
                                 await asyncio.to_thread(self._impute_missing_values,self.data.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1), r="gamma")
                                 ], axis=1)
         #Duplicates aren't a problem since PostgresSQL inserts are set to do nothing on conflict
@@ -171,7 +172,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
             self.data = self.data[[fields]]
 
         await self._db_broker_async.send_sql_async(f"""
-            INSERT INTO Volume ({', '.join(fields)})
+            INSERT INTO "{ProjectTables.Volume.value}" ({', '.join(fields)})
             VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields) + 1))})
             ON CONFLICT ON CONSTRAINT unique_volume_per_trp_and_time DO NOTHING;
         """, many=True, many_values=list(self.data.itertuples(index=False, name=None)))
@@ -227,7 +228,7 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
         if fields:
             self.data = self.data[[fields]]
         await self._db_broker_async.send_sql_async(f"""
-            INSERT INTO MeanSpeed ({', '.join(fields)})
+            INSERT INTO "{ProjectTables.MeanSpeed.value}" ({', '.join(fields)})
             VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields) + 1))})
             ON CONFLICT ON CONSTRAINT unique_mean_speed_per_trp_and_time DO NOTHING;
         """, many=True, many_values=list(self.data.itertuples(index=False, name=None)))

@@ -38,6 +38,7 @@ from exceptions import WrongEstimatorTypeError, ModelNotSetError, TargetVariable
 from brokers import DBBroker
 from loaders import BatchStreamLoader
 from utils import GlobalDefinitions, check_target, ZScore
+from db_config import ProjectTables
 
 
 simplefilter(action="ignore", category=FutureWarning)
@@ -573,13 +574,13 @@ class TFSLearner:
             The model's grid for hyperparameter tuning.
         """
         return json.loads(self._db_broker.send_sql(sql=f"""SELECT {'volume_grid' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'mean_speed_grid'} 
-                                                           FROM MLModels
+                                                           FROM "{ProjectTables.MLModels.value}"
                                                            WHERE id = {self._model.model_id};""", single=True)['volume_grid' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'mean_speed_grid'])
 
 
     def _load_model(self) -> callable:
         return pickle.load(self._db_broker.send_sql(f"""SELECT mo.pickle_object
-                                                             FROM MLModels m LEFT JOIN MLModelObjects mo on m.id = mo.id
+                                                             FROM "{ProjectTables.MLModels.value}" m LEFT JOIN "{ProjectTables.MLModelObjects.value}" mo on m.id = mo.id
                                                              WHERE m.name = {self._model.name}""", single=True)["pickle_object"])
 
 
@@ -670,7 +671,7 @@ class TFSLearner:
 
 
     def set_best_params_idx(self, idx: int, model_id: str | None = None) -> None:
-        self._db_broker.send_sql(f"""UPDATE MLModels
+        self._db_broker.send_sql(f"""UPDATE "{ProjectTables.MLModels.value}"
                                      SET {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx'} = {idx}
                                      WHERE id = '{model_id or self._model.model_id}';""")
         return None
@@ -685,7 +686,7 @@ class TFSLearner:
     def export_gridsearch_results(self, results: pd.DataFrame) -> None:
         results["params"] = results["params"].apply(json.dumps) #Binarizing parameters' dictionary
         self._db_broker.send_sql(f"""
-            INSERT INTO ModelGridSearchCVResults (
+            INSERT INTO "{ProjectTables.ModelGridSearchCVResults.value}" (
                 model_id,
                 road_category_id,
                 params,
@@ -710,7 +711,7 @@ class TFSLearner:
     def export_best_params(self, results: pd.DataFrame):
 
         best_params_idx: int = self._db_broker.send_sql(sql=f"""SELECT {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx'} 
-                                                                FROM MLModels
+                                                                FROM "{ProjectTables.MLModels.value}"
                                                                 WHERE id = {self._model.model_id};""", single=True)['best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx']
 
         true_best_params = results["params"].iloc[best_params_idx] or {}
@@ -728,7 +729,7 @@ class TFSLearner:
         joblib.dump(self._model, joblib_bytes)
         joblib_bytes.seek(0)
         self._db_broker.send_sql(f"""
-                INSERT INTO MLModelObjects (id, joblib_object, pickle_object)
+                INSERT INTO "{ProjectTables.MLModelObjects.value}" (id, joblib_object, pickle_object)
                 VALUES ($1, $2, $3)
             """, execute_args=[self._model.model_id, joblib_bytes.read(), pickle.dumps(self._model)])
         return None

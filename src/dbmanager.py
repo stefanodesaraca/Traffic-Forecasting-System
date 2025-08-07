@@ -99,16 +99,16 @@ class AIODBManager:
     @staticmethod
     async def insert_areas(conn: asyncpg.connection, data: dict[str, Any]) -> None:
         all((await conn.execute(
-            f"INSERT INTO {ProjectTables.CountryParts.value} (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+            f"""INSERT INTO "{ProjectTables.CountryParts.value}" (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING""",
             part["id"], part["name"]
         ),
              all((await conn.execute(
-                 f"INSERT INTO {ProjectTables.Counties.value} (number, name, country_part_id) VALUES ($1, $2, $3) ON CONFLICT (number) DO NOTHING",
+                 f"""INSERT INTO "{ProjectTables.Counties.value}" (number, name, country_part_id) VALUES ($1, $2, $3) ON CONFLICT (number) DO NOTHING""",
                  county["number"], county["name"], part["id"]
              ),
                   all(await conn.execute(
                       f"""
-                      INSERT INTO {ProjectTables.Municipalities.value} (number, name, county_number, country_part_id)
+                      INSERT INTO "{ProjectTables.Municipalities.value}" (number, name, county_number, country_part_id)
                       VALUES ($1, $2, $3, $4)
                       ON CONFLICT (number) DO NOTHING
                       """,
@@ -121,7 +121,7 @@ class AIODBManager:
     async def insert_road_categories(conn: asyncpg.connection, data: dict[str, Any]) -> None:
         all(await conn.execute(
             f"""
-            INSERT INTO {ProjectTables.RoadCategories.value} (id, name)
+            INSERT INTO "{ProjectTables.RoadCategories.value}" (id, name)
             VALUES ($1, $2)
             ON CONFLICT (id) DO NOTHING
             """,
@@ -133,7 +133,7 @@ class AIODBManager:
     async def insert_trps(conn: asyncpg.connection, data: dict[str, Any]) -> None:
         all(await conn.execute(
             f"""
-            INSERT INTO {ProjectTables.TrafficRegistrationPoints.value} (
+            INSERT INTO "{ProjectTables.TrafficRegistrationPoints.value}" (
                 id, name, lat, lon,
                 road_reference_short_form, road_category,
                 road_link_sequence, relative_position,
@@ -406,7 +406,7 @@ class AIODBManager:
         # -- New Project Metadata Insertions --
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
             new_project = await conn.fetchrow(
-                f"INSERT INTO {HubDBTables.PROJECTS.value} (name, lang, is_current, creation_zoned_dt) VALUES ($1, $2, $3, $4) RETURNING *",
+                f"""INSERT INTO "{HubDBTables.PROJECTS.value}" (name, lang, is_current, creation_zoned_dt) VALUES ($1, $2, $3, $4) RETURNING *""",
                 name, lang, False, datetime.now(tz=timezone(timedelta(hours=1)))
             )
             print(f"New project created: {new_project}")
