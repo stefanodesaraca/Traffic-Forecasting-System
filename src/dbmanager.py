@@ -205,14 +205,16 @@ class AIODBManager:
         # -- New Project DB Setup --
         async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._hub_db, host=self._db_host) as conn:
             # Accessing as superuser since some tools may require this configuration to create a new database
-            async with conn.transaction():
-                await conn.execute(f"""CREATE DATABASE {name};""")
+            try:
+                await conn.execute(f'CREATE DATABASE "{name}";')
+            except asyncpg.DuplicateDatabaseError:
+                pass  # Database already exists
 
-                await conn.execute(f"""
-                   GRANT CREATE, USAGE ON SCHEMA public TO {self._tfs_role};
-                   GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
-                   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO {self._tfs_role};
-               """)
+            await conn.execute(f"""
+               GRANT CREATE, USAGE ON SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+               GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+               ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO {self._tfs_role};
+           """)
 
         # -- Project Tables Setup --
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=name, host=self._db_host) as conn:
@@ -336,7 +338,7 @@ class AIODBManager:
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.ForecastingSettings.value}" (
                             id BOOLEAN PRIMARY KEY CHECK (id = TRUE),
-                            config JSONB DEFAULT {"volume_forecasting_horizon": NULL, "mean_speed_forecasting_horizon": NULL}
+                            config JSONB DEFAULT '{{"volume_forecasting_horizon": NULL, "mean_speed_forecasting_horizon": NULL}}'
                         );
                 """)
 
