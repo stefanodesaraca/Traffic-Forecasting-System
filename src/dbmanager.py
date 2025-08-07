@@ -14,6 +14,7 @@ from exceptions import ProjectDBNotFoundError
 from db_config import HubDBTables, HUBDBConstraints, ProjectTables, ProjectConstraints, ProjectViews, AIODBManagerInternalConfig as AIODBMInternalConfig
 from downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
 
+from pprint import pprint
 
 
 @asynccontextmanager
@@ -188,6 +189,7 @@ class AIODBManager:
             print(td)
             data = await fetch(await start_client_async())
             if data:
+                pprint(data)
                 async with conn.transaction():
                     await insert(conn=conn, data=data)
                     print(sd)

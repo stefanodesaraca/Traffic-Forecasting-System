@@ -280,18 +280,3 @@ class AIODBManagerBroker:
         async with postgres_conn_async(self._tfs_user, password=self._tfs_password, dbname=await self.get_current_project(), host=self._db_host) as conn:
             await (await self._get_db_manager_async()).insert_trps(conn=conn, data=data)
         return None
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

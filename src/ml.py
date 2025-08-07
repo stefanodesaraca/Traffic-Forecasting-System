@@ -752,7 +752,7 @@ class OnePointForecaster:
         Parameters:
             training_mode: the training mode we want to use.
                 0 - Stands for single-point training, so only the data from the TRP we want to predict future records for is used
-                1 - Stands for multi-point training, where data from all TRPs of the same road category as the one we want to predict future records for is used
+                1 - Stands for multipoint training, where data from all TRPs of the same road category as the one we want to predict future records for is used
             limit: the maximum amount of records to return. The practice adopted is: latest records first. So we'll collect records starting from the latest one to the oldest one.
                    If None, we'll just return all records available.
                    Example: if we had a limit of 2000, we'll only collect the latest 2000 records.

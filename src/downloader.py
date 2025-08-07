@@ -238,14 +238,3 @@ async def volumes_to_db(gql_client: Client, db_broker_async: Any, time_start: st
 
 
     return None
-
-
-
-
-
-
-
-
-
-
-
