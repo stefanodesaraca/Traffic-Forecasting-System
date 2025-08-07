@@ -70,6 +70,7 @@ class AIODBManager:
         self._tfs_role_password: str = tfs_role_password
         self._db_host: str = db_host
 
+
     async def _check_table_existance(self, table: str) -> bool:
         async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
                                        dbname=self._maintenance_db, host=self._db_host) as conn:
@@ -82,6 +83,7 @@ class AIODBManager:
             );
             """))
 
+
     async def _check_db(self, dbname: str) -> bool:  # First check layer
         async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
                                        dbname=self._maintenance_db, host=self._db_host) as conn:
@@ -91,6 +93,7 @@ class AIODBManager:
                 return False  #First check layer
             return True
 
+
     async def _check_hub_db_integrity(self) -> bool:
         #Steps:
         #1. Check the "Projects" table existance
@@ -98,95 +101,84 @@ class AIODBManager:
             return False
         return True
 
+
     @staticmethod
     async def insert_areas(conn: asyncpg.connection, data: dict[str, Any]) -> None:
-        country_part_tasks = []
-        county_tasks = []
-        municipality_tasks = []
 
         for part in data["areas"]["countryParts"]:
-            # Country part insert task
-            country_part_tasks.append(
-                conn.execute(
-                    f"""INSERT INTO "{ProjectTables.CountryParts.value}" (id, name) 
-                        VALUES ($1, $2) ON CONFLICT (id) DO NOTHING""",
-                    part["id"], part["name"]
-                )
+            # Insert country part
+            await conn.execute(
+                f"""INSERT INTO "{ProjectTables.CountryParts.value}" (id, name) 
+                    VALUES ($1, $2) ON CONFLICT (id) DO NOTHING""",
+                part["id"], part["name"]
             )
 
             for county in part["counties"]:
-                # County insert task
-                county_tasks.append(
-                    conn.execute(
-                        f"""INSERT INTO "{ProjectTables.Counties.value}" (number, name, country_part_id) 
-                            VALUES ($1, $2, $3) ON CONFLICT (number) DO NOTHING""",
-                        county["number"], county["name"], part["id"]
-                    )
+                # Insert county
+                await conn.execute(
+                    f"""INSERT INTO "{ProjectTables.Counties.value}" (number, name, country_part_id) 
+                        VALUES ($1, $2, $3) ON CONFLICT (number) DO NOTHING""",
+                    county["number"], county["name"], part["id"]
                 )
 
-                # Municipality insert tasks
+                # Insert municipalities for this county
                 for muni in county.get("municipalities", []):
-                    municipality_tasks.append(
-                        conn.execute(
-                            f"""INSERT INTO "{ProjectTables.Municipalities.value}" 
-                                (number, name, county_number, country_part_id)
-                                VALUES ($1, $2, $3, $4)
-                                ON CONFLICT (number) DO NOTHING""",
-                            muni["number"], muni["name"], county["number"], part["id"]
-                        )
+                    await conn.execute(
+                        f"""INSERT INTO "{ProjectTables.Municipalities.value}" (number, name, county_number, country_part_id)
+                            VALUES ($1, $2, $3, $4)
+                            ON CONFLICT (number) DO NOTHING""",
+                        muni["number"], muni["name"], county["number"], part["id"]
                     )
-
-        await asyncio.gather(*country_part_tasks)
-        await asyncio.gather(*county_tasks)
-        await asyncio.gather(*municipality_tasks)
 
         return None
 
     @staticmethod
     async def insert_road_categories(conn: asyncpg.connection, data: dict[str, Any]) -> None:
-        all(await conn.execute(
-            f"""
-            INSERT INTO "{ProjectTables.RoadCategories.value}" (id, name)
-            VALUES ($1, $2)
-            ON CONFLICT (id) DO NOTHING
-            """,
-            cat["id"], cat["name"]
-        ) for cat in data["roadCategories"])
+        for cat in data["roadCategories"]:
+            await conn.execute(
+                f"""
+                INSERT INTO "{ProjectTables.RoadCategories.value}" (id, name)
+                VALUES ($1, $2)
+                ON CONFLICT (id) DO NOTHING
+                """,
+                cat["id"], cat["name"]
+            )
         return None
 
     @staticmethod
     async def insert_trps(conn: asyncpg.connection, data: dict[str, Any]) -> None:
-        all(await conn.execute(
-            f"""
-            INSERT INTO "{ProjectTables.TrafficRegistrationPoints.value}" (
-                id, name, lat, lon,
-                road_reference_short_form, road_category,
-                road_link_sequence, relative_position,
-                county, country_part_id, country_part_name,
-                county_number, geographic_number,
-                traffic_registration_type,
-                first_data, first_data_with_quality_metrics
-            )
-            VALUES (
-                {trp["id"]}, 
-                {trp["name"]}, 
-                {trp["location"]["coordinates"]["latLon"]["lat"]}, 
-                {trp["location"]["coordinates"]["latLon"]["lon"]},
-                {trp["location"].get("roadReference", {}).get("shortForm")}, 
-                {trp["location"].get("roadReference", {}).get("shortForm").get("roadCategory", {}).get("id")}, 
-                {trp["location"].get("roadLinkSequence", {}).get("roadLinkSequenceId")}, 
-                {trp["location"].get("roadLinkSequence", {}).get("relativePosition")},
-                {trp["location"].get("county", {}).get("name")}, 
-                {str(trp["location"].get("county", {}).get("countryPart", {}).get("id")) if trp["location"].get("county", {}).get("countryPart", {}).get("id") is not None else None}, 
-                {trp["location"].get("county", {}).get("countryPart", {}).get("name")}, 
-                {trp["location"].get("county", {}).get("number")},
-                {trp["location"].get("county", {}).get("geographicNumber")}, 
-                {trp.get("trafficRegistrationType")},
-                {trp.get("dataTimeSpan", {}).get("firstData")}, 
-                {trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics")})
-            ON CONFLICT (id) DO NOTHING
-            """
-        ) for trp in data["data"]["trafficRegistrationPoints"])  #TODO TRANSFORM THIS INTO A PARAMETRIZED QUERY
+        for trp in data["trafficRegistrationPoints"]:
+            await conn.execute(
+                f"""
+                INSERT INTO "{ProjectTables.TrafficRegistrationPoints.value}" (
+                    id, name, lat, lon,
+                    road_reference_short_form, road_category,
+                    road_link_sequence, relative_position,
+                    county, country_part_id, country_part_name,
+                    county_number, geographic_number,
+                    traffic_registration_type,
+                    first_data, first_data_with_quality_metrics
+                )
+                VALUES (
+                    {trp["id"]}, 
+                    {trp["name"]}, 
+                    {trp["location"]["coordinates"]["latLon"]["lat"]}, 
+                    {trp["location"]["coordinates"]["latLon"]["lon"]},
+                    {trp["location"].get("roadReference", {}).get("shortForm")}, 
+                    {trp["location"].get("roadReference", {}).get("shortForm").get("roadCategory", {}).get("id")}, 
+                    {trp["location"].get("roadLinkSequence", {}).get("roadLinkSequenceId")}, 
+                    {trp["location"].get("roadLinkSequence", {}).get("relativePosition")},
+                    {trp["location"].get("county", {}).get("name")}, 
+                    {str(trp["location"].get("county", {}).get("countryPart", {}).get("id")) if trp["location"].get("county", {}).get("countryPart", {}).get("id") is not None else None}, 
+                    {trp["location"].get("county", {}).get("countryPart", {}).get("name")}, 
+                    {trp["location"].get("county", {}).get("number")},
+                    {trp["location"].get("county", {}).get("geographicNumber")}, 
+                    {trp.get("trafficRegistrationType")},
+                    {trp.get("dataTimeSpan", {}).get("firstData")}, 
+                    {trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics")})
+                ON CONFLICT (id) DO NOTHING
+                """
+            )  #TODO TRANSFORM THIS INTO A PARAMETRIZED QUERY
         return None
 
 
@@ -224,6 +216,7 @@ class AIODBManager:
                     await insert(conn=conn, data=json.load(a))
 
         return None
+
 
     async def create_project(self, name: str, lang: str, auto_project_setup: bool = True) -> None:
 
@@ -447,6 +440,7 @@ class AIODBManager:
 
         return None
 
+
     async def delete_project(self, name: str) -> None:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db,
                                        host=self._db_host) as conn:
@@ -495,13 +489,13 @@ class AIODBManager:
                     raise Exception(f"Wrong input {choice}")
         return None
 
+
     async def init(self, auto_project_setup: bool = True) -> None:
 
         # -- Initialize users and DBs --
 
         #Accessing as superuser and creating tfs user
-        async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
-                                       dbname=self._maintenance_db, host=self._db_host) as conn:
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db, host=self._db_host) as conn:
             try:
                 await conn.execute(f"""
                     CREATE ROLE {self._tfs_role} WITH LOGIN PASSWORD '{self._tfs_role_password}';
@@ -524,8 +518,7 @@ class AIODBManager:
         # -- Hub DB Initialization --
         if not await self._check_db(dbname=self._hub_db):
             # -- Hub DB Creation --
-            async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
-                                           dbname=self._maintenance_db, host=self._db_host) as conn:
+            async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db, host=self._db_host) as conn:
                 #It's important to specify that in this specific connection the maintenance db is used because the hub db doesn't exist yet, so trying to connect to it would result in an error (exception)
                 #After creating the database there's the setup section, where we can actually start to use the hub db
                 try:
@@ -540,8 +533,7 @@ class AIODBManager:
                     pass
 
             # -- Hub DB Setup (If It Doesn't Exist) --
-            async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._hub_db,
-                                           host=self._db_host) as conn:
+            async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._hub_db, host=self._db_host) as conn:
 
                 # Grant CREATE privilege on public schema to the TFS role
                 await conn.execute(f"""
@@ -569,8 +561,7 @@ class AIODBManager:
                 """)
 
             # -- DB Content Setup --
-            async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db,
-                                           host=self._db_host) as conn:
+            async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
                 #Hub DB Tables (Projects)
                 await conn.execute(f"""
                         CREATE TABLE IF NOT EXISTS "{HubDBTables.Projects.value}" (
@@ -584,7 +575,7 @@ class AIODBManager:
 
                 #Hub DB Constraints
                 await conn.execute(f"""
-                        CREATE UNIQUE INDEX "{HUBDBConstraints.ONE_CURRENT_PROJECT.value}" ON "{HubDBTables.Projects.value}" (is_current)
+                        CREATE UNIQUE INDEX IF NOT EXISTS "{HUBDBConstraints.ONE_CURRENT_PROJECT.value}" ON "{HubDBTables.Projects.value}" (is_current)
                         WHERE is_current = TRUE;
                 """)
 
@@ -618,6 +609,7 @@ class AIODBManager:
 
         return None
 
+
     async def get_current_project(self) -> asyncpg.Record | None:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db,
                                        host=self._db_host) as conn:
@@ -627,6 +619,7 @@ class AIODBManager:
                         FROM {HubDBTables.Projects.value}
                         WHERE is_current = TRUE;
                 """)
+
 
     async def set_current_project(self, name: str) -> None:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db,
@@ -642,6 +635,7 @@ class AIODBManager:
                     WHERE name = {name};
                 """)
         return None
+
 
     async def reset_current_project(self) -> None:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db,
