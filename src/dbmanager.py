@@ -366,11 +366,11 @@ class AIODBManager:
                     MIN(CASE WHEN ms.mean_speed IS NOT NULL THEN ms.zoned_dt_iso END) AS mean_speed_start_date,
                     MAX(CASE WHEN ms.mean_speed IS NOT NULL THEN ms.zoned_dt_iso END) AS mean_speed_end_date
                 FROM
-                    {ProjectTables.TrafficRegistrationPoints.value} trp
+                    "{ProjectTables.TrafficRegistrationPoints.value}" trp
                 LEFT JOIN
-                    {ProjectTables.Volume.value} v ON trp.id = v.trp_id
+                    "{ProjectTables.Volume.value}" v ON trp.id = v.trp_id
                 LEFT JOIN
-                    {ProjectTables.MeanSpeed.value} ms ON trp.id = ms.trp_id
+                    "{ProjectTables.MeanSpeed.value}" ms ON trp.id = ms.trp_id
                 GROUP BY
                     trp.id;
                 
@@ -380,8 +380,8 @@ class AIODBManager:
                     MAX(v.zoned_dt_iso) AS volume_end_date,
                     MIN(ms.zoned_dt_iso) AS mean_speed_start_date,
                     MAX(ms.zoned_dt_iso) AS mean_speed_end_date
-                FROM {ProjectTables.Volume.value} v
-                FULL OUTER JOIN {ProjectTables.MeanSpeed.value} ms ON false;  -- Force Cartesian for aggregation without joining
+                FROM "{ProjectTables.Volume.value}" v
+                FULL OUTER JOIN "{ProjectTables.MeanSpeed.value}" ms ON false;  -- Force Cartesian for aggregation without joining
                 """)
 
                 # Granting permission to access to all tables to the TFS user
