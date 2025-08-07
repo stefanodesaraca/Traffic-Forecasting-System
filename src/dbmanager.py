@@ -165,7 +165,7 @@ class AIODBManager:
                     {trp["location"]["coordinates"]["latLon"]["lat"]}, 
                     {trp["location"]["coordinates"]["latLon"]["lon"]},
                     {trp["location"].get("roadReference", {}).get("shortForm")}, 
-                    {trp["location"].get("roadReference", {}).get("shortForm").get("roadCategory", {}).get("id")}, 
+                    {trp["location"].get("roadReference", {}).get("roadCategory", {}).get("id")},
                     {trp["location"].get("roadLinkSequence", {}).get("roadLinkSequenceId")}, 
                     {trp["location"].get("roadLinkSequence", {}).get("relativePosition")},
                     {trp["location"].get("county", {}).get("name")}, 
