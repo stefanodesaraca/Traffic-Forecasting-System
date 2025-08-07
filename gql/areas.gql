@@ -1,0 +1,21 @@
+{
+  areas {
+    countryParts {
+      name
+      id
+      counties {
+        name
+        number
+        geographicNumber
+        municipalities {
+          name
+          number
+        }
+        countryPart {
+          name
+          id
+        }
+      }
+    }
+  }
+}

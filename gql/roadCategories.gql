@@ -1,0 +1,6 @@
+{
+  roadCategories {
+    id
+    name
+  }
+}
