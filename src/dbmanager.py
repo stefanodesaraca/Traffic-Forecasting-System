@@ -239,10 +239,10 @@ class AIODBManager:
         async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=name, host=self._db_host) as conn:
             # Grant permissions on the public schema of the NEW database
             await conn.execute(f"""
-               GRANT CREATE, USAGE ON SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
-               GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
-               ALTER DEFAULT PRIVILEGES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} GRANT USAGE, SELECT ON SEQUENCES TO {self._tfs_role};
-               GRANT USAGE, SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+               GRANT CREATE ON SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+               GRANT SELECT ON ALL SEQUENCES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+               ALTER DEFAULT PRIVILEGES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} GRANT SELECT ON SEQUENCES TO {self._tfs_role};
+               GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
                ALTER DEFAULT PRIVILEGES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {self._tfs_role};
            """)
 
