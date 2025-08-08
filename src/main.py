@@ -380,6 +380,7 @@ def main():
         "1.3": manage_global,
         "1.4": manage_global,
         "1.5": manage_global,
+        "1.6": manage_global,
         "2.1": manage_downloads,
         "2.2": manage_downloads,
         "3.1.1": manage_forecasting_horizon,

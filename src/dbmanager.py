@@ -625,7 +625,7 @@ class AIODBManager:
             async with conn.transaction():
                 return await conn.fetchrow(f"""
                         SELECT *
-                        FROM {HubDBTables.Projects.value}
+                        FROM "{HubDBTables.Projects.value}"
                         WHERE is_current = TRUE;
                 """)
 
@@ -643,6 +643,7 @@ class AIODBManager:
                     SET is_current = TRUE
                     WHERE name = $1;
                 """, name)
+                print("Current project set to: ", name)
         return None
 
 

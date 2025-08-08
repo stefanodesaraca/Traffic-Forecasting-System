@@ -269,11 +269,10 @@ class AIODBManagerBroker:
 
     async def list_all_projects(self) -> list[asyncpg.Record]:
         async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._hub_db, host=self._db_host) as conn:
-            async with conn.transaction():
-                return conn.fetch(f"""
-                    SELECT name
-                    FROM {HubDBTables.Projects.value}
-                """)
+            return await conn.fetch(f"""
+                SELECT name
+                FROM "{HubDBTables.Projects.value}"
+            """)
 
 
     async def insert_trps(self, data: dict[str, Any]) -> None:
