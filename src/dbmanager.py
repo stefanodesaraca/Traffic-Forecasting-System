@@ -11,11 +11,9 @@ from psycopg.rows import tuple_row, dict_row
 from cleantext import clean
 
 from exceptions import ProjectDBNotFoundError
-from db_config import HubDBTables, HUBDBConstraints, ProjectTables, ProjectConstraints, ProjectViews, \
-    AIODBManagerInternalConfig as AIODBMInternalConfig
+from db_config import HubDBTables, HUBDBConstraints, ProjectTables, ProjectConstraints, ProjectViews, AIODBManagerInternalConfig as AIODBMInternalConfig
 from downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
-
-from pprint import pprint
+from utils import GlobalDefinitions
 
 
 @asynccontextmanager
@@ -160,25 +158,37 @@ class AIODBManager:
                     first_data, first_data_with_quality_metrics
                 )
                 VALUES (
-                    {trp["id"]}, 
-                    {trp["name"]}, 
-                    {trp["location"]["coordinates"]["latLon"]["lat"]}, 
-                    {trp["location"]["coordinates"]["latLon"]["lon"]},
-                    {trp["location"].get("roadReference", {}).get("shortForm")}, 
-                    {trp["location"].get("roadReference", {}).get("roadCategory", {}).get("id")},
-                    {trp["location"].get("roadLinkSequence", {}).get("roadLinkSequenceId")}, 
-                    {trp["location"].get("roadLinkSequence", {}).get("relativePosition")},
-                    {trp["location"].get("county", {}).get("name")}, 
-                    {str(trp["location"].get("county", {}).get("countryPart", {}).get("id")) if trp["location"].get("county", {}).get("countryPart", {}).get("id") is not None else None}, 
-                    {trp["location"].get("county", {}).get("countryPart", {}).get("name")}, 
-                    {trp["location"].get("county", {}).get("number")},
-                    {trp["location"].get("county", {}).get("geographicNumber")}, 
-                    {trp.get("trafficRegistrationType")},
-                    {trp.get("dataTimeSpan", {}).get("firstData")}, 
-                    {trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics")})
+                    $1, $2, $3, $4,
+                    $5, $6,
+                    $7, $8,
+                    $9, $10, $11,
+                    $12, $13,
+                    $14,
+                    $15, $16
+                )
                 ON CONFLICT (id) DO NOTHING
-                """
-            )  #TODO TRANSFORM THIS INTO A PARAMETRIZED QUERY
+                """,
+                trp["id"],
+                trp["name"],
+                trp["location"]["coordinates"]["latLon"]["lat"],
+                trp["location"]["coordinates"]["latLon"]["lon"],
+                trp["location"].get("roadReference", {}).get("shortForm"),
+                trp["location"].get("roadReference", {}).get("roadCategory", {}).get("id"),
+                trp["location"].get("roadLinkSequence", {}).get("roadLinkSequenceId"),
+                trp["location"].get("roadLinkSequence", {}).get("relativePosition"),
+                trp["location"].get("county", {}).get("name"),
+                (
+                    trp["location"].get("county", {})
+                    .get("countryPart", {})
+                    .get("id")
+                ),
+                trp["location"].get("county", {}).get("countryPart", {}).get("name"),
+                trp["location"].get("county", {}).get("number"),
+                trp["location"].get("county", {}).get("geographicNumber"),
+                trp.get("trafficRegistrationType"),
+                datetime.strptime(trp.get("dataTimeSpan", {}).get("firstData"), GlobalDefinitions.DT_ISO_TZ_FORMAT.value),
+                datetime.strptime(trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics"), GlobalDefinitions.DT_ISO_TZ_FORMAT.value)
+            )
         return None
 
 

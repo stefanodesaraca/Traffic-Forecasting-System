@@ -57,6 +57,7 @@ class GlobalDefinitions(Enum):
     VOLUME = "volume"
     MEAN_SPEED = "mean_speed"
 
+    DT_ISO_TZ_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
     DT_INPUT_FORMAT = "%Y-%m-%dT%H"
     NORWEGIAN_UTC_TIME_ZONE = "+01:00"
     NORWEGIAN_UTC_TIME_ZONE_TIMEDELTA = timezone(timedelta(hours=1))
