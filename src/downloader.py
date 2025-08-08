@@ -193,7 +193,7 @@ async def fetch_trp_volumes(gql_client: Client, trp_id: str, time_start: str, ti
         """))
 
 
-async def volumes_to_db(gql_client: Client, db_broker_async: Any, time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10) -> None:
+async def volumes_to_db(db_broker_async: Any, time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10) -> None:
     semaphore = asyncio.Semaphore(n_async_jobs)  # Limit to n_async_jobs async tasks
     pipeline = VolumeExtractionPipeline(db_broker_async=db_broker_async)
 
@@ -205,7 +205,7 @@ async def volumes_to_db(gql_client: Client, db_broker_async: Any, time_start: st
         while retries < max_retries:
             try:
                 query_result = await fetch_trp_volumes(
-                    gql_client,
+                    await start_client_async(), #Starting a GraphQL client for each download_trp_data() call since a single client can't handle multiple asynchronous calls. This is because if multiple functions try to access the same client at the same time (while it can only handle one call at a time) this will raise this exception: gql.transport.exceptions.TransportAlreadyConnected: Transport is already connected
                     trp_id,
                     time_start,
                     time_end,
@@ -236,7 +236,7 @@ async def volumes_to_db(gql_client: Client, db_broker_async: Any, time_start: st
             return await download_trp_data(trp_id)
 
     # Run all downloads in parallel with a maximum of 5 processes at the same time
-    await asyncio.gather(*(limited_task(trp_id) for trp_id in [trp_record["id"] for trp_record in await db_broker_async.get_trp_ids_async()]))
+    await asyncio.gather(*(limited_task(trp_id) for trp_id in (trp_record["id"] for trp_record in await db_broker_async.get_trp_ids_async())))
 
 
     return None
