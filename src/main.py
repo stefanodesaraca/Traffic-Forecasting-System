@@ -40,7 +40,7 @@ async def get_aiodb_broker():
     return AIODBBroker(
        db_user=DBConfig.TFS_USER.value,
        db_password=DBConfig.TFS_PASSWORD.value,
-       db_name=await (await get_aiodbmanager_broker()).get_current_project(),
+       db_name=(await (await get_aiodbmanager_broker()).get_current_project()).get("name", None),
        db_host=DBConfig.DB_HOST.value
     )
 
@@ -50,7 +50,7 @@ def get_db_broker():
     return DBBroker(
         db_user=DBConfig.TFS_USER.value,
         db_password=DBConfig.TFS_PASSWORD.value,
-        db_name=asyncio.run(aiodbmanager_broker.get_current_project()),
+        db_name=asyncio.run(aiodbmanager_broker.get_current_project()).get("name", None),
         db_host=DBConfig.DB_HOST.value
     )
 

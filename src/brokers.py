@@ -247,7 +247,7 @@ class AIODBManagerBroker:
         return None
 
 
-    async def delete_project(self, name: str):
+    async def delete_project(self, name: str) -> None:
         await (await self._get_db_manager_async()).delete_project(name=name)
         return None
 
@@ -275,6 +275,6 @@ class AIODBManagerBroker:
 
 
     async def insert_trps(self, data: dict[str, Any]) -> None:
-        async with postgres_conn_async(self._tfs_user, password=self._tfs_password, dbname=await self.get_current_project(), host=self._db_host) as conn:
+        async with postgres_conn_async(self._tfs_user, password=self._tfs_password, dbname=(await self.get_current_project()).get("name", None), host=self._db_host) as conn:
             await (await self._get_db_manager_async()).insert_trps(conn=conn, data=data)
         return None
