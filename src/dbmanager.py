@@ -641,8 +641,8 @@ class AIODBManager:
                 await conn.execute(f"""                
                     UPDATE "{HubDBTables.Projects.value}"
                     SET is_current = TRUE
-                    WHERE name = {name};
-                """)
+                    WHERE name = $1;
+                """, name)
         return None
 
 
