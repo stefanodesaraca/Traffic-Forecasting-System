@@ -577,7 +577,7 @@ class AIODBManager:
                             id SERIAL PRIMARY KEY,
                             name TEXT NOT NULL UNIQUE,
                             lang TEXT,
-                            is_current BOOL NOT NULL,
+                            is_current BOOL NOT NULL DEFAULT FALSE,
                             creation_zoned_dt TIMESTAMPTZ NOT NULL
                         )
                 """)
@@ -596,16 +596,14 @@ class AIODBManager:
         await self._check_hub_db_integrity()
 
         # -- Check if any projects exist --
-        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db,
-                                       host=self._db_host) as conn:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
             project_check = await conn.fetchrow(
                 f"""SELECT * FROM "{HubDBTables.Projects.value}" LIMIT 1""")  #TODO ADD DATABASE EXISTANCE CHECK. IF THE DB DOESN'T EXIST, BUT THERE'S A RECORD WITH THAT NAME IN Projects, THEN JUST REPLACE IT
 
             #If there aren't any projects, let the user impute one and insert it into the Projects table
             if not project_check:
                 print("Initialize the program. Create your first project!")
-                name = clean(input("Enter project name: "), no_emoji=True, no_punct=True, no_emails=True,
-                             no_currency_symbols=True, no_urls=True, normalize_whitespace=True, lower=True)
+                name = clean(input("Enter project name: "), no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True, no_urls=True, normalize_whitespace=True, lower=True)
                 lang = input("Enter project language: ")
                 print("Cleaned project DB name: ", name)
                 print("Project language: ", lang)
@@ -620,19 +618,16 @@ class AIODBManager:
 
 
     async def get_current_project(self) -> asyncpg.Record | None:
-        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db,
-                                       host=self._db_host) as conn:
-            async with conn.transaction():
-                return await conn.fetchrow(f"""
-                        SELECT *
-                        FROM "{HubDBTables.Projects.value}"
-                        WHERE is_current = TRUE;
-                """)
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
+            return await conn.fetchrow(f"""
+                    SELECT *
+                    FROM "{HubDBTables.Projects.value}"
+                    WHERE is_current = TRUE;
+            """)
 
 
     async def set_current_project(self, name: str) -> None:
-        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db,
-                                       host=self._db_host) as conn:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
             if not await self._check_db(name):  #If the project doesn't exist raise error
                 raise ProjectDBNotFoundError("Project DB doesn't exist")
             async with conn.transaction():  #Needing to execute both of the operations in one transaction because otherwise the one_current_project constraint wouldn't be respected. Checkout the Hub DB Constraints sections to learn more
@@ -648,8 +643,7 @@ class AIODBManager:
 
 
     async def reset_current_project(self) -> None:
-        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db,
-                                       host=self._db_host) as conn:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
             async with conn.transaction():
                 await conn.execute(f"""
                     UPDATE "{HubDBTables.Projects.value}"
