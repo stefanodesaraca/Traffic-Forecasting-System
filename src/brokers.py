@@ -252,9 +252,8 @@ class AIODBManagerBroker:
         return None
 
 
-    async def get_current_project(self):
-        await (await self._get_db_manager_async()).get_current_project()
-        return None
+    async def get_current_project(self) -> asyncpg.Record | None:
+        return await (await self._get_db_manager_async()).get_current_project()
 
 
     async def set_current_project(self, name: str) -> None:
