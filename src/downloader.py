@@ -19,9 +19,9 @@ async def start_client_async() -> Client:
     return Client(transport=AIOHTTPTransport(url="https://trafikkdata-api.atlas.vegvesen.no/"), fetch_schema_from_transport=True)
 
 
-async def fetch_areas(client: Client) -> dict | ExecutionResult | None:
+async def fetch_areas(gql_client: Client) -> dict | ExecutionResult | None:
     try:
-        return await client.execute_async(gql("""
+        return await gql_client.execute_async(gql("""
                 {
                   areas {
                     countryParts {
@@ -50,9 +50,9 @@ async def fetch_areas(client: Client) -> dict | ExecutionResult | None:
         return None
 
 
-async def fetch_road_categories(client: Client) -> dict | ExecutionResult | None:
+async def fetch_road_categories(gql_client: Client) -> dict | ExecutionResult | None:
     try:
-        return await client.execute_async(gql("""
+        return await gql_client.execute_async(gql("""
         {
             roadCategories{
                 id
@@ -66,9 +66,9 @@ async def fetch_road_categories(client: Client) -> dict | ExecutionResult | None
         return None
 
 
-async def fetch_trps(client: Client, municipality_numbers: list[int] | None = None) -> dict | ExecutionResult | None:
+async def fetch_trps(gql_client: Client, municipality_numbers: list[int] | None = None) -> dict | ExecutionResult | None:
     try:
-        return await client.execute_async(gql(
+        return await gql_client.execute_async(gql(
             f"""
             {{
               trafficRegistrationPoints(
@@ -133,8 +133,8 @@ async def fetch_trps(client: Client, municipality_numbers: list[int] | None = No
         return None
 
 
-async def fetch_trp_volumes(client: Client, trp_id: str, time_start: str, time_end: str, last_end_cursor: str, next_page_query: bool) -> dict | ExecutionResult:
-    return await client.execute_async(gql(f"""
+async def fetch_trp_volumes(gql_client: Client, trp_id: str, time_start: str, time_end: str, last_end_cursor: str, next_page_query: bool) -> dict | ExecutionResult:
+    return await gql_client.execute_async(gql(f"""
         {{
             trafficData(trafficRegistrationPointId: "{trp_id}") {{
                 trafficRegistrationPoint {{
@@ -204,12 +204,14 @@ async def volumes_to_db(gql_client: Client, db_broker_async: Any, time_start: st
 
         while retries < max_retries:
             try:
-                query_result = await fetch_trp_volumes(gql_client,
-                                                       trp_id,
-                                                       time_start,
-                                                       time_end,
-                                                       last_end_cursor=end_cursor,
-                                                       next_page_query=pages_counter > 0)
+                query_result = await fetch_trp_volumes(
+                    gql_client,
+                    trp_id,
+                    time_start,
+                    time_end,
+                    last_end_cursor=end_cursor,
+                    next_page_query=pages_counter > 0
+                )
 
                 page_info = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]
                 end_cursor = page_info["endCursor"] if page_info["hasNextPage"] else None
