@@ -91,12 +91,12 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         return set(pd.date_range(min(zoned_datetimes), max(zoned_datetimes))).difference(zoned_datetimes) #Finding all zoned datetimes which should exist (calculated above in all_dts), but that aren't withing the ones available.
 
 
-    async def _parse_by_hour_async(self) -> pd.DataFrame | dd.DataFrame | None:
+    async def _parse_by_hour_async(self, data: dict[str, Any]) -> pd.DataFrame | dd.DataFrame | None:
 
-        trp_id = self.data["trafficData"]["trafficRegistrationPoint"]["id"]
-        self.data = self.data["trafficData"]["volume"]["byHour"]["edges"]
+        trp_id = data["trafficData"]["trafficRegistrationPoint"]["id"]
+        data = data["trafficData"]["volume"]["byHour"]["edges"]
 
-        if await self._is_empty_async(self.data):
+        if await self._is_empty_async(data):
             print(f"\033[91mNo data found for TRP: {trp_id}\033[0m\n\n")
             return None
 
@@ -122,7 +122,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
             by_hour["coverage"].append(edge["node"]["total"]["coverage"]["percentage"] or None),  # For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
             by_hour["is_mice"].append(False if edge["node"]["total"]["volumeNumbers"] else True),  # For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
             by_hour["zoned_dt_iso"].append(datetime.datetime.fromisoformat(edge["node"]["from"])))
-        for edge in self.data)
+        for edge in data)
 
         return pd.DataFrame(by_hour).sort_values(by=["zoned_dt_iso"], ascending=True)
 
@@ -166,7 +166,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
 
     async def ingest(self, payload: dict[str, Any], fields: list[str] | None = None) -> None:
-        self.data = payload
+        self.data = await self._parse_by_hour_async(payload)
         self.data = await self._clean_async(self.data)
         if fields:
             self.data = self.data[[fields]]

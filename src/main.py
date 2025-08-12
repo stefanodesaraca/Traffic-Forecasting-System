@@ -330,7 +330,7 @@ def execute_forecasting(functionality: str) -> None:
                 mode=1
             )
 
-            for name, data in db_broker.get_model_objects()["model_data"].items(): #Load model name and data (pickle object, best parameters and so on)
+            for name, data in db_broker.get_model_objects()["model_data"].items(): #Load model name and data (pickle object, the best parameters and so on)
 
                 model = pickle.load(data[name]["pickle_object"])
                 best_params = data[name][f"{GlobalDefinitions.TARGET_DATA.value[option]}_best_params"]
