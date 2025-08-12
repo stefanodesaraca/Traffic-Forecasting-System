@@ -114,7 +114,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
             by_hour["coverage"].append(None),
             by_hour["is_mice"].append(True),
             by_hour["zoned_dt_iso"].append(m)
-            ) for m in self._get_missing(set(datetime.datetime.fromisoformat(node["node"]["from"]) for node in self.data)))
+            ) for m in self._get_missing(set(datetime.datetime.fromisoformat(node["node"]["from"]) for node in data)))
 
         all((
             by_hour["trp_id"].append(trp_id),
@@ -167,6 +167,9 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
     async def ingest(self, payload: dict[str, Any], fields: list[str] | None = None) -> None:
         self.data = await self._parse_by_hour_async(payload)
+        if self.data is None:
+            return None
+
         self.data = await self._clean_async(self.data)
         if fields:
             self.data = self.data[[fields]]
