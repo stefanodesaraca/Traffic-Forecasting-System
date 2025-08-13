@@ -158,21 +158,16 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
                                                                                                            LIMIT {mice_past_window};
                                                                                                        """)),
         ], axis=1)  # Extracting data from the past to improve MICE regression model performances
-        mice_treated_data = await asyncio.to_thread(pd.concat,
-                                                    contextd[["trp_id", "is_mice", "zoned_dt_iso"]],
-                                                    await asyncio.to_thread(self._impute_missing_values, contextd.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1), r="gamma"),
-        axis=0)
+
+        mice_treated_data = await asyncio.to_thread(pd.concat, [
+            contextd[["trp_id", "is_mice", "zoned_dt_iso"]],
+            await asyncio.to_thread(self._impute_missing_values, contextd.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1), r="gamma")
+        ], axis=0)
         #Once having completed the MICE part, we'll concatenate back the columns which were dropped before (since they can't be fed to the MICE algorithm)
 
         data = mice_treated_data[await self._get_dfs_diff_mask(data, mice_treated_data, ["trp_id", "zoned_dt_iso"])]
         #Getting the intersection between the data that has been treated with MICE and the original data records.
         #By doing so, we'll get all the records which already had data AND the rows which were supposed to be MICEd filled with synthetic data
-
-        data = await asyncio.to_thread(pd.concat, [
-                                data[["trp_id", "is_mice", "zoned_dt_iso"]],
-
-        ], axis=1)
-        #Duplicates aren't a problem since PostgresSQL inserts are set to do nothing on conflict
 
         print("Shape after MICE: ", data.shape)
         print("Number of zeros after MICE: ", len(data[data["volume"] == 0]))
