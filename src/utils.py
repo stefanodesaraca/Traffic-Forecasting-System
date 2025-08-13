@@ -2,7 +2,8 @@ from contextlib import contextmanager
 from pathlib import Path
 import datetime
 from datetime import timezone, timedelta, tzinfo
-from typing import Literal, Any, cast
+from zoneinfo import ZoneInfo
+from typing import Literal, Any, cast, Generator, AsyncGenerator
 from enum import Enum
 import os
 import asyncio
@@ -128,6 +129,17 @@ def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:
                 .persist())  # Sorting records by date
     except ValueError as e:
         raise NoDataError(f"No data to concatenate. Error: {e}")
+
+
+def localize_datetimes_async(datetimes: Generator[str, None, None], timezone_literal: str) -> Generator[datetime.datetime, None, None]:
+    """Generator that yields timezone-aware datetimes for a specific timezone."""
+    for dt in datetimes:
+        try:
+            tz_aware_dt = datetime.datetime.fromisoformat(dt).replace(tzinfo=ZoneInfo(timezone_literal))
+        except ValueError:
+            # Handle ambiguous time by choosing the second occurrence (fold=1)
+            tz_aware_dt = datetime.datetime.fromisoformat(dt).replace(tzinfo=ZoneInfo(timezone_literal), fold=1)
+        yield tz_aware_dt
 
 
 

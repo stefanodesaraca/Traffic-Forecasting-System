@@ -1,6 +1,5 @@
 import math
 import datetime
-from zoneinfo import ZoneInfo
 import asyncio
 import dask.dataframe as dd
 import pandas as pd
@@ -14,7 +13,7 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 from sklego.meta import ZeroInflatedRegressor
 
-from utils import GlobalDefinitions
+from utils import GlobalDefinitions, localize_datetimes_async
 from db_config import ProjectTables
 
 pd.set_option("display.max_rows", None)
@@ -121,7 +120,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
             by_hour["coverage"].append(None),
             by_hour["is_mice"].append(True),
             by_hour["zoned_dt_iso"].append(m)
-            ) for m in await self._get_missing(set(datetime.datetime.fromisoformat(node["node"]["from"]).replace(tzinfo=ZoneInfo("Europe/Oslo")) for node in data)))
+            ) for m in await self._get_missing(set(localize_datetimes_async((node["node"]["from"] for node in data), timezone_literal="Europe/Oslo"))))
 
         all((
             by_hour["trp_id"].append(trp_id),
@@ -260,9 +259,6 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
         """, many=True, many_values=list(self.data.itertuples(index=False, name=None)))
 
         return None
-
-
-#TODO TO GET ALL mean_speed FILES JSUT USE os.listdir() UPSTREAM
 
 
 

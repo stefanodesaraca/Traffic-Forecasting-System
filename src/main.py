@@ -113,7 +113,7 @@ async def manage_downloads(functionality: str) -> None:
 
 async def mean_speeds_to_db() -> None:
     pipeline = MeanSpeedExtractionPipeline(db_broker_async=await get_aiodb_broker())
-    all(await pipeline.ingest(fp=GlobalDefinitions.MEAN_SPEED_DIR.value / file, fields=GlobalDefinitions.MEAN_SPEED_INGESTION_FIELDS.value) for file in await asyncio.to_thread(os.listdir,))
+    await asyncio.to_thread(all, (await pipeline.ingest(fp=GlobalDefinitions.MEAN_SPEED_DIR.value / file, fields=GlobalDefinitions.MEAN_SPEED_INGESTION_FIELDS.value) for file in await asyncio.to_thread(os.listdir,)))
     return None
 
 #TODO CHECK HOW BEST PARAMETERS ARE INSERTED INTO DB AND IF THERE'S A DEFAULT IDX
@@ -383,6 +383,7 @@ def main():
         "1.6": manage_global,
         "2.1": manage_downloads,
         "2.2": manage_downloads,
+        "2.3": mean_speeds_to_db,
         "3.1.1": manage_forecasting_horizon,
         "3.1.2": manage_forecasting_horizon,
         "3.1.3": manage_forecasting_horizon,
@@ -411,6 +412,7 @@ def main():
 2. Download data (Trafikkdata API)
     2.1 Traffic registration points information
     2.2 Traffic volumes for every registration point
+    2.3 Ingest mean speed data
 3. Forecast
     3.1 Set forecasting target datetime
         3.1.1 Write forecasting target datetime
