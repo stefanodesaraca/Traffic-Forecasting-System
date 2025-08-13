@@ -35,7 +35,7 @@ class ExtractionPipelineMixin:
 
     # Executing multiple imputation to get rid of NaNs using the MICE method (Multiple Imputation by Chained Equations)
     @staticmethod
-    def _impute_missing_values(data: pd.DataFrame | dd.DataFrame, r: str = "gamma") -> pd.DataFrame:
+    async def _impute_missing_values(data: pd.DataFrame | dd.DataFrame, r: str = "gamma") -> pd.DataFrame:
         """
         This function should only be supplied with numerical columns-only dataframes
 
@@ -71,7 +71,7 @@ class ExtractionPipelineMixin:
             initial_strategy="mean"
         )  # Imputation order is set to arabic so that the imputations start from the right (so from the traffic volume columns)
 
-        return pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns) # Fitting the imputer and processing all the data columns except the date one #TODO BOTTLENECK. MAYBE USE POLARS LazyFrame or PyArrow?
+        return await asyncio.to_thread(lambda: pd.DataFrame(mice_imputer.fit_transform(data), columns=data.columns)) # Fitting the imputer and processing all the data columns except the date one #TODO BOTTLENECK. MAYBE USE POLARS LazyFrame or PyArrow?
 
 
     @staticmethod
@@ -134,7 +134,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         return await asyncio.to_thread(lambda: pd.DataFrame(by_hour).sort_values(by=["zoned_dt_iso"], ascending=True))
 
 
-    async def _clean_async(self, data: pd.DataFrame, mice_past_window: PositiveInt) -> pd.DataFrame:
+    async def _clean_async(self, data: pd.DataFrame, mice_past_window: PositiveInt, fields: list[str] = GlobalDefinitions.VOLUME_INGESTION_FIELDS.value) -> pd.DataFrame:
         print("Shape before MICE: ", data.shape)
         print("Number of zeros before MICE: ", len(data[data["volume"] == 0]))
 
@@ -152,16 +152,16 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         #TODO MAYBE IN THE FUTURE WE'LL USE POLARS LazyFrame FOR ALL OF THIS
         contextd = await asyncio.to_thread(pd.concat, [
             data,
-            await asyncio.to_thread(pd.DataFrame, await self._db_broker_async.send_sql_async(sql=f"""SELECT *
+            await asyncio.to_thread(pd.DataFrame, await self._db_broker_async.send_sql_async(sql=f"""SELECT {', '.join(fields)}
                                                                                                            FROM "{ProjectTables.Volume.value}"
                                                                                                            ORDER BY zoned_dt_iso DESC
                                                                                                            LIMIT {mice_past_window};
-                                                                                                       """)),
+                                                                                                       """), columns=fields),
         ], axis=1)  # Extracting data from the past to improve MICE regression model performances
 
         mice_treated_data = await asyncio.to_thread(pd.concat, [
             contextd[["trp_id", "is_mice", "zoned_dt_iso"]],
-            await asyncio.to_thread(self._impute_missing_values, contextd.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1), r="gamma")
+            await self._impute_missing_values(contextd.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1), r="gamma")
         ], axis=1)
         #Once having completed the MICE part, we'll concatenate back the columns which were dropped before (since they can't be fed to the MICE algorithm)
 
@@ -185,7 +185,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         if self.data is None:
             return None
 
-        self.data = await self._clean_async(data=self.data, mice_past_window=max(1, math.ceil(len(self.data) / 2)))
+        self.data = await self._clean_async(data=self.data, mice_past_window=max(1, math.ceil(len(self.data) / 2)), fields=fields)
         if fields:
             print("FINAL: ", self.data, fields)
             self.data = self.data[fields]
@@ -225,7 +225,7 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
 
             speeds = await asyncio.to_thread(pd.concat, [
                 speeds[["trp_id", "zoned_dt_iso"]],
-                self._impute_missing_values(speeds.drop(columns=["trp_id", "zoned_dt_iso"]), r="gamma")
+                await self._impute_missing_values(speeds.drop(columns=["trp_id", "zoned_dt_iso"]), r="gamma")
             ], axis=1) #TODO IF THIS DOESN'T WORK TRY AS IT WAS BEFORE ... .to_thread(lambda: pd.concat(...)
 
             print("Shape after MICE:", speeds.shape, "\n")
