@@ -1,5 +1,6 @@
 import random
 from typing import Any
+from collections import defaultdict
 import asyncio
 from warnings import simplefilter
 from gql import gql, Client
@@ -194,9 +195,24 @@ async def fetch_trp_volumes(gql_client: Client, trp_id: str, time_start: str, ti
         """))
 
 
-async def volumes_to_db(db_broker_async: Any, time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10) -> None:
+async def volumes_to_db(db_broker_async: Any, time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10, batch_size: int = 10000) -> None:
     semaphore = asyncio.Semaphore(n_async_jobs)  # Limit to n_async_jobs async tasks
     pipeline = VolumeExtractionPipeline(db_broker_async=db_broker_async)
+
+    # Shared buffer for batches per TRP
+    batch_buffers = defaultdict(dict) # Used to collect batches of data from each TRP to then ingest into the volumes processing pipeline once the number of records in the buffer reaches the batch_size parameter's value
+    batch_lock = asyncio.Lock()
+
+    async def flush_batch(trp_id: str):
+        """Flush the current batch for a TRP to the pipeline."""
+        async with batch_lock:
+            if batch_buffers[trp_id]:
+                await pipeline.ingest(
+                    payload=batch_buffers[trp_id],
+                    trp_id=trp_id,
+                    fields=GlobalDefinitions.VOLUME_INGESTION_FIELDS.value
+                )
+                batch_buffers[trp_id].clear()
 
     async def download_trp_data(trp_id: str) -> None:
         pages_counter = 0
@@ -217,7 +233,11 @@ async def volumes_to_db(db_broker_async: Any, time_start: str, time_end: str, n_
                 page_info = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]
                 end_cursor = page_info["endCursor"] if page_info["hasNextPage"] else None
 
-                await pipeline.ingest(payload=query_result, trp_id=trp_id, fields=GlobalDefinitions.VOLUME_INGESTION_FIELDS.value)
+                # Add to batch
+                async with batch_lock:
+                    batch_buffers[trp_id].append(query_result)
+                    if len(batch_buffers[trp_id]) >= batch_size:
+                        await flush_batch(trp_id)
 
                 pages_counter += 1
                 if end_cursor is None:

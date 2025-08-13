@@ -235,7 +235,7 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
             speeds = await asyncio.to_thread(pd.concat, [
                 speeds[["trp_id", "is_mice", "zoned_dt_iso"]],
                 await self._impute_missing_values(speeds.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"]), r="gamma")
-            ], axis=1) #TODO IF THIS DOESN'T WORK TRY AS IT WAS BEFORE ... .to_thread(lambda: pd.concat(...)
+            ], axis=1)
 
             #print("Shape after MICE:", speeds.shape, "\n")
             #print("Number of zeros after MICE:", len(speeds[speeds["mean_speed"] == 0]))
