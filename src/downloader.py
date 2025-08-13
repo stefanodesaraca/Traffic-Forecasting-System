@@ -216,7 +216,7 @@ async def volumes_to_db(db_broker_async: Any, time_start: str, time_end: str, n_
                 page_info = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]
                 end_cursor = page_info["endCursor"] if page_info["hasNextPage"] else None
 
-                await pipeline.ingest(payload=query_result, fields=GlobalDefinitions.VOLUME_INGESTION_FIELDS.value)
+                await pipeline.ingest(payload=query_result, trp_id=trp_id, fields=GlobalDefinitions.VOLUME_INGESTION_FIELDS.value)
 
                 pages_counter += 1
                 if end_cursor is None:

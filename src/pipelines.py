@@ -1,5 +1,6 @@
 import math
 import datetime
+from zoneinfo import ZoneInfo
 import asyncio
 import dask.dataframe as dd
 import pandas as pd
@@ -104,7 +105,6 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         data = data["trafficData"]["volume"]["byHour"]["edges"]
 
         if await self._is_empty_async(data):
-            print(f"\033[91mNo data found for TRP: {trp_id}\033[0m\n\n")
             return None
 
         by_hour = {
@@ -121,7 +121,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
             by_hour["coverage"].append(None),
             by_hour["is_mice"].append(True),
             by_hour["zoned_dt_iso"].append(m)
-            ) for m in await self._get_missing(set(datetime.datetime.fromisoformat(node["node"]["from"]) for node in data)))
+            ) for m in await self._get_missing(set(datetime.datetime.fromisoformat(node["node"]["from"]).replace(tzinfo=ZoneInfo("Europe/Oslo")) for node in data)))
 
         all((
             by_hour["trp_id"].append(trp_id),
@@ -134,22 +134,19 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         return await asyncio.to_thread(lambda: pd.DataFrame(by_hour).sort_values(by=["zoned_dt_iso"], ascending=True))
 
 
-    async def _clean_async(self, data: pd.DataFrame, mice_past_window: PositiveInt, fields: list[str] = GlobalDefinitions.VOLUME_INGESTION_FIELDS.value) -> pd.DataFrame:
-        print("Shape before MICE: ", data.shape)
-        print("Number of zeros before MICE: ", len(data[data["volume"] == 0]))
+    async def _clean_async(self, data: pd.DataFrame, mice_past_window: PositiveInt, fields: list[str] = GlobalDefinitions.VOLUME_INGESTION_FIELDS.value) -> pd.DataFrame | None:
 
+        #If all columns which need to be fed to the MICE algorithm are None then just skip this batch
+        if data[GlobalDefinitions.MICE_COLS.value].isna().all().all():
+            return None
 
-        #TODO FOR TESTING PURPOSES
-        #context = pd.DataFrame(await self._db_broker_async.send_sql_async(sql=f"""SELECT *
-        #                                                                          FROM "{ProjectTables.Volume.value}"
-        #                                                                          ORDER BY zoned_dt_iso DESC
-        #                                                                          LIMIT {mice_past_window};
-        #                                                                      """))
-        #print(context)
-        #print(context.shape)
-        #print(context.describe() if context.empty is False else "")
+        #print("Shape before MICE: ", data.shape)
+        #print("Number of zeros before MICE: ", len(data[data["volume"] == 0]))
+
 
         #TODO MAYBE IN THE FUTURE WE'LL USE POLARS LazyFrame FOR ALL OF THIS
+
+
         contextd = await asyncio.to_thread((await asyncio.to_thread(
             pd.concat, [
                 data,
@@ -170,33 +167,32 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         ], axis=1)
         #Once having completed the MICE part, we'll concatenate back the columns which were dropped before (since they can't be fed to the MICE algorithm)
 
-        print("DATA", data.head())
-        print("MICE", mice_treated_data.head())
-
-
-        data = mice_treated_data[await self._get_dfs_diff_mask(mice_treated_data, data, comparison_cols=list(set(fields).difference(set(GlobalDefinitions.MICED_COLS.value))))]
+        data = mice_treated_data[await self._get_dfs_diff_mask(mice_treated_data, data, comparison_cols=list(set(fields).difference(set(GlobalDefinitions.MICE_COLS.value))))]
         #Getting the intersection between the data that has been treated with MICE and the original data records.
         #By doing so, we'll get all the records which already had data AND the rows which were supposed to be MICEd filled with synthetic data
 
-        print(data)
-
-        print("Shape after MICE: ", data.shape)
-        print("Number of zeros after MICE: ", len(data[data["volume"] == 0]))
-        print("Number of negative values (after MICE): ", len(data[data["volume"] < 0]))
+        #print("Shape after MICE: ", data.shape)
+        #print("Number of zeros after MICE: ", len(data[data["volume"] == 0]))
+        #print("Number of negative values (after MICE): ", len(data[data["volume"] < 0]))
 
         data["volume"] = data["volume"].astype("int") #Re-converting volume to int after MICE
+        data["coverage"] = data["coverage"].round(3) #Re-converting volume to int after MICE
 
         return data
 
 
-    async def ingest(self, payload: dict[str, Any], fields: list[str] | None = None) -> None:
+    async def ingest(self, payload: dict[str, Any], trp_id: str, fields: list[str] | None = None) -> None:
         self.data = await self._parse_by_hour_async(payload)
         if self.data is None:
+            print(f"\033[91mNo data for TRP: {trp_id}\033[0m")
             return None
 
         self.data = await self._clean_async(data=self.data, mice_past_window=max(1, math.ceil(len(self.data) / 2)), fields=fields)
+        if self.data is None:
+            print(f"\033[91mNo data for TRP: {trp_id}\033[0m")
+            return None
+
         if fields:
-            print("FINAL: ", self.data, fields)
             self.data = self.data[fields]
 
         await self._db_broker_async.send_sql_async(f"""
@@ -204,6 +200,8 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
             VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields) + 1))})
             ON CONFLICT DO NOTHING;
         """, many=True, many_values=list(self.data.itertuples(index=False, name=None)))
+
+        print(f"Successfully inserted TRP: {trp_id} data")
 
         return None
 
