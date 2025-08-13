@@ -222,8 +222,10 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
         speeds["mean_speed"] = speeds["mean_speed"].replace(",", ".", regex=True).astype("float")
         speeds["percentile_85"] = speeds["percentile_85"].replace(",", ".", regex=True).astype("float")
 
-        speeds["zoned_dt_iso"] = speeds["date"] + "T" + speeds["hour_start"] + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
+        speeds["zoned_dt_iso"] = pd.to_datetime(speeds["date"] + "T" + speeds["hour_start"] + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value)
         speeds = speeds.drop(columns=["date", "hour_start"])
+
+        speeds["is_mice"] = speeds["mean_speed"].notna()
 
         try:
             #print("Shape before MICE:", speeds.shape)
@@ -231,8 +233,8 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
             #print("Negative values (mean speed) before MICE:", len(speeds[speeds["mean_speed"] < 0]))
 
             speeds = await asyncio.to_thread(pd.concat, [
-                speeds[["trp_id", "zoned_dt_iso"]],
-                await self._impute_missing_values(speeds.drop(columns=["trp_id", "zoned_dt_iso"]), r="gamma")
+                speeds[["trp_id", "is_mice", "zoned_dt_iso"]],
+                await self._impute_missing_values(speeds.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"]), r="gamma")
             ], axis=1) #TODO IF THIS DOESN'T WORK TRY AS IT WAS BEFORE ... .to_thread(lambda: pd.concat(...)
 
             #print("Shape after MICE:", speeds.shape, "\n")
