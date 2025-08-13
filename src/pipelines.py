@@ -150,14 +150,19 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         #print(context.describe() if context.empty is False else "")
 
         #TODO MAYBE IN THE FUTURE WE'LL USE POLARS LazyFrame FOR ALL OF THIS
-        contextd = await asyncio.to_thread(pd.concat, [
-            data,
-            await asyncio.to_thread(pd.DataFrame, await self._db_broker_async.send_sql_async(sql=f"""SELECT {', '.join(fields)}
-                                                                                                           FROM "{ProjectTables.Volume.value}"
-                                                                                                           ORDER BY zoned_dt_iso DESC
-                                                                                                           LIMIT {mice_past_window};
-                                                                                                       """), columns=fields),
-        ], axis=1)  # Extracting data from the past to improve MICE regression model performances
+        contextd = await asyncio.to_thread(await asyncio.to_thread(
+            pd.concat, [
+                data,
+                await asyncio.to_thread(pd.DataFrame,
+                    await self._db_broker_async.send_sql_async(sql=f"""
+                            SELECT {', '.join(fields)}
+                            FROM "{ProjectTables.Volume.value}"
+                            ORDER BY zoned_dt_iso DESC
+                            LIMIT {mice_past_window};
+                        """), columns=fields
+                    ),
+            ], axis=0
+        ).sort_values, by=["zoned_dt_iso"])  # Extracting data from the past to improve MICE regression model performances
 
         mice_treated_data = await asyncio.to_thread(pd.concat, [
             contextd[["trp_id", "is_mice", "zoned_dt_iso"]],
