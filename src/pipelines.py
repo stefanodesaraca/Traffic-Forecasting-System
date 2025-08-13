@@ -162,12 +162,14 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         mice_treated_data = await asyncio.to_thread(pd.concat, [
             contextd[["trp_id", "is_mice", "zoned_dt_iso"]],
             await asyncio.to_thread(self._impute_missing_values, contextd.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1), r="gamma")
-        ], axis=0)
+        ], axis=1)
         #Once having completed the MICE part, we'll concatenate back the columns which were dropped before (since they can't be fed to the MICE algorithm)
 
         data = mice_treated_data[await self._get_dfs_diff_mask(data, mice_treated_data, ["trp_id", "zoned_dt_iso"])]
         #Getting the intersection between the data that has been treated with MICE and the original data records.
         #By doing so, we'll get all the records which already had data AND the rows which were supposed to be MICEd filled with synthetic data
+
+        print(data)
 
         print("Shape after MICE: ", data.shape)
         print("Number of zeros after MICE: ", len(data[data["volume"] == 0]))
@@ -185,6 +187,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
         self.data = await self._clean_async(data=self.data, mice_past_window=max(1, math.ceil(len(self.data) / 2)))
         if fields:
+            print("FINAL: ", self.data, fields)
             self.data = self.data[fields]
 
         await self._db_broker_async.send_sql_async(f"""
