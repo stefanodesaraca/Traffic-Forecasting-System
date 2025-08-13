@@ -195,16 +195,15 @@ async def fetch_trp_volumes(gql_client: Client, trp_id: str, time_start: str, ti
         """))
 
 
-async def volumes_to_db(db_broker_async: Any, time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10, batch_size: int = 10000) -> None:
+async def volumes_to_db(db_broker_async: Any, time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10, batch_size: int = 50000) -> None:
     semaphore = asyncio.Semaphore(n_async_jobs)  # Limit to n_async_jobs async tasks
     pipeline = VolumeExtractionPipeline(db_broker_async=db_broker_async)
 
     # Shared buffer for batches per TRP
-    batch_buffers = defaultdict(dict) # Used to collect batches of data from each TRP to then ingest into the volumes processing pipeline once the number of records in the buffer reaches the batch_size parameter's value
+    batch_buffers = defaultdict(dict) # Used to collect batches of data from each TRP to then ingest into the volumes processing pipeline
     batch_lock = asyncio.Lock()
 
     async def flush_batch(trp_id: str):
-        """Flush the current batch for a TRP to the pipeline."""
         async with batch_lock:
             if batch_buffers[trp_id]:
                 await pipeline.ingest(
@@ -233,9 +232,14 @@ async def volumes_to_db(db_broker_async: Any, time_start: str, time_end: str, n_
                 page_info = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]
                 end_cursor = page_info["endCursor"] if page_info["hasNextPage"] else None
 
-                # Add to batch
+                # Add the query result to the TRP's batch
                 async with batch_lock:
-                    batch_buffers[trp_id].append(query_result)
+                    # If a batch for the TRP exists then just append the collected data to the previously collected ones, otherwise append the whole query result with additional data returned from the API
+                    if batch_buffers.get(trp_id, None) is not None:
+                        batch_buffers[trp_id]["volume"]["byHour"]["edges"].extend(query_result["volume"]["byHour"]["edges"])
+                    else:
+                        batch_buffers[trp_id] = query_result
+                    # Once the number of records in the buffer reaches the batch_size parameter's value
                     if len(batch_buffers[trp_id]) >= batch_size:
                         await flush_batch(trp_id)
 
