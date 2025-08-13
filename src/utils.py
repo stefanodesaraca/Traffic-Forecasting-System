@@ -131,18 +131,6 @@ def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:
         raise NoDataError(f"No data to concatenate. Error: {e}")
 
 
-def localize_datetimes_async(datetimes: Generator[str, None, None], timezone_literal: str) -> Generator[datetime.datetime, None, None]:
-    """Generator that yields timezone-aware datetimes for a specific timezone."""
-    for dt in datetimes:
-        try:
-            tz_aware_dt = datetime.datetime.fromisoformat(dt).replace(tzinfo=ZoneInfo(timezone_literal))
-        except ValueError:
-            # Handle ambiguous time by choosing the second occurrence (fold=1)
-            tz_aware_dt = datetime.datetime.fromisoformat(dt).replace(tzinfo=ZoneInfo(timezone_literal), fold=1)
-        yield tz_aware_dt
-
-
-
 class ForecastingToolbox:
     def __init__(self, db_broker_async: Any | None = None, db_broker: Any | None = None):
         self._db_broker_async: Any | None = db_broker_async

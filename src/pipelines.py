@@ -1,5 +1,6 @@
 import math
 import datetime
+from zoneinfo import ZoneInfo
 import asyncio
 import dask.dataframe as dd
 import pandas as pd
@@ -13,7 +14,7 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 from sklego.meta import ZeroInflatedRegressor
 
-from utils import GlobalDefinitions, localize_datetimes_async
+from utils import GlobalDefinitions
 from db_config import ProjectTables
 
 pd.set_option("display.max_rows", None)
@@ -89,7 +90,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
     @staticmethod
     async def _get_missing(zoned_datetimes: set[datetime.datetime]) -> set[datetime.datetime]:
-        return await asyncio.to_thread(lambda: set(pd.date_range(min(zoned_datetimes), max(zoned_datetimes))).difference(zoned_datetimes)) # Finding all zoned datetimes which should exist (calculated above in all_dts), but that aren't withing the ones available.
+        return await asyncio.to_thread(lambda: set(pd.date_range(min(zoned_datetimes), max(zoned_datetimes), ambiguous=True)).difference(zoned_datetimes)) # Finding all zoned datetimes which should exist (calculated above in all_dts), but that aren't withing the ones available.
 
 
     @staticmethod
@@ -120,7 +121,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
             by_hour["coverage"].append(None),
             by_hour["is_mice"].append(True),
             by_hour["zoned_dt_iso"].append(m)
-            ) for m in await self._get_missing(set(localize_datetimes_async((node["node"]["from"] for node in data), timezone_literal="Europe/Oslo"))))
+            ) for m in await self._get_missing(set(datetime.datetime.fromisoformat(node["node"]["from"]).replace(tzinfo=ZoneInfo("Europe/Oslo")) for node in data)))
 
         all((
             by_hour["trp_id"].append(trp_id),
