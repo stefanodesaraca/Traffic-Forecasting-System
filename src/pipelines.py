@@ -1,3 +1,4 @@
+import math
 import datetime
 import asyncio
 import dask.dataframe as dd
@@ -127,42 +128,41 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         return pd.DataFrame(by_hour).sort_values(by=["zoned_dt_iso"], ascending=True)
 
 
-    async def _clean_async(self, mice_past_window: PositiveInt) -> pd.DataFrame:
-        print("Shape before MICE: ", len(self.data), len(self.data.columns))
-        print("Number of zeros before MICE: ", len(self.data[self.data["volume"] == 0]))
+    async def _clean_async(self, data: pd.DataFrame, mice_past_window: PositiveInt) -> pd.DataFrame:
+        print("Shape before MICE: ", data.shape)
+        print("Number of zeros before MICE: ", len(data[data["volume"] == 0]))
 
 
         #TODO FOR TESTING PURPOSES
-        context = pd.DataFrame(await self._db_broker_async.send_sql_async(sql=f"""
-                                                                                SELECT *
-                                                                                FROM "{ProjectTables.Volume.value}"
-                                                                                ORDER BY zoned_dt_iso DESC
-                                                                                LIMIT {mice_past_window};
-                                                                               """))
-        print(context)
-        print(context.shape)
-        print(context.describe())
+        #context = pd.DataFrame(await self._db_broker_async.send_sql_async(sql=f"""SELECT *
+        #                                                                          FROM "{ProjectTables.Volume.value}"
+        #                                                                          ORDER BY zoned_dt_iso DESC
+        #                                                                          LIMIT {mice_past_window};
+        #                                                                      """))
+        #print(context)
+        #print(context.shape)
+        #print(context.describe() if context.empty is False else "")
 
 
 
-        self.data = pd.concat([
-                                self.data[["trp_id", "is_mice", "zoned_dt_iso"]],
+        data = pd.concat([
+                                data[["trp_id", "is_mice", "zoned_dt_iso"]],
                                 await asyncio.to_thread(pd.DataFrame, await self._db_broker_async.send_sql_async(sql=f"""SELECT *
                                                                                                                                FROM "{ProjectTables.Volume.value}"
                                                                                                                                ORDER BY zoned_dt_iso DESC
                                                                                                                                LIMIT {mice_past_window};
                                                                                                                            """)), #Extracting data from the past to improve MICE regression model performances
-                                await asyncio.to_thread(self._impute_missing_values,self.data.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1), r="gamma")
+                                await asyncio.to_thread(self._impute_missing_values, data.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1), r="gamma")
                                 ], axis=1)
         #Duplicates aren't a problem since PostgresSQL inserts are set to do nothing on conflict
 
-        print("Shape after MICE: ", len(self.data), len(self.data.columns))
-        print("Number of zeros after MICE: ", len(self.data[self.data["volume"] == 0]))
-        print("Number of negative values (after MICE): ", len(self.data[self.data["volume"] < 0]))
+        print("Shape after MICE: ", data.shape)
+        print("Number of zeros after MICE: ", len(data[data["volume"] == 0]))
+        print("Number of negative values (after MICE): ", len(data[data["volume"] < 0]))
 
-        self.data["volume"] = self.data["volume"].astype("int") #Re-converting volume to int after MICE
+        data["volume"] = data["volume"].astype("int") #Re-converting volume to int after MICE
 
-        return self.data
+        return data
 
 
     async def ingest(self, payload: dict[str, Any], fields: list[str] | None = None) -> None:
@@ -170,14 +170,15 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         if self.data is None:
             return None
 
-        self.data = await self._clean_async(self.data)
+        self.data = await self._clean_async(data=self.data, mice_past_window=max(1, math.ceil(len(self.data) / 2)))
         if fields:
-            self.data = self.data[[fields]]
+            print(self.data, fields)
+            self.data = self.data[fields]
 
         await self._db_broker_async.send_sql_async(f"""
             INSERT INTO "{ProjectTables.Volume.value}" ({', '.join(fields)})
             VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields) + 1))})
-            ON CONFLICT ON CONSTRAINT unique_volume_per_trp_and_time DO NOTHING;
+            ON CONFLICT DO NOTHING;
         """, many=True, many_values=list(self.data.itertuples(index=False, name=None)))
 
         return None

@@ -300,13 +300,14 @@ class AIODBManager:
                         );
 
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.Volume.value}" (
-                            row_idx SERIAL PRIMARY KEY,
+                            row_idx SERIAL,
                             trp_id TEXT NOT NULL,
                             volume INTEGER NOT NULL,
                             coverage FLOAT NOT NULL,
                             is_mice BOOLEAN DEFAULT FALSE,
                             zoned_dt_iso TIMESTAMPTZ NOT NULL,
-                            FOREIGN KEY (trp_id) REFERENCES "{ProjectTables.TrafficRegistrationPoints.value}"(id)
+                            FOREIGN KEY (trp_id) REFERENCES "{ProjectTables.TrafficRegistrationPoints.value}"(id),
+                            PRIMARY KEY (row_idx, trp_id, zoned_dt_iso)
                         );
 
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.MeanSpeed.value}" (

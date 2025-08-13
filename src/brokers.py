@@ -23,7 +23,6 @@ class AIODBBroker:
         async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
                 if any(sql.lstrip().startswith(prefix) for prefix in ["SELECT", "select"]):
-                    print(sql)
                     if single:
                         return await conn.fetchrow(sql)
                     return await conn.fetch(sql)
