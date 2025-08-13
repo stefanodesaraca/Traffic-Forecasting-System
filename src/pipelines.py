@@ -184,12 +184,12 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
     async def ingest(self, payload: dict[str, Any], trp_id: str, fields: list[str] | None = None) -> None:
         self.data = await self._parse_by_hour_async(payload)
         if self.data is None:
-            print(f"\033[91mNo data for TRP: {trp_id}\033[0m")
+            print(f"\033[91mNo data to parse for TRP: {trp_id}\033[0m")
             return None
 
         self.data = await self._clean_async(data=self.data, mice_past_window=max(1, math.ceil(len(self.data) / 2)), fields=fields)
         if self.data is None:
-            print(f"\033[91mNo data for TRP: {trp_id}\033[0m")
+            print(f"\033[91mNo data available for TRP: {trp_id}\033[0m")
             return None
 
         if fields:
