@@ -156,7 +156,7 @@ class ForecastingToolbox:
             raise Exception("End date not set. Run download or set it first")
 
         print("Latest data available: ", last_available_data_dt)
-        print("Maximum settable date: ", relativedelta(last_available_data_dt, days=cast(int, GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value))) #Using cast to avoid type checker warnings
+        print("Maximum settable date: ", last_available_data_dt + relativedelta(last_available_data_dt, days=cast(int, GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value))) #Using cast to avoid type checker warnings
 
         horizon = datetime.datetime.strptime(input("Insert forecasting horizon (YYYY-MM-DDTHH): "), cast(str, GlobalDefinitions.DT_INPUT_FORMAT.value)).replace(tzinfo=cast(tzinfo, GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE_TIMEDELTA.value)).isoformat()
 
@@ -223,12 +223,12 @@ class ForecastingToolbox:
             raise Exception("End date not set. Run download or set it first")
 
         print("Latest data available: ", last_available_data_dt)
-        print("Maximum settable date: ", relativedelta(last_available_data_dt, days=cast(int, GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value)))
+        print("Maximum settable date: ", last_available_data_dt + relativedelta(last_available_data_dt, days=cast(int, GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE.value)))
 
         horizon = datetime.datetime.strptime(input("Insert forecasting horizon (YYYY-MM-DDTHH): "), cast(str, GlobalDefinitions.DT_INPUT_FORMAT.value)).replace(tzinfo=cast(tzinfo, GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE_TIMEDELTA.value)).isoformat()
         # The month number must be zero-padded, for example: 01, 02, etc.
 
-        assert horizon > last_available_data_dt, "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
+        assert cast(datetime.datetime, horizon) > last_available_data_dt, "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
         assert (cast(datetime.datetime, horizon) - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
         # The number of days to forecast
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
