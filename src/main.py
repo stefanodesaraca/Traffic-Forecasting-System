@@ -111,9 +111,9 @@ async def manage_downloads(functionality: str) -> None:
     return None
 
 
-async def mean_speeds_to_db() -> None:
+async def mean_speeds_to_db(functionality: str) -> None:
     pipeline = MeanSpeedExtractionPipeline(db_broker_async=await get_aiodb_broker())
-    await asyncio.to_thread(all, (await pipeline.ingest(fp=GlobalDefinitions.MEAN_SPEED_DIR.value / file, fields=GlobalDefinitions.MEAN_SPEED_INGESTION_FIELDS.value) for file in await asyncio.to_thread(os.listdir,)))
+    await asyncio.gather(*(pipeline.ingest(fp=GlobalDefinitions.MEAN_SPEED_DIR.value / file, fields=GlobalDefinitions.MEAN_SPEED_INGESTION_FIELDS.value) for file in await asyncio.to_thread(os.listdir, GlobalDefinitions.MEAN_SPEED_DIR.value)))
     return None
 
 #TODO CHECK HOW BEST PARAMETERS ARE INSERTED INTO DB AND IF THERE'S A DEFAULT IDX

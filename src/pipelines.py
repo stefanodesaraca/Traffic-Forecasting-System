@@ -90,7 +90,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
     @staticmethod
     async def _get_missing(zoned_datetimes: set[datetime.datetime]) -> set[datetime.datetime]:
-        return await asyncio.to_thread(lambda: set(pd.date_range(min(zoned_datetimes), max(zoned_datetimes), ambiguous=True)).difference(zoned_datetimes)) # Finding all zoned datetimes which should exist (calculated above in all_dts), but that aren't withing the ones available.
+        return await asyncio.to_thread(lambda: set(pd.date_range(min(zoned_datetimes), max(zoned_datetimes), ambiguous=True, nonexistent="shift_forward")).difference(zoned_datetimes)) # Finding all zoned datetimes which should exist (calculated above in all_dts), but that aren't withing the ones available.
 
 
     @staticmethod
@@ -128,7 +128,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
             by_hour["volume"].append(edge["node"]["total"]["volumeNumbers"]["volume"] if edge["node"]["total"]["volumeNumbers"] is not None else None),  # In some cases the volumeNumbers key could have null as value, so the "volume" key won't be present. In that case we'll directly insert None as value with an if statement
             by_hour["coverage"].append(edge["node"]["total"]["coverage"]["percentage"] or None),  # For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
             by_hour["is_mice"].append(False if edge["node"]["total"]["volumeNumbers"] else True),  # For less recent data it's possible that sometimes coverage can be null, so we'll address this problem like so
-            by_hour["zoned_dt_iso"].append(datetime.datetime.fromisoformat(edge["node"]["from"])))
+            by_hour["zoned_dt_iso"].append(datetime.datetime.fromisoformat(edge["node"]["from"]).replace(tzinfo=ZoneInfo("Europe/Oslo"))))
         for edge in data)
 
         return await asyncio.to_thread(lambda: pd.DataFrame(by_hour).sort_values(by=["zoned_dt_iso"], ascending=True))
@@ -223,21 +223,21 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
         speeds["percentile_85"] = speeds["percentile_85"].replace(",", ".", regex=True).astype("float")
 
         speeds["zoned_dt_iso"] = speeds["date"] + "T" + speeds["hour_start"] + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
-        speeds = speeds.drop(columns=["date"])
+        speeds = speeds.drop(columns=["date", "hour_start"])
 
         try:
-            print("Shape before MICE:", speeds.shape)
-            print("Number of zeros before MICE:", len(speeds[speeds["mean_speed"] == 0]))
-            print("Negative values (mean speed) before MICE:", len(speeds[speeds["mean_speed"] < 0]))
+            #print("Shape before MICE:", speeds.shape)
+            #print("Number of zeros before MICE:", len(speeds[speeds["mean_speed"] == 0]))
+            #print("Negative values (mean speed) before MICE:", len(speeds[speeds["mean_speed"] < 0]))
 
             speeds = await asyncio.to_thread(pd.concat, [
                 speeds[["trp_id", "zoned_dt_iso"]],
                 await self._impute_missing_values(speeds.drop(columns=["trp_id", "zoned_dt_iso"]), r="gamma")
             ], axis=1) #TODO IF THIS DOESN'T WORK TRY AS IT WAS BEFORE ... .to_thread(lambda: pd.concat(...)
 
-            print("Shape after MICE:", speeds.shape, "\n")
-            print("Number of zeros after MICE:", len(speeds[speeds["mean_speed"] == 0]))
-            print("Negative values (mean speed) after MICE:", len(speeds[speeds["mean_speed"] < 0]))
+            #print("Shape after MICE:", speeds.shape, "\n")
+            #print("Number of zeros after MICE:", len(speeds[speeds["mean_speed"] == 0]))
+            #print("Negative values (mean speed) after MICE:", len(speeds[speeds["mean_speed"] < 0]))
 
         except ValueError as e:
             print(f"\033[91mValueError: {e}. Skipping...\033[0m")
@@ -249,10 +249,13 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
     async def ingest(self, fp: str, fields: list[str]) -> None:
         self.data = await self._parse_mean_speed_async(
             await asyncio.to_thread(pd.read_csv, fp, sep=";", **{"engine": "c"})) #TODO OR dd.read_csv()
-        if not self.data:
-            pass
+        if self.data is None:
+            return None
+        elif self.data.empty:
+            return None
+
         if fields:
-            self.data = self.data[[fields]]
+            self.data = self.data[fields]
         await self._db_broker_async.send_sql_async(f"""
             INSERT INTO "{ProjectTables.MeanSpeed.value}" ({', '.join(fields)})
             VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields) + 1))})
