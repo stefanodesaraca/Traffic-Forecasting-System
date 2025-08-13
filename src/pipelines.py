@@ -150,19 +150,19 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         #print(context.describe() if context.empty is False else "")
 
         #TODO MAYBE IN THE FUTURE WE'LL USE POLARS LazyFrame FOR ALL OF THIS
-        contextd = await asyncio.to_thread(await asyncio.to_thread(
+        contextd = await asyncio.to_thread((await asyncio.to_thread(
             pd.concat, [
                 data,
-                await asyncio.to_thread(pd.DataFrame,
+                (await asyncio.to_thread(pd.DataFrame,
                     await self._db_broker_async.send_sql_async(sql=f"""
                             SELECT {', '.join(fields)}
                             FROM "{ProjectTables.Volume.value}"
                             ORDER BY zoned_dt_iso DESC
                             LIMIT {mice_past_window};
                         """), columns=fields
-                    ),
-            ], axis=0
-        ).sort_values, by=["zoned_dt_iso"])  # Extracting data from the past to improve MICE regression model performances
+                    )),
+            ], axis=0, ignore_index=True
+        )).sort_values, by=["zoned_dt_iso"])  # Extracting data from the past to improve MICE regression model performances
 
         mice_treated_data = await asyncio.to_thread(pd.concat, [
             contextd[["trp_id", "is_mice", "zoned_dt_iso"]],
@@ -170,7 +170,11 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         ], axis=1)
         #Once having completed the MICE part, we'll concatenate back the columns which were dropped before (since they can't be fed to the MICE algorithm)
 
-        data = mice_treated_data[await self._get_dfs_diff_mask(data, mice_treated_data, ["trp_id", "zoned_dt_iso"])]
+        print("DATA", data.head())
+        print("MICE", mice_treated_data.head())
+
+
+        data = mice_treated_data[await self._get_dfs_diff_mask(mice_treated_data, data, comparison_cols=list(set(fields).difference(set(GlobalDefinitions.MICED_COLS.value))))]
         #Getting the intersection between the data that has been treated with MICE and the original data records.
         #By doing so, we'll get all the records which already had data AND the rows which were supposed to be MICEd filled with synthetic data
 

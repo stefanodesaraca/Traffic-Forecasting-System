@@ -69,6 +69,8 @@ class GlobalDefinitions(Enum):
     MEAN_SPEED_DIR = Path("data", cast(str, MEAN_SPEED))
     MODEL_GRIDS_DIR = Path("data", "model_grids")
 
+    MICED_COLS = ["volume", "coverage"]
+
 
 
 def check_target(target: str) -> bool:
