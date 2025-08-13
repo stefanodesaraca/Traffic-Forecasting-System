@@ -11,7 +11,7 @@ import geojson
 from exceptions import TRPNotFoundError, TargetDataNotAvailableError, ModelBestParametersNotFound
 from db_config import DBConfig
 
-from downloader import start_client_async, volumes_to_db, fetch_trps, single_trp_volumes_to_db
+from downloader import start_client_async, volumes_to_db, fetch_trps, single_trp_volumes_to_db, fetch_trps_from_ids
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
 from pipelines import MeanSpeedExtractionPipeline
 from loaders import BatchStreamLoader
@@ -97,6 +97,9 @@ async def manage_downloads(functionality: str) -> None:
         print("Traffic registration points information downloaded successfully\n\n")
 
     elif functionality == "2.2":
+        await fetch_trps_from_ids(gql_client=await start_client_async(), trp_ids=(await asyncio.to_thread(input, "Insert the TRP IDs which you want to ingest into the DB separated by commas: ")).split(","))
+
+    elif functionality == "2.3":
         time_start = await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
         time_end = await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
         print("Downloading traffic volumes data for every registration point for the current project...")
@@ -108,8 +111,8 @@ async def manage_downloads(functionality: str) -> None:
             max_retries=5
         )
 
-    elif functionality == "2.3":
-        trp_id = asyncio.to_thread(input, "Insert the TRP ID for which you want to ingest data for: ")
+    elif functionality == "2.4":
+        trp_id = await asyncio.to_thread(input, "Insert the TRP ID for which you want to ingest data for: ")
         await single_trp_volumes_to_db(
             db_broker_async=await get_aiodb_broker(),
             trp_id=trp_id,
@@ -403,7 +406,8 @@ def main():
         "2.1": manage_downloads,
         "2.2": manage_downloads,
         "2.3": manage_downloads,
-        "2.4": mean_speeds_to_db,
+        "2.4": manage_downloads,
+        "2.5": mean_speeds_to_db,
         "3.1.1": manage_forecasting_horizon,
         "3.1.2": manage_forecasting_horizon,
         "3.1.3": manage_forecasting_horizon,
@@ -431,8 +435,10 @@ def main():
     1.6 List all projects
 2. Download data (Trafikkdata API)
     2.1 Traffic registration points information
-    2.2 Traffic volumes for every registration point
-    2.3 Ingest mean speed data
+    2.2 Traffic registration points information by IDs
+    2.3 Traffic volumes for every TRP
+    2.4 Volumes data for a single TRP by ID
+    2.5 Mean speed data
 3. Forecast
     3.1 Set forecasting target datetime
         3.1.1 Write forecasting target datetime

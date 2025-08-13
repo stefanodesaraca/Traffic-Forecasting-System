@@ -68,6 +68,73 @@ async def fetch_road_categories(gql_client: Client) -> dict | ExecutionResult | 
         return None
 
 
+async def fetch_trps_from_ids(gql_client: Client, trp_ids: list[str]) -> dict | ExecutionResult | None:
+    try:
+        return await gql_client.execute_async(gql(
+            f"""
+            {{
+              trafficRegistrationPoints(
+                trafficRegistrationPointIds: [{", ".join(trp_ids)}]
+              ) {{
+                id
+                name
+                location {{
+                  coordinates {{
+                    latLon {{
+                      lat
+                      lon
+                    }}
+                  }}
+                  roadReference{{
+                    shortForm
+                    roadCategory{{
+                      id
+                    }}
+                  }}
+                  roadLinkSequence{{
+                    roadLinkSequenceId
+                    relativePosition
+                  }}
+                  roadReferenceHistory{{
+                    validFrom
+                    validTo
+                  }}
+                  county{{
+                    name
+                    number
+                    geographicNumber
+                    countryPart{{
+                      id
+                      name
+                    }}
+                  }}
+                  municipality{{
+                    name
+                    number
+                  }}
+                }}
+                trafficRegistrationType            
+                dataTimeSpan {{
+                  firstData
+                  firstDataWithQualityMetrics
+                  latestData {{
+                    volumeByDay
+                    volumeByHour
+                    volumeAverageDailyByYear
+                    volumeAverageDailyBySeason
+                    volumeAverageDailyByMonth
+                  }}
+                }}
+              }}
+            }}
+            """
+        )) # The number 3 indicates the Oslo og Viken county, which only includes the Oslo municipality
+    except TimeoutError:
+        return None
+    except TransportServerError:  # If error code is 503: Service Unavailable
+        return None
+
+
 async def fetch_trps(gql_client: Client, municipality_numbers: list[int] | None = None) -> dict | ExecutionResult | None:
     try:
         return await gql_client.execute_async(gql(
