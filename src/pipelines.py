@@ -88,8 +88,14 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
 
     @staticmethod
-    def _get_missing(zoned_datetimes: set[datetime.datetime]) -> set[datetime.datetime]:
-        return set(pd.date_range(min(zoned_datetimes), max(zoned_datetimes))).difference(zoned_datetimes) #Finding all zoned datetimes which should exist (calculated above in all_dts), but that aren't withing the ones available.
+    async def _get_missing(zoned_datetimes: set[datetime.datetime]) -> set[datetime.datetime]:
+        return await asyncio.to_thread(lambda: set(pd.date_range(min(zoned_datetimes), max(zoned_datetimes))).difference(zoned_datetimes)) # Finding all zoned datetimes which should exist (calculated above in all_dts), but that aren't withing the ones available.
+
+
+    @staticmethod
+    async def _get_dfs_diff_mask(df1: pd.DataFrame, df2: pd.DataFrame, comparison_cols: list[str]):
+        # Create a mask for rows in data that also exist in contextd
+        return await asyncio.to_thread(lambda: df1[comparison_cols].isin(df2[comparison_cols].to_dict(orient='list')).all(axis=1))
 
 
     async def _parse_by_hour_async(self, data: dict[str, Any]) -> pd.DataFrame | dd.DataFrame | None:
@@ -115,7 +121,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
             by_hour["coverage"].append(None),
             by_hour["is_mice"].append(True),
             by_hour["zoned_dt_iso"].append(m)
-            ) for m in self._get_missing(set(datetime.datetime.fromisoformat(node["node"]["from"]) for node in data)))
+            ) for m in await self._get_missing(set(datetime.datetime.fromisoformat(node["node"]["from"]) for node in data)))
 
         all((
             by_hour["trp_id"].append(trp_id),
@@ -125,7 +131,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
             by_hour["zoned_dt_iso"].append(datetime.datetime.fromisoformat(edge["node"]["from"])))
         for edge in data)
 
-        return pd.DataFrame(by_hour).sort_values(by=["zoned_dt_iso"], ascending=True)
+        return await asyncio.to_thread(lambda: pd.DataFrame(by_hour).sort_values(by=["zoned_dt_iso"], ascending=True))
 
 
     async def _clean_async(self, data: pd.DataFrame, mice_past_window: PositiveInt) -> pd.DataFrame:
@@ -143,17 +149,29 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         #print(context.shape)
         #print(context.describe() if context.empty is False else "")
 
+        #TODO MAYBE IN THE FUTURE WE'LL USE POLARS LazyFrame FOR ALL OF THIS
+        contextd = await asyncio.to_thread(pd.concat, [
+            data,
+            await asyncio.to_thread(pd.DataFrame, await self._db_broker_async.send_sql_async(sql=f"""SELECT *
+                                                                                                           FROM "{ProjectTables.Volume.value}"
+                                                                                                           ORDER BY zoned_dt_iso DESC
+                                                                                                           LIMIT {mice_past_window};
+                                                                                                       """)),
+        ], axis=1)  # Extracting data from the past to improve MICE regression model performances
+        mice_treated_data = await asyncio.to_thread(pd.concat,
+                                                    contextd[["trp_id", "is_mice", "zoned_dt_iso"]],
+                                                    await asyncio.to_thread(self._impute_missing_values, contextd.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1), r="gamma"),
+        axis=0)
+        #Once having completed the MICE part, we'll concatenate back the columns which were dropped before (since they can't be fed to the MICE algorithm)
 
+        data = mice_treated_data[await self._get_dfs_diff_mask(data, mice_treated_data, ["trp_id", "zoned_dt_iso"])]
+        #Getting the intersection between the data that has been treated with MICE and the original data records.
+        #By doing so, we'll get all the records which already had data AND the rows which were supposed to be MICEd filled with synthetic data
 
-        data = pd.concat([
+        data = await asyncio.to_thread(pd.concat, [
                                 data[["trp_id", "is_mice", "zoned_dt_iso"]],
-                                await asyncio.to_thread(pd.DataFrame, await self._db_broker_async.send_sql_async(sql=f"""SELECT *
-                                                                                                                               FROM "{ProjectTables.Volume.value}"
-                                                                                                                               ORDER BY zoned_dt_iso DESC
-                                                                                                                               LIMIT {mice_past_window};
-                                                                                                                           """)), #Extracting data from the past to improve MICE regression model performances
-                                await asyncio.to_thread(self._impute_missing_values, data.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1), r="gamma")
-                                ], axis=1)
+
+        ], axis=1)
         #Duplicates aren't a problem since PostgresSQL inserts are set to do nothing on conflict
 
         print("Shape after MICE: ", data.shape)
@@ -172,7 +190,6 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
         self.data = await self._clean_async(data=self.data, mice_past_window=max(1, math.ceil(len(self.data) / 2)))
         if fields:
-            print(self.data, fields)
             self.data = self.data[fields]
 
         await self._db_broker_async.send_sql_async(f"""
