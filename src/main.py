@@ -152,12 +152,12 @@ async def manage_forecasting_horizon(functionality: str) -> None:
 
     elif functionality == "3.1.2":
         print("-- Forecasting horizon reader --")
-        target = asyncio.to_thread(input, "V: Volumes | MS: Mean Speed")
+        target = await asyncio.to_thread(input, "V: Volumes | MS: Mean Speed")
         print("Target datetime: ", await ft.get_forecasting_horizon_async(target=target), "\n\n")
 
     elif functionality == "3.1.3":
         print("-- Forecasting horizon reset --")
-        target = asyncio.to_thread(input, "V: Volumes | MS: Mean Speed")
+        target = await asyncio.to_thread(input, "V: Volumes | MS: Mean Speed")
         await ft.reset_forecasting_horizon_async(target=target)
 
     return None
