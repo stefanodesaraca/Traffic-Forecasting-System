@@ -180,14 +180,24 @@ class ForecastingToolbox:
         # The number of days to forecast
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
-        await self._db_broker_async.send_sql_async(f"""UPDATE "{ProjectTables.ForecastingSettings.value}"
-                                                       SET "config" = jsonb_set(
-                                                           "config",
-                                                           {f"{{'volume_forecasting_horizon'}}" if option == "V" else f"{{'mean_speed_forecasting_horizon'}}"}
-                                                           to_jsonb({{f"{horizon}"}}::timestamptz::text),
-                                                           TRUE
+        await self._db_broker_async.send_sql_async(f"""INSERT INTO "{ProjectTables.ForecastingSettings.value}" ("id", "config")
+                                                       VALUES (
+                                                           TRUE,
+                                                           jsonb_set(
+                                                               '{{}}'::jsonb,
+                                                               '{f"{{'volume_forecasting_horizon'}}" if option == "V" else f"{{'mean_speed_forecasting_horizon'}}"}',
+                                                               to_jsonb('2024-01-01 00:00:00+01'::timestamptz::text),
+                                                               TRUE
+                                                           )
                                                        )
-                                                       WHERE "id" = TRUE;""") #The horizon datetime value is already in zoned datetime format
+                                                       ON CONFLICT ("id") DO UPDATE
+                                                       SET "config" = jsonb_set(
+                                                           "{ProjectTables.ForecastingSettings.value}"."config",
+                                                           '{{volume_forecasting_horizon}}',
+                                                           to_jsonb('{f"{horizon}"}'::timestamptz::text),
+                                                           TRUE
+                                                       );""")
+        #The horizon datetime value is already in zoned datetime format
         #The TRUE after to_jsonb(...) is needed to create the record in case it didn't exist before
 
         return None
