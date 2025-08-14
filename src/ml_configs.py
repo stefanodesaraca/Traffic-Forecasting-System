@@ -9,7 +9,7 @@ from utils import GlobalDefinitions
 
 #Be aware that too low parameters could bring some models to stall while training, so don't go too low with the grid search parameters
 grids = {
-    GlobalDefinitions.TARGET_DATA.value["V"]: {
+    GlobalDefinitions.TARGET_DATA["V"]: {
         "RandomForestRegressor": {
             "n_estimators": [200, 400],
             "max_depth": [
@@ -34,7 +34,7 @@ grids = {
             "l2_regularization": [0.001, 0.0001],
         },
     },
-    GlobalDefinitions.TARGET_DATA.value["MS"]: {
+    GlobalDefinitions.TARGET_DATA["MS"]: {
         "RandomForestRegressor": {
             "n_estimators": [100, 300],
             "max_depth": [
@@ -46,7 +46,7 @@ grids = {
                 "friedman_mse",
             ],  # Setting "absolute_error" within the metrics to try in the grid will raise errors due to the NaNs present in the lag features
             "ccp_alpha": [0.002, 0.0002],  # ccp_alpha = 1 overfits
-            "n_jobs": GlobalDefinitions.ML_CPUS.value,
+            "n_jobs": GlobalDefinitions.ML_CPUS,
             "random_state": 100
         },
         "DecisionTreeRegressor": {

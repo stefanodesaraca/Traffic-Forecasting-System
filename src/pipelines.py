@@ -1,4 +1,5 @@
 import math
+from pathlib import Path
 import datetime
 from zoneinfo import ZoneInfo
 import asyncio
@@ -134,10 +135,10 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         return await asyncio.to_thread(lambda: pd.DataFrame(by_hour).sort_values(by=["zoned_dt_iso"], ascending=True))
 
 
-    async def _clean_async(self, data: pd.DataFrame, mice_past_window: PositiveInt, fields: list[str] = GlobalDefinitions.VOLUME_INGESTION_FIELDS.value) -> pd.DataFrame | None:
+    async def _clean_async(self, data: pd.DataFrame, mice_past_window: PositiveInt, fields: list[str] = GlobalDefinitions.VOLUME_INGESTION_FIELDS) -> pd.DataFrame | None:
 
         #If all columns which need to be fed to the MICE algorithm are None then just skip this batch
-        if data[GlobalDefinitions.MICE_COLS.value].isna().all().all():
+        if data[GlobalDefinitions.MICE_COLS].isna().all().all():
             return None
 
         #print("Shape before MICE: ", data.shape)
@@ -167,7 +168,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         ], axis=1)
         #Once having completed the MICE part, we'll concatenate back the columns which were dropped before (since they can't be fed to the MICE algorithm)
 
-        data = mice_treated_data[await self._get_dfs_diff_mask(mice_treated_data, data, comparison_cols=list(set(fields).difference(set(GlobalDefinitions.MICE_COLS.value))))]
+        data = mice_treated_data[await self._get_dfs_diff_mask(mice_treated_data, data, comparison_cols=list(set(fields).difference(set(GlobalDefinitions.MICE_COLS))))]
         #Getting the intersection between the data that has been treated with MICE and the original data records.
         #By doing so, we'll get all the records which already had data AND the rows which were supposed to be MICEd filled with synthetic data
 
@@ -222,7 +223,7 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
         speeds["mean_speed"] = speeds["mean_speed"].replace(",", ".", regex=True).astype("float")
         speeds["percentile_85"] = speeds["percentile_85"].replace(",", ".", regex=True).astype("float")
 
-        speeds["zoned_dt_iso"] = pd.to_datetime(speeds["date"] + "T" + speeds["hour_start"] + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value)
+        speeds["zoned_dt_iso"] = pd.to_datetime(speeds["date"] + "T" + speeds["hour_start"] + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE)
         speeds = speeds.drop(columns=["date", "hour_start"])
 
         speeds["is_mice"] = speeds["mean_speed"].notna()
@@ -248,8 +249,8 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
         return speeds
 
 
-    async def ingest(self, fp: str, fields: list[str]) -> None:
-        print(f"""Starting TRP: {fp.split("_")} cleaning""")
+    async def ingest(self, fp: str | Path, fields: list[str]) -> None:
+        print(f"""Starting TRP: {fp} cleaning""")
         self.data = await self._parse_mean_speed_async(
             await asyncio.to_thread(pd.read_csv, fp, sep=";", **{"engine": "c"})) #TODO OR dd.read_csv()
         if self.data is None:
@@ -265,7 +266,7 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
             ON CONFLICT ON CONSTRAINT unique_mean_speed_per_trp_and_time DO NOTHING;
         """, many=True, many_values=list(self.data.itertuples(index=False, name=None)))
 
-        print(f"""Ended TRP: {fp.split("_")} cleaning""")
+        print(f"""Ended TRP: {fp} cleaning""")
 
         return None
 

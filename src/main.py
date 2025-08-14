@@ -56,7 +56,7 @@ def get_db_broker():
 
 
 async def initialize() -> None:
-    os.makedirs(GlobalDefinitions.MEAN_SPEED_DIR.value, exist_ok=True) #The directory where mean speed files need to be placed
+    os.makedirs(GlobalDefinitions.MEAN_SPEED_DIR, exist_ok=True) #The directory where mean speed files need to be placed
     await (await get_aiodbmanager_broker()).init()
     return None
 
@@ -102,8 +102,8 @@ async def manage_downloads(functionality: str) -> None:
 
 
     elif functionality == "2.3":
-        time_start = await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
-        time_end = await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
+        time_start = await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE
+        time_end = await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE
         print("Downloading traffic volumes data for every registration point for the current project...")
         await volumes_to_db(
             db_broker_async=await get_aiodb_broker(),
@@ -118,8 +118,8 @@ async def manage_downloads(functionality: str) -> None:
         await single_trp_volumes_to_db(
             db_broker_async=await get_aiodb_broker(),
             trp_id=trp_id,
-            time_start=await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value,
-            time_end=await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value,
+            time_start=await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE,
+            time_end=await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE,
             max_retries=5
         )
         print(f"Downloading traffic volumes data for TRP: {trp_id}...")
@@ -134,10 +134,10 @@ async def mean_speeds_to_db(functionality: str) -> None:
 
     async def limited_ingest(file: str) -> None:
         async with semaphore:
-            await pipeline.ingest(fp=GlobalDefinitions.MEAN_SPEED_DIR.value / file, fields=GlobalDefinitions.MEAN_SPEED_INGESTION_FIELDS.value)
+            await pipeline.ingest(fp=GlobalDefinitions.MEAN_SPEED_DIR / file, fields=GlobalDefinitions.MEAN_SPEED_INGESTION_FIELDS)
         return None
 
-    await asyncio.gather(*(limited_ingest(file=file) for file in await asyncio.to_thread(os.listdir, GlobalDefinitions.MEAN_SPEED_DIR.value)))
+    await asyncio.gather(*(limited_ingest(file=file) for file in await asyncio.to_thread(os.listdir, GlobalDefinitions.MEAN_SPEED_DIR)))
     return None
 
 #TODO CHECK HOW BEST PARAMETERS ARE INSERTED INTO DB AND IF THERE'S A DEFAULT IDX
