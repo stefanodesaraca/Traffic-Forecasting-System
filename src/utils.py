@@ -133,44 +133,6 @@ class ForecastingToolbox:
         self._db_broker: Any | None = db_broker
 
 
-
-    def set_forecasting_horizon(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE) -> None:
-        max_forecasting_window_size: int = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE, forecasting_window_size)
-
-        print("V = Volume | MS = Mean Speed")
-        option = input("Target: ")
-        print("Maximum number of days to forecast: ", max_forecasting_window_size)
-
-        if option == "V":
-            last_available_data_dt = self._db_broker.get_volume_date_boundaries()["max"]
-        elif option == "MS":
-            _, last_available_data_dt = self._db_broker.get_mean_speed_date_boundaries()["max"]
-        else:
-            raise ValueError("Wrong data option, try again")
-
-        if not last_available_data_dt:
-            raise Exception("End date not set. Run download or set it first")
-
-        print("Latest data available: ", last_available_data_dt)
-        print("Maximum settable date: ", last_available_data_dt + relativedelta(last_available_data_dt, days=GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE)) #Using cast to avoid type checker warnings
-
-        horizon = datetime.datetime.strptime(input("Insert forecasting horizon (YYYY-MM-DDTHH): ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE, GlobalDefinitions.DT_ISO_TZ_FORMAT)
-
-        assert horizon > last_available_data_dt, "Forecasting target datetime is prior to the latest data available"
-        assert (horizon - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"
-
-        self._db_broker.send_sql(f"""UPDATE "{ProjectTables.ForecastingSettings.value}"
-                                     SET config = jsonb_set(
-                                         config,
-                                         '{'{volume_forecasting_horizon}' if option == "V" else '{mean_speed_forecasting_horizon}'}',
-                                         to_jsonb('{horizon}'::timestamptz::text),
-                                         TRUE
-                                     )
-                                     WHERE id = TRUE;""") #The horizon datetime value is already in zoned datetime format
-
-        return None
-
-
     def get_forecasting_horizon(self, target: str) -> datetime.datetime:
         if not check_target(target):
             raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
@@ -179,17 +141,6 @@ class ForecastingToolbox:
                 FROM "{ProjectTables.ForecastingSettings.value}"
                 WHERE id = TRUE;"""
         )[target]
-
-
-    def reset_forecasting_horizon(self, target: str) -> None:
-        if not check_target(target):
-            raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
-        self._db_broker.send_sql(
-            f"""UPDATE "{ProjectTables.ForecastingSettings.value}"
-                SET config = jsonb_set(config, '{'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'}', 'null'::jsonb)
-                WHERE id = TRUE;"""
-        )
-        return None
 
 
     async def set_forecasting_horizon_async(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE) -> None:
@@ -230,13 +181,13 @@ class ForecastingToolbox:
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
         await self._db_broker_async.send_sql_async(f"""UPDATE "{ProjectTables.ForecastingSettings.value}"
-                                                       SET config = jsonb_set(
-                                                           config,
-                                                           '{'{volume_forecasting_horizon}' if option == "V" else '{mean_speed_forecasting_horizon}'}'
-                                                           to_jsonb('{horizon}'::timestamptz::text),
+                                                       SET "config" = jsonb_set(
+                                                           "config",
+                                                           {f"{{'volume_forecasting_horizon'}}" if option == "V" else f"{{'mean_speed_forecasting_horizon'}}"}
+                                                           to_jsonb({{f"{horizon}"}}::timestamptz::text),
                                                            TRUE
                                                        )
-                                                       WHERE id = TRUE;""") #The horizon datetime value is already in zoned datetime format
+                                                       WHERE "id" = TRUE;""") #The horizon datetime value is already in zoned datetime format
         #The TRUE after to_jsonb(...) is needed to create the record in case it didn't exist before
 
         return None
