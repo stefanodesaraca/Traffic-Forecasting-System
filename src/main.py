@@ -97,7 +97,9 @@ async def manage_downloads(functionality: str) -> None:
         print("Traffic registration points information downloaded successfully\n\n")
 
     elif functionality == "2.2":
-        await fetch_trps_from_ids(gql_client=await start_client_async(), trp_ids=(await asyncio.to_thread(input, "Insert the TRP IDs which you want to ingest into the DB separated by commas: ")).split(","))
+        await (await get_aiodbmanager_broker()).insert_trps(
+            data=await fetch_trps_from_ids(gql_client=await start_client_async(), trp_ids=(await asyncio.to_thread(input, "Insert the TRP IDs which you want to ingest into the DB separated by commas: ")).split(",")))
+
 
     elif functionality == "2.3":
         time_start = await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE.value
