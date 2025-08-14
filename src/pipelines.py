@@ -249,6 +249,7 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
 
 
     async def ingest(self, fp: str, fields: list[str]) -> None:
+        print(f"""Starting TRP: {fp.split("_")} cleaning""")
         self.data = await self._parse_mean_speed_async(
             await asyncio.to_thread(pd.read_csv, fp, sep=";", **{"engine": "c"})) #TODO OR dd.read_csv()
         if self.data is None:
@@ -263,6 +264,8 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
             VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields) + 1))})
             ON CONFLICT ON CONSTRAINT unique_mean_speed_per_trp_and_time DO NOTHING;
         """, many=True, many_values=list(self.data.itertuples(index=False, name=None)))
+
+        print(f"""Ended TRP: {fp.split("_")} cleaning""")
 
         return None
 

@@ -440,7 +440,7 @@ def main():
     2.2 Traffic registration points information by IDs
     2.3 Traffic volumes for every TRP
     2.4 Volumes data for a single TRP by ID
-    2.5 Mean speed data
+    2.5 Ingest mean speed data
 3. Forecast
     3.1 Set forecasting target datetime
         3.1.1 Write forecasting target datetime
