@@ -161,7 +161,7 @@ class ForecastingToolbox:
         if option == "V":
             last_available_data_dt = (await self._db_broker_async.get_volume_date_boundaries_async())["max"]
         elif option == "MS":
-            _, last_available_data_dt = (await self._db_broker_async.get_mean_speed_date_boundaries_async())["max"]
+            last_available_data_dt = (await self._db_broker_async.get_mean_speed_date_boundaries_async())["max"]
         else:
             raise ValueError("Wrong data option, try again")
 
