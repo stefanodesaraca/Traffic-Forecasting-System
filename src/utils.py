@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from pathlib import Path
 import datetime
-from datetime import timezone, timedelta, tzinfo
+from datetime import timezone, timedelta
 from zoneinfo import ZoneInfo
 from typing import Literal, Any
 import os
@@ -38,15 +38,11 @@ def dask_cluster_client(processes=False):
 
 
 class GlobalDefinitions(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-        frozen = True
-
     VOLUME_INGESTION_FIELDS: list[str] = ["trp_id", "volume", "coverage", "is_mice", "zoned_dt_iso"]
     MEAN_SPEED_INGESTION_FIELDS: list[str] = ["trp_id", "mean_speed", "percentile_85", "coverage", "is_mice", "zoned_dt_iso"]
     TARGET_DATA: dict[str, str] = {"V": "volume", "MS": "mean_speed"}
     ROAD_CATEGORIES: list[str] = ["E", "R", "F", "K", "P"]
-    DEFAULT_MAX_FORECASTING_WINDOW_SIZE = 14
+    DEFAULT_MAX_FORECASTING_WINDOW_SIZE: PositiveInt = 14
 
     HAS_VOLUME_CHECK: str = "has_volume"
     HAS_MEAN_SPEED_CHECK: str = "has_mean_speed"
@@ -67,6 +63,10 @@ class GlobalDefinitions(BaseModel):
     MODEL_GRIDS_DIR: Path = Path("data", "model_grids")
 
     MICE_COLS: list[str] = ["volume", "coverage"]
+
+    class Config:
+        arbitrary_types_allowed = True
+        frozen = True
 
 
 
@@ -134,7 +134,7 @@ class ForecastingToolbox:
 
 
 
-    def set_forecasting_horizon(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE) -> None:
+    def set_forecasting_horizon(self, forecasting_window_size: PositiveInt) -> None:
         max_forecasting_window_size: int = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE, forecasting_window_size)
 
         print("V = Volume | MS = Mean Speed")
@@ -192,7 +192,7 @@ class ForecastingToolbox:
         return None
 
 
-    async def set_forecasting_horizon_async(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE) -> None:
+    async def set_forecasting_horizon_async(self, forecasting_window_size: PositiveInt) -> None:
         """
         Parameters:
             forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24.
@@ -221,7 +221,7 @@ class ForecastingToolbox:
         print("Latest data available: ", last_available_data_dt)
         print("Maximum settable date: ", last_available_data_dt + relativedelta(last_available_data_dt, days=GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE))
 
-        horizon = datetime.datetime.strptime(input("Insert forecasting horizon (YYYY-MM-DDTHH): "), GlobalDefinitions.DT_INPUT_FORMAT).replace(tzinfo=GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE_TIMEDELTA).isoformat()
+        horizon = datetime.datetime.strptime(input("Insert forecasting horizon (YYYY-MM-DDTHH): " + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE), GlobalDefinitions.DT_ISO_TZ_FORMAT)
         # The month number must be zero-padded, for example: 01, 02, etc.
 
         assert horizon > last_available_data_dt, "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast

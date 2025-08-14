@@ -135,7 +135,9 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
         return await asyncio.to_thread(lambda: pd.DataFrame(by_hour).sort_values(by=["zoned_dt_iso"], ascending=True))
 
 
-    async def _clean_async(self, data: pd.DataFrame, mice_past_window: PositiveInt, fields: list[str] = GlobalDefinitions.VOLUME_INGESTION_FIELDS) -> pd.DataFrame | None:
+    async def _clean_async(self, data: pd.DataFrame, mice_past_window: PositiveInt, fields: list[str] | None) -> pd.DataFrame | None:
+
+        fields = fields or GlobalDefinitions.VOLUME_INGESTION_FIELDS
 
         #If all columns which need to be fed to the MICE algorithm are None then just skip this batch
         if data[GlobalDefinitions.MICE_COLS].isna().all().all():

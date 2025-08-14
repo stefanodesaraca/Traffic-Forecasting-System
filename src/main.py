@@ -9,7 +9,7 @@ import dask.dataframe as dd
 import geojson
 
 from exceptions import TRPNotFoundError, TargetDataNotAvailableError, ModelBestParametersNotFound
-from db_config import DBConfig
+from db_config import DBConfig, ProjectTables
 
 from downloader import start_client_async, volumes_to_db, fetch_trps, single_trp_volumes_to_db, fetch_trps_from_ids
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
@@ -192,16 +192,16 @@ def forecasts_warmup(functionality: str) -> None:
     models = {m["name"]: {"binary_obj": m["binary_obj"],
                           "base_parameters": m["base_parameters"],
                           "volume_best_parameters": m["volume_best_parameters"],
-                          "mean_speed_best_parameters": m["mean_speed_best_parameters"]} for m in db_broker.send_sql("""SELECT
+                          "mean_speed_best_parameters": m["mean_speed_best_parameters"]} for m in db_broker.send_sql(f"""SELECT
                                                                                                                             m.name,
                                                                                                                             mo.pickle_object AS binary_obj,
                                                                                                                             m.base_params AS base_parameters,
                                                                                                                             m.volume_best_params AS volume_best_parameters
                                                                                                                             m.mean_speed_best_params AS mean_speed_best_parameters
                                                                                                                         FROM
-                                                                                                                            MLModels m
+                                                                                                                            {ProjectTables.MLModels.value} m
                                                                                                                         JOIN
-                                                                                                                            MLModelObjects mo ON m.id = mo.id;""")}
+                                                                                                                            {ProjectTables.MLModelObjects.value} mo ON m.id = mo.id;""")}
     actual_target: str | None = None
 
 
