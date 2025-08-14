@@ -3,7 +3,7 @@ from pathlib import Path
 import datetime
 from datetime import timezone, timedelta
 from zoneinfo import ZoneInfo
-from typing import Literal, Any
+from typing import Literal, Any, ClassVar
 import os
 import asyncio
 import pandas as pd
@@ -38,11 +38,15 @@ def dask_cluster_client(processes=False):
 
 
 class GlobalDefinitions(BaseModel):
-    VOLUME_INGESTION_FIELDS: list[str] = ["trp_id", "volume", "coverage", "is_mice", "zoned_dt_iso"]
+    class Config:
+        arbitrary_types_allowed = True
+        frozen = True
+
+    VOLUME_INGESTION_FIELDS: ClassVar[list[str]] = ["trp_id", "volume", "coverage", "is_mice", "zoned_dt_iso"]
     MEAN_SPEED_INGESTION_FIELDS: list[str] = ["trp_id", "mean_speed", "percentile_85", "coverage", "is_mice", "zoned_dt_iso"]
     TARGET_DATA: dict[str, str] = {"V": "volume", "MS": "mean_speed"}
     ROAD_CATEGORIES: list[str] = ["E", "R", "F", "K", "P"]
-    DEFAULT_MAX_FORECASTING_WINDOW_SIZE: PositiveInt = 14
+    DEFAULT_MAX_FORECASTING_WINDOW_SIZE: ClassVar[PositiveInt] = 14
 
     HAS_VOLUME_CHECK: str = "has_volume"
     HAS_MEAN_SPEED_CHECK: str = "has_mean_speed"
@@ -59,14 +63,10 @@ class GlobalDefinitions(BaseModel):
     ML_CPUS: int = int(os.cpu_count() * 0.75)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
     # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
 
-    MEAN_SPEED_DIR: Path = Path("data", MEAN_SPEED)
+    MEAN_SPEED_DIR: ClassVar[Path] = Path("data", MEAN_SPEED)
     MODEL_GRIDS_DIR: Path = Path("data", "model_grids")
 
     MICE_COLS: list[str] = ["volume", "coverage"]
-
-    class Config:
-        arbitrary_types_allowed = True
-        frozen = True
 
 
 
@@ -134,7 +134,7 @@ class ForecastingToolbox:
 
 
 
-    def set_forecasting_horizon(self, forecasting_window_size: PositiveInt) -> None:
+    def set_forecasting_horizon(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE) -> None:
         max_forecasting_window_size: int = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE, forecasting_window_size)
 
         print("V = Volume | MS = Mean Speed")
@@ -192,7 +192,7 @@ class ForecastingToolbox:
         return None
 
 
-    async def set_forecasting_horizon_async(self, forecasting_window_size: PositiveInt) -> None:
+    async def set_forecasting_horizon_async(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE) -> None:
         """
         Parameters:
             forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24.
