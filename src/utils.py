@@ -2,7 +2,6 @@ from contextlib import contextmanager
 from pathlib import Path
 import datetime
 from datetime import timezone, timedelta
-from zoneinfo import ZoneInfo
 from typing import Literal, Any, ClassVar
 import os
 import asyncio
@@ -185,15 +184,15 @@ class ForecastingToolbox:
                                                            TRUE,
                                                            jsonb_set(
                                                                '{{}}'::jsonb,
-                                                               '{f"{{'volume_forecasting_horizon'}}" if option == "V" else f"{{'mean_speed_forecasting_horizon'}}"}',
-                                                               to_jsonb('2024-01-01 00:00:00+01'::timestamptz::text),
+                                                               {"'{volume_forecasting_horizon}'" if option == "V" else "'{mean_speed_forecasting_horizon}'"},
+                                                               to_jsonb('{f"{horizon}"}'::timestamptz::text),
                                                                TRUE
                                                            )
                                                        )
                                                        ON CONFLICT ("id") DO UPDATE
                                                        SET "config" = jsonb_set(
                                                            "{ProjectTables.ForecastingSettings.value}"."config",
-                                                           '{{volume_forecasting_horizon}}',
+                                                           {"'{volume_forecasting_horizon}'" if option == "V" else "'{mean_speed_forecasting_horizon}'"},
                                                            to_jsonb('{f"{horizon}"}'::timestamptz::text),
                                                            TRUE
                                                        );""")
@@ -219,11 +218,3 @@ class ForecastingToolbox:
                                                        SET config = jsonb_set(config, '{'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'}', 'null'::jsonb)
                                                        WHERE id = TRUE;""")
         return None
-
-
-
-
-
-
-
-
