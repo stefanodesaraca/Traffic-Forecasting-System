@@ -174,7 +174,7 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
         plt.title(f"Traffic volumes aggregated (sum) by day for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_volume_trend_grouped_by_years", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.VOLUME.value + ".path")
+        return f"{trp_id}_volume_trend_grouped_by_years", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.VOLUME + ".path")
 
     @savePlots
     def volume_trend_by_week():
@@ -192,7 +192,7 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
         plt.title(f"Traffic volumes aggregated (median) by week for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_volume_trend_by_hour_day", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.VOLUME.value + ".path")
+        return f"{trp_id}_volume_trend_by_hour_day", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.VOLUME + ".path")
 
     @savePlots
     def volumes_distribution_by_week_and_year():
@@ -212,13 +212,13 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
 
         plt.subplots_adjust(hspace=0.5)
 
-        return f"{trp_id}_volumes_distribution_by_week_and_year", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.VOLUME.value + ".path")
+        return f"{trp_id}_volumes_distribution_by_week_and_year", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.VOLUME + ".path")
 
     @savePlots
     def correlation_heatmap():
         return (f"{trp_id}_volumes_corr_heatmap",
                 sns.heatmap(volumes.corr(numeric_only=True), annot=True, fmt=".2f").set_title(f"Traffic volumes - TRP: {trp_id} - Correlation heatmap"),
-                pmm.get(key="folder_paths.eda.plots.eda_plots." + GlobalDefinitions.VOLUME.value + ".path"))
+                pmm.get(key="folder_paths.eda.plots.eda_plots." + GlobalDefinitions.VOLUME + ".path"))
 
     all((i(), plt.clf()) for i in (volume_trend_grouped_by_years, volume_trend_by_week, volumes_distribution_by_week_and_year, correlation_heatmap))
 
@@ -319,7 +319,7 @@ def analyze_mean_speed(speeds: pd.DataFrame) -> None:
         plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
         plt.title(f"Average speeds aggregated by day for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_avg_speeds_trend_grouped_by_years", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.MEAN_SPEED.value + ".path")
+        return f"{trp_id}_avg_speeds_trend_grouped_by_years", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.MEAN_SPEED + ".path")
 
     @savePlots
     def speeds_trend_by_week():
@@ -336,7 +336,7 @@ def analyze_mean_speed(speeds: pd.DataFrame) -> None:
         plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
         plt.title(f"Median of the average speeds by week for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_avg_speed_trend_by_hour_day", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.MEAN_SPEED.value + ".path")
+        return f"{trp_id}_avg_speed_trend_by_hour_day", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.MEAN_SPEED + ".path")
 
     @savePlots
     def speeds_distribution_by_week_and_year():
@@ -356,13 +356,13 @@ def analyze_mean_speed(speeds: pd.DataFrame) -> None:
 
         plt.subplots_adjust(hspace=0.5)
 
-        return f"{trp_id}_avg_speed_distribution_by_week_and_year", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.MEAN_SPEED.value + ".path")
+        return f"{trp_id}_avg_speed_distribution_by_week_and_year", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.MEAN_SPEED + ".path")
 
     @savePlots
     def correlation_heatmap():
         return (f"{trp_id}_avg_speed_corr_heatmap",
                 sns.heatmap(speeds.corr(numeric_only=True), annot=True, fmt=".2f").set_title(f"Traffic volumes - TRP: {trp_id} - Correlation heatmap"),
-                pmm.get(key="folder_paths.eda.plots.eda_plots." + GlobalDefinitions.MEAN_SPEED.value + ".path"))
+                pmm.get(key="folder_paths.eda.plots.eda_plots." + GlobalDefinitions.MEAN_SPEED + ".path"))
 
     all((i(), plt.clf()) for i in (speeds_trend_grouped_by_years, speeds_trend_by_week, speeds_distribution_by_week_and_year, correlation_heatmap))
 

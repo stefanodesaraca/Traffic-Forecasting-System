@@ -186,8 +186,8 @@ class AIODBManager:
                 trp["location"].get("county", {}).get("number"),
                 trp["location"].get("county", {}).get("geographicNumber"),
                 trp.get("trafficRegistrationType"),
-                datetime.strptime(trp.get("dataTimeSpan", {}).get("firstData"), GlobalDefinitions.DT_ISO_TZ_FORMAT.value),
-                datetime.strptime(trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics"), GlobalDefinitions.DT_ISO_TZ_FORMAT.value)
+                datetime.strptime(trp.get("dataTimeSpan", {}).get("firstData"), GlobalDefinitions.DT_ISO_TZ_FORMAT),
+                datetime.strptime(trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics"), GlobalDefinitions.DT_ISO_TZ_FORMAT)
             )
         return None
 

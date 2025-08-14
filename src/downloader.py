@@ -276,7 +276,7 @@ async def volumes_to_db(db_broker_async: Any, time_start: str, time_end: str, n_
                 await pipeline.ingest(
                     payload=batch_buffers[trp_id],
                     trp_id=trp_id,
-                    fields=GlobalDefinitions.VOLUME_INGESTION_FIELDS.value
+                    fields=GlobalDefinitions.VOLUME_INGESTION_FIELDS
                 )
                 batch_buffers[trp_id].clear()
 
@@ -350,7 +350,7 @@ async def single_trp_volumes_to_db(db_broker_async: Any, trp_id: str, time_start
             await pipeline.ingest(
                 payload=batch_buffer,
                 trp_id=trp_id,
-                fields=GlobalDefinitions.VOLUME_INGESTION_FIELDS.value
+                fields=GlobalDefinitions.VOLUME_INGESTION_FIELDS
             )
             batch_buffer.clear()
 

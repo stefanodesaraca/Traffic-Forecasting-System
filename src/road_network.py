@@ -383,7 +383,7 @@ class RoadNetwork(BaseModel):
             source: the source vertex ID as a string
             target: the target vertex ID as a string
             weight: the attribute to consider as weight for the arches of the graph
-            heuristic: the heuristic to use during the computation of the shortest path. Can be either "manhattan" or "euclidean"
+            heuristic: the heuristic to use during the computation of the shortest path. Can be either "manhattan" or "Euclidean"
 
         Returns:
             A list of vertices, each linked by an arch

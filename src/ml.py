@@ -222,7 +222,7 @@ class TFSPreprocessor:
 
         # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
 
-        self._data["is_covid_year"] = (self._data["year"].isin(GlobalDefinitions.COVID_YEARS.value)).astype("int")  # Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
+        self._data["is_covid_year"] = (self._data["year"].isin(GlobalDefinitions.COVID_YEARS)).astype("int")  # Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
@@ -328,7 +328,7 @@ class TFSPreprocessor:
 
         # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
 
-        self._data["is_covid_year"] = self._data["year"].isin(GlobalDefinitions.COVID_YEARS.value).astype("int")  # Creating a dummy variable which indicates if the average speed for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
+        self._data["is_covid_year"] = self._data["year"].isin(GlobalDefinitions.COVID_YEARS).astype("int")  # Creating a dummy variable which indicates if the average speed for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
@@ -573,9 +573,9 @@ class TFSLearner:
         dict[str, Any]
             The model's grid for hyperparameter tuning.
         """
-        return json.loads(self._db_broker.send_sql(sql=f"""SELECT {'volume_grid' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'mean_speed_grid'} 
+        return json.loads(self._db_broker.send_sql(sql=f"""SELECT {'volume_grid' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'mean_speed_grid'} 
                                                            FROM "{ProjectTables.MLModels.value}"
-                                                           WHERE id = {self._model.model_id};""", single=True)['volume_grid' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'mean_speed_grid'])
+                                                           WHERE id = {self._model.model_id};""", single=True)['volume_grid' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'mean_speed_grid'])
 
 
     def _load_model(self) -> callable:
@@ -635,7 +635,7 @@ class TFSLearner:
             scoring=self._scorer,
             refit="mean_absolute_error",
             return_train_score=True,
-            n_jobs=GlobalDefinitions.ML_CPUS.value,
+            n_jobs=GlobalDefinitions.ML_CPUS,
             scheduler=self._client,
             cv=TimeSeriesSplit(n_splits=5)  # A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
         )  # The models_gridsearch_parameters is obtained from the tfs_models file
@@ -672,7 +672,7 @@ class TFSLearner:
 
     def set_best_params_idx(self, idx: int, model_id: str | None = None) -> None:
         self._db_broker.send_sql(f"""UPDATE "{ProjectTables.MLModels.value}"
-                                     SET {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx'} = {idx}
+                                     SET {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'best_mean_speed_gridsearch_params_idx'} = {idx}
                                      WHERE id = '{model_id or self._model.model_id}';""")
         return None
 
@@ -710,9 +710,9 @@ class TFSLearner:
 
     def export_best_params(self, results: pd.DataFrame):
 
-        best_params_idx: int = self._db_broker.send_sql(sql=f"""SELECT {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx'} 
+        best_params_idx: int = self._db_broker.send_sql(sql=f"""SELECT {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'best_mean_speed_gridsearch_params_idx'} 
                                                                 FROM "{ProjectTables.MLModels.value}"
-                                                                WHERE id = {self._model.model_id};""", single=True)['best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else 'best_mean_speed_gridsearch_params_idx']
+                                                                WHERE id = {self._model.model_id};""", single=True)['best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'best_mean_speed_gridsearch_params_idx']
 
         true_best_params = results["params"].iloc[best_params_idx] or {}
         #true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) #TODO READ THE TODO BELOW
@@ -758,8 +758,8 @@ class OnePointForecaster:
                    Example: if we had a limit of 2000, we'll only collect the latest 2000 records.
         """
         loading_functions_mapping = {
-            GlobalDefinitions.TARGET_DATA.value["V"]: self._loader.get_volume,
-            GlobalDefinitions.TARGET_DATA.value["MS"]: self._loader.get_mean_speed
+            GlobalDefinitions.TARGET_DATA["V"]: self._loader.get_volume,
+            GlobalDefinitions.TARGET_DATA["MS"]: self._loader.get_mean_speed
         }
         if training_mode == 0:
             if limit:
@@ -787,9 +787,9 @@ class OnePointForecaster:
             A dask dataframe of empty records for future predictions.
         """
 
-        attr = {"volume": np.nan} if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else {"mean_speed": np.nan, "percentile_85": np.nan}
+        attr = {"volume": np.nan} if self._target == GlobalDefinitions.TARGET_DATA["V"] else {"mean_speed": np.nan, "percentile_85": np.nan}
 
-        last_available_data_dt = self._db_broker.get_volume_date_boundaries()["max"] if self._target == GlobalDefinitions.TARGET_DATA.value["V"] else self._db_broker.get_mean_speed_date_boundaries()["max"] #TODO LOAD FROM DB AND REMOVE DATETIME TYPE CASTING
+        last_available_data_dt = self._db_broker.get_volume_date_boundaries()["max"] if self._target == GlobalDefinitions.TARGET_DATA["V"] else self._db_broker.get_mean_speed_date_boundaries()["max"] #TODO LOAD FROM DB AND REMOVE DATETIME TYPE CASTING
         rows_to_predict = ({
                 **attr,
                 "coverage": np.nan,
@@ -799,11 +799,11 @@ class OnePointForecaster:
             } for dt in pd.date_range(start=last_available_data_dt, end=forecasting_horizon, freq="1h"))
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
-        if self._target == GlobalDefinitions.TARGET_DATA.value["V"]:
+        if self._target == GlobalDefinitions.TARGET_DATA["V"]:
             return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)),
                                    road_category=self._road_category,
                                    client=self._client).preprocess_volume(z_score=False)
-        elif self._target == GlobalDefinitions.TARGET_DATA.value["MS"]:
+        elif self._target == GlobalDefinitions.TARGET_DATA["MS"]:
             return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)),
                                    road_category=self._road_category,
                                    client=self._client).preprocess_mean_speed(z_score=False)
