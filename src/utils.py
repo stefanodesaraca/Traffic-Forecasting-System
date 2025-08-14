@@ -70,7 +70,7 @@ class GlobalDefinitions(BaseModel):
 
 
 def check_target(target: str) -> bool:
-    if not target in GlobalDefinitions.TARGET_DATA.keys() or not target in GlobalDefinitions.TARGET_DATA.values():
+    if not (target in GlobalDefinitions.TARGET_DATA.keys()) or not (target in GlobalDefinitions.TARGET_DATA.values()):
         return False
     return True
 
@@ -203,12 +203,11 @@ class ForecastingToolbox:
 
 
     async def get_forecasting_horizon_async(self, target: str) -> datetime.datetime:
-            if not check_target(target):
-                raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
-            return (await self._db_broker_async.send_sql_async(
-                                                f"""SELECT config -> {'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'} AS volume_horizon
-                                                    FROM "{ProjectTables.ForecastingSettings.value}"
-                                                    WHERE id = TRUE;"""))[target]
+        if not check_target(target):
+            raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
+        return (await self._db_broker_async.send_sql_async(f"""SELECT config -> {'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'} AS volume_horizon
+                                                               FROM "{ProjectTables.ForecastingSettings.value}"
+                                                               WHERE id = TRUE;"""))[target]
 
 
     async def reset_forecasting_horizon_async(self, target: str) -> None:
