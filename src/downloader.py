@@ -8,7 +8,7 @@ from gql.transport.exceptions import TransportServerError
 from gql.transport.aiohttp import AIOHTTPTransport
 from graphql import ExecutionResult
 from pydantic.types import PositiveInt
-from aiohttp.client_exceptions import ClientConnectorError
+from aiohttp.client_exceptions import ClientConnectorError, ClientOSError
 
 from pipelines import VolumeExtractionPipeline
 from utils import GlobalDefinitions
@@ -303,7 +303,7 @@ async def volumes_to_db(db_broker_async: Any, time_start: str, time_end: str, n_
                 async with batch_lock:
                     # If a batch for the TRP exists then just append the collected data to the previously collected ones, otherwise append the whole query result with additional data returned from the API
                     if batch_buffers.get(trp_id, None) is not None:
-                        batch_buffers[trp_id]["volume"]["byHour"]["edges"].extend(query_result["volume"]["byHour"]["edges"])
+                        batch_buffers[trp_id]["trafficData"]["volume"]["byHour"]["edges"].extend(query_result["trafficData"]["volume"]["byHour"]["edges"])
                     else:
                         batch_buffers[trp_id] = query_result
                     # Once the number of records in the buffer reaches the batch_size parameter's value
@@ -321,7 +321,7 @@ async def volumes_to_db(db_broker_async: Any, time_start: str, time_end: str, n_
                 await asyncio.sleep(delay=(2 ^ retries) + random.random()) #Exponential backoff
                 retries += 1
 
-            except ClientConnectorError:
+            except (ClientConnectorError, ClientOSError):
                 await asyncio.sleep(delay=(2 ^ retries ^ retries) + random.random())  #Big exponential backoff
                 retries += 1
 
@@ -374,13 +374,13 @@ async def single_trp_volumes_to_db(db_broker_async: Any, trp_id: str, time_start
             end_cursor = page_info["endCursor"] if page_info["hasNextPage"] else None
 
             if batch_buffer:
-                batch_buffer["volume"]["byHour"]["edges"].extend(
+                batch_buffer["trafficData"]["volume"]["byHour"]["edges"].extend(
                     query_result["trafficData"]["volume"]["byHour"]["edges"]
                 )
             else:
-                batch_buffer.update(query_result["trafficData"])
+                batch_buffer.update(query_result)
 
-            if len(batch_buffer["volume"]["byHour"]["edges"]) >= batch_size:
+            if len(batch_buffer["trafficData"]["volume"]["byHour"]["edges"]) >= batch_size:
                 await flush_batch()
 
             pages_counter += 1
@@ -394,7 +394,7 @@ async def single_trp_volumes_to_db(db_broker_async: Any, trp_id: str, time_start
             await asyncio.sleep(delay=(2 ** retries) + random.random())
             retries += 1
 
-        except ClientConnectorError:
+        except (ClientConnectorError, ClientOSError):
             await asyncio.sleep(delay=(2 ** retries ** retries) + random.random())
             retries += 1
 
