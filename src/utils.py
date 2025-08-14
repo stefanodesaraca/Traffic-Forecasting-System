@@ -3,8 +3,7 @@ from pathlib import Path
 import datetime
 from datetime import timezone, timedelta, tzinfo
 from zoneinfo import ZoneInfo
-from typing import Literal, Any, cast, Generator, AsyncGenerator
-from enum import Enum
+from typing import Literal, Any
 import os
 import asyncio
 import pandas as pd
@@ -72,7 +71,7 @@ class GlobalDefinitions(BaseModel):
 
 
 def check_target(target: str) -> bool:
-    if not target in cast(dict, GlobalDefinitions.TARGET_DATA).keys() or not target in cast(dict, GlobalDefinitions.TARGET_DATA).values():
+    if not target in GlobalDefinitions.TARGET_DATA.keys() or not target in GlobalDefinitions.TARGET_DATA.values():
         return False
     return True
 
@@ -155,10 +154,10 @@ class ForecastingToolbox:
         print("Latest data available: ", last_available_data_dt)
         print("Maximum settable date: ", last_available_data_dt + relativedelta(last_available_data_dt, days=GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE)) #Using cast to avoid type checker warnings
 
-        horizon = datetime.datetime.strptime(input("Insert forecasting horizon (YYYY-MM-DDTHH): "), cast(str, GlobalDefinitions.DT_INPUT_FORMAT)).replace(tzinfo=cast(tzinfo, GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE_TIMEDELTA)).isoformat()
+        horizon = datetime.datetime.strptime(input("Insert forecasting horizon (YYYY-MM-DDTHH): "), GlobalDefinitions.DT_INPUT_FORMAT).replace(tzinfo=GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE_TIMEDELTA).isoformat()
 
         assert horizon > last_available_data_dt, "Forecasting target datetime is prior to the latest data available"
-        assert (cast(datetime.datetime, horizon) - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"
+        assert (horizon - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"
 
         self._db_broker.send_sql(f"""UPDATE "{ProjectTables.ForecastingSettings.value}"
                                      SET config = jsonb_set(
@@ -193,7 +192,7 @@ class ForecastingToolbox:
         return None
 
 
-    async def set_forecasting_horizon_async(self, forecasting_window_size: PositiveInt = cast(int, GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE)) -> None:
+    async def set_forecasting_horizon_async(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE) -> None:
         """
         Parameters:
             forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24.
@@ -203,7 +202,7 @@ class ForecastingToolbox:
         Returns:
             None
         """
-        max_forecasting_window_size: int = max(cast(int, GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE), forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
+        max_forecasting_window_size: int = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
         print("V = Volume | MS = Mean Speed")
         option = input("Target: ")
@@ -222,11 +221,11 @@ class ForecastingToolbox:
         print("Latest data available: ", last_available_data_dt)
         print("Maximum settable date: ", last_available_data_dt + relativedelta(last_available_data_dt, days=GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE))
 
-        horizon = datetime.datetime.strptime(input("Insert forecasting horizon (YYYY-MM-DDTHH): "), GlobalDefinitions.DT_INPUT_FORMAT).replace(tzinfo=cast(tzinfo, GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE_TIMEDELTA)).isoformat()
+        horizon = datetime.datetime.strptime(input("Insert forecasting horizon (YYYY-MM-DDTHH): "), GlobalDefinitions.DT_INPUT_FORMAT).replace(tzinfo=GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE_TIMEDELTA).isoformat()
         # The month number must be zero-padded, for example: 01, 02, etc.
 
-        assert cast(datetime.datetime, horizon) > last_available_data_dt, "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
-        assert (cast(datetime.datetime, horizon) - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
+        assert horizon > last_available_data_dt, "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
+        assert (horizon - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
         # The number of days to forecast
         # Checking if the target datetime isn't ahead of the maximum number of days to forecast
 
