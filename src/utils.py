@@ -75,6 +75,10 @@ def check_target(target: str) -> bool:
     return True
 
 
+def to_pg_array(py_list: list[str]) -> str:
+    return "{" + ",".join(py_list) + "}"
+
+
 def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
         df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
         return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
