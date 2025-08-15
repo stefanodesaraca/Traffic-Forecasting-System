@@ -190,19 +190,20 @@ def execute_eda() -> None:
 def forecasts_warmup(functionality: str) -> None:
     db_broker = get_db_broker()
     loader = BatchStreamLoader(db_broker=db_broker)
+    models_query = f"""SELECT 
+                            m.name, 
+                            mo.pickle_object AS binary_obj,
+                            m.base_params AS base_parameters,
+                            m.volume_best_params AS volume_best_parameters,
+                            m.mean_speed_best_params AS mean_speed_best_parameters
+                        FROM
+                            "{ProjectTables.MLModels.value}" m
+                        JOIN
+                            "{ProjectTables.MLModelObjects.value}" mo ON m.id = mo.id;"""
     models = {m["name"]: {"binary_obj": m["binary_obj"],
                           "base_parameters": m["base_parameters"],
                           "volume_best_parameters": m["volume_best_parameters"],
-                          "mean_speed_best_parameters": m["mean_speed_best_parameters"]} for m in db_broker.send_sql(f"""SELECT
-                                                                                                                            m.name,
-                                                                                                                            mo.pickle_object AS binary_obj,
-                                                                                                                            m.base_params AS base_parameters,
-                                                                                                                            m.volume_best_params AS volume_best_parameters,
-                                                                                                                            m.mean_speed_best_params AS mean_speed_best_parameters
-                                                                                                                        FROM
-                                                                                                                            "{ProjectTables.MLModels.value}" m
-                                                                                                                        JOIN
-                                                                                                                            "{ProjectTables.MLModelObjects.value}" mo ON m.id = mo.id;""")}
+                          "mean_speed_best_parameters": m["mean_speed_best_parameters"]} for m in db_broker.send_sql(models_query)}
     actual_target: str | None = None
 
 
@@ -256,6 +257,8 @@ def forecasts_warmup(functionality: str) -> None:
 
             for model, metadata in models:
                 params = models[model][f"{actual_target}_best_params"] if function_name != "ml_gridsearch" else models[model]["base_params"]
+
+                print(params)
 
                 learner = TFSLearner(model=model(**params), road_category=road_category, target=actual_target, client=client, db_broker=db_broker)
                 func(X_train if function_name in ["ml_gridsearch", "ml_training"] else X_test,

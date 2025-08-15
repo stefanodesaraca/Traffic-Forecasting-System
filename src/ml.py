@@ -137,8 +137,8 @@ class TFSPreprocessor:
         for idx, n in enumerate(lag12h_column_names): self._data[n] = self._data[GlobalDefinitions.VOLUME].shift(idx + 12)  # 12 hours shift
         for idx, n in enumerate(lag24h_column_names): self._data[n] = self._data[GlobalDefinitions.VOLUME].shift(idx + 24)  # 24 hours shift
 
-        # print(volumes.head(10))
-        # print(volumes.dtypes)
+        # print(self._data.head(10))
+        # print(self._data.dtypes)
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
@@ -240,7 +240,7 @@ class ModelWrapper(BaseModel):
     model_obj: Any
     target: str
 
-
+    # noinspection PyNestedDecorators
     @field_validator("model_obj", mode="after")
     @classmethod
     def validate_model_obj(cls, model_obj) -> Any:
@@ -465,8 +465,8 @@ class TFSLearner:
 
     def _load_model(self) -> callable:
         return pickle.load(self._db_broker.send_sql(f"""SELECT mo.pickle_object
-                                                             FROM "{ProjectTables.MLModels.value}" m LEFT JOIN "{ProjectTables.MLModelObjects.value}" mo on m.id = mo.id
-                                                             WHERE m.name = {self._model.name}""", single=True)["pickle_object"])
+                                                            FROM "{ProjectTables.MLModels.value}" m LEFT JOIN "{ProjectTables.MLModelObjects.value}" mo on m.id = mo.id
+                                                            WHERE m.name = {self._model.name}""", single=True)["pickle_object"])
 
 
     @property
