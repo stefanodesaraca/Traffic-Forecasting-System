@@ -205,15 +205,15 @@ class ForecastingToolbox:
     async def get_forecasting_horizon_async(self, target: str) -> datetime.datetime:
         if not check_target(target):
             raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
-        return (await self._db_broker_async.send_sql_async(f"""SELECT config -> {'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'} AS volume_horizon
+        return (await self._db_broker_async.send_sql_async(f"""SELECT "config" -> '{'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'}' AS horizon
                                                                FROM "{ProjectTables.ForecastingSettings.value}"
-                                                               WHERE id = TRUE;"""))[target]
+                                                               WHERE "id" = TRUE;"""))[0]["horizon"]
 
 
     async def reset_forecasting_horizon_async(self, target: str) -> None:
         if not check_target(target):
             raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
         await self._db_broker_async.send_sql_async(f"""UPDATE "{ProjectTables.ForecastingSettings.value}"
-                                                       SET config = jsonb_set(config, '{'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'}', 'null'::jsonb)
-                                                       WHERE id = TRUE;""")
+                                                       SET "config" = jsonb_set("config", '{{{'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'}}}', 'null'::jsonb)
+                                                       WHERE "id" = TRUE;""")
         return None
