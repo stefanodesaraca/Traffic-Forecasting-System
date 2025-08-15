@@ -123,8 +123,7 @@ class DBBroker:
         if "SELECT" not in sql:
             raise WrongSQLStatement("Cannot return a data stream from a non selective statement (SELECT)")
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host, row_factory=row_factory) as conn:
-            with conn.cursor().stream(query=sql, *filters, size=batch_size) as cursor:
-                return cursor
+            return conn.cursor().stream(query=sql, params=filters, size=batch_size)
 
 
     def get_trp_ids(self, road_category_filter: list[str] | None = None) -> list[tuple[Any, ...]]:
@@ -132,7 +131,7 @@ class DBBroker:
             with self.PostgresConnectionCursor(query=f"""
                     SELECT id FROM "{ProjectTables.TrafficRegistrationPoints.value}";
                     {"WHERE road_category = ANY(%s)"} if road_category_filter else "") as cur:
-                 """, *tuple(f for f in [road_category_filter] if f)) as cur:
+                 """, *tuple(f for f in [road_category_filter] if f), conn=conn) as cur:
                 return cur.fetchall()
 
 
