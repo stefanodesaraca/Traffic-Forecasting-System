@@ -1,4 +1,4 @@
-from typing import Any, Literal, Iterator, Generator, LiteralString
+from typing import Any, Literal, Generator, LiteralString
 from contextlib import contextmanager
 
 import psycopg
@@ -8,7 +8,7 @@ import asyncpg
 from exceptions import WrongSQLStatement, MissingDataException
 from dbmanager import AIODBManager, postgres_conn_async, postgres_conn
 from db_config import HubDBTables, ProjectTables, ProjectViews, RowFactories
-from src.utils import GlobalDefinitions
+from utils import GlobalDefinitions
 
 
 class AIODBBroker:
@@ -143,7 +143,7 @@ class DBBroker:
                                                              SELECT "road_category", json_agg("trp_id" ORDER BY "trp_id") AS ids
                                                              FROM "{ProjectViews.TrafficRegistrationPointsMetadataView.value}"
                                                              WHERE {f"has_{GlobalDefinitions.VOLUME} = TRUE" if has_volumes else "1=1"}
-                                                             WHERE {f"has_{GlobalDefinitions.MEAN_SPEED} = TRUE" if has_mean_speed else "1=1"}
+                                                             AND {f"has_{GlobalDefinitions.MEAN_SPEED} = TRUE" if has_mean_speed else "1=1"}
                                                              GROUP BY "road_category"
                                                          ) AS sub;
                                                       """, conn=conn) as cur:

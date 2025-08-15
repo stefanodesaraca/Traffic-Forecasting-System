@@ -230,7 +230,8 @@ def forecasts_warmup(functionality: str) -> None:
     def process_functionality(func: callable) -> None:
         function_name = func.__name__
 
-        for road_category, trp_ids in db_broker.get_trp_ids_by_road_category().items():
+        for road_category, trp_ids in db_broker.get_trp_ids_by_road_category(has_volumes=True if actual_target == GlobalDefinitions.VOLUME else False,
+                                                                             has_mean_speed=True if actual_target == GlobalDefinitions.MEAN_SPEED else False).items():
 
             print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 
