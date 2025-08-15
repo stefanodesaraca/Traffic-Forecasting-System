@@ -7,7 +7,7 @@ from warnings import simplefilter
 import hashlib
 import datetime
 from typing import Any, Literal
-from pydantic import BaseModel as PydanticBaseModel, field_validator
+from pydantic import BaseModel, field_validator
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -167,24 +167,6 @@ class TFSPreprocessor:
         7. Dropping unnecessary columns
         """
 
-        #TODO CREATE hour, week, day, month
-
-        # ------------------ Cyclical variables encoding ------------------
-
-        self._data["hour_sin"] = self._data["hour"].map_partitions(self.sin_encoder, timeframe=24)
-        self._data["hour_cos"] = self._data["hour"].map_partitions(self.cos_encoder, timeframe=24)
-
-        self._data["week_sin"] = self._data["week"].map_partitions(self.sin_encoder, timeframe=52)
-        self._data["week_cos"] = self._data["week"].map_partitions(self.cos_encoder, timeframe=52)
-
-        self._data["day_sin"] = self._data["day"].map_partitions(self.sin_encoder, timeframe=31)
-        self._data["day_cos"] = self._data["day"].map_partitions(self.cos_encoder, timeframe=31)
-
-        self._data["month_sin"] = self._data["month"].map_partitions(self.sin_encoder, timeframe=12)
-        self._data["month_cos"] = self._data["month"].map_partitions(self.cos_encoder, timeframe=12)
-
-        # print("\n\n")
-
         # ------------------ Outliers filtering with Z-Score ------------------
 
         if z_score:
@@ -220,14 +202,10 @@ class TFSPreprocessor:
         # print(volumes.head(10))
         # print(volumes.dtypes)
 
-        # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
-
-        self._data["is_covid_year"] = (self._data["year"].isin(GlobalDefinitions.COVID_YEARS)).astype("int")  # Creating a dummy variable which indicates if the traffic volume for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
-
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
         #TODO DROP OTHER USELESS COLUMNS
-        self._data = self._data.drop(columns=["year", "month", "week", "day", "trp_id", "zoned_dt_iso"], axis=1).persist()  # Keeping year and hour data and the encoded_trp_id
+        self._data = self._data.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1).persist()  # Keeping year and hour data and the encoded_trp_id
 
         # print("Volumes dataframe head: ")
         # print(self._data.head(5), "\n")
@@ -265,24 +243,6 @@ class TFSPreprocessor:
         6. Creating COVID dummy variables
         7. Dropping unnecessary columns
         """
-
-        #TODO CREATE hour, week, day, month
-
-        # ------------------ Cyclical variables encoding ------------------
-
-        self._data["hour_start_sin"] = self._data["hour_start"].map_partitions(self.sin_encoder, timeframe=24)
-        self._data["hour_start_cos"] = self._data["hour_start"].map_partitions(self.cos_encoder, timeframe=24)
-
-        self._data["week_sin"] = self._data["week"].map_partitions(self.sin_encoder, timeframe=52)
-        self._data["week_cos"] = self._data["week"].map_partitions(self.cos_encoder, timeframe=52)
-
-        self._data["day_sin"] = self._data["day"].map_partitions(self.sin_encoder, timeframe=31)
-        self._data["day_cos"] = self._data["day"].map_partitions(self.cos_encoder, timeframe=31)
-
-        self._data["month_sin"] = self._data["month"].map_partitions(self.sin_encoder, timeframe=12)
-        self._data["month_cos"] = self._data["month"].map_partitions(self.cos_encoder, timeframe=12)
-
-        print("\n\n")
 
         # ------------------ Outliers filtering with Z-Score ------------------
 
@@ -326,14 +286,10 @@ class TFSPreprocessor:
         # print(self._data.head(10))
         # print(self._data.dtypes)
 
-        # ------------------ Creating dummy variables to address to the low value for traffic volumes in some years due to covid ------------------
-
-        self._data["is_covid_year"] = self._data["year"].isin(GlobalDefinitions.COVID_YEARS).astype("int")  # Creating a dummy variable which indicates if the average speed for a record has been affected by covid (because the traffic volume was recorded during one of the covid years)
-
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
         #TODO DROP OTHER USELESS COLUMNS
-        self._data = self._data.drop(columns=["year", "month", "week", "day", "trp_id", "zoned_dt_iso"], axis=1).persist()
+        self._data = self._data.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1).persist()
 
         # print("Average speeds dataframe head: ")
         # print(self._data.head(5), "\n")
@@ -345,13 +301,10 @@ class TFSPreprocessor:
 
 
 
-class BaseModel(PydanticBaseModel):
+class ModelWrapper(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-
-
-class ModelWrapper(BaseModel):
     model_obj: Any
     target: str
 
@@ -573,9 +526,9 @@ class TFSLearner:
         dict[str, Any]
             The model's grid for hyperparameter tuning.
         """
-        return json.loads(self._db_broker.send_sql(sql=f"""SELECT {'volume_grid' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'mean_speed_grid'} 
+        return json.loads(self._db_broker.send_sql(sql=f"""SELECT "{'volume_grid' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'mean_speed_grid'} "
                                                            FROM "{ProjectTables.MLModels.value}"
-                                                           WHERE id = {self._model.model_id};""", single=True)['volume_grid' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'mean_speed_grid'])
+                                                           WHERE "id" = {self._model.model_id};""", single=True)['volume_grid' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'mean_speed_grid'])
 
 
     def _load_model(self) -> callable:
@@ -672,8 +625,8 @@ class TFSLearner:
 
     def set_best_params_idx(self, idx: int, model_id: str | None = None) -> None:
         self._db_broker.send_sql(f"""UPDATE "{ProjectTables.MLModels.value}"
-                                     SET {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'best_mean_speed_gridsearch_params_idx'} = {idx}
-                                     WHERE id = '{model_id or self._model.model_id}';""")
+                                     SET "{'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'best_mean_speed_gridsearch_params_idx'}" = {idx}
+                                     WHERE "id" = '{model_id or self._model.model_id}';""")
         return None
 
 
@@ -687,32 +640,32 @@ class TFSLearner:
         results["params"] = results["params"].apply(json.dumps) #Binarizing parameters' dictionary
         self._db_broker.send_sql(f"""
             INSERT INTO "{ProjectTables.ModelGridSearchCVResults.value}" (
-                model_id,
-                road_category_id,
-                params,
-                mean_fit_time,
-                mean_test_r2,
-                mean_train_r2,
-                mean_test_mean_squared_error,
-                mean_train_mean_squared_error,
-                mean_test_root_mean_squared_error,
-                mean_train_root_mean_squared_error,
-                mean_test_mean_absolute_error,
-                mean_train_mean_absolute_error
+                "model_id",
+                "road_category_id",
+                "params",
+                "mean_fit_time",
+                "mean_test_r2",
+                "mean_train_r2",
+                "mean_test_mean_squared_error",
+                "mean_train_mean_squared_error",
+                "mean_test_root_mean_squared_error",
+                "mean_train_root_mean_squared_error",
+                "mean_test_mean_absolute_error",
+                "mean_train_mean_absolute_error"
             )
             VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
-            ON CONFLICT (model_id) DO UPDATE;
+            ON CONFLICT ("model_id") DO UPDATE;
         """, many=True, many_values=[tuple(row) for row in results.itertuples(index=False, name=None)])
         return None
 
 
     def export_best_params(self, results: pd.DataFrame):
 
-        best_params_idx: int = self._db_broker.send_sql(sql=f"""SELECT {'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'best_mean_speed_gridsearch_params_idx'} 
+        best_params_idx: int = self._db_broker.send_sql(sql=f"""SELECT "{'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'best_mean_speed_gridsearch_params_idx'} "
                                                                 FROM "{ProjectTables.MLModels.value}"
-                                                                WHERE id = {self._model.model_id};""", single=True)['best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'best_mean_speed_gridsearch_params_idx']
+                                                                WHERE "id" = {self._model.model_id};""", single=True)['best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'best_mean_speed_gridsearch_params_idx']
 
         true_best_params = results["params"].iloc[best_params_idx] or {}
         #true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) #TODO READ THE TODO BELOW
