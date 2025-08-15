@@ -187,7 +187,6 @@ def execute_eda() -> None:
     return None
 
 
-# NOTE IN THE FUTURE WE COULD PREDICT percentile_85 AS WELL
 def forecasts_warmup(functionality: str) -> None:
     db_broker = get_db_broker()
     loader = BatchStreamLoader(db_broker=db_broker)
@@ -268,37 +267,37 @@ def forecasts_warmup(functionality: str) -> None:
         functionality_mapping = {
             "3.2.1": {
                 "func": ml_gridsearch,
-                "target": "3.2.1",
+                "target": GlobalDefinitions.VOLUME,
                 "preprocessing_method": "preprocess_volume",
                 "loading_method": "get_volume"
             },
             "3.2.2": {
                 "func": ml_gridsearch,
-                "target": "3.2.2",
+                "target": GlobalDefinitions.MEAN_SPEED,
                 "preprocessing_method": "preprocess_mean_speed",
                 "loading_method": "get_mean_speed"
             },
             "3.2.3": {
                 "func": ml_training,
-                "target": "3.2.3",
+                "target": GlobalDefinitions.VOLUME,
                 "preprocessing_method": "preprocess_volume",
                 "loading_method": "get_volume"
             },
             "3.2.4": {
                 "func": ml_training,
-                "target": "3.2.4",
+                "target": GlobalDefinitions.MEAN_SPEED,
                 "preprocessing_method": "preprocess_mean_speed",
                 "loading_method": "get_mean_speed"
             },
             "3.2.5": {
                 "func": ml_testing,
-                "target": "3.2.5",
+                "target": GlobalDefinitions.VOLUME,
                 "preprocessing_method": "preprocess_volume",
                 "loading_method": "get_volume"
             },
             "3.2.6": {
                 "func": ml_testing,
-                "target": "3.2.6",
+                "target": GlobalDefinitions.MEAN_SPEED,
                 "preprocessing_method": "preprocess_mean_speed",
                 "loading_method": "get_mean_speed"
             }

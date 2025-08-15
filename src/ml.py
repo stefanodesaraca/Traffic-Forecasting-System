@@ -107,8 +107,6 @@ class TFSPreprocessor:
         7. Dropping unnecessary columns
         """
 
-        print(self._data.compute().head(10))
-
         # ------------------ Outliers filtering with Z-Score ------------------
 
         if z_score:
@@ -122,7 +120,7 @@ class TFSPreprocessor:
         self._data = self._data.assign(trp_id_encoded=encoder.fit_transform(self._data["trp_id"]))  # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
         self._data.persist()
 
-        # print("Encoded TRP IDs:", sorted(volumes["trp_id_encoded"].unique().compute()))
+        #print("Encoded TRP IDs:", sorted(self._data["trp_id_encoded"].unique().compute()))
 
         # ------------------ Variables normalization ------------------
 

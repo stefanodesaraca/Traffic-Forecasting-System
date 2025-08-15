@@ -99,8 +99,6 @@ def split_by_target(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tup
         X_train, X_test, y_train, y_test
     """
 
-    print("Data:", data)
-
     X = data.drop(columns=[target])
     y = data[[target]]
 
