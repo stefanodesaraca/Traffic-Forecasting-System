@@ -1,4 +1,8 @@
 from enum import Enum
+from typing import Any
+from pydantic import BaseModel
+from psycopg.rows import tuple_row, dict_row
+
 from dbsecrets import superuser, superuser_password
 
 class DBConfig(Enum):
@@ -59,21 +63,12 @@ class ProjectViews(Enum):
     VolumeMeanSpeedDateRangesView = "VolumeMeanSpeedDateRangesView"
 
 
+class RowFactories(BaseModel):
+    class Config:
+        arbitrary_types_allowed = True
+        frozen = True
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    factories: dict["str", Any] = {
+        "tuple_row": tuple_row,
+        "dict_row": dict_row
+    }

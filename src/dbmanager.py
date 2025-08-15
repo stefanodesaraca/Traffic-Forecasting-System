@@ -7,11 +7,11 @@ import aiofiles
 import asyncpg
 from asyncpg.exceptions import DuplicateDatabaseError
 import psycopg
-from psycopg.rows import tuple_row, dict_row
+from psycopg.rows import tuple_row
 from cleantext import clean
 
 from exceptions import ProjectDBNotFoundError
-from db_config import HubDBTables, HUBDBConstraints, ProjectTables, ProjectConstraints, ProjectViews, AIODBManagerInternalConfig as AIODBMInternalConfig
+from db_config import HubDBTables, HUBDBConstraints, ProjectTables, ProjectConstraints, ProjectViews, RowFactories, AIODBManagerInternalConfig as AIODBMInternalConfig
 from downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
 from utils import GlobalDefinitions
 
@@ -32,12 +32,7 @@ async def postgres_conn_async(user: str, password: str, dbname: str, host: str =
 
 
 @contextmanager
-def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost', autocommit: bool = True,
-                  row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> psycopg.connection:
-    row_factories = {
-        "tuple_row": tuple_row,
-        "dict_row": dict_row
-    }
+def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost', autocommit: bool = True, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> psycopg.connection:
     conn = None
     try:
         conn = psycopg.connect(
@@ -45,7 +40,7 @@ def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost'
             user=user,
             password=password,
             host=host,
-            row_factory=row_factories.get(row_factory, tuple_row)
+            row_factory=RowFactories.factories.get(row_factory, tuple_row)
         )
         conn.autocommit = autocommit
         yield conn

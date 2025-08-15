@@ -198,12 +198,12 @@ def forecasts_warmup(functionality: str) -> None:
                                                                                                                             m.name,
                                                                                                                             mo.pickle_object AS binary_obj,
                                                                                                                             m.base_params AS base_parameters,
-                                                                                                                            m.volume_best_params AS volume_best_parameters
+                                                                                                                            m.volume_best_params AS volume_best_parameters,
                                                                                                                             m.mean_speed_best_params AS mean_speed_best_parameters
                                                                                                                         FROM
-                                                                                                                            {ProjectTables.MLModels.value} m
+                                                                                                                            "{ProjectTables.MLModels.value}" m
                                                                                                                         JOIN
-                                                                                                                            {ProjectTables.MLModelObjects.value} mo ON m.id = mo.id;""")}
+                                                                                                                            "{ProjectTables.MLModelObjects.value}" mo ON m.id = mo.id;""")}
     actual_target: str | None = None
 
 
@@ -462,10 +462,9 @@ def main():
     4.2 Graph read (from already existing graph)
     4.3 Graph analysis
 5. Other options
-    5.1 Set forecasting system folders (manually)
     5.2 EDA (Exploratory Data Analysis)
-    5.3 Erase all data about an operation
-    5.4 Find best model for the current operation
+    5.3 Erase all data about a project
+    5.4 Find best model for the current project
     5.5 Analyze pre-existing road network graph
 0. Exit""")
 
