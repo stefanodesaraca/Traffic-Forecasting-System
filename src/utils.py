@@ -70,7 +70,7 @@ class GlobalDefinitions(BaseModel):
 
 
 def check_target(target: str) -> bool:
-    if not (target in GlobalDefinitions.TARGET_DATA.keys()) or not (target in GlobalDefinitions.TARGET_DATA.values()):
+    if target not in GlobalDefinitions.TARGET_DATA.keys() and target not in GlobalDefinitions.TARGET_DATA.values():
         return False
     return True
 
