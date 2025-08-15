@@ -1,4 +1,7 @@
-from typing import Any, Literal, Iterator
+from typing import Any, Literal, Iterator, Generator, LiteralString
+from contextlib import contextmanager
+
+import psycopg
 from pydantic.types import PositiveInt
 import asyncpg
 
@@ -88,6 +91,16 @@ class DBBroker:
         self._db_host = db_host
 
 
+    @contextmanager
+    def PostgresConnectionCursor(self, conn: psycopg.Connection, query: LiteralString, row_factory: Literal["tuple_row", "dict_row"] = "dict_row", *execute_args, **execute_kwargs) -> Generator[Any, Any, None]:
+        try:
+            with conn.cursor(row_factory=RowFactories.factories[row_factory]) as cursor:
+                cursor.execute(query, *execute_args, **execute_kwargs)
+                yield cursor
+        finally:
+            pass
+
+
     def send_sql(self, sql: str, single: bool = False, many: bool = False, many_values: list[tuple[Any, ...]] | None = None, row_factory: Literal["tuple_row", "dict_row"] = "dict_row", execute_args: list[Any] | None = None) -> Any:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host, row_factory=row_factory) as conn:
             with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
@@ -114,27 +127,25 @@ class DBBroker:
                 return cursor
 
 
-    def get_trp_ids(self, road_category_filter: list[str] | None = None, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> list[tuple[Any, ...]]:
+    def get_trp_ids(self, road_category_filter: list[str] | None = None) -> list[tuple[Any, ...]]:
         with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
-                conn.execute(f"""
+            with self.PostgresConnectionCursor(query=f"""
                     SELECT id FROM "{ProjectTables.TrafficRegistrationPoints.value}";
-                    {"WHERE road_category = ANY(%s)" if road_category_filter else ""}
-                """, *tuple(f for f in [road_category_filter] if f))
+                    {"WHERE road_category = ANY(%s)"} if road_category_filter else "") as cur:
+                 """, *tuple(f for f in [road_category_filter] if f)) as cur:
                 return cur.fetchall()
 
 
-    def get_trp_ids_by_road_category(self, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> dict[Any, ...]:
+    def get_trp_ids_by_road_category(self) -> dict[Any, ...]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
-                cur.execute(f"""SELECT json_object_agg(road_category, ids) AS result
-                                        FROM (
-                                            SELECT road_category, json_agg(id ORDER BY id) AS ids
-                                            FROM "{ProjectTables.TrafficRegistrationPoints.value}"
-                                            GROUP BY road_category
-                                        ) AS sub;
-                                     """)
-                return cur.fetchall()
+            with self.PostgresConnectionCursor(query=f"""SELECT json_object_agg(road_category, ids) AS result
+                                                         FROM (
+                                                             SELECT road_category, json_agg(id ORDER BY id) AS ids
+                                                             FROM "{ProjectTables.TrafficRegistrationPoints.value}"
+                                                             GROUP BY road_category
+                                                         ) AS sub;
+                                                      """, conn=conn) as cur:
+                return cur.fetchone()["result"]
             #Output example:
             #{
             #    "E": ["17684V2460285", "17900V111222"],
@@ -142,68 +153,63 @@ class DBBroker:
             #}
 
 
-    def get_volume_date_boundaries(self, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> dict[str, Any]:
+    def get_volume_date_boundaries(self) -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
-                cur.execute(f"""
-                    SELECT volume_start_date, volume_end_date
-                    FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
-                """)
+            with self.PostgresConnectionCursor(query=f"""
+                        SELECT volume_start_date, volume_end_date
+                        FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
+                    """, conn=conn) as cur:
                 result = cur.fetchone()
                 return {"min": result["volume_start_date"], "max": result["volume_end_date"]} #Respectively: min and max
 
 
-    def get_mean_speed_date_boundaries(self, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> dict[str, Any]:
+    def get_mean_speed_date_boundaries(self) -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
-                cur.execute(f"""
-                    SELECT mean_speed_start_date, mean_speed_end_date
-                    FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
-                """)
+            with self.PostgresConnectionCursor(f"""
+                        SELECT mean_speed_start_date, mean_speed_end_date
+                        FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
+                    """, conn=conn) as cur:
                 result = cur.fetchone()
                 return {"min": result["mean_speed_start_date"], "max": result["mean_speed_end_date"]} #Respectively: min and max
 
 
-    def get_all_trps_metadata(self, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> dict[str, dict[str, Any]]:
+    def get_all_trps_metadata(self) -> dict[str, dict[str, Any]]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
-                cur.execute()(f"""
-                    SELECT jsonb_object_agg("trp_id", to_jsonb(t) - 'trp_id') AS trp_metadata
-                    FROM (
-                        SELECT *
-                        FROM "{ProjectViews.TrafficRegistrationPointsMetadataView.value}"
-                    ) AS t;
-                """)
-            return cur.fetchone()
+            with self.PostgresConnectionCursor(f"""
+                        SELECT jsonb_object_agg("trp_id", to_jsonb(t) - 'trp_id') AS trp_metadata
+                        FROM (
+                            SELECT *
+                            FROM "{ProjectViews.TrafficRegistrationPointsMetadataView.value}"
+                        ) AS t;
+                    """, conn=conn) as cur:
+                return cur.fetchone()
 
 
-    def get_trp_metadata(self, trp_id: str, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> dict[str, Any]:
+    def get_trp_metadata(self, trp_id: str) -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
-                cur.execute(f"""
-                    SELECT TO_JSONB(t)
-                    FROM "{ProjectViews.TrafficRegistrationPointsMetadataView.value}" t
-                    WHERE trp_id = %s;
-                """, trp_id)
+            with self.PostgresConnectionCursor(query=f"""
+                        SELECT TO_JSONB(t)
+                        FROM "{ProjectViews.TrafficRegistrationPointsMetadataView.value}" t
+                        WHERE trp_id = %s;
+                    """, **{"trp_id": trp_id}, conn=conn) as cur:
                 return cur.fetchone()
 
     #TODO TRANSFER THIS OPERATION DIRECTLY INTO main.py AND USE send_sql()
-    def get_model_objects(self, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> dict[str, dict[str, Any]]:
+    def get_model_objects(self) -> dict[str, dict[str, Any]]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
-                conn.execute(f"""
-                    SELECT json_object_agg(
-                        m.name,
-                        json_build_object(
-                            'pickle_object', o.pickle_object,
-                            'volume_best_params', m.volume_best_params,
-                            'mean_speed_best_params', m.mean_speed_best_params
-                        )
-                    ) AS model_data
-                    FROM "{ProjectTables.MLModels.value}" m
-                    JOIN "{ProjectTables.MLModelObjects.value}" o ON m.id = o.id;
-                """)
-            return cur.fetchall()
+            with self.PostgresConnectionCursor(query=f"""
+                        SELECT json_object_agg(
+                            m.name,
+                            json_build_object(
+                                'pickle_object', o.pickle_object,
+                                'volume_best_params', m.volume_best_params,
+                                'mean_speed_best_params', m.mean_speed_best_params
+                            )
+                        ) AS model_data
+                        FROM "{ProjectTables.MLModels.value}" m
+                        JOIN "{ProjectTables.MLModelObjects.value}" o ON m.id = o.id;
+                    """, conn=conn) as cur:
+                return cur.fetchall()
 
 
 
