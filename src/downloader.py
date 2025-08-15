@@ -8,7 +8,7 @@ from gql.transport.exceptions import TransportServerError
 from gql.transport.aiohttp import AIOHTTPTransport
 from graphql import ExecutionResult
 from pydantic.types import PositiveInt
-from aiohttp.client_exceptions import ClientConnectorError
+from aiohttp.client_exceptions import ClientConnectorError, ClientOSError, ServerDisconnectedError
 
 from pipelines import VolumeExtractionPipeline
 from utils import GlobalDefinitions
@@ -321,7 +321,7 @@ async def volumes_to_db(db_broker_async: Any, time_start: str, time_end: str, n_
                 await asyncio.sleep(delay=(2 ^ retries) + random.random()) #Exponential backoff
                 retries += 1
 
-            except ClientConnectorError:
+            except (ClientConnectorError, ClientOSError, ServerDisconnectedError):
                 await asyncio.sleep(delay=(2 ^ retries ^ retries) + random.random())  #Big exponential backoff
                 retries += 1
 
@@ -394,7 +394,7 @@ async def single_trp_volumes_to_db(db_broker_async: Any, trp_id: str, time_start
             await asyncio.sleep(delay=(2 ** retries) + random.random())
             retries += 1
 
-        except ClientConnectorError:
+        except (ClientConnectorError, ClientOSError, ServerDisconnectedError):
             await asyncio.sleep(delay=(2 ** retries ** retries) + random.random())
             retries += 1
 
