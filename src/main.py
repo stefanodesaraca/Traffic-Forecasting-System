@@ -240,7 +240,7 @@ def forecasts_warmup(functionality: str) -> None:
                     data=getattr(loader, functionality_mapping[functionality]["loading_method"])(batch_size=50000, trp_list_filter=trp_ids, road_category_filter=road_category),
                     road_category=road_category,
                     client=client
-                ), functionality_mapping[functionality]["preprocessing_method"]),
+                ), functionality_mapping[functionality]["preprocessing_method"])(),
                 target=actual_target,
                 mode=0
             )
