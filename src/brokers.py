@@ -114,25 +114,27 @@ class DBBroker:
                 return cursor
 
 
-    def get_trp_ids(self, road_category_filter: list[str] | None = None) -> list[tuple[Any, ...]]:
+    def get_trp_ids(self, road_category_filter: list[str] | None = None, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> list[tuple[Any, ...]]:
         with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with conn.transaction():
-                return conn.fetchall(f"""
+            with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
+                conn.execute(f"""
                     SELECT id FROM "{ProjectTables.TrafficRegistrationPoints.value}";
                     {"WHERE road_category = ANY(%s)" if road_category_filter else ""}
                 """, *tuple(f for f in [road_category_filter] if f))
+                return cur.fetchall()
 
 
-    def get_trp_ids_by_road_category(self) -> dict[Any, ...]:
-        with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with conn.transaction():
-                return conn.fetchall(f"""SELECT json_object_agg(road_category, ids) AS result
+    def get_trp_ids_by_road_category(self, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> dict[Any, ...]:
+        with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
+            with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
+                cur.execute(f"""SELECT json_object_agg(road_category, ids) AS result
                                         FROM (
                                             SELECT road_category, json_agg(id ORDER BY id) AS ids
                                             FROM "{ProjectTables.TrafficRegistrationPoints.value}"
                                             GROUP BY road_category
                                         ) AS sub;
                                      """)
+                return cur.fetchall()
             #Output example:
             #{
             #    "E": ["17684V2460285", "17900V111222"],
@@ -140,52 +142,56 @@ class DBBroker:
             #}
 
 
-    def get_volume_date_boundaries(self) -> dict[str, Any]:
+    def get_volume_date_boundaries(self, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with conn.transaction():
-                result = conn.fetchone(f"""
+            with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
+                cur.execute(f"""
                     SELECT volume_start_date, volume_end_date
                     FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
                 """)
+                result = cur.fetchone()
                 return {"min": result["volume_start_date"], "max": result["volume_end_date"]} #Respectively: min and max
 
 
-    def get_mean_speed_date_boundaries(self) -> dict[str, Any]:
+    def get_mean_speed_date_boundaries(self, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with conn.transaction():
-                result = conn.fetchone(f"""
+            with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
+                cur.execute(f"""
                     SELECT mean_speed_start_date, mean_speed_end_date
                     FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
                 """)
+                result = cur.fetchone()
                 return {"min": result["mean_speed_start_date"], "max": result["mean_speed_end_date"]} #Respectively: min and max
 
 
-    def get_all_trps_metadata(self) -> dict[str, dict[str, Any]]:
+    def get_all_trps_metadata(self, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> dict[str, dict[str, Any]]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with conn.transaction():
-                return conn.fetchone()(f"""
-                    SELECT jsonb_object_agg(trp_id, to_jsonb(t) - 'trp_id') AS trp_metadata
+            with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
+                cur.execute()(f"""
+                    SELECT jsonb_object_agg("trp_id", to_jsonb(t) - 'trp_id') AS trp_metadata
                     FROM (
                         SELECT *
                         FROM "{ProjectViews.TrafficRegistrationPointsMetadataView.value}"
                     ) AS t;
                 """)
+            return cur.fetchone()
 
 
-    def get_trp_metadata(self, trp_id: str) -> dict[str, Any]:
+    def get_trp_metadata(self, trp_id: str, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with conn.transaction():
-                return conn.fetchone(f"""
+            with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
+                cur.execute(f"""
                     SELECT TO_JSONB(t)
                     FROM "{ProjectViews.TrafficRegistrationPointsMetadataView.value}" t
                     WHERE trp_id = %s;
                 """, trp_id)
+                return cur.fetchone()
 
     #TODO TRANSFER THIS OPERATION DIRECTLY INTO main.py AND USE send_sql()
-    def get_model_objects(self) -> dict[str, dict[str, Any]]:
+    def get_model_objects(self, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> dict[str, dict[str, Any]]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with conn.transaction():
-                return conn.fetchall(f"""
+            with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
+                conn.execute(f"""
                     SELECT json_object_agg(
                         m.name,
                         json_build_object(
@@ -194,9 +200,10 @@ class DBBroker:
                             'mean_speed_best_params', m.mean_speed_best_params
                         )
                     ) AS model_data
-                    FROM {ProjectTables.MLModels.value} m
-                    JOIN {ProjectTables.MLModelObjects.value} o ON m.id = o.id;
+                    FROM "{ProjectTables.MLModels.value}" m
+                    JOIN "{ProjectTables.MLModelObjects.value}" o ON m.id = o.id;
                 """)
+            return cur.fetchall()
 
 
 

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any
+from typing import Any, ClassVar
 from pydantic import BaseModel
 from psycopg.rows import tuple_row, dict_row
 
@@ -68,7 +68,7 @@ class RowFactories(BaseModel):
         arbitrary_types_allowed = True
         frozen = True
 
-    factories: dict["str", Any] = {
+    factories: ClassVar[dict[str, Any]] = {
         "tuple_row": tuple_row,
         "dict_row": dict_row
     }
