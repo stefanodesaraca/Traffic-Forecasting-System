@@ -247,6 +247,8 @@ class AIODBManager:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=name, host=self._db_host) as conn:
             async with conn.transaction():
                 # Tables
+
+                #Constraints
                 await conn.execute(f"""
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadCategories.value}" (
                             id TEXT PRIMARY KEY,
@@ -297,7 +299,7 @@ class AIODBManager:
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.Volume.value}" (
                             row_idx SERIAL,
                             trp_id TEXT NOT NULL,
-                            volume INTEGER NOT NULL,
+                            {GlobalDefinitions.VOLUME} INTEGER NOT NULL,
                             coverage FLOAT NOT NULL,
                             is_mice BOOLEAN DEFAULT FALSE,
                             zoned_dt_iso TIMESTAMPTZ NOT NULL,
@@ -308,7 +310,7 @@ class AIODBManager:
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.MeanSpeed.value}" (
                             row_idx SERIAL PRIMARY KEY,
                             trp_id TEXT NOT NULL,
-                            mean_speed FLOAT NOT NULL,
+                            {GlobalDefinitions.MEAN_SPEED} FLOAT NOT NULL,
                             coverage FLOAT NOT NULL,
                             is_mice BOOLEAN DEFAULT FALSE,
                             percentile_85 FLOAT NOT NULL,
@@ -318,12 +320,12 @@ class AIODBManager:
 
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.TrafficRegistrationPointsMetadata.value}" (
                             trp_id TEXT PRIMARY KEY,
-                            has_volume BOOLEAN DEFAULT FALSE,
-                            has_mean_speed BOOLEAN DEFAULT FALSE,
-                            volume_start_date TIMESTAMPTZ,
-                            volume_end_date TIMESTAMPTZ,
-                            mean_speed_start_date TIMESTAMPTZ,
-                            mean_speed_end_date TIMESTAMPTZ,
+                            has_{GlobalDefinitions.VOLUME} BOOLEAN DEFAULT FALSE,
+                            has_{GlobalDefinitions.MEAN_SPEED} BOOLEAN DEFAULT FALSE,
+                            {GlobalDefinitions.VOLUME}_start_date TIMESTAMPTZ,
+                            {GlobalDefinitions.VOLUME}_end_date TIMESTAMPTZ,
+                            {GlobalDefinitions.MEAN_SPEED}_start_date TIMESTAMPTZ,
+                            {GlobalDefinitions.MEAN_SPEED}_end_date TIMESTAMPTZ,
                             FOREIGN KEY (trp_id) REFERENCES "{ProjectTables.TrafficRegistrationPoints.value}"(id)
                         );
                         
@@ -332,12 +334,12 @@ class AIODBManager:
                             name TEXT NOT NULL UNIQUE,
                             type TEXT DEFAULT 'Regression',
                             base_params JSON NOT NULL,
-                            volume_best_params JSON,
-                            mean_speed_best_params JSON,
-                            volume_grid JSON NOT NULL,
-                            mean_speed_grid JSON NOT NULL,
-                            best_volume_gridsearch_params_idx INT DEFAULT 1,
-                            best_mean_speed_gridsearch_params_idx INT DEFAULT 1
+                            {GlobalDefinitions.VOLUME}_best_params JSON,
+                            {GlobalDefinitions.MEAN_SPEED}_best_params JSON,
+                            {GlobalDefinitions.VOLUME}_grid JSON NOT NULL,
+                            {GlobalDefinitions.MEAN_SPEED}_grid JSON NOT NULL,
+                            best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx INT DEFAULT 1,
+                            best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx INT DEFAULT 1
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.MLModelObjects.value}" (
@@ -369,8 +371,6 @@ class AIODBManager:
                             config JSONB DEFAULT '{{"volume_forecasting_horizon": null, "mean_speed_forecasting_horizon": null}}'
                         );
                 """)
-
-                #Constraints
                 await conn.execute(f"""
                             ALTER TABLE "{ProjectTables.Volume.value}"
                             ADD CONSTRAINT "{ProjectConstraints.UNIQUE_VOLUME_PER_TRP_AND_TIME.value}"
@@ -387,12 +387,12 @@ class AIODBManager:
                 SELECT
                     trp.id AS trp_id,
                     trp.road_category as road_category,
-                    BOOL_OR(v.volume IS NOT NULL) AS has_volume,
-                    BOOL_OR(ms.mean_speed IS NOT NULL) AS has_mean_speed,
-                    MIN(CASE WHEN v.volume IS NOT NULL THEN v.zoned_dt_iso END) AS volume_start_date,
-                    MAX(CASE WHEN v.volume IS NOT NULL THEN v.zoned_dt_iso END) AS volume_end_date,
-                    MIN(CASE WHEN ms.mean_speed IS NOT NULL THEN ms.zoned_dt_iso END) AS mean_speed_start_date,
-                    MAX(CASE WHEN ms.mean_speed IS NOT NULL THEN ms.zoned_dt_iso END) AS mean_speed_end_date
+                    BOOL_OR(v.{GlobalDefinitions.VOLUME} IS NOT NULL) AS has_{GlobalDefinitions.VOLUME},
+                    BOOL_OR(ms.{GlobalDefinitions.MEAN_SPEED} IS NOT NULL) AS has_{GlobalDefinitions.MEAN_SPEED},
+                    MIN(CASE WHEN v.{GlobalDefinitions.VOLUME} IS NOT NULL THEN v.zoned_dt_iso END) AS {GlobalDefinitions.VOLUME}_start_date,
+                    MAX(CASE WHEN v.{GlobalDefinitions.VOLUME} IS NOT NULL THEN v.zoned_dt_iso END) AS {GlobalDefinitions.VOLUME}_end_date,
+                    MIN(CASE WHEN ms.{GlobalDefinitions.MEAN_SPEED} IS NOT NULL THEN ms.zoned_dt_iso END) AS {GlobalDefinitions.MEAN_SPEED}_start_date,
+                    MAX(CASE WHEN ms.{GlobalDefinitions.MEAN_SPEED} IS NOT NULL THEN ms.zoned_dt_iso END) AS {GlobalDefinitions.MEAN_SPEED}_end_date
                 FROM
                     "{ProjectTables.TrafficRegistrationPoints.value}" trp
                 LEFT JOIN
@@ -404,10 +404,10 @@ class AIODBManager:
                 
                 CREATE OR REPLACE VIEW "{ProjectViews.VolumeMeanSpeedDateRangesView.value}" AS
                 SELECT
-                    MIN(v.zoned_dt_iso) AS volume_start_date,
-                    MAX(v.zoned_dt_iso) AS volume_end_date,
-                    MIN(ms.zoned_dt_iso) AS mean_speed_start_date,
-                    MAX(ms.zoned_dt_iso) AS mean_speed_end_date
+                    MIN(v.zoned_dt_iso) AS {GlobalDefinitions.VOLUME}_start_date,
+                    MAX(v.zoned_dt_iso) AS {GlobalDefinitions.VOLUME}_end_date,
+                    MIN(ms.zoned_dt_iso) AS {GlobalDefinitions.MEAN_SPEED}_start_date,
+                    MAX(ms.zoned_dt_iso) AS {GlobalDefinitions.MEAN_SPEED}_end_date
                 FROM "{ProjectTables.Volume.value}" v
                 FULL OUTER JOIN "{ProjectTables.MeanSpeed.value}" ms ON false;  -- Force Cartesian for aggregation without joining
                 """)

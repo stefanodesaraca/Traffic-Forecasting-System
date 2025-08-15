@@ -128,7 +128,7 @@ async def manage_downloads(functionality: str) -> None:
     return None
 
 
-async def mean_speeds_to_db(functionality: str) -> None:
+async def mean_speeds_to_db(_: str) -> None:
     pipeline = MeanSpeedExtractionPipeline(db_broker_async=await get_aiodb_broker())
     semaphore = asyncio.Semaphore(10)
 

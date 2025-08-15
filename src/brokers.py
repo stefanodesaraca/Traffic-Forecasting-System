@@ -8,7 +8,7 @@ import asyncpg
 from exceptions import WrongSQLStatement, MissingDataException
 from dbmanager import AIODBManager, postgres_conn_async, postgres_conn
 from db_config import HubDBTables, ProjectTables, ProjectViews, RowFactories
-
+from src.utils import GlobalDefinitions
 
 
 class AIODBBroker:
@@ -136,13 +136,15 @@ class DBBroker:
                 return cur.fetchall()
 
 
-    def get_trp_ids_by_road_category(self) -> dict[Any, ...]:
+    def get_trp_ids_by_road_category(self, has_volumes: bool = False, has_mean_speed: bool = False) -> dict[Any, ...]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with self.PostgresConnectionCursor(query=f"""SELECT json_object_agg(road_category, ids) AS result
+            with self.PostgresConnectionCursor(query=f"""SELECT json_object_agg("road_category", "ids") AS result
                                                          FROM (
-                                                             SELECT road_category, json_agg(id ORDER BY id) AS ids
-                                                             FROM "{ProjectTables.TrafficRegistrationPoints.value}"
-                                                             GROUP BY road_category
+                                                             SELECT "road_category", json_agg("trp_id" ORDER BY "trp_id") AS ids
+                                                             FROM "{ProjectViews.TrafficRegistrationPointsMetadataView.value}"
+                                                             WHERE {f"has_{GlobalDefinitions.VOLUME} = TRUE" if has_volumes else "1=1"}
+                                                             WHERE {f"has_{GlobalDefinitions.MEAN_SPEED} = TRUE" if has_mean_speed else "1=1"}
+                                                             GROUP BY "road_category"
                                                          ) AS sub;
                                                       """, conn=conn) as cur:
                 return cur.fetchone()["result"]

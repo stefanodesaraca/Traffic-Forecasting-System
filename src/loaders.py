@@ -90,6 +90,9 @@ class BatchStreamLoader:
         if batch:
             df_partitions.append(dd.from_pandas(pd.DataFrame.from_records(batch), npartitions=1))
 
+        #If df_partitions has only 1 element inside then there aren't any dataframes to concatenate since there's only one, so just return it
+        if len(df_partitions) == 1:
+            return df_partitions[0]
         return dd.concat(dfs=df_partitions, axis=0)
 
 
