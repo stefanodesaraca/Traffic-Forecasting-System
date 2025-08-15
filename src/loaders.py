@@ -71,11 +71,11 @@ class BatchStreamLoader:
                  ms.zoned_dt_iso AS zoned_dt_iso,
                  t.road_category AS road_category
             FROM "{ProjectTables.MeanSpeed.value}" ms JOIN "{ProjectTables.TrafficRegistrationPoints.value}" t ON ms.trp_id = t.id
-            WHERE {"{ms.trp_id = ANY(%s)}" if trp_list_filter else "1=1"}
-            AND {"{t.road_category = ANY(%s)}" if road_category_filter else "1=1"}
+            WHERE {"ms.trp_id = ANY(%s)" if trp_list_filter else "1=1"}
+            AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
             ORDER BY "zoned_dt_iso" DESC
             {f"LIMIT {limit}" if limit else ""}
-        """, filters=tuple(f for f in [trp_list_filter, road_category_filter] if f), batch_size=batch_size, row_factory="tuple_row")
+        """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter] if f), batch_size=batch_size, row_factory="tuple_row")
         # The ORDER BY (descending order) is necessary since in time series forecasting the order of the records is fundamental
 
         # WARNING: the order of the filters in the list within the list comprehension must be the same as the order of conditions inside the sql query
