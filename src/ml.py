@@ -107,7 +107,7 @@ class TFSPreprocessor:
         7. Dropping unnecessary columns
         """
 
-        print(self._data.head(10))
+        print(self._data.compute().head(10))
 
         # ------------------ Outliers filtering with Z-Score ------------------
 

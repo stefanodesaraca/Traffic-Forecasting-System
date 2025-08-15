@@ -75,7 +75,7 @@ class BatchStreamLoader:
             ''' if sort_by_date else ""
             }
             {f"LIMIT {limit}" if limit else ""}
-        """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter] if f), batch_size=batch_size, row_factory="tuple_row")
+        """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter] if f), batch_size=batch_size, row_factory="dict_row")
         # The ORDER BY (descending order) is necessary since in time series forecasting the order of the records is fundamental
 
         # WARNING: the order of the filters in the list within the list comprehension must be the same as the order of conditions inside the sql query
@@ -152,7 +152,7 @@ class BatchStreamLoader:
             ORDER BY "zoned_dt_iso" {"ASC" if sort_ascending else "DESC"}
             ''' if sort_by_date else ""
             }            {f"LIMIT {limit}" if limit else ""}
-        """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter] if f), batch_size=batch_size, row_factory="tuple_row")
+        """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter] if f), batch_size=batch_size, row_factory="dict_row")
         # The ORDER BY (descending order) is necessary since in time series forecasting the order of the records is fundamental
 
         # WARNING: the order of the filters in the list within the list comprehension must be the same as the order of conditions inside the sql query
