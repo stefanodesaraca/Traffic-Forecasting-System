@@ -90,7 +90,7 @@ class BatchStreamLoader:
         if batch:
             df_partitions.append(dd.from_pandas(pd.DataFrame.from_records(batch), npartitions=1))
 
-        return dd.concat(dfs=df_partitions, axis=1).sort_values(ascending=True, by=["zoned_dt_iso"])
+        return dd.concat(dfs=df_partitions, axis=0)
 
 
     def get_mean_speed(self,
@@ -167,4 +167,4 @@ class BatchStreamLoader:
         if batch:
             df_partitions.append(dd.from_pandas(pd.DataFrame.from_records(batch), npartitions=1))
 
-        return dd.concat(dfs=df_partitions, axis=1).sort_values(ascending=True, by=["zoned_dt_iso"])
+        return dd.concat(dfs=df_partitions, axis=0)
