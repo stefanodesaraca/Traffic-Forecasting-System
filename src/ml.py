@@ -170,9 +170,7 @@ class TFSPreprocessor:
         # ------------------ Outliers filtering with Z-Score ------------------
 
         if z_score:
-            self._data = ZScore(self._data, "volume")
-
-        self._data = self._data.sort_values(by=["zoned_dt_iso"], ascending=True)
+            self._data = ZScore(self._data, GlobalDefinitions.VOLUME)
 
         # ------------------ TRP ID Target-Encoding ------------------
 
@@ -187,24 +185,23 @@ class TFSPreprocessor:
         # ------------------ Variables normalization ------------------
 
         scaler = MinMaxScaler()
-        self._data[["volume", "coverage"]] = scaler.fit_transform(self._data[["volume", "coverage"]])
+        self._data[[GlobalDefinitions.VOLUME, "coverage"]] = scaler.fit_transform(self._data[[GlobalDefinitions.VOLUME, "coverage"]])
 
         # ------------------ Creating lag features ------------------
 
-        lag6h_column_names = (f"volumes_lag6h_{i}" for i in range(1, 7))
-        lag12h_column_names = (f"volumes_lag12h_{i}" for i in range(1, 7))
-        lag24h_column_names = (f"volumes_lag24h_{i}" for i in range(1, 7))
+        lag6h_column_names = (f"{GlobalDefinitions.VOLUME}_lag6h_{i}" for i in range(1, 7))
+        lag12h_column_names = (f"{GlobalDefinitions.VOLUME}_lag12h_{i}" for i in range(1, 7))
+        lag24h_column_names = (f"{GlobalDefinitions.VOLUME}_lag24h_{i}" for i in range(1, 7))
 
-        for idx, n in enumerate(lag6h_column_names): self._data[n] = self._data["volume"].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate(lag12h_column_names): self._data[n] = self._data["volume"].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate(lag24h_column_names): self._data[n] = self._data["volume"].shift(idx + 24)  # 24 hours shift
+        for idx, n in enumerate(lag6h_column_names): self._data[n] = self._data[GlobalDefinitions.VOLUME].shift(idx + 6)  # 6 hours shift
+        for idx, n in enumerate(lag12h_column_names): self._data[n] = self._data[GlobalDefinitions.VOLUME].shift(idx + 12)  # 12 hours shift
+        for idx, n in enumerate(lag24h_column_names): self._data[n] = self._data[GlobalDefinitions.VOLUME].shift(idx + 24)  # 24 hours shift
 
         # print(volumes.head(10))
         # print(volumes.dtypes)
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
-        #TODO DROP OTHER USELESS COLUMNS
         self._data = self._data.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1).persist()  # Keeping year and hour data and the encoded_trp_id
 
         # print("Volumes dataframe head: ")
@@ -213,9 +210,7 @@ class TFSPreprocessor:
         # print("Volumes dataframe tail: ")
         # print(self._data.tail(5), "\n")
 
-        # print(self._data.compute().head(10))
-
-        return self._data #TODO IN THE FUTURE THIS COULD BE DIFFERENT, POSSIBLY IT WON'T RETURN ANYTHING
+        return self._data
 
 
     def preprocess_mean_speed(self, z_score: bool = True) -> dd.DataFrame:
@@ -247,9 +242,7 @@ class TFSPreprocessor:
         # ------------------ Outliers filtering with Z-Score ------------------
 
         if z_score:
-            self._data = ZScore(self._data, "mean_speed")
-
-        self._data = self._data.sort_values(by=["zoned_dt_iso"], ascending=True)
+            self._data = ZScore(self._data, GlobalDefinitions.MEAN_SPEED)
 
         # ------------------ TRP ID Target-Encoding ------------------
 
@@ -264,20 +257,20 @@ class TFSPreprocessor:
         # ------------------ Variables normalization ------------------
 
         scaler = MinMaxScaler()
-        self._data[["mean_speed", "percentile_85", "coverage"]] = scaler.fit_transform(self._data[["mean_speed", "percentile_85", "coverage"]])
+        self._data[[GlobalDefinitions.MEAN_SPEED, "percentile_85", "coverage"]] = scaler.fit_transform(self._data[[GlobalDefinitions.MEAN_SPEED, "percentile_85", "coverage"]])
 
         # ------------------ Creating lag features ------------------
 
-        lag6h_column_names = (f"mean_speed_lag6h_{i}" for i in range(1, 7))
-        lag12h_column_names = (f"mean_speed_lag12_{i}" for i in range(1, 7))
-        lag24h_column_names = (f"mean_speed_lag24_{i}" for i in range(1, 7))
+        lag6h_column_names = (f"{GlobalDefinitions.MEAN_SPEED}_lag6h_{i}" for i in range(1, 7))
+        lag12h_column_names = (f"{GlobalDefinitions.MEAN_SPEED}_lag12_{i}" for i in range(1, 7))
+        lag24h_column_names = (f"{GlobalDefinitions.MEAN_SPEED}_lag24_{i}" for i in range(1, 7))
         percentile_85_lag6_column_names = (f"percentile_85_lag{i}" for i in range(1, 7))
         percentile_85_lag12_column_names = (f"percentile_85_lag{i}" for i in range(1, 7))
         percentile_85_lag24_column_names = (f"percentile_85_lag{i}" for i in range(1, 7))
 
-        for idx, n in enumerate(lag6h_column_names): self._data[n] = self._data["mean_speed"].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate(lag12h_column_names): self._data[n] = self._data["mean_speed"].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate(lag24h_column_names): self._data[n] = self._data["mean_speed"].shift(idx + 24)  # 24 hours shift
+        for idx, n in enumerate(lag6h_column_names): self._data[n] = self._data[GlobalDefinitions.MEAN_SPEED].shift(idx + 6)  # 6 hours shift
+        for idx, n in enumerate(lag12h_column_names): self._data[n] = self._data[GlobalDefinitions.MEAN_SPEED].shift(idx + 12)  # 12 hours shift
+        for idx, n in enumerate(lag24h_column_names): self._data[n] = self._data[GlobalDefinitions.MEAN_SPEED].shift(idx + 24)  # 24 hours shift
 
         for idx, n in enumerate(percentile_85_lag6_column_names): self._data[n] = self._data["percentile_85"].shift(idx + 6)  # 6 hours shift
         for idx, n in enumerate(percentile_85_lag12_column_names): self._data[n] = self._data["percentile_85"].shift(idx + 12)  # 12 hours shift
@@ -288,7 +281,6 @@ class TFSPreprocessor:
 
         # ------------------ Dropping columns which won't be fed to the ML models ------------------
 
-        #TODO DROP OTHER USELESS COLUMNS
         self._data = self._data.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1).persist()
 
         # print("Average speeds dataframe head: ")
@@ -297,7 +289,7 @@ class TFSPreprocessor:
         # print("Average speeds dataframe tail: ")
         # print(self._data.tail(5), "\n")
 
-        return self._data #TODO IN THE FUTURE THIS COULD BE DIFFERENT, POSSIBLY IT WON'T RETURN ANYTHING
+        return self._data
 
 
 
@@ -682,7 +674,7 @@ class TFSLearner:
         joblib.dump(self._model, joblib_bytes)
         joblib_bytes.seek(0)
         self._db_broker.send_sql(f"""
-                INSERT INTO "{ProjectTables.MLModelObjects.value}" (id, joblib_object, pickle_object)
+                INSERT INTO "{ProjectTables.MLModelObjects.value}" ("id", "joblib_object", "pickle_object")
                 VALUES ($1, $2, $3)
             """, execute_args=[self._model.model_id, joblib_bytes.read(), pickle.dumps(self._model)])
         return None

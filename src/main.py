@@ -237,7 +237,15 @@ def forecasts_warmup(functionality: str) -> None:
 
             X_train, X_test, y_train, y_test = split_by_target(
                 data=getattr(preprocessor := TFSPreprocessor(
-                    data=getattr(loader, functionality_mapping[functionality]["loading_method"])(batch_size=50000, trp_list_filter=trp_ids, road_category_filter=road_category, split_cyclical_features=False, encoded_cyclical_features=True, is_covid_year=True),
+                    data=getattr(loader, functionality_mapping[functionality]["loading_method"])(
+                        batch_size=50000,
+                        trp_list_filter=trp_ids,
+                        road_category_filter=road_category,
+                        split_cyclical_features=False,
+                        encoded_cyclical_features=True,
+                        is_covid_year=True,
+                        sort_by_date=True,
+                        sort_ascending=True),
                     road_category=road_category,
                     client=client
                 ), functionality_mapping[functionality]["preprocessing_method"])(),

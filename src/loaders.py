@@ -24,6 +24,8 @@ class BatchStreamLoader:
                    split_cyclical_features: bool = False,
                    encoded_cyclical_features: bool = False,
                    is_covid_year: bool = False,
+                   sort_by_date: bool = True,
+                   sort_ascending: bool = True
                    ) -> dd.DataFrame:
         df_partitions = []
         stream = self._db_broker.get_stream(sql=f"""
@@ -68,7 +70,10 @@ class BatchStreamLoader:
             FROM "{ProjectTables.Volume.value}" v JOIN "{ProjectTables.TrafficRegistrationPoints.value}" t ON v.trp_id = t.id
             WHERE {"v.trp_id = ANY(%s)" if trp_list_filter else "1=1"}
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
-            ORDER BY "zoned_dt_iso" DESC
+            {f'''
+            ORDER BY "zoned_dt_iso" {"ASC" if sort_ascending else "DESC"}
+            ''' if sort_by_date else ""
+            }
             {f"LIMIT {limit}" if limit else ""}
         """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter] if f), batch_size=batch_size, row_factory="tuple_row")
         # The ORDER BY (descending order) is necessary since in time series forecasting the order of the records is fundamental
@@ -95,7 +100,9 @@ class BatchStreamLoader:
                        limit: PositiveInt | None = None,
                        split_cyclical_features: bool = False,
                        encoded_cyclical_features: bool = False,
-                       is_covid_year: bool = False
+                       is_covid_year: bool = False,
+                       sort_by_date: bool = True,
+                       sort_ascending: bool = True
                        ) -> dd.DataFrame:
         df_partitions = []
         stream = self._db_broker.get_stream(sql=f"""
@@ -141,8 +148,10 @@ class BatchStreamLoader:
             FROM "{ProjectTables.MeanSpeed.value}" ms JOIN "{ProjectTables.TrafficRegistrationPoints.value}" t ON ms.trp_id = t.id
             WHERE {"ms.trp_id = ANY(%s)" if trp_list_filter else "1=1"}
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
-            ORDER BY "zoned_dt_iso" DESC
-            {f"LIMIT {limit}" if limit else ""}
+            {f'''
+            ORDER BY "zoned_dt_iso" {"ASC" if sort_ascending else "DESC"}
+            ''' if sort_by_date else ""
+            }            {f"LIMIT {limit}" if limit else ""}
         """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter] if f), batch_size=batch_size, row_factory="tuple_row")
         # The ORDER BY (descending order) is necessary since in time series forecasting the order of the records is fundamental
 
