@@ -1,9 +1,11 @@
+import io
 import json
 import pickle
 from datetime import datetime, timezone, timedelta
 from contextlib import contextmanager, asynccontextmanager
 from typing import Any, Literal
 import hashlib
+import joblib
 import asyncio
 import aiofiles
 import asyncpg
@@ -222,6 +224,22 @@ class AIODBManager:
                 json.dumps(None), #mean_speed_best_params
                 json.dumps(data["base_parameters"][f"{GlobalDefinitions.VOLUME}_grid"]), #volume_grid
                 json.dumps(data["base_parameters"][f"{GlobalDefinitions.MEAN_SPEED}_grid"]) #mean_speed_grid
+            )
+
+            joblib_bytes = io.BytesIO()  # Serializing model into a joblib object directly in memory through the BytesIO class
+            joblib.dump(model, joblib_bytes)
+            joblib_bytes.seek(0)
+
+            await conn.execute(f"""
+                INSERT INTO "{ProjectTables.BaseModels}" (
+                    "id", 
+                )
+                VALUES ($1, $2, $3)
+                ON CONFLICT ("id") DO NOTHING;
+            """,
+                await asyncio.to_thread(lambda: hashlib.sha256(estimator_name.encode("utf-8")).hexdigest()),
+                pickle.dumps(obj=model, protocol=pickle.HIGHEST_PROTOCOL),
+                joblib_bytes
             )
 
         return None
