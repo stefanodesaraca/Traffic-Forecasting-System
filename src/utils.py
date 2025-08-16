@@ -63,7 +63,7 @@ class GlobalDefinitions(BaseModel):
     # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
 
     MEAN_SPEED_DIR: ClassVar[Path] = Path("data", MEAN_SPEED)
-    MODEL_GRIDS_DIR: ClassVar[Path] = Path("data", "model_grids")
+    MODEL_GRIDS_FILE: ClassVar[Path] = Path("data", "model_grids.json")
 
     MICE_COLS: ClassVar[list[str]] = ["volume", "coverage"]
 

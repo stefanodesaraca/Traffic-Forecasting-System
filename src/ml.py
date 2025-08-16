@@ -458,9 +458,9 @@ class TFSLearner:
         dict[str, Any]
             The model's grid for hyperparameter tuning.
         """
-        return json.loads(self._db_broker.send_sql(sql=f"""SELECT "{'volume_grid' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'mean_speed_grid'} "
+        return json.loads(self._db_broker.send_sql(sql=f"""SELECT "{'volume_grid' if self._target == GlobalDefinitions.VOLUME else 'mean_speed_grid'}"
                                                            FROM "{ProjectTables.MLModels.value}"
-                                                           WHERE "id" = {self._model.model_id};""", single=True)['volume_grid' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'mean_speed_grid'])
+                                                           WHERE "id" = {self._model.model_id};""", single=True)['volume_grid' if self._target == GlobalDefinitions.VOLUME else 'mean_speed_grid'])
 
 
     def _load_model(self) -> callable:

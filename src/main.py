@@ -267,6 +267,7 @@ def forecasts_warmup(functionality: str) -> None:
 
         return None
 
+
     with dask_cluster_client(processes=False) as client:
         functionality_mapping = {
             "3.2.1": {

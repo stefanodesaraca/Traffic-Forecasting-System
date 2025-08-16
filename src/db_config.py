@@ -5,6 +5,8 @@ from psycopg.rows import tuple_row, dict_row
 
 from dbsecrets import superuser, superuser_password
 
+
+
 class DBConfig(Enum):
     SUPERUSER = superuser
     SUPERUSER_PASSWORD = superuser_password
@@ -61,6 +63,7 @@ class ProjectConstraints(Enum):
 class ProjectViews(Enum):
     TrafficRegistrationPointsMetadataView = "TrafficRegistrationPointsMetadataView"
     VolumeMeanSpeedDateRangesView = "VolumeMeanSpeedDateRangesView"
+
 
 
 class RowFactories(BaseModel):

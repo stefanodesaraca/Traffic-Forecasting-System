@@ -1,7 +1,9 @@
 import json
+import pickle
 from datetime import datetime, timezone, timedelta
 from contextlib import contextmanager, asynccontextmanager
 from typing import Any, Literal
+import hashlib
 import asyncio
 import aiofiles
 import asyncpg
@@ -9,6 +11,13 @@ from asyncpg.exceptions import DuplicateDatabaseError
 import psycopg
 from psycopg.rows import tuple_row
 from cleantext import clean
+from pydantic.types import PositiveInt
+
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import (
+    RandomForestRegressor,
+    HistGradientBoostingRegressor,
+)
 
 from exceptions import ProjectDBNotFoundError
 from db_config import HubDBTables, HUBDBConstraints, ProjectTables, ProjectConstraints, ProjectViews, RowFactories, AIODBManagerInternalConfig as AIODBMInternalConfig
@@ -186,6 +195,22 @@ class AIODBManager:
             )
         return None
 
+    @staticmethod
+    async def insert_models(conn: asyncpg.connection, model: Any, id_max_length: PositiveInt = 32) -> None:
+
+        models = (DecisionTreeRegressor, RandomForestRegressor, HistGradientBoostingRegressor)
+
+        h = hashlib.sha256(pickle.dumps(model)).hexdigest()[:id_max_length] #Generating a unique id of the model to be inserted as primary key
+        async with aiofiles.open(GlobalDefinitions.MODEL_GRIDS_FILE, "r", encoding="utf-8") as gs:
+            grid = json.load(gs)["grids"]
+        grid = ...
+
+
+
+
+        return None
+
+
 
     async def _setup_project(self, conn: asyncpg.connection) -> None:
         # -- Fetch or import necessary data to work with during program usage --
@@ -247,8 +272,6 @@ class AIODBManager:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=name, host=self._db_host) as conn:
             async with conn.transaction():
                 # Tables
-
-                #Constraints
                 await conn.execute(f"""
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadCategories.value}" (
                             id TEXT PRIMARY KEY,
@@ -371,6 +394,8 @@ class AIODBManager:
                             config JSONB DEFAULT '{{"volume_forecasting_horizon": null, "mean_speed_forecasting_horizon": null}}'
                         );
                 """)
+
+                #Constraints
                 await conn.execute(f"""
                             ALTER TABLE "{ProjectTables.Volume.value}"
                             ADD CONSTRAINT "{ProjectConstraints.UNIQUE_VOLUME_PER_TRP_AND_TIME.value}"
