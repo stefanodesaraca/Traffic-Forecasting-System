@@ -199,23 +199,29 @@ class AIODBManager:
     async def insert_models(conn: asyncpg.connection, id_max_length: PositiveInt = 32) -> None:
 
         for model in (DecisionTreeRegressor, RandomForestRegressor, HistGradientBoostingRegressor):
-
-            estimator_id = hashlib.sha256(pickle.dumps(model)).hexdigest()[:id_max_length] #Generating a unique id of the model to be inserted as primary key
-            estimator_name = model.__class__.__name__
-            estimator_type = DecisionTreeRegressor._estimator_type
-
             async with aiofiles.open(GlobalDefinitions.MODEL_GRIDS_FILE, "r", encoding="utf-8") as gs:
-                data = json.load(gs)[estimator_name]
-                base_params = data["base_parameters"]
-                volume_grid = data["base_parameters"][f"{GlobalDefinitions.VOLUME}_grid"]
-                mean_speed_grid = data["base_parameters"][f"{GlobalDefinitions.MEAN_SPEED}_grid"]
+                data = json.load(gs)[model.__class__.__name__] ##estimator_name
 
-                volume_best_params = None
-                mean_speed_best_params = None
-
-
-
-
+            await conn.execute(f"""
+                INSERT INTO "{ProjectTables.MLModels}" (
+                    "id", "name", "type", "base_params",
+                    "volume_best_params", "mean_speed_best_params",
+                    "volume_grid", "mean_speed_grid"
+                )
+                VALUES ($1, $2, $3, $4::json,
+                        $5::json, $6::json,
+                        $7::json, $8::json)
+                ON CONFLICT ("id") DO NOTHING;
+            """,
+                await asyncio.to_thread(lambda: hashlib.sha256(pickle.dumps(model)).hexdigest()[:id_max_length]), #estimator_id (generating a unique id of the model to be inserted as primary key)
+                model.__class__.__name__, #estimator_name
+                model._estimator_type, #estimator_type
+                json.dumps(data["base_parameters"]),
+                json.dumps(None), #volume_best_params
+                json.dumps(None), #mean_speed_best_params
+                json.dumps(data["base_parameters"][f"{GlobalDefinitions.VOLUME}_grid"]),
+                json.dumps(data["base_parameters"][f"{GlobalDefinitions.MEAN_SPEED}_grid"])
+            )
 
         return None
 
