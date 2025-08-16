@@ -110,25 +110,25 @@ class AIODBManager:
         for part in data["areas"]["countryParts"]:
             # Insert country part
             await conn.execute(
-                f"""INSERT INTO "{ProjectTables.CountryParts.value}" (id, name) 
-                    VALUES ($1, $2) ON CONFLICT (id) DO NOTHING""",
+                f"""INSERT INTO "{ProjectTables.CountryParts.value}" ("id", "name") 
+                    VALUES ($1, $2) ON CONFLICT ("id") DO NOTHING""",
                 part["id"], part["name"]
             )
 
             for county in part["counties"]:
                 # Insert county
                 await conn.execute(
-                    f"""INSERT INTO "{ProjectTables.Counties.value}" (number, name, country_part_id) 
-                        VALUES ($1, $2, $3) ON CONFLICT (number) DO NOTHING""",
+                    f"""INSERT INTO "{ProjectTables.Counties.value}" ("number", "name", "country_part_id") 
+                        VALUES ($1, $2, $3) ON CONFLICT ("number") DO NOTHING""",
                     county["number"], county["name"], part["id"]
                 )
 
                 # Insert municipalities for this county
                 for muni in county.get("municipalities", []):
                     await conn.execute(
-                        f"""INSERT INTO "{ProjectTables.Municipalities.value}" (number, name, county_number, country_part_id)
+                        f"""INSERT INTO "{ProjectTables.Municipalities.value}" ("number", "name", "county_number", "country_part_id")
                             VALUES ($1, $2, $3, $4)
-                            ON CONFLICT (number) DO NOTHING""",
+                            ON CONFLICT ("number") DO NOTHING""",
                         muni["number"], muni["name"], county["number"], part["id"]
                     )
 
@@ -139,9 +139,9 @@ class AIODBManager:
         for cat in data["roadCategories"]:
             await conn.execute(
                 f"""
-                INSERT INTO "{ProjectTables.RoadCategories.value}" (id, name)
+                INSERT INTO "{ProjectTables.RoadCategories.value}" ("id", "name")
                 VALUES ($1, $2)
-                ON CONFLICT (id) DO NOTHING
+                ON CONFLICT ("id") DO NOTHING
                 """,
                 cat["id"], cat["name"]
             )
@@ -153,13 +153,13 @@ class AIODBManager:
             await conn.execute(
                 f"""
                 INSERT INTO "{ProjectTables.TrafficRegistrationPoints.value}" (
-                    id, name, lat, lon,
-                    road_reference_short_form, road_category,
-                    road_link_sequence, relative_position,
-                    county, country_part_id, country_part_name,
-                    county_number, geographic_number,
-                    traffic_registration_type,
-                    first_data, first_data_with_quality_metrics
+                    "id", "name", "lat", "lon",
+                    "road_reference_short_form", "road_category",
+                    "road_link_sequence", "relative_position",
+                    "county", "country_part_id", "country_part_name",
+                    "county_number", "geographic_number",
+                    "traffic_registration_type",
+                    "first_data", "first_data_with_quality_metrics"
                 )
                 VALUES (
                     $1, $2, $3, $4,
@@ -170,7 +170,7 @@ class AIODBManager:
                     $14,
                     $15, $16
                 )
-                ON CONFLICT (id) DO NOTHING
+                ON CONFLICT ("id") DO NOTHING
                 """,
                 trp["id"],
                 trp["name"],
@@ -359,8 +359,8 @@ class AIODBManager:
                             base_params JSON NOT NULL,
                             {GlobalDefinitions.VOLUME}_best_params JSON,
                             {GlobalDefinitions.MEAN_SPEED}_best_params JSON,
-                            {GlobalDefinitions.VOLUME}_grid JSON NOT NULL,
-                            {GlobalDefinitions.MEAN_SPEED}_grid JSON NOT NULL,
+                            {GlobalDefinitions.VOLUME}_grid JSON,
+                            {GlobalDefinitions.MEAN_SPEED}_grid JSON,
                             best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx INT DEFAULT 1,
                             best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx INT DEFAULT 1
                         );

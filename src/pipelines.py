@@ -155,7 +155,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
                     await self._db_broker_async.send_sql_async(sql=f"""
                             SELECT {', '.join(fields)}
                             FROM "{ProjectTables.Volume.value}"
-                            ORDER BY zoned_dt_iso DESC
+                            ORDER BY "zoned_dt_iso" DESC
                             LIMIT {mice_past_window};
                         """), columns=fields
                     )),
@@ -261,9 +261,9 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
         if fields:
             self.data = self.data[fields]
         await self._db_broker_async.send_sql_async(f"""
-            INSERT INTO "{ProjectTables.MeanSpeed.value}" ({', '.join(fields)})
+            INSERT INTO "{ProjectTables.MeanSpeed.value}" ({', '.join(f'"{f}"' for f in fields)})
             VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields) + 1))})
-            ON CONFLICT ON CONSTRAINT unique_mean_speed_per_trp_and_time DO NOTHING;
+            ON CONFLICT ON CONSTRAINT "unique_mean_speed_per_trp_and_time" DO NOTHING;
         """, many=True, many_values=list(self.data.itertuples(index=False, name=None)))
 
         print(f"""Ended TRP: {fp} cleaning""")
