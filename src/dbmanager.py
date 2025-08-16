@@ -196,14 +196,23 @@ class AIODBManager:
         return None
 
     @staticmethod
-    async def insert_models(conn: asyncpg.connection, model: Any, id_max_length: PositiveInt = 32) -> None:
+    async def insert_models(conn: asyncpg.connection, id_max_length: PositiveInt = 32) -> None:
 
-        models = (DecisionTreeRegressor, RandomForestRegressor, HistGradientBoostingRegressor)
+        for model in (DecisionTreeRegressor, RandomForestRegressor, HistGradientBoostingRegressor):
 
-        h = hashlib.sha256(pickle.dumps(model)).hexdigest()[:id_max_length] #Generating a unique id of the model to be inserted as primary key
-        async with aiofiles.open(GlobalDefinitions.MODEL_GRIDS_FILE, "r", encoding="utf-8") as gs:
-            grid = json.load(gs)["grids"]
-        grid = ...
+            estimator_id = hashlib.sha256(pickle.dumps(model)).hexdigest()[:id_max_length] #Generating a unique id of the model to be inserted as primary key
+            estimator_name = model.__class__.__name__
+            estimator_type = DecisionTreeRegressor._estimator_type
+
+            async with aiofiles.open(GlobalDefinitions.MODEL_GRIDS_FILE, "r", encoding="utf-8") as gs:
+                data = json.load(gs)[estimator_name]
+                base_params = data["base_parameters"]
+                volume_grid = data["base_parameters"][f"{GlobalDefinitions.VOLUME}_grid"]
+                mean_speed_grid = data["base_parameters"][f"{GlobalDefinitions.MEAN_SPEED}_grid"]
+
+                volume_best_params = None
+                mean_speed_best_params = None
+
 
 
 
