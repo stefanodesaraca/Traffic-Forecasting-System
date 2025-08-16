@@ -196,11 +196,12 @@ class AIODBManager:
         return None
 
     @staticmethod
-    async def insert_models(conn: asyncpg.connection, id_max_length: PositiveInt = 32) -> None:
+    async def insert_models(conn: asyncpg.connection) -> None:
 
-        for model in (DecisionTreeRegressor, RandomForestRegressor, HistGradientBoostingRegressor):
+        for model in (RandomForestRegressor, DecisionTreeRegressor, HistGradientBoostingRegressor):
+            estimator_name = model.__class__.__name__
             async with aiofiles.open(GlobalDefinitions.MODEL_GRIDS_FILE, "r", encoding="utf-8") as gs:
-                data = json.load(gs)[model.__class__.__name__] ##estimator_name
+                data = json.load(gs)[estimator_name] ##estimator_name
 
             await conn.execute(f"""
                 INSERT INTO "{ProjectTables.MLModels}" (
@@ -213,18 +214,17 @@ class AIODBManager:
                         $7::json, $8::json)
                 ON CONFLICT ("id") DO NOTHING;
             """,
-                await asyncio.to_thread(lambda: hashlib.sha256(pickle.dumps(model)).hexdigest()[:id_max_length]), #estimator_id (generating a unique id of the model to be inserted as primary key)
-                model.__class__.__name__, #estimator_name
+                await asyncio.to_thread(lambda: hashlib.sha256(estimator_name.encode("utf-8")).hexdigest()), #estimator_id (generating a unique id of the model to be inserted as primary key)
+                estimator_name,
                 model._estimator_type, #estimator_type
                 json.dumps(data["base_parameters"]),
                 json.dumps(None), #volume_best_params
                 json.dumps(None), #mean_speed_best_params
-                json.dumps(data["base_parameters"][f"{GlobalDefinitions.VOLUME}_grid"]),
-                json.dumps(data["base_parameters"][f"{GlobalDefinitions.MEAN_SPEED}_grid"])
+                json.dumps(data["base_parameters"][f"{GlobalDefinitions.VOLUME}_grid"]), #volume_grid
+                json.dumps(data["base_parameters"][f"{GlobalDefinitions.MEAN_SPEED}_grid"]) #mean_speed_grid
             )
 
         return None
-
 
 
     async def _setup_project(self, conn: asyncpg.connection) -> None:
