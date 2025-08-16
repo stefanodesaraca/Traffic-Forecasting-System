@@ -380,7 +380,14 @@ class AIODBManager:
                             best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx INT DEFAULT 1
                         );
                         
-                        CREATE TABLE IF NOT EXISTS "{ProjectTables.MLModelObjects.value}" (
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.BaseModels.value}" (
+                            id TEXT PRIMARY KEY,
+                            joblib_object BYTEA,
+                            pickle_object BYTEA NOT NULL,
+                            FOREIGN KEY (id) REFERENCES "{ProjectTables.MLModels.value}"(id)
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.TrainedModels.value}" (
                             id TEXT PRIMARY KEY,
                             joblib_object BYTEA,
                             pickle_object BYTEA NOT NULL,
@@ -464,7 +471,7 @@ class AIODBManager:
                         "{ProjectTables.MeanSpeed.value}",
                         "{ProjectTables.TrafficRegistrationPointsMetadata.value}",
                         "{ProjectTables.MLModels.value}",
-                        "{ProjectTables.MLModelObjects.value}",
+                        "{ProjectTables.TrainedModels.value}",
                         "{ProjectTables.ModelGridSearchCVResults.value}",
                         "{ProjectTables.ForecastingSettings.value}"
                     TO {self._tfs_role};

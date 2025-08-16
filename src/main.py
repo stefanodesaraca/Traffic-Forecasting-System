@@ -199,11 +199,16 @@ def forecasts_warmup(functionality: str) -> None:
                         FROM
                             "{ProjectTables.MLModels.value}" m
                         JOIN
-                            "{ProjectTables.MLModelObjects.value}" mo ON m.id = mo.id;"""
+                            "{ProjectTables.TrainedModels.value}" mo ON m.id = mo.id;"""
     models = {m["name"]: {"binary_obj": m["binary_obj"],
                           "base_parameters": m["base_parameters"],
                           "volume_best_parameters": m["volume_best_parameters"],
                           "mean_speed_best_parameters": m["mean_speed_best_parameters"]} for m in db_broker.send_sql(models_query)}
+
+
+    #TODO DEFINE IF WE NEED BASE MODELS OR ALREADY TRAINED MODELS TO MAKE PREDICTIONS
+
+
     actual_target: str | None = None
 
 
@@ -231,8 +236,8 @@ def forecasts_warmup(functionality: str) -> None:
     def process_functionality(func: callable) -> None:
         function_name = func.__name__
 
-        for road_category, trp_ids in db_broker.get_trp_ids_by_road_category(has_volumes=True if actual_target == GlobalDefinitions.VOLUME else False,
-                                                                             has_mean_speed=True if actual_target == GlobalDefinitions.MEAN_SPEED else False).items():
+        for road_category, trp_ids in db_broker.get_trp_ids_by_road_category(has_volumes=True if actual_target == GlobalDefinitions.VOLUME else None,
+                                                                             has_mean_speed=True if actual_target == GlobalDefinitions.MEAN_SPEED else None).items():
 
             print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 

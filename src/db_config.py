@@ -48,7 +48,8 @@ class ProjectTables(Enum):
     MeanSpeed = "MeanSpeed"
     TrafficRegistrationPointsMetadata = "TrafficRegistrationPointsMetadata"
     MLModels = "MLModels"
-    MLModelObjects = "MLModelObjects"
+    TrainedModels = "TrainedModels"
+    BaseModels = "BaseModels"
     ModelGridSearchCVResults = "ModelGridSearchCVResults"
     ForecastingSettings = "ForecastingSettings"
 

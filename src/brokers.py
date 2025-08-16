@@ -136,7 +136,7 @@ class DBBroker:
                 return cur.fetchall()
 
 
-    def get_trp_ids_by_road_category(self, has_volumes: bool = False, has_mean_speed: bool = False) -> dict[Any, ...]:
+    def get_trp_ids_by_road_category(self, has_volumes: bool | None = None, has_mean_speed: bool | None = None) -> dict[Any, ...]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with self.PostgresConnectionCursor(query=f"""SELECT json_object_agg("road_category", "ids") AS result
                                                          FROM (
@@ -209,7 +209,7 @@ class DBBroker:
                             )
                         ) AS model_data
                         FROM "{ProjectTables.MLModels.value}" m
-                        JOIN "{ProjectTables.MLModelObjects.value}" o ON m.id = o.id;
+                        JOIN "{ProjectTables.TrainedModels.value}" o ON m.id = o.id;
                     """, conn=conn) as cur:
                 return cur.fetchall()
 

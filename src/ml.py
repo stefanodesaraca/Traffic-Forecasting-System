@@ -465,7 +465,7 @@ class TFSLearner:
 
     def _load_model(self) -> callable:
         return pickle.load(self._db_broker.send_sql(f"""SELECT mo.pickle_object
-                                                            FROM "{ProjectTables.MLModels.value}" m LEFT JOIN "{ProjectTables.MLModelObjects.value}" mo on m.id = mo.id
+                                                            FROM "{ProjectTables.MLModels.value}" m LEFT JOIN "{ProjectTables.TrainedModels.value}" mo on m.id = mo.id
                                                             WHERE m.name = {self._model.name}""", single=True)["pickle_object"])
 
 
@@ -595,16 +595,17 @@ class TFSLearner:
 
     def export_best_params(self, results: pd.DataFrame):
 
-        best_params_idx: int = self._db_broker.send_sql(sql=f"""SELECT "{'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'best_mean_speed_gridsearch_params_idx'} "
+        best_params_idx: int = self._db_broker.send_sql(sql=f"""SELECT "{'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.VOLUME else 'best_mean_speed_gridsearch_params_idx'} "
                                                                 FROM "{ProjectTables.MLModels.value}"
-                                                                WHERE "id" = {self._model.model_id};""", single=True)['best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'best_mean_speed_gridsearch_params_idx']
+                                                                WHERE "id" = {self._model.model_id}
+                                                                ON CONFLICT ("id") DO UPDATE;""", single=True)['best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.VOLUME else 'best_mean_speed_gridsearch_params_idx']
 
         true_best_params = results["params"].iloc[best_params_idx] or {}
         #true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) #TODO READ THE TODO BELOW
         true_best_params["best_GridSearchCV_model_scores"] = results.iloc[best_params_idx].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
 
         #TODO TESTING -> CHECK IF AUXILIARY PARAMETERS ARE INCLUDED WITHOUT ADDING THEM SPECIFICALLY
-        results.to_json(f"./project_data/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
+        results.to_json(f"./data/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
 
         return None
 
@@ -614,8 +615,9 @@ class TFSLearner:
         joblib.dump(self._model, joblib_bytes)
         joblib_bytes.seek(0)
         self._db_broker.send_sql(f"""
-                INSERT INTO "{ProjectTables.MLModelObjects.value}" ("id", "joblib_object", "pickle_object")
+                INSERT INTO "{ProjectTables.TrainedModels.value}" ("id", "joblib_object", "pickle_object")
                 VALUES ($1, $2, $3)
+                ON CONFLICT ("id") DO UPDATE;
             """, execute_args=[self._model.model_id, joblib_bytes.read(), pickle.dumps(self._model)])
         return None
 
