@@ -465,13 +465,6 @@ class TFSLearner:
                                                            FROM "{ProjectTables.MLModels.value}"
                                                            WHERE "id" = {self._model.model_id};""", single=True)[f'{self._target}_grid'])
 
-
-    def _load_model(self) -> callable:
-        return pickle.load(self._db_broker.send_sql(f"""SELECT mo.pickle_object
-                                                            FROM "{ProjectTables.MLModels.value}" m LEFT JOIN "{ProjectTables.TrainedModels.value}" mo on m.id = mo.id
-                                                            WHERE m.name = {self._model.name}""", single=True)["pickle_object"])
-
-
     @property
     def model(self) -> ModelWrapper:
         return self._model
@@ -555,19 +548,6 @@ class TFSLearner:
             gc.collect()
 
 
-    def set_best_params_idx(self, idx: int, model_id: str | None = None) -> None:
-        self._db_broker.send_sql(f"""UPDATE "{ProjectTables.MLModels.value}"
-                                     SET "{f"'best_{self._target}_gridsearch_params_idx'"}" = {idx}
-                                     WHERE "id" = '{model_id or self._model.model_id}';""")
-        return None
-
-
-    def set_best_params_idxs(self, index_dict: dict[str, int]) -> None:
-        for model_id, idx in index_dict:
-            self.set_best_params_idx(model_id=model_id, idx=idx)
-        return None
-
-
     def export_gridsearch_results(self, results: pd.DataFrame) -> None:
         results["model_id"] = self._model.model_id
         results["road_category"] = self._road_category
@@ -594,10 +574,6 @@ class TFSLearner:
             ON CONFLICT ("model_id") DO UPDATE;
         """, many=True, many_values=[tuple(row) for row in results.itertuples(index=False, name=None)])
         return None
-
-
-    def update_model_best_params_idx(self, model_id: str, new_idx: PositiveInt) -> None:
-        ...
 
 
     def export_model(self) -> None:

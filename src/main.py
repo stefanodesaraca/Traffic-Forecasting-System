@@ -378,6 +378,41 @@ def forecasts_warmup(functionality: str) -> None:
     return None
 
 
+def manage_ml(functionality: str) -> None:
+
+    if functionality == "5.1":
+        db_broker = get_db_broker()
+
+        print("Available models: ")
+        db_broker.send_sql(f"""
+            SELECT * FROM {ProjectTables.MLModels.value}
+        """)
+
+        model_id = input("Enter the ID of the model which you want to set the best parameters index for: ")
+
+        print("\nV: Volumes | MS: Mean Speed")
+        target = input("Enter the target variable for which the model has been trained for: ")
+        check_target(target, errors=True)
+
+        new_best_params_idx = int(input("Enter the new best parameters index for the model (integer value): "))
+
+
+        db_broker.send_sql(f"""
+                            UPDATE "{ProjectTables.MLModels.value}"
+                            SET "{f"'best_{target}_gridsearch_params_idx'"}" = {new_best_params_idx}
+                            WHERE "id" = '{model_id}';
+        """)
+
+        print(f"Best parameters for model: {model_id} ad target: {target} updated correctly")
+        return None
+
+
+    return None
+
+
+
+
+
 def execute_forecasting(functionality: str) -> None:
     db_broker = get_db_broker()
     loader = BatchStreamLoader(db_broker=db_broker)
@@ -494,6 +529,7 @@ def main():
         "4.1": manage_road_network,
         "4.2": manage_road_network,
         "4.3": manage_road_network,
+        "5.1": manage_ml,
         "5.2": execute_eda
     }
 
@@ -531,10 +567,10 @@ def main():
     4.2 Graph read (from already existing graph)
     4.3 Graph analysis
 5. Other options
+    5.1 Update best parameters for a model
     5.2 EDA (Exploratory Data Analysis)
     5.3 Erase all data about a project
-    5.4 Find best model for the current project
-    5.5 Analyze pre-existing road network graph
+    5.4 Analyze pre-existing road network graph
 0. Exit""")
 
         asyncio.run(initialize())
