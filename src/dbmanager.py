@@ -201,9 +201,9 @@ class AIODBManager:
     async def insert_models(conn: asyncpg.connection) -> None:
 
         for model in (RandomForestRegressor, DecisionTreeRegressor, HistGradientBoostingRegressor):
-            estimator_name = model.__class__.__name__
+            estimator_name = model.__name__
             async with aiofiles.open(GlobalDefinitions.MODEL_GRIDS_FILE, "r", encoding="utf-8") as gs:
-                data = json.load(gs)[estimator_name] ##estimator_name
+                data = json.loads(await gs.read())[estimator_name] ##estimator_name
 
             await conn.execute(f"""
                 INSERT INTO "{ProjectTables.MLModels}" (
@@ -222,8 +222,8 @@ class AIODBManager:
                 json.dumps(data["base_parameters"]),
                 json.dumps(None), #volume_best_params
                 json.dumps(None), #mean_speed_best_params
-                json.dumps(data["base_parameters"][f"{GlobalDefinitions.VOLUME}_grid"]), #volume_grid
-                json.dumps(data["base_parameters"][f"{GlobalDefinitions.MEAN_SPEED}_grid"]) #mean_speed_grid
+                json.dumps(data[f"{GlobalDefinitions.VOLUME}_grid"]), #volume_grid
+                json.dumps(data[f"{GlobalDefinitions.MEAN_SPEED}_grid"]) #mean_speed_grid
             )
 
             joblib_bytes = io.BytesIO()  # Serializing model into a joblib object directly in memory through the BytesIO class

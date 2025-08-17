@@ -53,7 +53,7 @@ class GlobalDefinitions(BaseModel):
     VOLUME: ClassVar[str] = "volume"
     MEAN_SPEED: ClassVar[str] = "mean_speed"
 
-    DT_ISO_TZ_FORMAT: ClassVar[str] = "%Y-%m-%dT%H:%M:%S.%f%z"
+    DT_ISO_TZ_FORMAT: ClassVar[str] = "%Y-%m-%dT%H:%M:%S%z"
     DT_INPUT_FORMAT: ClassVar[str] = "%Y-%m-%dT%H"
     NORWEGIAN_UTC_TIME_ZONE: ClassVar[str] = "+01:00"
     NORWEGIAN_UTC_TIME_ZONE_TIMEDELTA: ClassVar[timezone] = timezone(timedelta(hours=1))
@@ -179,7 +179,7 @@ class ForecastingToolbox:
         print("Latest data available: ", last_available_data_dt)
         print("Maximum settable date: ", last_available_data_dt + relativedelta(last_available_data_dt, days=GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE))
 
-        horizon = datetime.datetime.strptime(input("Insert forecasting horizon (YYYY-MM-DDTHH): ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE, GlobalDefinitions.DT_ISO_TZ_FORMAT)
+        horizon = datetime.datetime.strptime(input("Insert forecasting horizon (YYYY-MM-DDTHH): ") + ":00:00" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE, GlobalDefinitions.DT_ISO_TZ_FORMAT)
         # The month number must be zero-padded, for example: 01, 02, etc.
 
         assert horizon > last_available_data_dt, "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
