@@ -29,12 +29,6 @@ class TRPNotFoundError(Exception):
         super().__init__(self.message)
 
 
-class TargetDataNotAvailableError(Exception):
-    def __init__(self, message: str):
-        self.message: str = message
-        super().__init__(self.message)
-
-
 class WrongSplittingMode(ValueError):
     def __init__(self, message: str):
         self.message: str = message

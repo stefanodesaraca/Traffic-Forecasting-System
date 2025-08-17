@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from pydantic.types import PositiveInt
 from dask.distributed import Client, LocalCluster
 
-from exceptions import WrongSplittingMode, TargetDataNotAvailableError, NoDataError
+from exceptions import WrongSplittingMode, TargetVariableNotFoundError, NoDataError
 from db_config import ProjectTables
 
 pd.set_option("display.max_columns", None)
@@ -69,8 +69,10 @@ class GlobalDefinitions(BaseModel):
 
 
 
-def check_target(target: str) -> bool:
+def check_target(target: str, errors: bool = False) -> bool:
     if target not in GlobalDefinitions.TARGET_DATA.keys() and target not in GlobalDefinitions.TARGET_DATA.values():
+        if errors:
+            raise TargetVariableNotFoundError(f"Wrong target variable: {target}")
         return False
     return True
 
@@ -137,10 +139,9 @@ class ForecastingToolbox:
 
 
     def get_forecasting_horizon(self, target: str) -> datetime.datetime:
-        if not check_target(target):
-            raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
+        check_target(target, errors=True)
         return self._db_broker.send_sql(
-            f"""SELECT config -> {'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'} AS volume_horizon
+            f"""SELECT config -> {f"'{target}_forecasting_horizon'"} AS volume_horizon
                 FROM "{ProjectTables.ForecastingSettings.value}"
                 WHERE id = TRUE;"""
         )[target]
@@ -159,12 +160,15 @@ class ForecastingToolbox:
         max_forecasting_window_size: int = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
         print("V = Volume | MS = Mean Speed")
-        option = input("Target: ")
+        target = input("Target: ")
         print("Maximum number of days to forecast: ", max_forecasting_window_size)
 
-        if option == "V":
+        check_target(target, errors=True)
+        target = GlobalDefinitions.TARGET_DATA[target]
+
+        if target == GlobalDefinitions.VOLUME:
             last_available_data_dt = (await self._db_broker_async.get_volume_date_boundaries_async())["max"]
-        elif option == "MS":
+        elif target == GlobalDefinitions.MEAN_SPEED:
             last_available_data_dt = (await self._db_broker_async.get_mean_speed_date_boundaries_async())["max"]
         else:
             raise ValueError("Wrong data option, try again")
@@ -188,7 +192,7 @@ class ForecastingToolbox:
                                                            TRUE,
                                                            jsonb_set(
                                                                '{{}}'::jsonb,
-                                                               {"'{volume_forecasting_horizon}'" if option == "V" else "'{mean_speed_forecasting_horizon}'"},
+                                                               {f"'{target}_forecasting_horizon'"},
                                                                to_jsonb('{f"{horizon}"}'::timestamptz::text),
                                                                TRUE
                                                            )
@@ -196,7 +200,7 @@ class ForecastingToolbox:
                                                        ON CONFLICT ("id") DO UPDATE
                                                        SET "config" = jsonb_set(
                                                            "{ProjectTables.ForecastingSettings.value}"."config",
-                                                           {"'{volume_forecasting_horizon}'" if option == "V" else "'{mean_speed_forecasting_horizon}'"},
+                                                           {f"'{target}_forecasting_horizon'"},
                                                            to_jsonb('{f"{horizon}"}'::timestamptz::text),
                                                            TRUE
                                                        );""")
@@ -207,17 +211,15 @@ class ForecastingToolbox:
 
 
     async def get_forecasting_horizon_async(self, target: str) -> datetime.datetime:
-        if not check_target(target):
-            raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
-        return (await self._db_broker_async.send_sql_async(f"""SELECT "config" -> '{'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'}' AS horizon
+        await asyncio.to_thread(check_target, target, errors=True)
+        return (await self._db_broker_async.send_sql_async(f"""SELECT "config" -> '{f"'{target}_forecasting_horizon'"}' AS horizon
                                                                FROM "{ProjectTables.ForecastingSettings.value}"
                                                                WHERE "id" = TRUE;"""))[0]["horizon"]
 
 
     async def reset_forecasting_horizon_async(self, target: str) -> None:
-        if not check_target(target):
-            raise TargetDataNotAvailableError(f"Wrong target variable: {target}")
+        await asyncio.to_thread(check_target, target, errors=True)
         await self._db_broker_async.send_sql_async(f"""UPDATE "{ProjectTables.ForecastingSettings.value}"
-                                                       SET "config" = jsonb_set("config", '{{{'volume_forecasting_horizon' if target == "V" else 'mean_speed_forecasting_horizon'}}}', 'null'::jsonb)
+                                                       SET "config" = jsonb_set("config", '{{{f"'{target}_forecasting_horizon'"}}}', 'null'::jsonb)
                                                        WHERE "id" = TRUE;""")
         return None

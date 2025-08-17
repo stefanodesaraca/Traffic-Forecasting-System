@@ -8,6 +8,7 @@ import hashlib
 import datetime
 from typing import Any, Literal
 from pydantic import BaseModel, field_validator
+from pydantic.types import PositiveInt
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -448,6 +449,8 @@ class TFSLearner:
         self._model: ModelWrapper = ModelWrapper(model_obj=model, target=self._target)
         self._db_broker: DBBroker = db_broker
 
+        check_target(self._target, errors=True)
+
 
     def _get_grid(self) -> dict[str, Any]:
         """
@@ -458,9 +461,9 @@ class TFSLearner:
         dict[str, Any]
             The model's grid for hyperparameter tuning.
         """
-        return json.loads(self._db_broker.send_sql(sql=f"""SELECT "{'volume_grid' if self._target == GlobalDefinitions.VOLUME else 'mean_speed_grid'}"
+        return json.loads(self._db_broker.send_sql(sql=f"""SELECT "{f"'{self._target}_grid'"}"
                                                            FROM "{ProjectTables.MLModels.value}"
-                                                           WHERE "id" = {self._model.model_id};""", single=True)['volume_grid' if self._target == GlobalDefinitions.VOLUME else 'mean_speed_grid'])
+                                                           WHERE "id" = {self._model.model_id};""", single=True)[f'{self._target}_grid'])
 
 
     def _load_model(self) -> callable:
@@ -508,9 +511,6 @@ class TFSLearner:
         'mean_absolute_error'.
         """
 
-        if not check_target(self._target):
-            raise TargetVariableNotFoundError("Wrong target variable in GridSearchCV executor function")
-
         t_start = datetime.datetime.now()
         print(f"{self._model.name} GridSearchCV started at {t_start}\n")
 
@@ -557,7 +557,7 @@ class TFSLearner:
 
     def set_best_params_idx(self, idx: int, model_id: str | None = None) -> None:
         self._db_broker.send_sql(f"""UPDATE "{ProjectTables.MLModels.value}"
-                                     SET "{'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.TARGET_DATA["V"] else 'best_mean_speed_gridsearch_params_idx'}" = {idx}
+                                     SET "{f"'best_{self._target}_gridsearch_params_idx'"}" = {idx}
                                      WHERE "id" = '{model_id or self._model.model_id}';""")
         return None
 
@@ -569,6 +569,9 @@ class TFSLearner:
 
 
     def export_gridsearch_results(self, results: pd.DataFrame) -> None:
+        results["model_id"] = self._model.model_id
+        results["road_category"] = self._road_category
+        results["target"] = self._target
         results["params"] = results["params"].apply(json.dumps) #Binarizing parameters' dictionary
         self._db_broker.send_sql(f"""
             INSERT INTO "{ProjectTables.ModelGridSearchCVResults.value}" (
@@ -593,21 +596,8 @@ class TFSLearner:
         return None
 
 
-    def export_best_params(self, results: pd.DataFrame):
-
-        best_params_idx: int = self._db_broker.send_sql(sql=f"""SELECT "{'best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.VOLUME else 'best_mean_speed_gridsearch_params_idx'} "
-                                                                FROM "{ProjectTables.MLModels.value}"
-                                                                WHERE "id" = {self._model.model_id}
-                                                                ON CONFLICT ("id") DO UPDATE;""", single=True)['best_volume_gridsearch_params_idx' if self._target == GlobalDefinitions.VOLUME else 'best_mean_speed_gridsearch_params_idx']
-
-        true_best_params = results["params"].iloc[best_params_idx] or {}
-        #true_best_params.update(model_definitions["auxiliary_parameters"][self._model.name]) #TODO READ THE TODO BELOW
-        true_best_params["best_GridSearchCV_model_scores"] = results.iloc[best_params_idx].to_dict()  # to_dict() is used to convert the resulting series into a dictionary (which is a data type that's serializable by JSON)
-
-        #TODO TESTING -> CHECK IF AUXILIARY PARAMETERS ARE INCLUDED WITHOUT ADDING THEM SPECIFICALLY
-        results.to_json(f"./data/{self._road_category}_{self._model.name}_gridsearch.json", indent=4)
-
-        return None
+    def update_model_best_params_idx(self, model_id: str, new_idx: PositiveInt) -> None:
+        ...
 
 
     def export_model(self) -> None:
@@ -645,8 +635,8 @@ class OnePointForecaster:
                    Example: if we had a limit of 2000, we'll only collect the latest 2000 records.
         """
         loading_functions_mapping = {
-            GlobalDefinitions.TARGET_DATA["V"]: self._loader.get_volume,
-            GlobalDefinitions.TARGET_DATA["MS"]: self._loader.get_mean_speed
+            GlobalDefinitions.VOLUME: self._loader.get_volume,
+            GlobalDefinitions.MEAN_SPEED: self._loader.get_mean_speed
         }
         if training_mode == 0:
             if limit:
@@ -659,7 +649,7 @@ class OnePointForecaster:
         raise WrongTrainRecordsRetrievalMode("training_mode parameter value is not valid")
 
 
-    def get_future_records(self, forecasting_horizon: datetime.datetime) -> dd.DataFrame:
+    def get_future_records(self, forecasting_horizon: datetime.datetime) -> dd.DataFrame | None:
         """
         Generate records of the future to predict.
 
@@ -674,9 +664,11 @@ class OnePointForecaster:
             A dask dataframe of empty records for future predictions.
         """
 
-        attr = {"volume": np.nan} if self._target == GlobalDefinitions.TARGET_DATA["V"] else {"mean_speed": np.nan, "percentile_85": np.nan}
+        check_target(target=self._target, errors=True)
 
-        last_available_data_dt = self._db_broker.get_volume_date_boundaries()["max"] if self._target == GlobalDefinitions.TARGET_DATA["V"] else self._db_broker.get_mean_speed_date_boundaries()["max"] #TODO LOAD FROM DB AND REMOVE DATETIME TYPE CASTING
+        attr = {GlobalDefinitions.VOLUME: np.nan} if self._target == GlobalDefinitions.VOLUME else {GlobalDefinitions.MEAN_SPEED: np.nan, "percentile_85": np.nan}
+
+        last_available_data_dt = self._db_broker.get_volume_date_boundaries()["max"] if self._target == GlobalDefinitions.VOLUME else self._db_broker.get_mean_speed_date_boundaries()["max"]
         rows_to_predict = ({
                 **attr,
                 "coverage": np.nan,
@@ -686,16 +678,16 @@ class OnePointForecaster:
             } for dt in pd.date_range(start=last_available_data_dt, end=forecasting_horizon, freq="1h"))
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
-        if self._target == GlobalDefinitions.TARGET_DATA["V"]:
+        if self._target == GlobalDefinitions.VOLUME:
             return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)),
                                    road_category=self._road_category,
                                    client=self._client).preprocess_volume(z_score=False)
-        elif self._target == GlobalDefinitions.TARGET_DATA["MS"]:
+        elif self._target == GlobalDefinitions.MEAN_SPEED:
             return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)),
                                    road_category=self._road_category,
                                    client=self._client).preprocess_mean_speed(z_score=False)
         else:
-            raise TargetVariableNotFoundError("Wrong target variable")
+            return None
 
 
     @staticmethod

@@ -390,8 +390,6 @@ class AIODBManager:
                             name TEXT NOT NULL UNIQUE,
                             type TEXT DEFAULT 'Regression',
                             base_params JSON NOT NULL,
-                            {GlobalDefinitions.VOLUME}_best_params JSON,
-                            {GlobalDefinitions.MEAN_SPEED}_best_params JSON,
                             {GlobalDefinitions.VOLUME}_grid JSON,
                             {GlobalDefinitions.MEAN_SPEED}_grid JSON,
                             best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx INT DEFAULT 1,
@@ -416,6 +414,7 @@ class AIODBManager:
                             id SERIAL,
                             model_id TEXT REFERENCES "{ProjectTables.MLModels.value}"(id) ON DELETE CASCADE,
                             road_category_id TEXT REFERENCES "{ProjectTables.RoadCategories.value}"(id) ON DELETE CASCADE,
+                            target TEXT NOT NULL,
                             params JSON NOT NULL,
                             mean_fit_time FLOAT NOT NULL,
                             mean_test_r2 FLOAT NOT NULL,
@@ -507,6 +506,7 @@ class AIODBManager:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=name, host=self._db_host) as conn:
             if auto_project_setup:
                 await self._setup_project(conn=conn)
+                await self.insert_models(conn=conn)
 
         return None
 

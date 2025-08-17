@@ -8,7 +8,7 @@ import dask
 import dask.dataframe as dd
 import geojson
 
-from exceptions import TRPNotFoundError, TargetDataNotAvailableError, ModelBestParametersNotFound
+from exceptions import TRPNotFoundError, ModelBestParametersNotFound
 from db_config import DBConfig, ProjectTables
 
 from downloader import start_client_async, volumes_to_db, fetch_trps, single_trp_volumes_to_db, fetch_trps_from_ids
@@ -334,8 +334,7 @@ def execute_forecasting(functionality: str) -> None:
     print("V: Volumes | MS: Mean Speed")
     option = input("Choice: ").upper()
 
-    if not check_target(option):
-        raise TargetDataNotAvailableError("Invalid target variable")
+    check_target(option, errors=True)
 
     if functionality == "3.3.1":
 
@@ -355,12 +354,12 @@ def execute_forecasting(functionality: str) -> None:
             forecaster = OnePointForecaster(
                 trp_id=trp_id,
                 road_category=trp_road_category,
-                target=GlobalDefinitions.TARGET_DATA.value[option],
+                target=GlobalDefinitions.TARGET_DATA[option],
                 client=client,
                 db_broker=db_broker,
                 loader=loader
             )
-            future_records = forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=GlobalDefinitions.TARGET_DATA.value[option]))  #Already preprocessed
+            future_records = forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=GlobalDefinitions.TARGET_DATA[option]))  #Already preprocessed
 
             #TODO TEST training_mode = BOTH 0 AND 1
             model_training_dataset = forecaster.get_training_records(
@@ -369,14 +368,14 @@ def execute_forecasting(functionality: str) -> None:
             )
             X, y = split_by_target(
                 data=model_training_dataset,
-                target=GlobalDefinitions.TARGET_DATA.value[option],
+                target=GlobalDefinitions.TARGET_DATA[option],
                 mode=1
             )
 
             for name, data in db_broker.get_model_objects()["model_data"].items(): #Load model name and data (pickle object, the best parameters and so on)
 
                 model = pickle.load(data[name]["pickle_object"])
-                best_params = data[name][f"{GlobalDefinitions.TARGET_DATA.value[option]}_best_params"]
+                best_params = data[name][f"{GlobalDefinitions.TARGET_DATA[option]}_best_params"]
 
                 if best_params is None:
                     raise ModelBestParametersNotFound("Model's best parameters are None, check if the model has been trained or has best parameters set")
@@ -384,7 +383,7 @@ def execute_forecasting(functionality: str) -> None:
                 learner = TFSLearner(
                     model=model(**best_params),
                     road_category=trp_road_category,
-                    target=GlobalDefinitions.TARGET_DATA.value[option],
+                    target=GlobalDefinitions.TARGET_DATA[option],
                     client=client,
                     db_broker=db_broker
                 )
