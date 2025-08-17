@@ -190,25 +190,6 @@ def execute_eda() -> None:
 def forecasts_warmup(functionality: str) -> None:
     db_broker = get_db_broker()
     loader = BatchStreamLoader(db_broker=db_broker)
-    models_query = f"""SELECT 
-                            m.name, 
-                            mo.pickle_object AS binary_obj,
-                            m.base_params AS base_parameters,
-                            m.volume_best_params AS volume_best_parameters,
-                            m.mean_speed_best_params AS mean_speed_best_parameters
-                        FROM
-                            "{ProjectTables.MLModels.value}" m
-                        JOIN
-                            "{ProjectTables.TrainedModels.value}" mo ON m.id = mo.id;"""
-    models = {m["name"]: {"binary_obj": m["binary_obj"],
-                          "base_parameters": m["base_parameters"],
-                          "volume_best_parameters": m["volume_best_parameters"],
-                          "mean_speed_best_parameters": m["mean_speed_best_parameters"]} for m in db_broker.send_sql(models_query)}
-
-
-    #TODO DEFINE IF WE NEED BASE MODELS OR ALREADY TRAINED MODELS TO MAKE PREDICTIONS
-
-
     actual_target: str | None = None
 
 
@@ -234,7 +215,24 @@ def forecasts_warmup(functionality: str) -> None:
 
 
     def process_functionality(func: callable) -> None:
-        function_name = func.__name__
+
+        models_base_params_query = f"""SELECT 
+                                    m.id as id,
+                                    m.name as name, 
+                                    mo.pickle_object AS pickle_object,
+                                    m.base_params AS base_parameters
+                                FROM
+                                    "{ProjectTables.MLModels.value}" m
+                                JOIN
+                                    "{ProjectTables.TrainedModels.value}" mo ON m.id = mo.id;"""
+
+        models_best_params_query = f"""
+                                SELECT 
+                                    model_id,
+                                    model_name,
+                                    best_{actual_target}_params
+                                FROM best_{actual_target}_gridsearch_results;
+                                """
 
         for road_category, trp_ids in db_broker.get_trp_ids_by_road_category(has_volumes=True if actual_target == GlobalDefinitions.VOLUME else None,
                                                                              has_mean_speed=True if actual_target == GlobalDefinitions.MEAN_SPEED else None).items():
@@ -260,15 +258,27 @@ def forecasts_warmup(functionality: str) -> None:
             )
             print(f"Shape of the merged data for road category {road_category}: ", preprocessor.shape)
 
-            for model, metadata in models:
-                params = models[model][f"{actual_target}_best_params"] if function_name != "ml_gridsearch" else models[model]["base_params"]
+            for model, metadata in models := {m["name"]: {"pickle_object": pickle.loads(m["pickle_object"]), "base_parameters": m["base_parameters"]} for m in db_broker.send_sql(
+                    models_base_params_query if functionality_mapping[functionality]["type"] in ["gridsearch"] else models_best_params_query)}:
 
-                print(params)
-
-                learner = TFSLearner(model=model(**params), road_category=road_category, target=actual_target, client=client, db_broker=db_broker)
-                func(X_train if function_name in ["ml_gridsearch", "ml_training"] else X_test,
-                     y_train if function_name in ["ml_gridsearch", "ml_training"] else y_test,
-                     learner)
+                if functionality_mapping[functionality]["type"] in ["gridsearch"]:
+                    func(X_train, y_train, TFSLearner(
+                            model=model(**models[model]["base_params"]),
+                            road_category=road_category,
+                            target=actual_target,
+                            client=client,
+                            db_broker=db_broker
+                        )
+                    )
+                else:
+                    func(X_test, y_test, TFSLearner(
+                            model=model(**models[model][...]),
+                            road_category=road_category,
+                            target=actual_target,
+                            client=client,
+                            db_broker=db_broker
+                        )
+                    )
 
         return None
 
@@ -277,36 +287,42 @@ def forecasts_warmup(functionality: str) -> None:
         functionality_mapping = {
             "3.2.1": {
                 "func": ml_gridsearch,
+                "type": "gridsearch",
                 "target": GlobalDefinitions.VOLUME,
                 "preprocessing_method": "preprocess_volume",
                 "loading_method": "get_volume"
             },
             "3.2.2": {
                 "func": ml_gridsearch,
+                "type": "gridsearch",
                 "target": GlobalDefinitions.MEAN_SPEED,
                 "preprocessing_method": "preprocess_mean_speed",
                 "loading_method": "get_mean_speed"
             },
             "3.2.3": {
                 "func": ml_training,
+                "type": "training",
                 "target": GlobalDefinitions.VOLUME,
                 "preprocessing_method": "preprocess_volume",
                 "loading_method": "get_volume"
             },
             "3.2.4": {
                 "func": ml_training,
+                "type": "training",
                 "target": GlobalDefinitions.MEAN_SPEED,
                 "preprocessing_method": "preprocess_mean_speed",
                 "loading_method": "get_mean_speed"
             },
             "3.2.5": {
                 "func": ml_testing,
+                "type": "testing",
                 "target": GlobalDefinitions.VOLUME,
                 "preprocessing_method": "preprocess_volume",
                 "loading_method": "get_volume"
             },
             "3.2.6": {
                 "func": ml_testing,
+                "type": "testing",
                 "target": GlobalDefinitions.MEAN_SPEED,
                 "preprocessing_method": "preprocess_mean_speed",
                 "loading_method": "get_mean_speed"

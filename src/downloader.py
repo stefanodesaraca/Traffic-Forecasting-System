@@ -262,7 +262,7 @@ async def fetch_trp_volumes(gql_client: Client, trp_id: str, time_start: str, ti
         """))
 
 
-async def volumes_to_db(db_broker_async: Any, trp_ids: list[str] | Generator[str], time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10, batch_size: int = 100000) -> None:
+async def volumes_to_db(db_broker_async: Any, trp_ids: list[str] | Generator[str, None, None], time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10, batch_size: int = 100000) -> None:
     semaphore = asyncio.Semaphore(n_async_jobs)  # Limit to n_async_jobs async tasks
     pipeline = VolumeExtractionPipeline(db_broker_async=db_broker_async)
 

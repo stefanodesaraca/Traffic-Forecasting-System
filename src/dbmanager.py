@@ -462,6 +462,7 @@ class AIODBManager:
                 GROUP BY
                     trp.id;
                 
+                
                 CREATE OR REPLACE VIEW "{ProjectViews.VolumeMeanSpeedDateRangesView.value}" AS
                 SELECT
                     MIN(v.zoned_dt_iso) AS {GlobalDefinitions.VOLUME}_start_date,
@@ -470,6 +471,96 @@ class AIODBManager:
                     MAX(ms.zoned_dt_iso) AS {GlobalDefinitions.MEAN_SPEED}_end_date
                 FROM "{ProjectTables.Volume.value}" v
                 FULL OUTER JOIN "{ProjectTables.MeanSpeed.value}" ms ON false;  -- Force Cartesian for aggregation without joining
+                
+                
+                CREATE OR REPLACE VIEW "best_{GlobalDefinitions.VOLUME}_gridsearch_results" AS
+                SELECT 
+                    m.id AS model_id,
+                    m.name AS model_name,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.params
+                        ELSE NULL
+                    END AS best_{GlobalDefinitions.VOLUME}_params,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_test_r2
+                        ELSE NULL
+                    END AS mean_test_r2,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_train_r2
+                        ELSE NULL
+                    END AS mean_train_r2,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_test_mean_squared_error
+                        ELSE NULL
+                    END AS mean_test_mean_squared_error,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_train_mean_squared_error
+                        ELSE NULL
+                    END AS mean_train_mean_squared_error,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_test_root_mean_squared_error
+                        ELSE NULL
+                    END AS mean_test_root_mean_squared_error,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_train_root_mean_squared_error
+                        ELSE NULL
+                    END AS mean_train_root_mean_squared_error,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_test_mean_absolute_error
+                        ELSE NULL
+                    END AS mean_test_mean_absolute_error,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_train_mean_absolute_error
+                        ELSE NULL
+                    END AS mean_train_mean_absolute_error
+                FROM "{ProjectTables.MLModels.value}" m
+                LEFT JOIN "{ProjectTables.ModelGridSearchCVResults.value}" r
+                    ON m.id = r.model_id;
+                    
+                    
+                CREATE OR REPLACE VIEW "best_{GlobalDefinitions.VOLUME}_gridsearch_results" AS
+                SELECT 
+                    m.id AS model_id,
+                    m.name AS model_name,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.params
+                        ELSE NULL
+                    END AS best_{GlobalDefinitions.MEAN_SPEED}_params,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_test_r2
+                        ELSE NULL
+                    END AS mean_test_r2,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_train_r2
+                        ELSE NULL
+                    END AS mean_train_r2,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_test_mean_squared_error
+                        ELSE NULL
+                    END AS mean_test_mean_squared_error,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_train_mean_squared_error
+                        ELSE NULL
+                    END AS mean_train_mean_squared_error,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_test_root_mean_squared_error
+                        ELSE NULL
+                    END AS mean_test_root_mean_squared_error,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_train_root_mean_squared_error
+                        ELSE NULL
+                    END AS mean_train_root_mean_squared_error,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_test_mean_absolute_error
+                        ELSE NULL
+                    END AS mean_test_mean_absolute_error,
+                    CASE 
+                        WHEN r.id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_train_mean_absolute_error
+                        ELSE NULL
+                    END AS mean_train_mean_absolute_error
+                FROM "{ProjectTables.MLModels.value}" m
+                LEFT JOIN "{ProjectTables.ModelGridSearchCVResults.value}" r
+                    ON m.id = r.model_id; 
                 """)
 
                 # Granting permission to access to all tables to the TFS user
