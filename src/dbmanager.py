@@ -206,22 +206,18 @@ class AIODBManager:
                 data = json.loads(await gs.read())[estimator_name] ##estimator_name
 
             await conn.execute(f"""
-                INSERT INTO "{ProjectTables.MLModels}" (
+                INSERT INTO "{ProjectTables.MLModels.value}" (
                     "id", "name", "type", "base_params",
-                    "volume_best_params", "mean_speed_best_params",
                     "volume_grid", "mean_speed_grid"
                 )
                 VALUES ($1, $2, $3, $4::json,
-                        $5::json, $6::json,
-                        $7::json, $8::json)
+                        $5::json, $6::json)
                 ON CONFLICT ("id") DO NOTHING;
             """,
                 await asyncio.to_thread(lambda: hashlib.sha256(estimator_name.encode("utf-8")).hexdigest()), #estimator_id (generating a unique id of the model to be inserted as primary key)
                 estimator_name,
                 model._estimator_type, #estimator_type
                 json.dumps(data["base_parameters"]),
-                json.dumps(None), #volume_best_params
-                json.dumps(None), #mean_speed_best_params
                 json.dumps(data[f"{GlobalDefinitions.VOLUME}_grid"]), #volume_grid
                 json.dumps(data[f"{GlobalDefinitions.MEAN_SPEED}_grid"]) #mean_speed_grid
             )
@@ -231,8 +227,8 @@ class AIODBManager:
             joblib_bytes.seek(0)
 
             await conn.execute(f"""
-                INSERT INTO "{ProjectTables.BaseModels}" (
-                    "id", 
+                INSERT INTO "{ProjectTables.BaseModels.value}" (
+                    "id", "joblib_object", "pickle_object"
                 )
                 VALUES ($1, $2, $3)
                 ON CONFLICT ("id") DO NOTHING;
