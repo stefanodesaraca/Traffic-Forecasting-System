@@ -608,7 +608,7 @@ class TFSLearner:
                 INSERT INTO "{ProjectTables.TrainedModels.value}" ("id", "joblib_object", "pickle_object")
                 VALUES ($1, $2, $3)
                 ON CONFLICT ("id") DO UPDATE;
-            """, execute_args=[self._model.model_id, joblib_bytes.read(), pickle.dumps(self._model)])
+            """, execute_args=[self._model.model_id, joblib_bytes.getvalue(), pickle.dumps(self._model)])
         return None
 
 

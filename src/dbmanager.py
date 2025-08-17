@@ -235,7 +235,7 @@ class AIODBManager:
             """,
                 await asyncio.to_thread(lambda: hashlib.sha256(estimator_name.encode("utf-8")).hexdigest()),
                 pickle.dumps(obj=model, protocol=pickle.HIGHEST_PROTOCOL),
-                joblib_bytes
+                joblib_bytes.getvalue()
             )
 
         return None
