@@ -74,7 +74,7 @@ async def fetch_trps_from_ids(gql_client: Client, trp_ids: list[str]) -> dict | 
             f"""
             {{
               trafficRegistrationPoints(
-                trafficRegistrationPointIds: [{", ".join(f'"{x}"' for x in trp_ids)}]
+                trafficRegistrationPointIds: [{", ".join(f'"{x.strip()}"' for x in trp_ids)}]
               ) {{
                 id
                 name

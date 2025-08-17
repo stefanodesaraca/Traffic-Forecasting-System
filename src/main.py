@@ -98,7 +98,7 @@ async def manage_downloads(functionality: str) -> None:
 
     elif functionality == "2.2":
         await (await get_aiodbmanager_broker()).insert_trps(
-            data=await fetch_trps_from_ids(gql_client=await start_client_async(), trp_ids=(await asyncio.to_thread(input, "Insert the TRP IDs which you want to ingest into the DB separated by commas: ")).split(",")))
+            data=await fetch_trps_from_ids(gql_client=await start_client_async(), trp_ids=(await asyncio.to_thread(input, "Insert the TRP IDs which you want to ingest into the DB separated by commas: ")).strip().split(",")))
 
 
     elif functionality == "2.3":
