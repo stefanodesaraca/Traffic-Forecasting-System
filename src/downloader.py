@@ -1,5 +1,5 @@
 import random
-from typing import Any
+from typing import Any, Generator
 from collections import defaultdict
 import asyncio
 from warnings import simplefilter
@@ -262,7 +262,7 @@ async def fetch_trp_volumes(gql_client: Client, trp_id: str, time_start: str, ti
         """))
 
 
-async def volumes_to_db(db_broker_async: Any, time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10, batch_size: int = 100000) -> None:
+async def volumes_to_db(db_broker_async: Any, trp_ids: list[str] | Generator[str], time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10, batch_size: int = 100000) -> None:
     semaphore = asyncio.Semaphore(n_async_jobs)  # Limit to n_async_jobs async tasks
     pipeline = VolumeExtractionPipeline(db_broker_async=db_broker_async)
 
@@ -332,71 +332,10 @@ async def volumes_to_db(db_broker_async: Any, time_start: str, time_end: str, n_
             return await download_trp_data(trp_id)
 
     # Run all downloads in parallel with a maximum of 5 processes at the same time
-    await asyncio.gather(*(limited_task(trp_id) for trp_id in (trp_record["id"] for trp_record in await db_broker_async.get_trp_ids_async())))
+    await asyncio.gather(*(limited_task(trp_id) for trp_id in trp_ids))
 
     # Final flush for any remaining items
     for trp_id in list(batch_buffers.keys()):
         await flush_batch(trp_id)
 
     return None
-
-
-async def single_trp_volumes_to_db(db_broker_async: Any, trp_id: str, time_start: str, time_end: str, max_retries: PositiveInt = 10, batch_size: int = 100000) -> None:
-    pipeline = VolumeExtractionPipeline(db_broker_async=db_broker_async)
-    batch_buffer = {}
-
-    async def flush_batch():
-        if batch_buffer:
-            await pipeline.ingest(
-                payload=batch_buffer,
-                trp_id=trp_id,
-                fields=GlobalDefinitions.VOLUME_INGESTION_FIELDS
-            )
-            batch_buffer.clear()
-
-    pages_counter = 0
-    retries = 0
-    end_cursor = None
-
-    while retries < max_retries:
-        try:
-            gql_client = await start_client_async()
-            query_result = await fetch_trp_volumes(
-                gql_client,
-                trp_id,
-                time_start,
-                time_end,
-                last_end_cursor=end_cursor,
-                next_page_query=pages_counter > 0
-            )
-
-            page_info = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]
-            end_cursor = page_info["endCursor"] if page_info["hasNextPage"] else None
-
-            if batch_buffer:
-                batch_buffer["trafficData"]["volume"]["byHour"]["edges"].extend(
-                    query_result["trafficData"]["volume"]["byHour"]["edges"]
-                )
-            else:
-                batch_buffer.update(query_result)
-
-            if len(batch_buffer["trafficData"]["volume"]["byHour"]["edges"]) >= batch_size:
-                await flush_batch()
-
-            pages_counter += 1
-            if end_cursor is None:
-                break
-
-        except (TimeoutError, TransportServerError):
-            if retries == max_retries:
-                print(f"\033[91mFailed to download TRP {trp_id} volumes data\033[0m")
-                break
-            await asyncio.sleep(delay=(2 ** retries) + random.random())
-            retries += 1
-
-        except (ClientConnectorError, ClientOSError, ServerDisconnectedError):
-            await asyncio.sleep(delay=(2 ** retries ** retries) + random.random())
-            retries += 1
-
-    # Flush any remaining data
-    await flush_batch()

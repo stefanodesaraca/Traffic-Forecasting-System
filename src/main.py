@@ -11,7 +11,7 @@ import geojson
 from exceptions import TRPNotFoundError, ModelBestParametersNotFound
 from db_config import DBConfig, ProjectTables
 
-from downloader import start_client_async, volumes_to_db, fetch_trps, single_trp_volumes_to_db, fetch_trps_from_ids
+from downloader import start_client_async, volumes_to_db, fetch_trps, fetch_trps_from_ids
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
 from pipelines import MeanSpeedExtractionPipeline
 from loaders import BatchStreamLoader
@@ -96,6 +96,7 @@ async def manage_downloads(functionality: str) -> None:
         await (await get_aiodbmanager_broker()).insert_trps(data=await fetch_trps(gql_client=await start_client_async()))
         print("Traffic registration points information downloaded successfully\n\n")
 
+
     elif functionality == "2.2":
         await (await get_aiodbmanager_broker()).insert_trps(
             data=await fetch_trps_from_ids(gql_client=await start_client_async(), trp_ids=(await asyncio.to_thread(input, "Insert the TRP IDs which you want to ingest into the DB separated by commas: ")).strip().split(",")))
@@ -107,23 +108,24 @@ async def manage_downloads(functionality: str) -> None:
         print("Downloading traffic volumes data for every registration point for the current project...")
         await volumes_to_db(
             db_broker_async=await get_aiodb_broker(),
+            trp_ids=(trp_record["id"] for trp_record in await (await get_aiodb_broker()).get_trp_ids_async()),
             time_start=time_start,
             time_end=time_end,
             n_async_jobs=5,
             max_retries=5
         )
 
+
     elif functionality == "2.4":
-        trp_id = await asyncio.to_thread(input, "Insert the TRP ID for which you want to ingest data for: ")
-        await single_trp_volumes_to_db(
+        trp_ids = await asyncio.to_thread(lambda: input("Insert the TRP IDs for which you want to ingest data for separated by commas: ").strip().split(","))
+        await volumes_to_db(
             db_broker_async=await get_aiodb_broker(),
-            trp_id=trp_id,
+            trp_ids=trp_ids,
             time_start=await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE,
             time_end=await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE,
             max_retries=5
         )
-        print(f"Downloading traffic volumes data for TRP: {trp_id}...")
-
+        print(f"Downloading traffic volumes data for TRPs: {list(trp_ids)}...")
 
     return None
 
@@ -139,8 +141,6 @@ async def mean_speeds_to_db(_: str) -> None:
 
     await asyncio.gather(*(limited_ingest(file=file) for file in await asyncio.to_thread(os.listdir, GlobalDefinitions.MEAN_SPEED_DIR)))
     return None
-
-#TODO CHECK HOW BEST PARAMETERS ARE INSERTED INTO DB AND IF THERE'S A DEFAULT IDX
 
 
 async def manage_forecasting_horizon(functionality: str) -> None:
