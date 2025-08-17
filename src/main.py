@@ -322,7 +322,7 @@ def forecasts_warmup(functionality: str) -> None:
                 "target": GlobalDefinitions.VOLUME,
                 "preprocessing_method": "preprocess_volume",
                 "loading_method": "get_volume",
-                "model_query": models_base_params_query
+                "model_query": query_mapping["gridsearch"]
             },
             "3.2.2": {
                 "func": ml_gridsearch,
@@ -330,7 +330,7 @@ def forecasts_warmup(functionality: str) -> None:
                 "target": GlobalDefinitions.MEAN_SPEED,
                 "preprocessing_method": "preprocess_mean_speed",
                 "loading_method": "get_mean_speed",
-                "model_query": models_base_params_query
+                "model_query": query_mapping["gridsearch"]
             },
             "3.2.3": {
                 "func": ml_training,
@@ -338,7 +338,7 @@ def forecasts_warmup(functionality: str) -> None:
                 "target": GlobalDefinitions.VOLUME,
                 "preprocessing_method": "preprocess_volume",
                 "loading_method": "get_volume",
-                "model_query": ...
+                "model_query": query_mapping["training"]
             },
             "3.2.4": {
                 "func": ml_training,
@@ -346,7 +346,7 @@ def forecasts_warmup(functionality: str) -> None:
                 "target": GlobalDefinitions.MEAN_SPEED,
                 "preprocessing_method": "preprocess_mean_speed",
                 "loading_method": "get_mean_speed",
-                "model_query": ...
+                "model_query": query_mapping["training"]
             },
             "3.2.5": {
                 "func": ml_testing,
@@ -354,7 +354,7 @@ def forecasts_warmup(functionality: str) -> None:
                 "target": GlobalDefinitions.VOLUME,
                 "preprocessing_method": "preprocess_volume",
                 "loading_method": "get_volume",
-                "model_query": ...
+                "model_query": query_mapping["testing"]
             },
             "3.2.6": {
                 "func": ml_testing,
@@ -362,7 +362,7 @@ def forecasts_warmup(functionality: str) -> None:
                 "target": GlobalDefinitions.MEAN_SPEED,
                 "preprocessing_method": "preprocess_mean_speed",
                 "loading_method": "get_mean_speed",
-                "model_query": ...
+                "model_query": query_mapping["testing"]
             }
         }
 
