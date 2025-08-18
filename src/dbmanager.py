@@ -446,23 +446,36 @@ class AIODBManager:
                 # Views
                 await conn.execute(f"""
                 CREATE OR REPLACE VIEW "{ProjectViews.TrafficRegistrationPointsMetadataView.value}" AS
+                WITH v_agg AS (
+                    SELECT
+                        trp_id,
+                        COALESCE(BOOL_OR("{GlobalDefinitions.VOLUME}" IS NOT NULL), FALSE) AS has_{GlobalDefinitions.VOLUME},
+                        MIN("zoned_dt_iso") FILTER (WHERE "{GlobalDefinitions.VOLUME}" IS NOT NULL) AS {GlobalDefinitions.VOLUME}_start_date,
+                        MAX("zoned_dt_iso") FILTER (WHERE "{GlobalDefinitions.VOLUME}" IS NOT NULL) AS {GlobalDefinitions.VOLUME}_end_date
+                    FROM "{ProjectTables.Volume.value}"
+                    GROUP BY trp_id
+                ),
+                ms_agg AS (
+                    SELECT
+                        trp_id,
+                        COALESCE(BOOL_OR("{GlobalDefinitions.MEAN_SPEED}" IS NOT NULL), FALSE) AS has_{GlobalDefinitions.MEAN_SPEED},
+                        MIN("zoned_dt_iso") FILTER (WHERE "{GlobalDefinitions.MEAN_SPEED}" IS NOT NULL) AS {GlobalDefinitions.MEAN_SPEED}_start_date,
+                        MAX("zoned_dt_iso") FILTER (WHERE "{GlobalDefinitions.MEAN_SPEED}" IS NOT NULL) AS {GlobalDefinitions.MEAN_SPEED}_end_date
+                    FROM "{ProjectTables.MeanSpeed.value}"
+                    GROUP BY trp_id
+                )
                 SELECT
                     trp.id AS trp_id,
-                    trp.road_category as road_category,
-                    BOOL_OR(v.{GlobalDefinitions.VOLUME} IS NOT NULL) AS has_{GlobalDefinitions.VOLUME},
-                    BOOL_OR(ms.{GlobalDefinitions.MEAN_SPEED} IS NOT NULL) AS has_{GlobalDefinitions.MEAN_SPEED},
-                    MIN(CASE WHEN v.{GlobalDefinitions.VOLUME} IS NOT NULL THEN v.zoned_dt_iso END) AS {GlobalDefinitions.VOLUME}_start_date,
-                    MAX(CASE WHEN v.{GlobalDefinitions.VOLUME} IS NOT NULL THEN v.zoned_dt_iso END) AS {GlobalDefinitions.VOLUME}_end_date,
-                    MIN(CASE WHEN ms.{GlobalDefinitions.MEAN_SPEED} IS NOT NULL THEN ms.zoned_dt_iso END) AS {GlobalDefinitions.MEAN_SPEED}_start_date,
-                    MAX(CASE WHEN ms.{GlobalDefinitions.MEAN_SPEED} IS NOT NULL THEN ms.zoned_dt_iso END) AS {GlobalDefinitions.MEAN_SPEED}_end_date
-                FROM
-                    "{ProjectTables.TrafficRegistrationPoints.value}" trp
-                LEFT JOIN
-                    "{ProjectTables.Volume.value}" v ON trp.id = v.trp_id
-                LEFT JOIN
-                    "{ProjectTables.MeanSpeed.value}" ms ON trp.id = ms.trp_id
-                GROUP BY
-                    trp.id;
+                    trp.road_category,
+                    COALESCE(v_agg.has_{GlobalDefinitions.VOLUME}, FALSE) AS has_{GlobalDefinitions.VOLUME}, -- If there weren't any rows for a specific TRP this would be NULL, instead we want FALSE
+                    v_agg.{GlobalDefinitions.VOLUME}_start_date,
+                    v_agg.{GlobalDefinitions.VOLUME}_end_date,
+                    COALESCE(ms_agg.has_mean_speed, FALSE) AS has_{GlobalDefinitions.MEAN_SPEED}, -- If there weren't any rows for a specific TRP this would be NULL, instead we want FALSE
+                    ms_agg.{GlobalDefinitions.MEAN_SPEED}_start_date,
+                    ms_agg.{GlobalDefinitions.MEAN_SPEED}_end_date
+                FROM "{ProjectTables.TrafficRegistrationPoints.value}" trp
+                LEFT JOIN v_agg ON trp.id = v_agg.trp_id
+                LEFT JOIN ms_agg ON trp.id = ms_agg.trp_id;
                 
                 
                 CREATE OR REPLACE VIEW "{ProjectViews.VolumeMeanSpeedDateRangesView.value}" AS
