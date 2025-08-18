@@ -192,6 +192,47 @@ def forecasts_warmup(functionality: str) -> None:
     loader = BatchStreamLoader(db_broker=db_broker)
 
 
+    def get_model_query(operation_type: str, target: str):
+        return {
+            "gridsearch": f"""
+                            SELECT 
+                                m.id as id,
+                                m.name as name, 
+                                m.base_params AS params,
+                                bm.pickle_object AS pickle_object
+                            FROM
+                                "{ProjectTables.MLModels.value}" m
+                            JOIN
+                                "{ProjectTables.BaseModels.value}" bm ON m.id = bm.id;
+                            """,  # models_base_params_query
+            "training": f"""
+                            SELECT 
+                                bgr.model_id as id,
+                                bgr.model_name as name,
+                                bgr.best_{target}_params as params,
+                                bm.pickle_object AS pickle_object
+                            FROM 
+                                "best_{target}_gridsearch_results" bgr
+                            JOIN
+                                "{ProjectTables.BaseModels.value}" bm ON bgr.model_id = bm.id;
+                            """,
+            # models_best_params_query #TODO ADD best_{target}_gridsearch_results TO ProjectViews
+            "testing": f"""
+                            SELECT 
+                                m.id as id,
+                                m.target as target,
+                                m.name as name,
+                                bm.pickle_object AS pickle_object
+                            FROM 
+                                "{ProjectTables.MLModels.value}" m
+                            JOIN
+                                "{ProjectTables.TrainedModels.value}" tm ON m.model_id = tm.id
+                            WHERE m.target = {target};
+                            """
+            # models_best_params_query #TODO ADD best_{target}_gridsearch_results TO ProjectViews
+        }.get(operation_type, None)
+
+
     def ml_gridsearch(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
         gridsearch_result = learner.gridsearch(X_train, y_train)
         learner.export_gridsearch_results(gridsearch_result)
@@ -244,7 +285,7 @@ def forecasts_warmup(functionality: str) -> None:
                     "binary": pickle.loads(m["pickle_object"]),
                     "params": m.get("params", None)
                 }
-                for m in db_broker.send_sql(query_mapping[functionality_mapping[functionality]["type"]])
+                for m in db_broker.send_sql(functionality_mapping[functionality]["model_query"])
             }:
 
                 if functionality_mapping[functionality]["type"] == "gridsearch":
@@ -280,45 +321,6 @@ def forecasts_warmup(functionality: str) -> None:
 
     with dask_cluster_client(processes=False) as client:
 
-        query_mapping = {
-            "gridsearch": f"""
-                            SELECT 
-                                m.id as id,
-                                m.name as name, 
-                                m.base_params AS params,
-                                bm.pickle_object AS pickle_object
-                            FROM
-                                "{ProjectTables.MLModels.value}" m
-                            JOIN
-                                "{ProjectTables.BaseModels.value}" bm ON m.id = bm.id;
-                            """,  # models_base_params_query
-            "training": f"""
-                            SELECT 
-                                bgr.model_id as id,
-                                bgr.model_name as name,
-                                bgr.best_{target}_params as params,
-                                bm.pickle_object AS pickle_object
-                            FROM 
-                                "best_{target}_gridsearch_results" bgr
-                            JOIN
-                                "{ProjectTables.BaseModels.value}" bm ON bgr.model_id = bm.id;
-                            """,
-            # models_best_params_query #TODO ADD best_{actual_target}_gridsearch_results TO ProjectViews
-            "testing": f"""
-                            SELECT 
-                                m.id as id,
-                                m.target as target,
-                                m.name as name,
-                                bm.pickle_object AS pickle_object
-                            FROM 
-                                "{ProjectTables.MLModels.value}" m
-                            JOIN
-                                "{ProjectTables.TrainedModels.value}" tm ON m.model_id = tm.id
-                            WHERE m.target;
-                            """
-            # models_best_params_query #TODO ADD best_{actual_target}_gridsearch_results TO ProjectViews
-        }
-
         functionality_mapping = {
             "3.2.1": {
                 "func": ml_gridsearch,
@@ -326,7 +328,7 @@ def forecasts_warmup(functionality: str) -> None:
                 "target": GlobalDefinitions.VOLUME,
                 "preprocessing_method": "preprocess_volume",
                 "loading_method": "get_volume",
-                "model_query": query_mapping["gridsearch"]
+                "model_query": get_model_query(operation_type="gridsearch", target=GlobalDefinitions.VOLUME)
             },
             "3.2.2": {
                 "func": ml_gridsearch,
@@ -334,7 +336,7 @@ def forecasts_warmup(functionality: str) -> None:
                 "target": GlobalDefinitions.MEAN_SPEED,
                 "preprocessing_method": "preprocess_mean_speed",
                 "loading_method": "get_mean_speed",
-                "model_query": query_mapping["gridsearch"]
+                "model_query": get_model_query(operation_type="gridsearch", target=GlobalDefinitions.MEAN_SPEED)
             },
             "3.2.3": {
                 "func": ml_training,
@@ -342,7 +344,7 @@ def forecasts_warmup(functionality: str) -> None:
                 "target": GlobalDefinitions.VOLUME,
                 "preprocessing_method": "preprocess_volume",
                 "loading_method": "get_volume",
-                "model_query": query_mapping["training"]
+                "model_query": get_model_query(operation_type="training", target=GlobalDefinitions.VOLUME)
             },
             "3.2.4": {
                 "func": ml_training,
@@ -350,7 +352,7 @@ def forecasts_warmup(functionality: str) -> None:
                 "target": GlobalDefinitions.MEAN_SPEED,
                 "preprocessing_method": "preprocess_mean_speed",
                 "loading_method": "get_mean_speed",
-                "model_query": query_mapping["training"]
+                "model_query": get_model_query(operation_type="training", target=GlobalDefinitions.MEAN_SPEED)
             },
             "3.2.5": {
                 "func": ml_testing,
@@ -358,7 +360,7 @@ def forecasts_warmup(functionality: str) -> None:
                 "target": GlobalDefinitions.VOLUME,
                 "preprocessing_method": "preprocess_volume",
                 "loading_method": "get_volume",
-                "model_query": query_mapping["testing"]
+                "model_query": get_model_query(operation_type="testing", target=GlobalDefinitions.VOLUME)
             },
             "3.2.6": {
                 "func": ml_testing,
@@ -366,7 +368,7 @@ def forecasts_warmup(functionality: str) -> None:
                 "target": GlobalDefinitions.MEAN_SPEED,
                 "preprocessing_method": "preprocess_mean_speed",
                 "loading_method": "get_mean_speed",
-                "model_query": query_mapping["testing"]
+                "model_query": get_model_query(operation_type="testing", target=GlobalDefinitions.MEAN_SPEED)
             }
         }
 

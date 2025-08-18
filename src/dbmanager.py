@@ -520,7 +520,7 @@ class AIODBManager:
                     ON m.id = r.model_id;
                     
                     
-                CREATE OR REPLACE VIEW "best_{GlobalDefinitions.VOLUME}_gridsearch_results" AS
+                CREATE OR REPLACE VIEW "best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_results" AS
                 SELECT 
                     m.id AS model_id,
                     m.name AS model_name,
