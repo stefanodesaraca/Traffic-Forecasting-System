@@ -292,6 +292,43 @@ class RoadGraphObjectsIngestionPipeline:
 
     async def ingest_nodes(self, fp: str | Path, batch_size: PositiveInt = 200) -> None:
 
+        nodes = (await self._load_geojson_async(fp=fp)).get("features", {})
+        ing_query = f"""
+            INSERT INTO {ProjectTables.RoadGraphNodes.value} (
+                "feature_id",
+                "geom",
+                "connected_traffic_link_ids",
+                "road_node_ids",
+                "is_roundabout",
+                "number_of_incoming_links",
+                "number_of_outgoing_links",
+                "number_of_undirected_links",
+                "legal_turning_movements",
+                "road_system_references",
+                "raw_properties"
+            ) VALUES (
+                $1, ST_GeomFromText($2, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}), $3, $4, $5, $6, $7, $8, $9, $10, $11
+            )
+        """
+
+        values = ([
+            feature.get("id"),
+            shape(feature.get("geometry")).wkt, # Convertion of the geometry to WKT for PostGIS compatibility (so that PostGIS can read the actual shape of the feature)
+            feature.get("connectedTrafficLinkIds"),
+            feature.get("roadNodeIds"),
+            feature.get("isRoundabout"),
+            feature.get("numberOfIncomingLinks"),
+            feature.get("numberOfOutgoingLinks"),
+            feature.get("numberOfUndirectedLinks"),
+            json.dumps(feature.get("legalTurningMovements", [])),
+            feature.get("roadSystemReferences"),
+            json.dumps(feature)  # keep raw properties for flexibility
+        ] for feature in nodes)
+
+
+
+
+
         #TODO GENERATE ROAD_CATEGORY WITH REFERENCE TO ROAD_CATEGORIES (SHORT FORM: E,F, and so on)
         ...
 
@@ -338,11 +375,13 @@ class RoadGraphObjectsIngestionPipeline:
                         "anomalies",
                         "raw_properties"
                     ) VALUES (
-                        $1, ST_GeomFromText($2, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM.value}), $3, $4, $5, $6, $7, $8, $9, $10,
+                        $1, ST_GeomFromText($2, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}), $3, $4, $5, $6, $7, $8, $9, $10,
                         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
                         $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37
                     )
                 """
+
+        #TODO GENERATE ROAD_CATEGORY WITH REFERENCE TO ROAD_CATEGORIES (SHORT FORM: E,F, and so on)
 
         values = ([
             feature.get("id"),
