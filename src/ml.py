@@ -501,8 +501,8 @@ class TFSLearner:
             gridsearch.fit(X=X_train, y=y_train)
 
         t_end = datetime.datetime.now()
-        print(f"{self._model.name} GridSearchCV finished at {t_end}\n")
-        print(f"Time passed: {t_end - t_start}")
+        print(f"{self._model.name} GridSearchCV finished at {t_end}")
+        print(f"Time passed: {t_end - t_start}\n")
 
         try:
             return pd.DataFrame(gridsearch.cv_results_)[
@@ -540,6 +540,7 @@ class TFSLearner:
             INSERT INTO "{ProjectTables.ModelGridSearchCVResults.value}" (
                 "model_id",
                 "road_category_id",
+                "target",
                 "params",
                 "mean_fit_time",
                 "mean_test_r2",
@@ -554,7 +555,19 @@ class TFSLearner:
             VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
-            ON CONFLICT ("model_id") DO UPDATE;
+            ON CONFLICT ("model_id") DO UPDATE
+            SET
+                road_category_id = EXCLUDED.road_category_id,
+                params = EXCLUDED.params,
+                mean_fit_time = EXCLUDED.mean_fit_time,
+                mean_test_r2 = EXCLUDED.mean_test_r2,
+                mean_train_r2 = EXCLUDED.mean_train_r2,
+                mean_test_mean_squared_error = EXCLUDED.mean_test_mean_squared_error,
+                mean_train_mean_squared_error = EXCLUDED.mean_train_mean_squared_error,
+                mean_test_root_mean_squared_error = EXCLUDED.mean_test_root_mean_squared_error,
+                mean_train_root_mean_squared_error = EXCLUDED.mean_train_root_mean_squared_error,
+                mean_test_mean_absolute_error = EXCLUDED.mean_test_mean_absolute_error,
+                mean_train_mean_absolute_error = EXCLUDED.mean_train_mean_absolute_error;
         """, many=True, many_values=[tuple(row) for row in results.itertuples(index=False, name=None)])
         return None
 
