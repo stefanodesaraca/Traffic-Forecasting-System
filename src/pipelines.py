@@ -280,8 +280,8 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
 
 class RoadGraphObjectsIngestionPipeline:
 
-    def __init__(self, batch_size: PositiveInt = 50000):
-        self._batch_size: PositiveInt = batch_size
+    def __init__(self, db_broker_async: Any):
+        self._db_broker_async: Any = db_broker_async
 
 
     @staticmethod
@@ -290,13 +290,13 @@ class RoadGraphObjectsIngestionPipeline:
             return geojson.load(geo)
 
 
-    async def ingest_nodes(self, fp: str | Path) -> None:
+    async def ingest_nodes(self, fp: str | Path, batch_size: PositiveInt = 200) -> None:
 
         #TODO GENERATE ROAD_CATEGORY WITH REFERENCE TO ROAD_CATEGORIES (SHORT FORM: E,F, and so on)
         ...
 
 
-    async def ingest_links(self, fp: str | Path) -> None:
+    async def ingest_links(self, fp: str | Path, batch_size: PositiveInt = 200) -> None:
 
         links = (await self._load_geojson_async(fp=fp)).get("properties", {})
         ing_query = f"""
@@ -344,55 +344,47 @@ class RoadGraphObjectsIngestionPipeline:
                     )
                 """
 
-        for feature in links:
-
-            # Convert geometry to WKT with shapely's shape() and then extracting the wkt
-            geom_wkt = shape(feature.get("geometry")).wkt
-
-            # Extract properties
-            values = [
-                feature.get("id"),
-                geom_wkt,
-                feature.get("yearAppliesTo"),
-                feature.get("candidateIds"),
-                feature.get("roadSystemReferences"),
-                feature.get("roadCategory"),
-                json.dumps(feature.get("roadPlacements", [])),
-                feature.get("functionalRoadClass"),
-                feature.get("functionClass"),
-                feature.get("startTrafficNodeId"),
-                feature.get("endTrafficNodeId"),
-                feature.get("subsumedTrafficNodeIds"),
-                feature.get("roadLinkIds"),
-                feature.get("roadNodeIds"),
-                feature.get("municipalityIds"),
-                feature.get("countyIds"),
-                feature.get("highestSpeedLimit"),
-                feature.get("lowestSpeedLimit"),
-                feature.get("maxLanes"),
-                feature.get("minLanes"),
-                feature.get("hasOnlyPublicTransportLanes"),
-                feature.get("length"),
-                feature.get("trafficDirectionWrtMeteringDirection"),
-                feature.get("isNorwegianScenicRoute"),
-                feature.get("isFerryRoute"),
-                feature.get("isRamp"),
-                feature.get("tollStationIds"),
-                feature.get("associatedTrpIds"),
-                json.dumps(feature.get("trafficVolumes", [])),
-                feature.get("urbanRatio"),
-                feature.get("numberOfEstablishments"),
-                feature.get("numberOfEmployees"),
-                feature.get("numberOfInhabitants"),
-                feature.get("hasAnomalies"),
-                json.dumps(feature.get("anomalies", [])),
-                json.dumps(feature)
-            ]
+        values = ([
+            feature.get("id"),
+            shape(feature.get("geometry")).wkt, # Convert geometry to WKT with shapely's shape() and then extracting the wkt
+            feature.get("yearAppliesTo"),
+            feature.get("candidateIds"),
+            feature.get("roadSystemReferences"),
+            feature.get("roadCategory"),
+            json.dumps(feature.get("roadPlacements", [])),
+            feature.get("functionalRoadClass"),
+            feature.get("functionClass"),
+            feature.get("startTrafficNodeId"),
+            feature.get("endTrafficNodeId"),
+            feature.get("subsumedTrafficNodeIds"),
+            feature.get("roadLinkIds"),
+            feature.get("roadNodeIds"),
+            feature.get("municipalityIds"),
+            feature.get("countyIds"),
+            feature.get("highestSpeedLimit"),
+            feature.get("lowestSpeedLimit"),
+            feature.get("maxLanes"),
+            feature.get("minLanes"),
+            feature.get("hasOnlyPublicTransportLanes"),
+            feature.get("length"),
+            feature.get("trafficDirectionWrtMeteringDirection"),
+            feature.get("isNorwegianScenicRoute"),
+            feature.get("isFerryRoute"),
+            feature.get("isRamp"),
+            feature.get("tollStationIds"),
+            feature.get("associatedTrpIds"),
+            json.dumps(feature.get("trafficVolumes", [])),
+            feature.get("urbanRatio"),
+            feature.get("numberOfEstablishments"),
+            feature.get("numberOfEmployees"),
+            feature.get("numberOfInhabitants"),
+            feature.get("hasAnomalies"),
+            json.dumps(feature.get("anomalies", [])),
+            json.dumps(feature)
+        ] for feature in links)
 
 
-
-
-
+        #TODO USE EXECUTEMANY() BUT WITH BATCHES OF SIZE batch_size
 
 
 
