@@ -1,4 +1,3 @@
-import os
 import math
 from pathlib import Path
 import datetime
@@ -277,7 +276,50 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
 
 
 class RoadGraphObjectsIngestionPipeline:
-    ...
+
+    def __init__(self, batch_size: PositiveInt = 50000):
+        self._batch_size: PositiveInt = batch_size
+
+
+    def ingest_edges(self, fp: str | Path) -> None:
+        ...
+
+
+    def ingest_arches(self, fp: str | Path) -> None:
+        ...
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

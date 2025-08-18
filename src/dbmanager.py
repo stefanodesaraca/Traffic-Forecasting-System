@@ -433,7 +433,7 @@ class AIODBManager:
                         
                         CREATE EXTENSION IF NOT EXISTS postgis;
 
-                        CREATE TABLE IF NOT EXISTS {ProjectTables.RoadGraphTrafficNodes.value} (
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadGraphNodes.value}" (
                             id SERIAL PRIMARY KEY,
                             feature_id TEXT, -- corresponds to "id" in properties
                             geom GEOMETRY(Point, 4326) NOT NULL, -- store coordinates in WGS84
@@ -449,7 +449,7 @@ class AIODBManager:
                         );
                         
                         
-                        CREATE TABLE IF NOT EXISTS {ProjectTables.RoadGraphLinks.value} (
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadGraphLinks.value}" (
                             id SERIAL PRIMARY KEY,
                             feature_id TEXT,  -- properties.id
                             geom GEOMETRY,    -- supports any geometry type; use GEOMETRY(LineString, 4326) if always lines
