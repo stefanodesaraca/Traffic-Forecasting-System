@@ -269,8 +269,6 @@ def forecasts_warmup(functionality: str) -> None:
             for m in db_broker.send_sql(functionality_mapping[functionality]["model_query"])
         }
 
-        print("HELLO2")
-
         for road_category, trp_ids in db_broker.get_trp_ids_by_road_category(has_volumes=True if target == GlobalDefinitions.VOLUME else None,
                                                                              has_mean_speed=True if target == GlobalDefinitions.MEAN_SPEED else None).items():
 
@@ -293,9 +291,6 @@ def forecasts_warmup(functionality: str) -> None:
                 target=target,
                 mode=0
             )
-
-            print("HELLO3")
-
             print(f"Shape of the merged data for road category {road_category}: ", preprocessor.shape)
 
             for model, metadata in models.items():
@@ -387,8 +382,6 @@ def forecasts_warmup(functionality: str) -> None:
 
         if functionality not in functionality_mapping:
             raise ValueError(f"Unknown functionality: {functionality}")
-
-        print("HELLO1")
 
         target = functionality_mapping[functionality]["target"]
         process_functionality(functionality_mapping[functionality]["func"]) #Process the chosen operation

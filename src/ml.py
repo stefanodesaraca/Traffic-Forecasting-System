@@ -450,9 +450,9 @@ class TFSLearner:
         dict[str, Any]
             The model's grid for hyperparameter tuning.
         """
-        return json.loads(self._db_broker.send_sql(sql=f"""SELECT "{f"'{self._target}_grid'"}"
-                                                           FROM "{ProjectTables.MLModels.value}"
-                                                           WHERE "id" = '{self._model.model_id}';""", single=True)[f'{self._target}_grid'])
+        return self._db_broker.send_sql(sql=f"""SELECT "{f"{self._target}_grid"}"
+                                                FROM "{ProjectTables.MLModels.value}"
+                                                WHERE "id" = '{self._model.model_id}';""", single=True)[f'{self._target}_grid']
 
 
     def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> pd.DataFrame | None:
