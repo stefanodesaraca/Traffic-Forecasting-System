@@ -14,6 +14,7 @@ class BatchStreamLoader:
     def __init__(self, db_broker: DBBroker):
         self._data: dd.DataFrame
         self._db_broker: DBBroker = db_broker
+        self._dask_partition_size: str = "500MB"
 
 
     def get_volume(self,
@@ -92,8 +93,8 @@ class BatchStreamLoader:
 
         #If df_partitions has only 1 element inside then there aren't any dataframes to concatenate since there's only one, so just return it
         if len(df_partitions) == 1:
-            return df_partitions[0]
-        return dd.concat(dfs=df_partitions, axis=0)
+            return df_partitions[0].repartition(partition_size=self._dask_partition_size)
+        return dd.concat(dfs=df_partitions, axis=0).repartition(partition_size=self._dask_partition_size)
 
 
     def get_mean_speed(self,
@@ -170,4 +171,7 @@ class BatchStreamLoader:
         if batch:
             df_partitions.append(dd.from_pandas(pd.DataFrame.from_records(batch), npartitions=1))
 
-        return dd.concat(dfs=df_partitions, axis=0)
+        # If df_partitions has only 1 element inside then there aren't any dataframes to concatenate since there's only one, so just return it
+        if len(df_partitions) == 1:
+            return df_partitions[0].repartition(partition_size=self._dask_partition_size)
+        return dd.concat(dfs=df_partitions, axis=0).repartition(partition_size=self._dask_partition_size)
