@@ -420,7 +420,7 @@ class TFSLearner:
             "mean_absolute_error": mean_absolute_error
         }
         self._scorer: dict[str, Any] = {
-            func_name: make_scorer(func) for func_name, func in self._scoring_functions
+            func_name: make_scorer(func) for func_name, func in self._scoring_functions.items()
         }
         self._client: Client | None = client
         self._road_category: str = road_category
@@ -452,7 +452,7 @@ class TFSLearner:
         """
         return json.loads(self._db_broker.send_sql(sql=f"""SELECT "{f"'{self._target}_grid'"}"
                                                            FROM "{ProjectTables.MLModels.value}"
-                                                           WHERE "id" = {self._model.model_id};""", single=True)[f'{self._target}_grid'])
+                                                           WHERE "id" = '{self._model.model_id}';""", single=True)[f'{self._target}_grid'])
 
 
     def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> pd.DataFrame | None:

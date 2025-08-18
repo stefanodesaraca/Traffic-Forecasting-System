@@ -298,7 +298,7 @@ def forecasts_warmup(functionality: str) -> None:
 
             print(f"Shape of the merged data for road category {road_category}: ", preprocessor.shape)
 
-            for model, metadata in models:
+            for model, metadata in models.items():
                 if functionality_mapping[functionality]["type"] == "gridsearch":
                     func(X_train, y_train, TFSLearner(
                             model=models[model]["binary"](models[model]["params"]),
