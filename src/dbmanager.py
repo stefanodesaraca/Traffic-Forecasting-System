@@ -381,13 +381,6 @@ class AIODBManager:
                             FOREIGN KEY (trp_id) REFERENCES "{ProjectTables.TrafficRegistrationPoints.value}"(id)
                         );
                         
-                        CREATE TABLE IF NOT EXISTS "{ProjectTables.BaseModels.value}" (
-                            id TEXT PRIMARY KEY,
-                            joblib_object BYTEA,
-                            pickle_object BYTEA NOT NULL,
-                            FOREIGN KEY (id) REFERENCES "{ProjectTables.MLModels.value}"(id)
-                        );
-                        
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.MLModels.value}" (
                             id TEXT PRIMARY KEY,
                             name TEXT NOT NULL UNIQUE,
@@ -397,6 +390,13 @@ class AIODBManager:
                             {GlobalDefinitions.MEAN_SPEED}_grid JSON,
                             best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx INT DEFAULT 1,
                             best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx INT DEFAULT 1
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.BaseModels.value}" (
+                            id TEXT PRIMARY KEY,
+                            joblib_object BYTEA,
+                            pickle_object BYTEA NOT NULL,
+                            FOREIGN KEY (id) REFERENCES "{ProjectTables.MLModels.value}"(id)
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.TrainedModels.value}" (

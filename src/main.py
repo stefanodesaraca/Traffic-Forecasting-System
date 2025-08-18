@@ -256,6 +256,14 @@ def forecasts_warmup(functionality: str) -> None:
 
     def process_functionality(func: callable) -> None:
 
+        models = {
+            m["name"]: {
+                "binary": pickle.loads(m["pickle_object"]),
+                "params": m.get("params", None)
+            }
+            for m in db_broker.send_sql(functionality_mapping[functionality]["model_query"])
+        }
+
         for road_category, trp_ids in db_broker.get_trp_ids_by_road_category(has_volumes=True if target == GlobalDefinitions.VOLUME else None,
                                                                              has_mean_speed=True if target == GlobalDefinitions.MEAN_SPEED else None).items():
 
@@ -280,14 +288,7 @@ def forecasts_warmup(functionality: str) -> None:
             )
             print(f"Shape of the merged data for road category {road_category}: ", preprocessor.shape)
 
-            for model, metadata in models := {
-                m["name"]: {
-                    "binary": pickle.loads(m["pickle_object"]),
-                    "params": m.get("params", None)
-                }
-                for m in db_broker.send_sql(functionality_mapping[functionality]["model_query"])
-            }:
-
+            for model, metadata in models:
                 if functionality_mapping[functionality]["type"] == "gridsearch":
                     func(X_train, y_train, TFSLearner(
                             model=models[model]["binary"](models[model]["params"]),
