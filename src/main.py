@@ -190,42 +190,6 @@ def execute_eda() -> None:
 def forecasts_warmup(functionality: str) -> None:
     db_broker = get_db_broker()
     loader = BatchStreamLoader(db_broker=db_broker)
-    actual_target: str | None = None
-
-    query_mapping = {
-        "gridsearch": f"""
-                    SELECT 
-                        m.id as id,
-                        m.name as name, 
-                        m.base_params AS params,
-                        bm.pickle_object AS pickle_object
-                    FROM
-                        "{ProjectTables.MLModels.value}" m
-                    JOIN
-                        "{ProjectTables.BaseModels.value}" bm ON m.id = bm.id;
-                    """, #models_base_params_query
-        "training": f"""
-                    SELECT 
-                        bgr.model_id as id,
-                        bgr.model_name as name,
-                        bgr.best_{actual_target}_params as params,
-                        bm.pickle_object AS pickle_object
-                    FROM 
-                        "best_{actual_target}_gridsearch_results" bgr
-                    JOIN
-                        "{ProjectTables.BaseModels.value}" bm ON bgr.model_id = bm.id;
-                    """, #models_best_params_query #TODO ADD best_{actual_target}_gridsearch_results TO ProjectViews
-        "testing": f"""
-                    SELECT 
-                        m.id as id,
-                        m.name as name,
-                        bm.pickle_object AS pickle_object
-                    FROM 
-                        "{ProjectTables.MLModels.value}" m
-                    JOIN
-                        "{ProjectTables.TrainedModels.value}" tm ON m.model_id = tm.id;
-                    """ #models_best_params_query #TODO ADD best_{actual_target}_gridsearch_results TO ProjectViews
-    }
 
 
     def ml_gridsearch(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
@@ -251,8 +215,8 @@ def forecasts_warmup(functionality: str) -> None:
 
     def process_functionality(func: callable) -> None:
 
-        for road_category, trp_ids in db_broker.get_trp_ids_by_road_category(has_volumes=True if actual_target == GlobalDefinitions.VOLUME else None,
-                                                                             has_mean_speed=True if actual_target == GlobalDefinitions.MEAN_SPEED else None).items():
+        for road_category, trp_ids in db_broker.get_trp_ids_by_road_category(has_volumes=True if target == GlobalDefinitions.VOLUME else None,
+                                                                             has_mean_speed=True if target == GlobalDefinitions.MEAN_SPEED else None).items():
 
             print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 
@@ -270,7 +234,7 @@ def forecasts_warmup(functionality: str) -> None:
                     road_category=road_category,
                     client=client
                 ), functionality_mapping[functionality]["preprocessing_method"])(),
-                target=actual_target,
+                target=target,
                 mode=0
             )
             print(f"Shape of the merged data for road category {road_category}: ", preprocessor.shape)
@@ -287,7 +251,7 @@ def forecasts_warmup(functionality: str) -> None:
                     func(X_train, y_train, TFSLearner(
                             model=models[model]["binary"](models[model]["params"]),
                             road_category=road_category,
-                            target=actual_target,
+                            target=target,
                             client=client,
                             db_broker=db_broker
                         )
@@ -296,7 +260,7 @@ def forecasts_warmup(functionality: str) -> None:
                     func(X_test, y_test, TFSLearner(
                             model=models[model]["binary"](models[model]["params"]),
                             road_category=road_category,
-                            target=actual_target,
+                            target=target,
                             client=client,
                             db_broker=db_broker
                         )
@@ -305,7 +269,7 @@ def forecasts_warmup(functionality: str) -> None:
                     func(X_test, y_test, TFSLearner(
                             model=models[model]["binary"],
                             road_category=road_category,
-                            target=actual_target,
+                            target=target,
                             client=client,
                             db_broker=db_broker
                         )
@@ -315,6 +279,46 @@ def forecasts_warmup(functionality: str) -> None:
 
 
     with dask_cluster_client(processes=False) as client:
+
+        query_mapping = {
+            "gridsearch": f"""
+                            SELECT 
+                                m.id as id,
+                                m.name as name, 
+                                m.base_params AS params,
+                                bm.pickle_object AS pickle_object
+                            FROM
+                                "{ProjectTables.MLModels.value}" m
+                            JOIN
+                                "{ProjectTables.BaseModels.value}" bm ON m.id = bm.id;
+                            """,  # models_base_params_query
+            "training": f"""
+                            SELECT 
+                                bgr.model_id as id,
+                                bgr.model_name as name,
+                                bgr.best_{target}_params as params,
+                                bm.pickle_object AS pickle_object
+                            FROM 
+                                "best_{target}_gridsearch_results" bgr
+                            JOIN
+                                "{ProjectTables.BaseModels.value}" bm ON bgr.model_id = bm.id;
+                            """,
+            # models_best_params_query #TODO ADD best_{actual_target}_gridsearch_results TO ProjectViews
+            "testing": f"""
+                            SELECT 
+                                m.id as id,
+                                m.target as target,
+                                m.name as name,
+                                bm.pickle_object AS pickle_object
+                            FROM 
+                                "{ProjectTables.MLModels.value}" m
+                            JOIN
+                                "{ProjectTables.TrainedModels.value}" tm ON m.model_id = tm.id
+                            WHERE m.target;
+                            """
+            # models_best_params_query #TODO ADD best_{actual_target}_gridsearch_results TO ProjectViews
+        }
+
         functionality_mapping = {
             "3.2.1": {
                 "func": ml_gridsearch,
@@ -369,7 +373,7 @@ def forecasts_warmup(functionality: str) -> None:
         if functionality not in functionality_mapping:
             raise ValueError(f"Unknown functionality: {functionality}")
 
-        actual_target = functionality_mapping[functionality]["target"]
+        target = functionality_mapping[functionality]["target"]
         process_functionality(functionality_mapping[functionality]["func"]) #Process the chosen operation
 
         print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)

@@ -35,7 +35,7 @@ from sklearn.metrics import (
 from sktime.base import BaseEstimator as SktimeBaseEstimator
 from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastingBaseModel
 
-from exceptions import WrongEstimatorTypeError, ModelNotSetError, TargetVariableNotFoundError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
+from exceptions import WrongEstimatorTypeError, ModelNotSetError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
 from brokers import DBBroker
 from loaders import BatchStreamLoader
 from utils import GlobalDefinitions, check_target, ZScore

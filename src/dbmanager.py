@@ -381,6 +381,13 @@ class AIODBManager:
                             FOREIGN KEY (trp_id) REFERENCES "{ProjectTables.TrafficRegistrationPoints.value}"(id)
                         );
                         
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.BaseModels.value}" (
+                            id TEXT PRIMARY KEY,
+                            joblib_object BYTEA,
+                            pickle_object BYTEA NOT NULL,
+                            FOREIGN KEY (id) REFERENCES "{ProjectTables.MLModels.value}"(id)
+                        );
+                        
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.MLModels.value}" (
                             id TEXT PRIMARY KEY,
                             name TEXT NOT NULL UNIQUE,
@@ -392,18 +399,13 @@ class AIODBManager:
                             best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx INT DEFAULT 1
                         );
                         
-                        CREATE TABLE IF NOT EXISTS "{ProjectTables.BaseModels.value}" (
-                            id TEXT PRIMARY KEY,
-                            joblib_object BYTEA,
-                            pickle_object BYTEA NOT NULL,
-                            FOREIGN KEY (id) REFERENCES "{ProjectTables.MLModels.value}"(id)
-                        );
-                        
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.TrainedModels.value}" (
-                            id TEXT PRIMARY KEY,
+                            id TEXT,
+                            target TEXT,
                             joblib_object BYTEA,
                             pickle_object BYTEA NOT NULL,
-                            FOREIGN KEY (id) REFERENCES "{ProjectTables.MLModels.value}"(id)
+                            FOREIGN KEY (id) REFERENCES "{ProjectTables.MLModels.value}"(id),
+                            PRIMARY KEY (id, target)
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.ModelGridSearchCVResults.value}" (

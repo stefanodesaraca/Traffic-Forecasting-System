@@ -17,7 +17,7 @@ class BatchStreamLoader:
 
 
     def get_volume(self,
-                   batch_size: PositiveInt,
+                   batch_size: PositiveInt = 50000,
                    trp_list_filter: list[str] | None = None,
                    road_category_filter: list[str] | None = None,
                    limit: PositiveInt | None = None,
@@ -97,7 +97,7 @@ class BatchStreamLoader:
 
 
     def get_mean_speed(self,
-                       batch_size: PositiveInt,
+                       batch_size: PositiveInt = 50000,
                        trp_list_filter: list[str] | None = None,
                        road_category_filter: list[str] | None = None,
                        limit: PositiveInt | None = None,
