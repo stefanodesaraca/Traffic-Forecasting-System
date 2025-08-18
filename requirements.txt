@@ -25,6 +25,7 @@ hypothesis
 unidecode
 joblib
 geopy
+pyproj
 folium
 scikit-lego == 0.9.1
 aiofiles

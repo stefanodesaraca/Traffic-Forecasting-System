@@ -1,3 +1,4 @@
+import os
 import math
 from pathlib import Path
 import datetime
@@ -14,6 +15,9 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 from sklego.meta import ZeroInflatedRegressor
+
+import geojson
+import geopandas as gpd
 
 from utils import GlobalDefinitions
 from db_config import ProjectTables
@@ -272,7 +276,8 @@ class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
 
 
 
-
+class RoadGraphObjectsIngestionPipeline:
+    ...
 
 
 

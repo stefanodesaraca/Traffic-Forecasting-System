@@ -552,7 +552,7 @@ class TFSLearner:
                 "mean_train_mean_absolute_error"
             )
             VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
             ON CONFLICT ("model_id") DO UPDATE;
         """, many=True, many_values=[tuple(row) for row in results.itertuples(index=False, name=None)])

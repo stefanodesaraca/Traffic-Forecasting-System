@@ -3,10 +3,8 @@ import sys
 import time
 import pickle
 import asyncio
-import pandas as pd
 import dask
 import dask.dataframe as dd
-import geojson
 
 from exceptions import TRPNotFoundError, ModelBestParametersNotFound
 from db_config import DBConfig, ProjectTables
