@@ -234,23 +234,26 @@ def forecasts_warmup(functionality: str) -> None:
 
 
     def ml_gridsearch(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
-        gridsearch_result = learner.gridsearch(X_train, y_train)
-        learner.export_gridsearch_results(gridsearch_result)
+
+        gridsearch_results = learner.gridsearch(X_train, y_train)
+        learner.export_gridsearch_results(gridsearch_results)
+
         print(f"============== {learner.model.name} grid search results ==============\n")
-        print(gridsearch_result, "\n")
+        print(gridsearch_results, "\n")
+
         return None
 
 
     def ml_training(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
+        print(f"Fitting phase for model: {learner.model.name} started")
         learner.model.fit(X_train, y_train).export()
         print("Fitting phase ended")
         return None
 
 
     def ml_testing(X_test: dd.DataFrame, y_test: dd.DataFrame, learner: callable) -> None:
-        model = learner.model
-        y_pred = model.predict(X_test)
-        print(model.evaluate_regression(y_test=y_test, y_pred=y_pred, scorer=learner.scorer))
+        y_pred = learner.model.predict(X_test)
+        learner.compute_fpe(y_true=y_test, y_pred=y_pred)
         return None
 
 

@@ -389,30 +389,6 @@ class ModelWrapper(BaseModel):
             raise TypeError(f"Unsupported model type: {type(self.model_obj)}")
 
 
-    @staticmethod
-    def evaluate_regression(y_test: dd.DataFrame, y_pred: dd.DataFrame, scorer: dict[str, type[callable]]) -> dict[str, Any]:
-        """
-        Calculate prediction errors for regression model testing.
-
-        Parameters
-        ----------
-        y_test : dd.DataFrame
-            The true values of the target variable.
-        y_pred : dd.DataFrame
-            The predicted values of the target variable.
-        scorer : dict[str, callable]
-            The scorer which will be used to evaluate the regression.
-            The order of the parameters to impute must be y_true first and y_pred second.
-            Each scoring function must accept exactly and only the parameters mentioned above.
-
-        Returns
-        -------
-        dict[str, Any]
-            A dictionary of errors (positive floats) for each error metric.
-        """
-        return {k: np.round(s(y_test, y_pred), decimals=4) for k, s in scorer.items()}
-
-
 
 class TFSLearner:
     """
@@ -437,11 +413,14 @@ class TFSLearner:
     """
 
     def __init__(self, model: callable, road_category: str, target: str, client: Client | None, db_broker: DBBroker):
+        self._scoring_functions: dict[str, callable] = {
+            "r2": r2_score,
+            "mean_squared_error": mean_squared_error,
+            "root_mean_squared_error": root_mean_squared_error,
+            "mean_absolute_error": mean_absolute_error
+        }
         self._scorer: dict[str, Any] = {
-            "r2": make_scorer(r2_score),
-            "mean_squared_error": make_scorer(mean_squared_error),
-            "root_mean_squared_error": make_scorer(root_mean_squared_error),
-            "mean_absolute_error": make_scorer(mean_absolute_error)
+            func_name: make_scorer(func) for func_name, func in self._scoring_functions
         }
         self._client: Client | None = client
         self._road_category: str = road_category
@@ -450,6 +429,16 @@ class TFSLearner:
         self._db_broker: DBBroker = db_broker
 
         check_target(self._target, errors=True)
+
+
+    @property
+    def model(self) -> ModelWrapper:
+        return self._model
+
+
+    @property
+    def scorer(self) -> dict[str, Any]:
+        return self._scorer
 
 
     def _get_grid(self) -> dict[str, Any]:
@@ -464,15 +453,6 @@ class TFSLearner:
         return json.loads(self._db_broker.send_sql(sql=f"""SELECT "{f"'{self._target}_grid'"}"
                                                            FROM "{ProjectTables.MLModels.value}"
                                                            WHERE "id" = {self._model.model_id};""", single=True)[f'{self._target}_grid'])
-
-    @property
-    def model(self) -> ModelWrapper:
-        return self._model
-
-
-    @property
-    def scorer(self) -> dict[str, Any]:
-        return self._scorer
 
 
     def gridsearch(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> pd.DataFrame | None:
@@ -548,6 +528,10 @@ class TFSLearner:
             gc.collect()
 
 
+    def compute_fpe(self, y_true: pd.DataFrame | dd.DataFrame, y_pred: pd.DataFrame | dd.DataFrame) -> dict[str, float | int]:
+        return {func_name: scoring_function(**{"y_true": y_true, "y_pred": y_pred}) for func_name, scoring_function in self._scoring_functions.items()}
+
+
     def export_gridsearch_results(self, results: pd.DataFrame) -> None:
         results["model_id"] = self._model.model_id
         results["road_category"] = self._road_category
@@ -576,7 +560,7 @@ class TFSLearner:
         return None
 
 
-    def export_model(self) -> None:
+    def export_internal_model(self) -> None:
         joblib_bytes = io.BytesIO() #Serializing model into a joblib object directly in memory through the BytesIO class
         joblib.dump(self._model, joblib_bytes)
         joblib_bytes.seek(0)
