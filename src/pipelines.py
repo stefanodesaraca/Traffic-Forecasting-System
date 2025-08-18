@@ -1,8 +1,10 @@
 import math
+import json
 from pathlib import Path
 import datetime
 from zoneinfo import ZoneInfo
 import asyncio
+import aiofiles
 import dask.dataframe as dd
 import pandas as pd
 from typing import Any, cast
@@ -16,7 +18,8 @@ from sklearn.impute import IterativeImputer
 from sklego.meta import ZeroInflatedRegressor
 
 import geojson
-import geopandas as gpd
+from shapely.geometry import shape
+from shapely import wkt
 
 from utils import GlobalDefinitions
 from db_config import ProjectTables
@@ -281,15 +284,110 @@ class RoadGraphObjectsIngestionPipeline:
         self._batch_size: PositiveInt = batch_size
 
 
-    def ingest_edges(self, fp: str | Path) -> None:
+    @staticmethod
+    async def _load_geojson_async(fp: str) -> dict[str, Any]:
+        async with aiofiles.open(fp, "r", encoding="utf-8") as geo:
+            return geojson.load(geo)
+
+
+    async def ingest_nodes(self, fp: str | Path) -> None:
+
+        #TODO GENERATE ROAD_CATEGORY WITH REFERENCE TO ROAD_CATEGORIES (SHORT FORM: E,F, and so on)
         ...
 
 
-    def ingest_arches(self, fp: str | Path) -> None:
-        ...
+    async def ingest_links(self, fp: str | Path) -> None:
 
+        links = (await self._load_geojson_async(fp=fp)).get("properties", {})
+        ing_query = f"""
+                    INSERT INTO {ProjectTables.RoadGraphLinks.value} (
+                        "feature_id",
+                        "geom",
+                        "year_applies_to",
+                        "candidate_ids",
+                        "road_system_references",
+                        "road_category",
+                        "road_placements",
+                        "functional_road_class",
+                        "function_class",
+                        "start_traffic_node_id",
+                        "end_traffic_node_id",
+                        "subsumed_traffic_node_ids",
+                        "road_link_ids",
+                        "road_node_ids",
+                        "municipality_ids",
+                        "county_ids",
+                        "highest_speed_limit",
+                        "lowest_speed_limit",
+                        "max_lanes",
+                        "min_lanes",
+                        "has_only_public_transport_lanes",
+                        "length",
+                        "traffic_direction_wrt_metering_direction",
+                        "is_norwegian_scenic_route",
+                        "is_ferry_route",
+                        "is_ramp",
+                        "toll_station_ids",
+                        "associated_trp_ids",
+                        "traffic_volumes",
+                        "urban_ratio",
+                        "number_of_establishments",
+                        "number_of_employees",
+                        "number_of_inhabitants",
+                        "has_anomalies",
+                        "anomalies",
+                        "raw_properties"
+                    ) VALUES (
+                        $1, ST_GeomFromText($2, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM.value}), $3, $4, $5, $6, $7, $8, $9, $10,
+                        $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
+                        $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37
+                    )
+                """
 
+        for feature in links:
 
+            # Convert geometry to WKT with shapely's shape() and then extracting the wkt
+            geom_wkt = shape(feature.get("geometry")).wkt
+
+            # Extract properties
+            values = [
+                feature.get("id"),
+                geom_wkt,
+                feature.get("yearAppliesTo"),
+                feature.get("candidateIds"),
+                feature.get("roadSystemReferences"),
+                feature.get("roadCategory"),
+                json.dumps(feature.get("roadPlacements", [])),
+                feature.get("functionalRoadClass"),
+                feature.get("functionClass"),
+                feature.get("startTrafficNodeId"),
+                feature.get("endTrafficNodeId"),
+                feature.get("subsumedTrafficNodeIds"),
+                feature.get("roadLinkIds"),
+                feature.get("roadNodeIds"),
+                feature.get("municipalityIds"),
+                feature.get("countyIds"),
+                feature.get("highestSpeedLimit"),
+                feature.get("lowestSpeedLimit"),
+                feature.get("maxLanes"),
+                feature.get("minLanes"),
+                feature.get("hasOnlyPublicTransportLanes"),
+                feature.get("length"),
+                feature.get("trafficDirectionWrtMeteringDirection"),
+                feature.get("isNorwegianScenicRoute"),
+                feature.get("isFerryRoute"),
+                feature.get("isRamp"),
+                feature.get("tollStationIds"),
+                feature.get("associatedTrpIds"),
+                json.dumps(feature.get("trafficVolumes", [])),
+                feature.get("urbanRatio"),
+                feature.get("numberOfEstablishments"),
+                feature.get("numberOfEmployees"),
+                feature.get("numberOfInhabitants"),
+                feature.get("hasAnomalies"),
+                json.dumps(feature.get("anomalies", [])),
+                json.dumps(feature)
+            ]
 
 
 

@@ -38,3 +38,4 @@ aiohttp == 3.12.13
 sktime
 pytorch
 pytorch-forecasting
+shapely

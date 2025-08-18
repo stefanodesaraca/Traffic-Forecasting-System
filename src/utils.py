@@ -58,6 +58,8 @@ class GlobalDefinitions(BaseModel):
     NORWEGIAN_UTC_TIME_ZONE: ClassVar[str] = "+01:00"
     NORWEGIAN_UTC_TIME_ZONE_TIMEDELTA: ClassVar[timezone] = timezone(timedelta(hours=1))
 
+    COORDINATES_REFERENCE_SYSTEM = 4326 #WGS84
+
     COVID_YEARS: ClassVar[list[int]] = [2020, 2021, 2022]
     ML_CPUS: ClassVar[int] = int(os.cpu_count() * 0.75)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
     # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
