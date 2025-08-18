@@ -435,7 +435,6 @@ class TFSLearner:
     def model(self) -> ModelWrapper:
         return self._model
 
-
     @property
     def scorer(self) -> dict[str, Any]:
         return self._scorer
@@ -483,6 +482,9 @@ class TFSLearner:
         in the data. The grid search uses multiple scoring metrics and refits on
         'mean_absolute_error'.
         """
+
+        print("X:", X_train.head())
+        print("Y:", y_train.head())
 
         t_start = datetime.datetime.now()
         print(f"{self._model.name} GridSearchCV started at {t_start}\n")

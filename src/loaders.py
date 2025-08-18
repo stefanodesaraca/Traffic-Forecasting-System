@@ -36,7 +36,6 @@ class BatchStreamLoader:
                 v.coverage AS coverage,
                 v.is_mice AS is_mice,
                 v.zoned_dt_iso AS zoned_dt_iso,
-                t.road_category AS road_category
             {'''
                 ,
                 EXTRACT(DAY FROM zoned_dt_iso) AS day_of_month,
@@ -117,7 +116,6 @@ class BatchStreamLoader:
                  ms.coverage AS coverage,
                  ms.is_mice AS is_mice,
                  ms.zoned_dt_iso AS zoned_dt_iso,
-                 t.road_category AS road_category
             {'''
                 ,
                 EXTRACT(DAY FROM zoned_dt_iso) AS day_of_month,
