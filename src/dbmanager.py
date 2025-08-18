@@ -430,6 +430,64 @@ class AIODBManager:
                             id BOOLEAN PRIMARY KEY CHECK (id = TRUE),
                             config JSONB DEFAULT '{{"volume_forecasting_horizon": null, "mean_speed_forecasting_horizon": null}}'
                         );
+                        
+                        CREATE EXTENSION IF NOT EXISTS postgis;
+
+                        CREATE TABLE IF NOT EXISTS {ProjectTables.RoadGraphTrafficNodes.value} (
+                            id SERIAL PRIMARY KEY,
+                            feature_id TEXT, -- corresponds to "id" in properties
+                            geom GEOMETRY(Point, 4326) NOT NULL, -- store coordinates in WGS84
+                            connected_traffic_link_ids TEXT[],   -- array of strings
+                            road_node_ids TEXT[],                -- array of strings
+                            is_roundabout BOOLEAN,
+                            number_of_incoming_links INTEGER,
+                            number_of_outgoing_links INTEGER,
+                            number_of_undirected_links INTEGER,
+                            legal_turning_movements JSONB,       -- store array of objects
+                            road_system_references TEXT[],       -- array of strings
+                            raw_properties JSONB                 -- store the entire properties object (for flexibility)
+                        );
+                        
+                        
+                        CREATE TABLE IF NOT EXISTS {ProjectTables.RoadGraphLinks.value} (
+                            id SERIAL PRIMARY KEY,
+                            feature_id TEXT,  -- properties.id
+                            geom GEOMETRY,    -- supports any geometry type; use GEOMETRY(LineString, 4326) if always lines
+                            year_applies_to INTEGER,
+                            candidate_ids TEXT[],
+                            road_system_references TEXT[],
+                            road_category TEXT,
+                            road_placements JSONB,          -- nested array of road placements
+                            functional_road_class INTEGER,
+                            function_class TEXT,
+                            start_traffic_node_id TEXT,
+                            end_traffic_node_id TEXT,
+                            subsumed_traffic_node_ids TEXT[],
+                            road_link_ids TEXT[],
+                            road_node_ids TEXT[],
+                            municipality_ids TEXT[],
+                            county_ids TEXT[],
+                            highest_speed_limit INTEGER,
+                            lowest_speed_limit INTEGER,
+                            max_lanes INTEGER,
+                            min_lanes INTEGER,
+                            has_only_public_transport_lanes BOOLEAN,
+                            length DOUBLE PRECISION,
+                            traffic_direction_wrt_metering_direction TEXT,
+                            is_norwegian_scenic_route BOOLEAN,
+                            is_ferry_route BOOLEAN,
+                            is_ramp BOOLEAN,
+                            toll_station_ids TEXT[],
+                            associated_trp_ids TEXT[],
+                            traffic_volumes JSONB,          -- array of traffic volume objects
+                            urban_ratio DOUBLE PRECISION,
+                            number_of_establishments INTEGER,
+                            number_of_employees INTEGER,
+                            number_of_inhabitants INTEGER,
+                            has_anomalies BOOLEAN,
+                            anomalies JSONB,                -- array of anomaly objects
+                            raw_properties JSONB            -- optional: store full original properties
+                        );
                 """)
 
                 #Constraints

@@ -35,7 +35,7 @@ class BatchStreamLoader:
                 v.volume AS volume,
                 v.coverage AS coverage,
                 v.is_mice AS is_mice,
-                v.zoned_dt_iso AS zoned_dt_iso,
+                v.zoned_dt_iso AS zoned_dt_iso
             {'''
                 ,
                 EXTRACT(DAY FROM zoned_dt_iso) AS day_of_month,
@@ -115,7 +115,7 @@ class BatchStreamLoader:
                  ms.percentile_85 AS percentile_85,
                  ms.coverage AS coverage,
                  ms.is_mice AS is_mice,
-                 ms.zoned_dt_iso AS zoned_dt_iso,
+                 ms.zoned_dt_iso AS zoned_dt_iso
             {'''
                 ,
                 EXTRACT(DAY FROM zoned_dt_iso) AS day_of_month,

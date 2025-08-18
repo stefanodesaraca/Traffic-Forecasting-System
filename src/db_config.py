@@ -52,6 +52,8 @@ class ProjectTables(Enum):
     BaseModels = "BaseModels"
     ModelGridSearchCVResults = "ModelGridSearchCVResults"
     ForecastingSettings = "ForecastingSettings"
+    RoadGraphTrafficNodes = "RoadGraphTrafficNodes"
+    RoadGraphLinks = "RoadGraphLinks"
 
 
 

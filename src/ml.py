@@ -483,9 +483,6 @@ class TFSLearner:
         'mean_absolute_error'.
         """
 
-        print("X:", X_train.head())
-        print("Y:", y_train.head())
-
         t_start = datetime.datetime.now()
         print(f"{self._model.name} GridSearchCV started at {t_start}\n")
 

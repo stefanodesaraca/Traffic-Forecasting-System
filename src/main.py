@@ -235,8 +235,6 @@ def forecasts_warmup(functionality: str) -> None:
 
     def ml_gridsearch(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
 
-        print("HELLO4")
-
         gridsearch_results = learner.gridsearch(X_train, y_train)
         learner.export_gridsearch_results(gridsearch_results)
 
@@ -321,8 +319,6 @@ def forecasts_warmup(functionality: str) -> None:
                             db_broker=db_broker
                         )
                     )
-
-            print("HELLO4")
 
         return None
 
