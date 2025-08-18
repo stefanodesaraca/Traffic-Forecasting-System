@@ -325,10 +325,7 @@ class RoadGraphObjectsIngestionPipeline:
             json.dumps(feature)  # keep raw properties for flexibility
         ] for feature in nodes)
 
-
-
-
-
+        #TODO USE EXECUTEMANY() BUT WITH BATCHES OF SIZE batch_size
         #TODO GENERATE ROAD_CATEGORY WITH REFERENCE TO ROAD_CATEGORIES (SHORT FORM: E,F, and so on)
         ...
 
@@ -425,7 +422,7 @@ class RoadGraphObjectsIngestionPipeline:
 
         #TODO USE EXECUTEMANY() BUT WITH BATCHES OF SIZE batch_size
 
-
+        ...
 
 
 

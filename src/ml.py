@@ -536,7 +536,20 @@ class TFSLearner:
         results["road_category"] = self._road_category
         results["target"] = self._target
         results["params"] = results["params"].apply(json.dumps) #Binarizing parameters' dictionary
-        self._db_broker.send_sql(f"""
+        results = results.reindex(columns=["model_id",
+                                           "road_category",
+                                           "target",
+                                           "params",
+                                           "mean_fit_time",
+                                           "mean_test_r2",
+                                           "mean_train_r2",
+                                           "mean_test_mean_squared_error",
+                                           "mean_train_mean_squared_error",
+                                           "mean_test_root_mean_squared_error",
+                                           "mean_train_root_mean_squared_error",
+                                           "mean_test_mean_absolute_error",
+                                           "mean_train_mean_absolute_error"]) #Changing the columns order to match the one in the SQL query below
+        self._db_broker.send_sql(f'''
             INSERT INTO "{ProjectTables.ModelGridSearchCVResults.value}" (
                 "model_id",
                 "road_category_id",
@@ -555,22 +568,23 @@ class TFSLearner:
             VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
-            ON CONFLICT ("model_id") DO UPDATE
+            ON CONFLICT ("model_id", "road_category_id", "target") DO UPDATE
             SET
-                road_category_id = EXCLUDED.road_category_id,
-                params = EXCLUDED.params,
-                mean_fit_time = EXCLUDED.mean_fit_time,
-                mean_test_r2 = EXCLUDED.mean_test_r2,
-                mean_train_r2 = EXCLUDED.mean_train_r2,
-                mean_test_mean_squared_error = EXCLUDED.mean_test_mean_squared_error,
-                mean_train_mean_squared_error = EXCLUDED.mean_train_mean_squared_error,
-                mean_test_root_mean_squared_error = EXCLUDED.mean_test_root_mean_squared_error,
-                mean_train_root_mean_squared_error = EXCLUDED.mean_train_root_mean_squared_error,
-                mean_test_mean_absolute_error = EXCLUDED.mean_test_mean_absolute_error,
-                mean_train_mean_absolute_error = EXCLUDED.mean_train_mean_absolute_error;
-        """, many=True, many_values=[tuple(row) for row in results.itertuples(index=False, name=None)])
+                "road_category_id" = EXCLUDED.road_category_id,
+                "target"  = EXCLUDED.target,
+                "params" = EXCLUDED.params,
+                "mean_fit_time" = EXCLUDED.mean_fit_time,
+                "mean_test_r2" = EXCLUDED.mean_test_r2,
+                "mean_train_r2" = EXCLUDED.mean_train_r2,
+                "mean_test_mean_squared_error" = EXCLUDED.mean_test_mean_squared_error,
+                "mean_train_mean_squared_error" = EXCLUDED.mean_train_mean_squared_error,
+                "mean_test_root_mean_squared_error" = EXCLUDED.mean_test_root_mean_squared_error,
+                "mean_train_root_mean_squared_error" = EXCLUDED.mean_train_root_mean_squared_error,
+                "mean_test_mean_absolute_error" = EXCLUDED.mean_test_mean_absolute_error,
+                "mean_train_mean_absolute_error" = EXCLUDED.mean_train_mean_absolute_error;
+        ''', many=True, many_values=[tuple(row) for row in results.itertuples(index=False, name=None)])
         return None
-
+#TODO TRY IF "model_id", "road_category_id", "target" AS CONFLICT SUBJECT WORKS
 
     def export_internal_model(self) -> None:
         joblib_bytes = io.BytesIO() #Serializing model into a joblib object directly in memory through the BytesIO class
