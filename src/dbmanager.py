@@ -414,6 +414,7 @@ class AIODBManager:
                             road_category_id TEXT REFERENCES "{ProjectTables.RoadCategories.value}"(id) ON DELETE CASCADE,
                             target TEXT NOT NULL,
                             params JSON NOT NULL,
+                            params_hash TEXT NOT NULL,
                             mean_fit_time FLOAT NOT NULL,
                             mean_test_r2 FLOAT NOT NULL,
                             mean_train_r2 FLOAT NOT NULL,
@@ -423,7 +424,7 @@ class AIODBManager:
                             mean_train_root_mean_squared_error FLOAT NOT NULL,
                             mean_test_mean_absolute_error FLOAT NOT NULL,
                             mean_train_mean_absolute_error FLOAT NOT NULL,
-                            PRIMARY KEY (id, model_id, road_category_id)
+                            PRIMARY KEY (id, model_id, road_category_id, target)
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.ForecastingSettings.value}" (
@@ -501,8 +502,8 @@ class AIODBManager:
                             UNIQUE (trp_id, zoned_dt_iso);
                             
                             ALTER TABLE "{ProjectTables.ModelGridSearchCVResults.value}"
-                            ADD CONSTRAINT {ProjectConstraints.UNIQUE_MODEL_ROAD_TARGET.value} UNIQUE (model_id, road_category_id, target);
-                """)  #There can only be one registration at one specific time and location (where the location is the place where the TRP lies)
+                            ADD CONSTRAINT {ProjectConstraints.UNIQUE_MODEL_ROAD_TARGET_PARAMS.value} UNIQUE (model_id, road_category_id, target, params_hash);
+                """)  #There can only be one registration at one specific time and location (where the location is the place where the TRP lies) #TODO THIS MAKES THE VALUES UPDATE EVERYTIME SINCE THESE ATTRIBUTES ARE ALWAYS THE SAME FOR EVERY MODEL RESULT
 
                 # Views
                 await conn.execute(f"""

@@ -536,11 +536,13 @@ class TFSLearner:
         results["model_id"] = self._model.model_id
         results["road_category"] = self._road_category
         results["target"] = self._target
-        results["params"] = results["params"].apply(json.dumps) #Binarizing parameters' dictionary
+        results["params"] = results["params"].apply(lambda x: json.dumps(x, sort_keys=True)) #Binarizing parameters' dictionary. sort_keys=True ensures that the dictionary is always serialized in a consistent manner
+        results["params_hash"] = results["params_hash"].apply(lambda x: hashlib.sha256(x.encode('utf-8')).hexdigest()) #Encodes the JSON string and then calculates the sha256 hash of it
         results = results.reindex(columns=["model_id",
                                            "road_category",
                                            "target",
                                            "params",
+                                           "params_hash",
                                            "mean_fit_time",
                                            "mean_test_r2",
                                            "mean_train_r2",
@@ -556,6 +558,7 @@ class TFSLearner:
                 "road_category_id",
                 "target",
                 "params",
+                "params_hash",
                 "mean_fit_time",
                 "mean_test_r2",
                 "mean_train_r2",
@@ -567,13 +570,14 @@ class TFSLearner:
                 "mean_train_mean_absolute_error"
             )
             VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
-            ON CONFLICT ON CONSTRAINT {ProjectConstraints.UNIQUE_MODEL_ROAD_TARGET.value} DO UPDATE
+            ON CONFLICT ON CONSTRAINT {ProjectConstraints.UNIQUE_MODEL_ROAD_TARGET_PARAMS.value} DO UPDATE
             SET
                 "road_category_id" = EXCLUDED.road_category_id,
                 "target"  = EXCLUDED.target,
                 "params" = EXCLUDED.params,
+                "params_hash" = EXCLUDED.params_hash,
                 "mean_fit_time" = EXCLUDED.mean_fit_time,
                 "mean_test_r2" = EXCLUDED.mean_test_r2,
                 "mean_train_r2" = EXCLUDED.mean_train_r2,
