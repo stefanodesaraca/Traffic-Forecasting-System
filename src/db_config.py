@@ -60,6 +60,7 @@ class ProjectTables(Enum):
 class ProjectConstraints(Enum):
     UNIQUE_VOLUME_PER_TRP_AND_TIME = "unique_volume_per_trp_and_time"
     UNIQUE_MEAN_SPEED_PER_TRP_AND_TIME = "unique_mean_speed_per_trp_and_time"
+    UNIQUE_MODEL_ROAD_TARGET = "unique_model_road_target"
 
 
 

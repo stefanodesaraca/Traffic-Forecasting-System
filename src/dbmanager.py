@@ -499,6 +499,9 @@ class AIODBManager:
                             ALTER TABLE "{ProjectTables.MeanSpeed.value}"
                             ADD CONSTRAINT "{ProjectConstraints.UNIQUE_MEAN_SPEED_PER_TRP_AND_TIME.value}"
                             UNIQUE (trp_id, zoned_dt_iso);
+                            
+                            ALTER TABLE "{ProjectTables.ModelGridSearchCVResults.value}"
+                            ADD CONSTRAINT {ProjectConstraints.UNIQUE_MODEL_ROAD_TARGET.value} UNIQUE (model_id, road_category_id, target);
                 """)  #There can only be one registration at one specific time and location (where the location is the place where the TRP lies)
 
                 # Views

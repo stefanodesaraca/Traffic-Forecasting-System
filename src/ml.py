@@ -39,7 +39,7 @@ from exceptions import WrongEstimatorTypeError, ModelNotSetError, ScoringNotFoun
 from brokers import DBBroker
 from loaders import BatchStreamLoader
 from utils import GlobalDefinitions, check_target, ZScore
-from db_config import ProjectTables
+from db_config import ProjectTables, ProjectConstraints
 
 
 simplefilter(action="ignore", category=FutureWarning)
@@ -568,7 +568,7 @@ class TFSLearner:
             VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
-            ON CONFLICT ("model_id", "road_category_id", "target") DO UPDATE
+            ON CONFLICT ON CONSTRAINT {ProjectConstraints.UNIQUE_MODEL_ROAD_TARGET.value} DO UPDATE
             SET
                 "road_category_id" = EXCLUDED.road_category_id,
                 "target"  = EXCLUDED.target,
@@ -584,7 +584,7 @@ class TFSLearner:
                 "mean_train_mean_absolute_error" = EXCLUDED.mean_train_mean_absolute_error;
         ''', many=True, many_values=[tuple(row) for row in results.itertuples(index=False, name=None)])
         return None
-#TODO TRY IF "model_id", "road_category_id", "target" AS CONFLICT SUBJECT WORKS
+
 
     def export_internal_model(self) -> None:
         joblib_bytes = io.BytesIO() #Serializing model into a joblib object directly in memory through the BytesIO class
