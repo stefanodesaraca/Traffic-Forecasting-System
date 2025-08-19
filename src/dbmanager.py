@@ -13,6 +13,7 @@ from asyncpg.exceptions import DuplicateDatabaseError
 import psycopg
 from psycopg.rows import tuple_row
 from cleantext import clean
+from pydantic import with_config
 from pydantic.types import PositiveInt
 
 from sklearn.tree import DecisionTreeRegressor
@@ -297,6 +298,10 @@ class AIODBManager:
                ALTER DEFAULT PRIVILEGES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {self._tfs_role};
            """)
 
+        # -- Creating extensions (must be superuser) --
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=name, host=self._db_host) as conn:
+            await conn.execute("""CREATE EXTENSION IF NOT EXISTS postgis;""")
+
         # -- Project Tables Setup --
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=name, host=self._db_host) as conn:
             async with conn.transaction():
@@ -432,8 +437,6 @@ class AIODBManager:
                             config JSONB DEFAULT '{{"volume_forecasting_horizon": null, "mean_speed_forecasting_horizon": null}}'
                         );
                         
-                        CREATE EXTENSION IF NOT EXISTS postgis;
-
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadGraphNodes.value}" (
                             id SERIAL PRIMARY KEY,
                             feature_id TEXT, -- corresponds to "id" in properties

@@ -1,6 +1,5 @@
 from typing import Any, Literal, Generator, LiteralString
 from contextlib import contextmanager
-
 import psycopg
 from pydantic.types import PositiveInt
 import asyncpg

@@ -537,7 +537,7 @@ class TFSLearner:
         results["road_category"] = self._road_category
         results["target"] = self._target
         results["params"] = results["params"].apply(lambda x: json.dumps(x, sort_keys=True)) #Binarizing parameters' dictionary. sort_keys=True ensures that the dictionary is always serialized in a consistent manner
-        results["params_hash"] = results["params_hash"].apply(lambda x: hashlib.sha256(x.encode('utf-8')).hexdigest()) #Encodes the JSON string and then calculates the sha256 hash of it
+        results["params_hash"] = results["params"].apply(lambda x: hashlib.sha256(x.encode('utf-8')).hexdigest()) #Encodes the JSON string and then calculates the sha256 hash of it
         results = results.reindex(columns=["model_id",
                                            "road_category",
                                            "target",

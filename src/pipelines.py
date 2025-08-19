@@ -21,7 +21,7 @@ import geojson
 from shapely.geometry import shape
 from shapely import wkt
 
-from utils import GlobalDefinitions
+from utils import GlobalDefinitions, get_n_items_from_gen
 from db_config import ProjectTables
 
 pd.set_option("display.max_rows", None)
@@ -311,7 +311,7 @@ class RoadGraphObjectsIngestionPipeline:
             )
         """
 
-        values = ([
+        batches = get_n_items_from_gen(gen=([
             feature.get("id"),
             shape(feature.get("geometry")).wkt, # Convertion of the geometry to WKT for PostGIS compatibility (so that PostGIS can read the actual shape of the feature)
             feature.get("connectedTrafficLinkIds"),
@@ -323,7 +323,7 @@ class RoadGraphObjectsIngestionPipeline:
             json.dumps(feature.get("legalTurningMovements", [])),
             feature.get("roadSystemReferences"),
             json.dumps(feature)  # keep raw properties for flexibility
-        ] for feature in nodes)
+        ] for feature in nodes), n=batch_size)
 
         #TODO USE EXECUTEMANY() BUT WITH BATCHES OF SIZE batch_size
         #TODO GENERATE ROAD_CATEGORY WITH REFERENCE TO ROAD_CATEGORIES (SHORT FORM: E,F, and so on)
@@ -380,7 +380,7 @@ class RoadGraphObjectsIngestionPipeline:
 
         #TODO GENERATE ROAD_CATEGORY WITH REFERENCE TO ROAD_CATEGORIES (SHORT FORM: E,F, and so on)
 
-        values = ([
+        batches = get_n_items_from_gen(gen=([
             feature.get("id"),
             shape(feature.get("geometry")).wkt, # Convert geometry to WKT with shapely's shape() and then extracting the wkt
             feature.get("yearAppliesTo"),
@@ -417,7 +417,7 @@ class RoadGraphObjectsIngestionPipeline:
             feature.get("hasAnomalies"),
             json.dumps(feature.get("anomalies", [])),
             json.dumps(feature)
-        ] for feature in links)
+        ] for feature in links), n=batch_size)
 
 
         #TODO USE EXECUTEMANY() BUT WITH BATCHES OF SIZE batch_size

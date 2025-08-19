@@ -1,8 +1,9 @@
 from contextlib import contextmanager
 from pathlib import Path
+from itertools import islice
 import datetime
 from datetime import timezone, timedelta
-from typing import Literal, Any, ClassVar
+from typing import Literal, Any, ClassVar, Generator
 import os
 import asyncio
 import pandas as pd
@@ -132,6 +133,15 @@ def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:
                 .persist())  # Sorting records by date
     except ValueError as e:
         raise NoDataError(f"No data to concatenate. Error: {e}")
+
+
+def get_n_items_from_gen(gen: Generator[Any, None, None], n: PositiveInt) -> Generator[list[list[Any]], None, None]:
+    """Yield lists of up to n items from the generator."""
+    while True:
+        chunk = list(islice(gen, n))
+        if not chunk:
+            break
+        yield chunk
 
 
 class ForecastingToolbox:
