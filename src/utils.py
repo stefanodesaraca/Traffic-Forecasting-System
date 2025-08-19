@@ -135,7 +135,7 @@ def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:
         raise NoDataError(f"No data to concatenate. Error: {e}")
 
 
-def get_n_items_from_gen(gen: Generator[Any, None, None], n: PositiveInt) -> Generator[list[list[Any]], None, None]:
+def get_n_items_from_gen(gen: Generator[Any, None, None], n: PositiveInt) -> Generator[list[list | tuple], None, None]:
     """Yield lists of up to n items from the generator."""
     while True:
         chunk = list(islice(gen, n))

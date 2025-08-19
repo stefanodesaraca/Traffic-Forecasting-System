@@ -290,7 +290,8 @@ class RoadGraphObjectsIngestionPipeline:
             return geojson.load(geo)
 
 
-    async def ingest_nodes(self, fp: str | Path, batch_size: PositiveInt = 200) -> None:
+    async def ingest_nodes(self, fp: str | Path, batch_size: PositiveInt = 200, n_async_jobs: PositiveInt = 10) -> None:
+        semaphore = asyncio.Semaphore(n_async_jobs)
 
         nodes = (await self._load_geojson_async(fp=fp)).get("features", {})
         ing_query = f"""
@@ -311,7 +312,7 @@ class RoadGraphObjectsIngestionPipeline:
             )
         """
 
-        batches = get_n_items_from_gen(gen=([
+        batches = get_n_items_from_gen(gen=((
             feature.get("id"),
             shape(feature.get("geometry")).wkt, # Convertion of the geometry to WKT for PostGIS compatibility (so that PostGIS can read the actual shape of the feature)
             feature.get("connectedTrafficLinkIds"),
@@ -323,14 +324,19 @@ class RoadGraphObjectsIngestionPipeline:
             json.dumps(feature.get("legalTurningMovements", [])),
             feature.get("roadSystemReferences"),
             json.dumps(feature)  # keep raw properties for flexibility
-        ] for feature in nodes), n=batch_size)
+        ) for feature in nodes), n=batch_size)
 
-        #TODO USE EXECUTEMANY() BUT WITH BATCHES OF SIZE batch_size
-        #TODO GENERATE ROAD_CATEGORY WITH REFERENCE TO ROAD_CATEGORIES (SHORT FORM: E,F, and so on)
-        ...
+        async def limited_ingest(batch: list[tuple[Any]]) -> None:
+            async with semaphore:
+                return await self._db_broker_async.send_sql_async(sql=ing_query, many=True, many_values=batch)
+
+        await asyncio.gather(*(limited_ingest(batch) for batch in batches))
+
+        return None
 
 
-    async def ingest_links(self, fp: str | Path, batch_size: PositiveInt = 200) -> None:
+    async def ingest_links(self, fp: str | Path, batch_size: PositiveInt = 200, n_async_jobs: PositiveInt = 10) -> None:
+        semaphore = asyncio.Semaphore(n_async_jobs)
 
         links = (await self._load_geojson_async(fp=fp)).get("properties", {})
         ing_query = f"""
@@ -380,7 +386,7 @@ class RoadGraphObjectsIngestionPipeline:
 
         #TODO GENERATE ROAD_CATEGORY WITH REFERENCE TO ROAD_CATEGORIES (SHORT FORM: E,F, and so on)
 
-        batches = get_n_items_from_gen(gen=([
+        batches = get_n_items_from_gen(gen=((
             feature.get("id"),
             shape(feature.get("geometry")).wkt, # Convert geometry to WKT with shapely's shape() and then extracting the wkt
             feature.get("yearAppliesTo"),
@@ -417,12 +423,15 @@ class RoadGraphObjectsIngestionPipeline:
             feature.get("hasAnomalies"),
             json.dumps(feature.get("anomalies", [])),
             json.dumps(feature)
-        ] for feature in links), n=batch_size)
+        ) for feature in links), n=batch_size)
 
+        async def limited_ingest(batch: list[tuple[Any]]) -> None:
+            async with semaphore:
+                return await self._db_broker_async.send_sql_async(sql=ing_query, many=True, many_values=batch)
 
-        #TODO USE EXECUTEMANY() BUT WITH BATCHES OF SIZE batch_size
+        await asyncio.gather(*(limited_ingest(batch) for batch in batches))
 
-        ...
+        return None
 
 
 

@@ -452,11 +452,10 @@ class AIODBManager:
                             raw_properties JSONB                 -- store the entire properties object (for flexibility)
                         );
                         
-                        
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadGraphLinks.value}" (
                             id SERIAL PRIMARY KEY,
                             feature_id TEXT,  -- properties.id
-                            geom GEOMETRY,    -- supports any geometry type; use GEOMETRY(LineString, 4326) if always lines
+                            geom GEOMETRY,    -- supports any geometry type; use GEOMETRY(LineString, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}) if always lines
                             year_applies_to INTEGER,
                             candidate_ids TEXT[],
                             road_system_references TEXT[],
@@ -490,7 +489,8 @@ class AIODBManager:
                             number_of_inhabitants INTEGER,
                             has_anomalies BOOLEAN,
                             anomalies JSONB,                -- array of anomaly objects
-                            raw_properties JSONB            -- optional: store full original properties
+                            raw_properties JSONB,            -- optional: store full original properties
+                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id)
                         );
                 """)
 
