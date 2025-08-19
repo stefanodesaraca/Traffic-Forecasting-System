@@ -11,7 +11,7 @@ from db_config import DBConfig, ProjectTables
 
 from downloader import start_client_async, volumes_to_db, fetch_trps, fetch_trps_from_ids
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
-from pipelines import MeanSpeedExtractionPipeline
+from pipelines import MeanSpeedExtractionPipeline, RoadGraphObjectsIngestionPipeline
 from loaders import BatchStreamLoader
 from ml import TFSLearner, TFSPreprocessor, OnePointForecaster
 from road_network import *
@@ -56,6 +56,7 @@ def get_db_broker():
 async def initialize() -> None:
     os.makedirs(GlobalDefinitions.MEAN_SPEED_DIR, exist_ok=True) #The directory where mean speed files need to be placed
     await (await get_aiodbmanager_broker()).init()
+    await setup_road_network()
     return None
 
 
@@ -490,17 +491,16 @@ def execute_forecasting(functionality: str) -> None:
     return None
 
 
-def manage_road_network(functionality: str) -> None:
+async def setup_road_network() -> None:
+    pipeline = RoadGraphObjectsIngestionPipeline(db_broker_async=await get_aiodb_broker())
+    print("Setting up road network data...")
+    await pipeline.ingest_nodes(fp="traffic-nodes-2024_2025-02-28.geojson")
+    await pipeline.ingest_links(fp="traffic_links_2024_2025-02-27.geojson")
+    print("Road network data successfully ingested into the DB")
+    return None
 
-    def retrieve_edges(self) -> dict:
-        with open(f"{self.get('folder_paths.rn_graph.edges.path')}/traffic-nodes-2024_2025-02-28.geojson", "r", encoding="utf-8") as e:
-            return geojson.load(e)["features"]
 
-
-    def retrieve_arches(self) -> dict:
-        with open(f"{self.get('folder_paths.rn_graph.arches.path')}/traffic_links_2024_2025-02-27.geojson", "r", encoding="utf-8") as a:
-            return geojson.load(a)["features"]
-
+async def manage_road_network(functionality: str) -> None:
 
     if functionality == "4.1":
         ...

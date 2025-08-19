@@ -303,7 +303,8 @@ class RoadGraphObjectsIngestionPipeline:
         nodes = (await self._load_geojson_async(fp=fp)).get("features", {})
         ing_query = f"""
             INSERT INTO {ProjectTables.RoadGraphNodes.value} (
-                "feature_id",
+                "node_id",
+                "type",
                 "geom",
                 "connected_traffic_link_ids",
                 "road_node_ids",
@@ -315,12 +316,13 @@ class RoadGraphObjectsIngestionPipeline:
                 "road_system_references",
                 "raw_properties"
             ) VALUES (
-                $1, ST_GeomFromText($2, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}), $3, $4, $5, $6, $7, $8, $9, $10, $11
+                $1, $2, ST_GeomFromText($3, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}), $4, $5, $6, $7, $8, $9, $10, $11, $12
             )
         """
 
         batches = get_n_items_from_gen(gen=((
             feature.get("id"),
+            feature.get("type"),
             shape(feature.get("geometry")).wkt, # Convertion of the geometry to WKT for PostGIS compatibility (so that PostGIS can read the actual shape of the feature)
             feature.get("connectedTrafficLinkIds"),
             feature.get("roadNodeIds"),
@@ -348,7 +350,8 @@ class RoadGraphObjectsIngestionPipeline:
         links = (await self._load_geojson_async(fp=fp)).get("properties", {})
         ing_query = f"""
                     INSERT INTO {ProjectTables.RoadGraphLinks.value} (
-                        "feature_id",
+                        "link_id",
+                        "type",
                         "geom",
                         "year_applies_to",
                         "candidate_ids",
@@ -385,14 +388,15 @@ class RoadGraphObjectsIngestionPipeline:
                         "anomalies",
                         "raw_properties"
                     ) VALUES (
-                        $1, ST_GeomFromText($2, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}), $3, $4, $5, $6, $7, $8, $9, $10,
+                        $1, $2, ST_GeomFromText($3, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}), $4, $5, $6, $7, $8, $9, $10,
                         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-                        $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37
+                        $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38
                     )
                 """
 
         batches = get_n_items_from_gen(gen=((
             feature.get("id"),
+            feature.get("type"),
             shape(feature.get("geometry")).wkt, # Convert geometry to WKT with shapely's shape() and then extracting the wkt
             feature.get("yearAppliesTo"),
             feature.get("candidateIds"),

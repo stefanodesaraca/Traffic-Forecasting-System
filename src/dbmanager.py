@@ -439,7 +439,8 @@ class AIODBManager:
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadGraphNodes.value}" (
                             id SERIAL PRIMARY KEY,
-                            feature_id TEXT, -- corresponds to "id" in properties
+                            node_id TEXT, -- corresponds to "id" in properties
+                            type TEXT NOT NULL DEFAULT 'Feature',
                             geom GEOMETRY(Point, 4326) NOT NULL, -- store coordinates in WGS84
                             connected_traffic_link_ids TEXT[],   -- array of strings
                             road_node_ids TEXT[],                -- array of strings
@@ -454,7 +455,8 @@ class AIODBManager:
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadGraphLinks.value}" (
                             id SERIAL PRIMARY KEY,
-                            feature_id TEXT,  -- properties.id
+                            link_id TEXT,  -- properties.id
+                            type TEXT NOT NULL DEFAULT 'Feature',
                             geom GEOMETRY,    -- supports any geometry type; use GEOMETRY(LineString, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}) if always lines
                             year_applies_to INTEGER,
                             candidate_ids TEXT[],

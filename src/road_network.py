@@ -20,7 +20,7 @@ class BaseModel(PydanticBaseModel):
 
 
 # The vertices are intersections, just like in most road network representations (like Google Maps, etc.)
-class Vertex(BaseModel):
+class Node(BaseModel):
     vertex_id: str
     is_roundabout: bool
     type: str  # Example: Feature
@@ -61,7 +61,7 @@ class Vertex(BaseModel):
 
 
 
-class Arch(BaseModel):
+class Link(BaseModel):
     arch_id: str
     type: str  # Example: Feature
     geometry_type: str
@@ -188,8 +188,8 @@ class TrafficRegistrationPoint(BaseModel):
 
 class RoadNetwork(BaseModel):
     network_id: str
-    _vertices: list[Vertex] | None = None  # Optional parameter
-    _arches: list[Arch] | None = None  # Optional parameter
+    _vertices: list[Node] | None = None  # Optional parameter
+    _arches: list[Link] | None = None  # Optional parameter
     _trps: list[TrafficRegistrationPoint] | None = None  # Optional parameter. This is the list of all TRPs located within the road network
     road_network_name: str
     _network: nx.Graph = nx.Graph()
@@ -199,7 +199,7 @@ class RoadNetwork(BaseModel):
         return self.__dict__
 
 
-    def load_vertices(self, vertices: list[Vertex] = None, municipality_id_filter: list[str] | None = None, **kwargs) -> None:
+    def load_vertices(self, vertices: list[Node] = None, municipality_id_filter: list[str] | None = None, **kwargs) -> None:
         """
         This function loads the vertices inside a RoadNetwork class instance.
 
@@ -222,7 +222,7 @@ class RoadNetwork(BaseModel):
         return None
 
 
-    def load_arches(self, arches: list[Arch] = None, municipality_id_filter: list[str] | None = None, **kwargs) -> None:
+    def load_arches(self, arches: list[Link] = None, municipality_id_filter: list[str] | None = None, **kwargs) -> None:
         """
         This function loads the arches inside a RoadNetwork class instance.
 
