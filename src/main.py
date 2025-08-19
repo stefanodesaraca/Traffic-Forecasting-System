@@ -292,7 +292,7 @@ def forecasts_warmup(functionality: str) -> None:
             for model, metadata in models.items():
                 if functionality_mapping[functionality]["type"] == "gridsearch":
                     func(X_train, y_train, TFSLearner(
-                            model=models[model]["binary"](models[model]["params"]),
+                            model=models[model]["binary"](**models[model]["params"]),
                             road_category=road_category,
                             target=target,
                             client=client,
@@ -301,7 +301,7 @@ def forecasts_warmup(functionality: str) -> None:
                     )
                 elif functionality_mapping[functionality]["type"] == "training":
                     func(X_test, y_test, TFSLearner(
-                            model=models[model]["binary"](models[model]["params"]),
+                            model=models[model]["binary"](**models[model]["params"]),
                             road_category=road_category,
                             target=target,
                             client=client,

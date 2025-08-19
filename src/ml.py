@@ -45,6 +45,7 @@ from db_config import ProjectTables, ProjectConstraints
 simplefilter(action="ignore", category=FutureWarning)
 warnings.filterwarnings("ignore")
 pd.set_option("display.max_columns", None)
+pd.set_option("display.max_rows", None)
 
 
 
