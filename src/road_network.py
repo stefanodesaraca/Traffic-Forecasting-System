@@ -25,9 +25,8 @@ class Node(BaseModel):
     type: str  # Example: Feature
     is_roundabout: bool
     geometry: Point
-    coordinates: list[float]
-    lat: float
-    lon: float
+    lat: float # TODO TO GET FROM Point
+    lon: float # TODO TO GET FROM Point
     connected_traffic_link_ids: list[str]
     road_node_ids: list[str]
     n_incoming_links: PositiveInt
@@ -43,22 +42,6 @@ class Node(BaseModel):
         Returns all attributes and respective values of the Vertex instance.
         """
         return self.__dict__
-
-
-    def export_vertex(self, filepath: str) -> None:
-        """
-        Exports a single vertex's data to a JSON file.
-
-        Parameters:
-            filepath: the filepath to export the JSON file to.
-
-        Returns:
-            None
-        """
-        with open(filepath if filepath.endswith(".json") else filepath + ".json", "w", encoding="utf-8"):
-            json.dump(self.get_vertex_data(), filepath, indent=4)
-        return None
-
 
 
 class Link(BaseModel):
@@ -117,22 +100,6 @@ class Link(BaseModel):
         return self.__dict__
 
 
-    def export_arch(self, filepath: str) -> None:
-        """
-        Exports a single arch's data to a JSON file.
-
-        Parameters:
-            filepath: the filepath to export the JSON file to.
-
-        Returns:
-            None
-        """
-        with open(filepath if filepath.endswith(".json") else filepath + ".json", "w", encoding="utf-8"):
-            json.dump(self.get_arch_data(), filepath, indent=4)
-        return None
-
-
-
 class TrafficRegistrationPoint(BaseModel):
     trp_id: str
     arch_id: str #The ID of the arch (road link) where the TRP is located
@@ -170,21 +137,6 @@ class TrafficRegistrationPoint(BaseModel):
         return self.__dict__
 
 
-    def export_trp(self, filepath: str) -> None:
-        """
-        Exports a single TrafficRegistrationPoint's data to a JSON file.
-
-        Parameters:
-            filepath: the filepath to export the JSON file to.
-
-        Returns:
-            None
-        """
-        with open(filepath if filepath.endswith(".json") else filepath + ".json", "w", encoding="utf-8"):
-            json.dump(self.get_single_trp_network_data(), filepath, indent=4)
-        return None
-
-
 
 class RoadNetwork(BaseModel):
     network_id: str
@@ -195,7 +147,7 @@ class RoadNetwork(BaseModel):
     _network: nx.Graph = nx.Graph()
 
 
-    def get_network_attributes_and_values(self) -> dict[Any, Any]:
+    def get_network_data(self) -> dict[Any, Any]:
         return self.__dict__
 
 
