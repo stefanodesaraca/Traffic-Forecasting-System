@@ -10,7 +10,7 @@ from typing import Any, Iterator, Literal
 from tqdm import tqdm
 from scipy.spatial.distance import euclidean, cityblock  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
 from geopy.distance import geodesic # To calculate distance (in meters) between two sets of coordinates (lat-lon). Geopy distance docs: https://geopy.readthedocs.io/en/stable/#module-geopy.distance
-
+from shapely import Point, LineString
 
 # To allow arbitrary types in the creation of a Pydantic dataclass.
 # In our use case this is done to allow the use of GeoPandas GeoDataFrame objects as type hints in the RoadNetwork class
@@ -22,9 +22,9 @@ class BaseModel(PydanticBaseModel):
 # The vertices are intersections, just like in most road network representations (like Google Maps, etc.)
 class Node(BaseModel):
     vertex_id: str
-    is_roundabout: bool
     type: str  # Example: Feature
-    geometry_type: str
+    is_roundabout: bool
+    geometry: Point
     coordinates: list[float]
     lat: float
     lon: float
@@ -64,7 +64,7 @@ class Node(BaseModel):
 class Link(BaseModel):
     arch_id: str
     type: str  # Example: Feature
-    geometry_type: str
+    geometry: LineString
     coordinates: list[list[float]]
     year_applies_to: PositiveInt
     candidate_ids: list[str]

@@ -441,7 +441,7 @@ class AIODBManager:
                             id SERIAL PRIMARY KEY,
                             node_id TEXT, -- corresponds to "id" in properties
                             type TEXT NOT NULL DEFAULT 'Feature',
-                            geom GEOMETRY(Point, 4326) NOT NULL, -- store coordinates in WGS84
+                            geom GEOMETRY(Point, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}) NOT NULL, -- store coordinates in WGS84
                             connected_traffic_link_ids TEXT[],   -- array of strings
                             road_node_ids TEXT[],                -- array of strings
                             is_roundabout BOOLEAN,
