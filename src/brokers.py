@@ -3,6 +3,7 @@ from contextlib import contextmanager
 import psycopg
 from pydantic.types import PositiveInt
 import asyncpg
+from async_lru import alru_cache
 
 from exceptions import WrongSQLStatement, MissingDataException
 from dbmanager import AIODBManager, postgres_conn_async, postgres_conn
@@ -76,6 +77,19 @@ class AIODBBroker:
                     FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
                 """)
                 return {"min": result["mean_speed_start_date"], "max": result["mean_speed_end_date"]} #Respectively: min and max
+
+
+    @alru_cache()
+    async def _get_road_categories_cached(self):
+        async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
+            async with conn.transaction():
+                return {row['id']: row['name'] for row in (await conn.fetch(f'SELECT id, name FROM "{ProjectTables.RoadCategories.value}";'))}
+
+
+    async def get_road_categories_async(self, cached: bool = False) -> dict[str, str]:
+        if cached is False:
+            self._get_road_categories_cached.cache_clear()
+        return await self._get_road_categories_cached()
 
 
 

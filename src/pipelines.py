@@ -23,6 +23,7 @@ from shapely import wkt
 
 from utils import GlobalDefinitions, get_n_items_from_gen
 from db_config import ProjectTables
+from exceptions import RoadCategoryNotFound
 
 pd.set_option("display.max_rows", None)
 pd.set_option("display.max_columns", None)
@@ -290,6 +291,12 @@ class RoadGraphObjectsIngestionPipeline:
             return geojson.load(geo)
 
 
+    async def _get_road_category_name_from_id(self, road_category_id: str) -> bool:
+        if (corresponding_name := (await self._db_broker_async.get_road_categories_async(cached=True)).get(road_category_id, None)) is None:
+            raise RoadCategoryNotFound(f"Road category ID: {road_category_id} has no matching name within the available road categories ID-Name couples")
+        return corresponding_name
+
+
     async def ingest_nodes(self, fp: str | Path, batch_size: PositiveInt = 200, n_async_jobs: PositiveInt = 10) -> None:
         semaphore = asyncio.Semaphore(n_async_jobs)
 
@@ -384,15 +391,13 @@ class RoadGraphObjectsIngestionPipeline:
                     )
                 """
 
-        #TODO GENERATE ROAD_CATEGORY WITH REFERENCE TO ROAD_CATEGORIES (SHORT FORM: E,F, and so on)
-
         batches = get_n_items_from_gen(gen=((
             feature.get("id"),
             shape(feature.get("geometry")).wkt, # Convert geometry to WKT with shapely's shape() and then extracting the wkt
             feature.get("yearAppliesTo"),
             feature.get("candidateIds"),
             feature.get("roadSystemReferences"),
-            feature.get("roadCategory"),
+            await self._get_road_category_name_from_id(feature.get("roadCategory")),
             json.dumps(feature.get("roadPlacements", [])),
             feature.get("functionalRoadClass"),
             feature.get("functionClass"),
