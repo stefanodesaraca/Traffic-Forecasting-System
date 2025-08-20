@@ -20,11 +20,12 @@ from loaders import BatchStreamLoader
 class RoadNetwork:
 
     def __init__(self,
-                 loader: BatchStreamLoader,
-                 broker: str,
                  network_id: str,
                  name: str,
-                 backend: str = "networkx"
+                 backend: str = "networkx",
+                 broker: Any | None = None,
+                 loader: BatchStreamLoader | None = None,
+                 network_binary: bytes | None = None
     ):
         self._loader: BatchStreamLoader = loader
         self._broker: Any = broker #Synchronous DBBroker
@@ -32,6 +33,9 @@ class RoadNetwork:
         self.name: str = name
         self._backend: str = backend
         self._network: nx.Graph | None = None
+
+        if network_binary:
+            self._network = pickle.loads(network_binary) #To load pre-computed graphs
 
         if self._backend not in GlobalDefinitions.GRAPH_PROCESSING_BACKENDS:
             raise WrongGraphProcessingBackendError(f"{self._backend} is not a valid graph processing backend. Try one of: {', '.join(GlobalDefinitions.GRAPH_PROCESSING_BACKENDS)}")
@@ -59,7 +63,7 @@ class RoadNetwork:
 
 
     def load_links(self) -> None:
-        all(self._network.add_nodes_from((row["id"], row.to_dict().pop("id")) for row in partition) for partition in self._loader.get_links().partitions)
+        all(self._network.add_nodes_from((row["start_traffic_node_id"], row["end_traffic_node_id"], lambda row: row.to_dict().pop(item) for item in ["start_traffic_node_id", "end_traffic_node_id"]) for row in partition) for partition in self._loader.get_links().partitions)
         return None
 
 
