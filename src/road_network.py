@@ -6,7 +6,7 @@ import geopandas as gpd
 import geojson
 import networkx as nx
 import datetime
-from typing import Any, Iterator, Literal
+from typing import Any, Iterator, Literal, Hashable
 from tqdm import tqdm
 from scipy.spatial.distance import euclidean, cityblock  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
 from geopy.distance import geodesic # To calculate distance (in meters) between two sets of coordinates (lat-lon). Geopy distance docs: https://geopy.readthedocs.io/en/stable/#module-geopy.distance
@@ -15,6 +15,8 @@ from shapely import Point, LineString
 from exceptions import WrongGraphProcessingBackendError
 from utils import GlobalDefinitions
 from loaders import BatchStreamLoader
+
+Node = Hashable  # Any object usable as a node
 
 
 class RoadNetwork:
@@ -67,6 +69,17 @@ class RoadNetwork:
         return None
 
 
+    def _compute_edge_weight(self, edge: Node, is_forecast: bool = False, forecasting_horizon: datetime.datetime | None = None) -> float | int:
+
+
+
+        #TODO FOR EVERY EDGE COMPUTE ITS WEIGHT WITH self._compute_edge_weight()
+        #TODO CREATE A compute_edges_weights THAT THE USER CAN CALL AND THUS COMPUTE THE WEIGHTS FOR THE WHOLE GRAPH. CALLING THE SAME METHOD SHOULD JUST UPDATE THE WEIGHTS SINCE edge["attr"] = ... JUST UPDATES THE ATTRIBUTE VALUE
+
+
+        return ...
+
+
     def build(self, auto_load_nodes: bool = True, auto_load_links: bool = True, verbose: bool = True) -> None:
 
         if auto_load_nodes:
@@ -79,7 +92,8 @@ class RoadNetwork:
                 print("Loading links...")
             self.load_links()
 
-
+        if verbose:
+            print("Road network graph created!")
 
         return None
 
@@ -182,10 +196,8 @@ class RoadNetwork:
 
 
 
-# TODO FILTER ROAD NETWORK BY A LIST OF MUNICIPALITY IDs. SO ONE CAN CREATE A NETWORK WITH VERTICES OR ARCHES FROM ONLY SPECIFIC MUNICIPALITIES
 
-# TODO WE COULD EXPORT EACH Vertex OR Arch OBJECT AS A STANDALONE FILE (OR RECORD IN A DB) WITH MORE INFORMATION (COLLECTED AFTER THE ANALYSIS) ABOUT THE Vertex OR THE Arch ITSELF
 
-# TODO LOAD TRP METADATA FOR EACH NODE/LINK WHICH HAS A TRP CONNECTED TO IT
 
-# TODO ADD CUDF BACKEND
+
+

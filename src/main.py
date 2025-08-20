@@ -502,6 +502,8 @@ async def setup_road_network() -> None:
 
 async def manage_road_network(functionality: str) -> None:
 
+    #TODO FILTER ONLY THE OSLO MUNICIPALITY!
+
     if functionality == "4.1":
         ...
 
