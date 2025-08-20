@@ -70,6 +70,10 @@ class GlobalDefinitions(BaseModel):
 
     MICE_COLS: ClassVar[list[str]] = ["volume", "coverage"]
 
+    NETWORKX_BACKEND = "networkx"
+    CUDF_BACKEND = "cudf"
+    GRAPH_PROCESSING_BACKENDS: ClassVar[list[str]] = [NETWORKX_BACKEND, CUDF_BACKEND]
+
 
 
 def check_target(target: str, errors: bool = False) -> bool:

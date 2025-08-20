@@ -1,9 +1,9 @@
-from pydantic import BaseModel as PydanticBaseModel
+import os
+import json
+import pickle
 from pydantic.types import PositiveFloat, PositiveInt
 import geopandas as gpd
 import geojson
-import json
-import pickle
 import networkx as nx
 import datetime
 from typing import Any, Iterator, Literal
@@ -12,178 +12,34 @@ from scipy.spatial.distance import euclidean, cityblock  # Scipy's cityblock dis
 from geopy.distance import geodesic # To calculate distance (in meters) between two sets of coordinates (lat-lon). Geopy distance docs: https://geopy.readthedocs.io/en/stable/#module-geopy.distance
 from shapely import Point, LineString
 
+from exceptions import WrongGraphProcessingBackendError
+from utils import GlobalDefinitions
 from loaders import BatchStreamLoader
 
-# To allow arbitrary types in the creation of a Pydantic dataclass.
-# In our use case this is done to allow the use of GeoPandas GeoDataFrame objects as type hints in the RoadNetwork class
-class BaseModel(PydanticBaseModel):
-    class Config:
-        arbitrary_types_allowed = True
+
+class RoadNetwork:
+
+    def __init__(self,
+                 loader: BatchStreamLoader,
+                 broker: str,
+                 network_id: str,
+                 name: str,
+                 backend: str = "networkx"
+    ):
+        self._loader: BatchStreamLoader = loader
+        self._broker: Any = broker #Synchronous DBBroker
+        self.network_id: str = network_id
+        self.name: str = name
+        self._backend: str = backend
+        self._network: nx.Graph | None = None
+
+        if self._backend not in GlobalDefinitions.GRAPH_PROCESSING_BACKENDS:
+            raise WrongGraphProcessingBackendError(f"{self._backend} is not a valid graph processing backend. Try one of: {', '.join(GlobalDefinitions.GRAPH_PROCESSING_BACKENDS)}")
+        #TODO SET ENVIRONMENT VARIABLES FOR CUDF?
 
 
-# The vertices are intersections, just like in most road network representations (like Google Maps, etc.)
-class Node(BaseModel):
-    vertex_id: str
-    type: str  # Example: Feature
-    is_roundabout: bool
-    geometry: Point
-    lat: float # TODO TO GET FROM Point
-    lon: float # TODO TO GET FROM Point
-    connected_traffic_link_ids: list[str]
-    road_node_ids: list[str]
-    n_incoming_links: PositiveInt
-    n_outgoing_links: PositiveInt
-    n_undirected_links: PositiveInt
-    legal_turning_movements: list[dict[str, [str | list[str]]]]
-    road_system_references: list[str]
-    municipality_ids: list[str] | None = None  # TODO TO GET THIS ONE SINCE IT DOESN'T EXIST YET IN THE DATA AVAILABLE RIGHT NOW. FOR NOW IT WILL BE NONE
-
-
-    def get_data(self) -> dict[Any, Any]:
-        """
-        Returns all attributes and respective values of the Vertex instance.
-        """
-        return self.__dict__
-
-
-class Link(BaseModel):
-    link_id: str
-    type: str  # Example: Feature
-    geometry: LineString
-    lat: float
-    lon: float
-    year_applies_to: PositiveInt
-    candidate_ids: list[str]
-    road_system_references: list[str]  # A list of "short form" road references. An example could be a road reference (short form) contained in the road_reference_short_form attribute of a TrafficRegistrationPoint instance
-    road_category: str  # One letter road category
-    road_sequence_id: int  # In "roadPlacements"
-    start_position: float  # In "roadPlacements"
-    end_position: float  # In "roadPlacements"
-    direction: str  # In "roadPlacements"
-    start_position_with_placement_direction: float  # In "roadPlacements"
-    end_position_with_placement_direction: float  # In "roadPlacements"
-    functional_road_class: int
-    function_class: str
-    start_traffic_node_id: str
-    end_traffic_node_id: str
-    subsumed_traffic_node_ids: list[str]
-    road_link_ids: list[str]
-    road_node_ids: list[str]
-    municipality_ids: list[int]
-    county_ids: list[int]
-    highest_speed_limit: PositiveInt
-    lowest_speed_limit: PositiveInt
-    max_lanes: PositiveInt
-    min_lanes: PositiveInt
-    has_only_public_transport_lanes: bool
-    length: PositiveFloat
-    traffic_direction_wrt_metering_direction: str
-    is_norwegian_scenic_route: bool
-    is_ferry_route: bool
-    is_ramp: bool
-    toll_station_ids: list[str]
-    associated_trp_ids: list[str]
-    traffic_volumes: list[dict[str, [str | float | int | None]]]
-    urban_ratio: int | float | None
-    number_of_establishments: int
-    number_of_employees: PositiveInt
-    number_of_inhabitants: PositiveInt
-    has_anomalies: bool
-    anomalies: list
-    weight: PositiveFloat | None = None  # Only set when executing forecasting with weighted arches
-
-
-    def get_data(self) -> dict[Any, Any]:
-        """
-        Returns all attributes and respective values of the Arch instance.
-        """
-        return self.__dict__
-
-
-
-class RoadNetwork(BaseModel):
-    loader: BatchStreamLoader
-    broker: Any #Synchronous DBBroker
-    network_id: str
-    name: str
-    _network: nx.Graph = nx.Graph()
-
-
-    def get_data(self) -> dict[Any, Any]:
-        return self.__dict__
-
-
-    def load_vertices(self, vertices: list[Node] = None, municipality_id_filter: list[str] | None = None, **kwargs) -> None:
-        """
-        This function loads the vertices inside a RoadNetwork class instance.
-
-        Parameters:
-            vertices: a list of Vertex objects
-            municipality_id_filter: a list of municipality IDs to use as filter to only keep vertices which are actually located within that municipality
-            **kwargs: other attributes which might be needed in the process
-
-        Returns:
-            None
-        """
-
-        # If a RoadNetwork class instance has been created and already been provided with vertices it's important to ensure that the ones that are located outside
-        #  the desired municipality get filtered
-        if self._vertices is not None:
-            self._vertices = [v for v in self._vertices if any(i in municipality_id_filter for i in v.municipality_ids) is False]  # Only keeping the vertex if all municipalities of the vertex aren't included in the ones to be filtered out
-        else:
-            self._vertices = [v for v in vertices if any(i in municipality_id_filter for i in v.municipality_ids) is False]
-
-        return None
-
-
-    def load_arches(self, arches: list[Link] = None, municipality_id_filter: list[str] | None = None, **kwargs) -> None:
-        """
-        This function loads the arches inside a RoadNetwork class instance.
-
-        Parameters:
-            arches: a list of Arch objects
-            municipality_id_filter: a list of municipality IDs to use as filter to only keep arches which are actually located within that municipality
-            **kwargs: other attributes which might be needed in the process
-
-        Returns:
-            None
-        """
-
-        # If a RoadNetwork class instance has been created and already been provided with arches it's important to ensure that the ones that are located outside
-        # the desired municipality get filtered
-        if self._arches is not None:
-            self._arches = [a for a in self._arches if any(i in municipality_id_filter for i in a.municipality_ids) is False]  # Only keeping the arch if all municipalities of the arch itself aren't included in the ones to be filtered out
-        else:
-            self._arches = [a for a in arches if any(i in municipality_id_filter for i in a.municipality_ids) is False]
-
-        return None
-
-
-    def build(self, verbose: bool) -> None:
-        """
-        Loads vertices and arches into the network.
-
-        Parameters:
-            verbose: boolean parameters. Indicates the verbosity of the process.
-
-        Returns:
-            None
-        """
-        if verbose:
-            print("Loading vertices...")
-        for v in tqdm(self._vertices):
-            self._network.add_node((v.vertex_id, v.get_data()))
-
-        if verbose:
-            print("Loading arches...")
-        for a in tqdm(self._arches):
-            self._network.add_edge(a.start_traffic_node_id, a.end_traffic_node_id, **a.get_data())
-        print()
-
-        return None
-
-
-    def get_graph(self) -> nx.Graph:
+    @property
+    def graph(self) -> nx.Graph:
         """
         Returns the network's graph object.
 
@@ -191,6 +47,37 @@ class RoadNetwork(BaseModel):
             The road network's networkx graph object
         """
         return self._network
+
+
+    def get_data(self) -> dict[Any, Any]:
+        return self.__dict__
+
+
+    def load_nodes(self) -> None:
+        all(self._network.add_nodes_from((row["id"], row.to_dict().pop("id")) for row in partition) for partition in self._loader.get_nodes().partitions)
+        return None
+
+
+    def load_links(self) -> None:
+        all(self._network.add_nodes_from((row["id"], row.to_dict().pop("id")) for row in partition) for partition in self._loader.get_links().partitions)
+        return None
+
+
+    def build(self, auto_load_nodes: bool = True, auto_load_links: bool = True, verbose: bool = True) -> None:
+
+        if auto_load_nodes:
+            if verbose:
+                print("Loading nodes...")
+            self.load_nodes()
+
+        if auto_load_links:
+            if verbose:
+                print("Loading links...")
+            self.load_links()
+
+
+
+        return None
 
 
     def degree_centrality(self) -> dict:

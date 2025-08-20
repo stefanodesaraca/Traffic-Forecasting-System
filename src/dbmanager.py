@@ -496,11 +496,9 @@ class AIODBManager:
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadNetworks.value}" (
-                            id SERIAL PRIMARY KEY
-                            name TEXT NOT NULL UNIQUE
-                            
-                          
-                            
+                            id SERIAL PRIMARY KEY,
+                            name TEXT NOT NULL UNIQUE,
+                            binary BYTEA
                         );
                 """)
 
