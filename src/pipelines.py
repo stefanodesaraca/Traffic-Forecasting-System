@@ -40,7 +40,7 @@ class RegressorTypes(BaseModel):
 
 
 
-class ExtractionPipelineMixin:
+class IngestionPipelineMixin:
 
     # Executing multiple imputation to get rid of NaNs using the MICE method (Multiple Imputation by Chained Equations)
     @staticmethod
@@ -89,7 +89,7 @@ class ExtractionPipelineMixin:
 
 
 
-class VolumeExtractionPipeline(ExtractionPipelineMixin):
+class VolumeIngestionPipeline(IngestionPipelineMixin):
 
     def __init__(self, db_broker_async: Any, data: dict[str, Any] | None = None):
         self.data: dict[str, Any] | pd.DataFrame | dd.DataFrame | None = data
@@ -215,7 +215,7 @@ class VolumeExtractionPipeline(ExtractionPipelineMixin):
 
 
 
-class MeanSpeedExtractionPipeline(ExtractionPipelineMixin):
+class MeanSpeedIngestionPipeline(IngestionPipelineMixin):
 
     def __init__(self, db_broker_async: Any, data: dict[str, Any] | None = None):
         self.data: dict[str, Any] | pd.DataFrame | dd.DataFrame | None = data

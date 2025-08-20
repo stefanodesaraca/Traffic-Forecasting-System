@@ -98,49 +98,11 @@ class Link(BaseModel):
         return self.__dict__
 
 
-class TrafficRegistrationPoint(BaseModel):
-    trp_id: str
-    arch_id: str #The ID of the arch (road link) where the TRP is located
-    arch_road_link_reference: str # The road link reference number of the arch where the TRP is located
-    name: str
-    lat: float
-    lon: float
-    road_category: str
-    road_category_extended: str
-    road_reference_short_form: str  # This is a string which is identifies the road reference of the TRP
-    road_sequence_id: int | float
-    road_reference_history: list[dict[str, [str | None]]]
-    relative_position: float
-    county_name: str
-    county_number: int
-    geographic_number: int
-    country_part_id: int
-    country_part_name: str
-    municipality_name: str
-    municipality_number: int  # Municipality ID
-    traffic_registration_type: str
-    first_data: str | datetime.datetime
-    first_data_with_quality_metrics: str | datetime.datetime
-    latest_data_volume_by_day: str | datetime.datetime
-    latest_data_volume_by_hour: str | datetime.datetime
-    latest_data_volume_average_daily_by_year: str | datetime.datetime
-    latest_data_volume_average_daily_by_season: str | datetime.datetime
-    latest_data_volume_average_daily_by_month: str | datetime.datetime
-
-
-    def get_single_trp_network_data(self) -> dict[Any, Any]:
-        """
-        Returns all attributes and respective values of the TrafficRegistrationPoint instance.
-        """
-        return self.__dict__
-
-
 
 class RoadNetwork(BaseModel):
     network_id: str
     _vertices: list[Node] | None = None  # Optional parameter
     _arches: list[Link] | None = None  # Optional parameter
-    _trps: list[TrafficRegistrationPoint] | None = None  # Optional parameter. This is the list of all TRPs located within the road network
     road_network_name: str
     _network: nx.Graph = nx.Graph()
 
@@ -191,29 +153,6 @@ class RoadNetwork(BaseModel):
             self._arches = [a for a in self._arches if any(i in municipality_id_filter for i in a.municipality_ids) is False]  # Only keeping the arch if all municipalities of the arch itself aren't included in the ones to be filtered out
         else:
             self._arches = [a for a in arches if any(i in municipality_id_filter for i in a.municipality_ids) is False]
-
-        return None
-
-
-    def load_trps(self, trps: list[TrafficRegistrationPoint] = None, municipality_id_filter: list[str] | None = None, **kwargs) -> None:
-        """
-        This function loads the arches inside a RoadNetwork class instance.
-
-        Parameters:
-            trps: a list of TrafficRegistrationPoint objects
-            municipality_id_filter: a list of municipality IDs to use as filter to only keep arches which are actually located within that municipality
-            **kwargs: other attributes which might be needed in the process
-
-        Returns:
-            None
-        """
-
-        #If a RoadNetwork class instance has been created and already been provided with traffic registration points it's important to ensure that the ones that are located outside
-        # the desired municipality get filtered
-        if self._trps is not None:
-            self._trps = [trp for trp in self._trps if trp.municipality_number not in municipality_id_filter]  # Only keeping the TRP if the municipality of the TRP isn't included in the ones to be filtered out
-        else:
-            self._trps = [trp for trp in trps if trp.municipality_number not in municipality_id_filter]
 
         return None
 

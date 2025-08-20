@@ -11,7 +11,7 @@ from db_config import DBConfig, ProjectTables
 
 from downloader import start_client_async, volumes_to_db, fetch_trps, fetch_trps_from_ids
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
-from pipelines import MeanSpeedExtractionPipeline, RoadGraphObjectsIngestionPipeline
+from pipelines import MeanSpeedIngestionPipeline, RoadGraphObjectsIngestionPipeline
 from loaders import BatchStreamLoader
 from ml import TFSLearner, TFSPreprocessor, OnePointForecaster
 from road_network import *
@@ -130,7 +130,7 @@ async def manage_downloads(functionality: str) -> None:
 
 
 async def mean_speeds_to_db(_: str) -> None:
-    pipeline = MeanSpeedExtractionPipeline(db_broker_async=await get_aiodb_broker())
+    pipeline = MeanSpeedIngestionPipeline(db_broker_async=await get_aiodb_broker())
     semaphore = asyncio.Semaphore(10)
 
     async def limited_ingest(file: str) -> None:
