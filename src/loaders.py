@@ -186,10 +186,10 @@ class BatchStreamLoader:
                 "road_system_references",
                 "raw_properties"
             FROM "{ProjectTables.RoadGraphNodes.value}"
-            WHERE {f'''NOT ("road_node_ids" && ANY(%s))'''
+            WHERE {f'''"road_node_ids" && ANY(%s)'''
                     if node_ids_filter else "1=1"
             }
-            AND {f'''NOT ("connected_traffic_link_ids" && ANY(%s))'''
+            AND {f'''"connected_traffic_link_ids" && ANY(%s)'''
                     if link_ids_filter else "1=1"
             }
             {f"LIMIT {limit}" if limit else ""}
@@ -199,6 +199,10 @@ class BatchStreamLoader:
 
     def get_links(self,
                   batch_size: PositiveInt = 50000,
+                  link_id_filter: list[str] | None = None,
+                  road_category_filter: list[str] | None = None,
+                  municipality_ids_filter: list[str] | None = None,
+                  county_ids_filter: list[str] | None = None,
                   node_ids_filter: list[str] | None = None,
                   link_ids_filter: list[str] | None = None,
                   limit: PositiveInt | None = None,
@@ -244,17 +248,34 @@ class BatchStreamLoader:
                 "anomalies"
                 "raw_properties"
             FROM "{ProjectTables.RoadGraphLinks.value}"
-            WHERE {f'''NOT ("road_node_ids" && ANY(%s))'''
-            if node_ids_filter else "1=1"
+            WHERE {f'''"link_id" = ANY(%s)'''
+                if link_id_filter else "1=1"
             }
-            AND {f'''NOT ("road_link_ids" && ANY(%s))'''
-            if link_ids_filter else "1=1"
+            {f'''"road_category" = ANY(%s)'''
+                if road_category_filter else "1=1"
+            }
+            AND {f'''"municipality_ids" && ANY(%s)'''
+                if node_ids_filter else "1=1"
+            }
+            AND {f'''"county_ids" && ANY(%s)'''
+                if node_ids_filter else "1=1"
+            }
+            AND {f'''"road_node_ids" && ANY(%s)'''
+                if node_ids_filter else "1=1"
+            }
+            AND {f'''"road_link_ids" && ANY(%s)'''
+                if link_ids_filter else "1=1"
             }
             {f"LIMIT {limit}" if limit else ""}
             ;
-            """, filters=tuple(to_pg_array(f) for f in [node_ids_filter, link_ids_filter] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
-
-
+            """, filters=tuple(to_pg_array(f) for f in [
+                    link_id_filter,
+                    road_category_filter,
+                    municipality_ids_filter,
+                    county_ids_filter,
+                    node_ids_filter,
+                    link_ids_filter
+                ] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
 
 
 
