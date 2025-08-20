@@ -12,6 +12,8 @@ from scipy.spatial.distance import euclidean, cityblock  # Scipy's cityblock dis
 from geopy.distance import geodesic # To calculate distance (in meters) between two sets of coordinates (lat-lon). Geopy distance docs: https://geopy.readthedocs.io/en/stable/#module-geopy.distance
 from shapely import Point, LineString
 
+from loaders import BatchStreamLoader
+
 # To allow arbitrary types in the creation of a Pydantic dataclass.
 # In our use case this is done to allow the use of GeoPandas GeoDataFrame objects as type hints in the RoadNetwork class
 class BaseModel(PydanticBaseModel):
@@ -37,7 +39,7 @@ class Node(BaseModel):
     municipality_ids: list[str] | None = None  # TODO TO GET THIS ONE SINCE IT DOESN'T EXIST YET IN THE DATA AVAILABLE RIGHT NOW. FOR NOW IT WILL BE NONE
 
 
-    def get_vertex_data(self) -> dict[Any, Any]:
+    def get_data(self) -> dict[Any, Any]:
         """
         Returns all attributes and respective values of the Vertex instance.
         """
@@ -87,11 +89,11 @@ class Link(BaseModel):
     number_of_employees: PositiveInt
     number_of_inhabitants: PositiveInt
     has_anomalies: bool
-    anomalies: list  # TODO YET TO DEFINE THE DATA TYPE OF THE ELEMENTS OF THIS LIST
+    anomalies: list
     weight: PositiveFloat | None = None  # Only set when executing forecasting with weighted arches
 
 
-    def get_arch_data(self) -> dict[Any, Any]:
+    def get_data(self) -> dict[Any, Any]:
         """
         Returns all attributes and respective values of the Arch instance.
         """
@@ -100,14 +102,14 @@ class Link(BaseModel):
 
 
 class RoadNetwork(BaseModel):
+    loader: BatchStreamLoader
+    broker: Any #Synchronous DBBroker
     network_id: str
-    _vertices: list[Node] | None = None  # Optional parameter
-    _arches: list[Link] | None = None  # Optional parameter
-    road_network_name: str
+    name: str
     _network: nx.Graph = nx.Graph()
 
 
-    def get_network_data(self) -> dict[Any, Any]:
+    def get_data(self) -> dict[Any, Any]:
         return self.__dict__
 
 
@@ -170,12 +172,12 @@ class RoadNetwork(BaseModel):
         if verbose:
             print("Loading vertices...")
         for v in tqdm(self._vertices):
-            self._network.add_node((v.vertex_id, v.get_vertex_data()))
+            self._network.add_node((v.vertex_id, v.get_data()))
 
         if verbose:
             print("Loading arches...")
         for a in tqdm(self._arches):
-            self._network.add_edge(a.start_traffic_node_id, a.end_traffic_node_id, **a.get_arch_data())
+            self._network.add_edge(a.start_traffic_node_id, a.end_traffic_node_id, **a.get_data())
         print()
 
         return None
@@ -222,17 +224,6 @@ class RoadNetwork(BaseModel):
         return nx.load_centrality(self._network)
 
 
-    def to_pickle(self, filepath: str) -> None:
-        """
-        Exports the content of self._network of the RoadNetwork instance.
-        Only accepting pickle as exporting file format.
-        """
-        assert filepath.endswith(".pickle") is True or filepath.endswith(".pkl") is True, "File extension missing or not pickle"
-        with open(filepath, "wb") as g_dumper:
-            pickle.dump(self._network, g_dumper)
-        return None
-
-
     def to_json(self, filepath: str) -> None: #TODO -> to_db
         """
         Exports the graph (contained into the self._network attribute into a json file).
@@ -240,17 +231,6 @@ class RoadNetwork(BaseModel):
         assert filepath.endswith(".json") is True, "File extension missing or not json"
         with open(filepath, "w", encoding="utf-8") as g_dumper:
             json.dump(nx.to_dict_of_dicts(self._network), g_dumper, indent=4)
-        return None
-
-
-    def from_pickle(self, filepath: str) -> None:
-        """
-        Loads a previously exported graph into the RoadNetwork instance.
-        Only accepting graphs exported in pickle format.
-        """
-        assert filepath.endswith(".pickle") or filepath.endswith(".pkl"), "File extension missing or not pickle"
-        with open(filepath, "rb") as g_loader:
-            self._network = pickle.load(g_loader)
         return None
 
 

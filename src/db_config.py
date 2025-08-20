@@ -54,6 +54,7 @@ class ProjectTables(Enum):
     ForecastingSettings = "ForecastingSettings"
     RoadGraphNodes = "RoadGraphNodes"
     RoadGraphLinks = "RoadGraphLinks"
+    RoadNetworks = "RoadNetworks"
 
 
 

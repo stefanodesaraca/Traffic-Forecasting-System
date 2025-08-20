@@ -494,6 +494,14 @@ class AIODBManager:
                             raw_properties JSONB,            -- optional: store full original properties
                             FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id)
                         );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadNetworks.value}" (
+                            id SERIAL PRIMARY KEY
+                            name TEXT NOT NULL UNIQUE
+                            
+                          
+                            
+                        );
                 """)
 
                 #Constraints
