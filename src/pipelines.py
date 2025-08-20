@@ -410,8 +410,8 @@ class RoadGraphObjectsIngestionPipeline:
             feature.get("subsumedTrafficNodeIds"),
             feature.get("roadLinkIds"),
             feature.get("roadNodeIds"),
-            feature.get("municipalityIds"),
-            feature.get("countyIds"),
+            feature.get("municipalityIds"), #TODO ADD FOREIGN KEY
+            feature.get("countyIds"), #TODO ADD FOREIGN KEY
             feature.get("highestSpeedLimit"),
             feature.get("lowestSpeedLimit"),
             feature.get("maxLanes"),

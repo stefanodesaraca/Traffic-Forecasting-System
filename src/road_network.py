@@ -45,15 +45,15 @@ class Node(BaseModel):
 
 
 class Link(BaseModel):
-    arch_id: str
+    link_id: str
     type: str  # Example: Feature
     geometry: LineString
-    coordinates: list[list[float]]
+    lat: float
+    lon: float
     year_applies_to: PositiveInt
     candidate_ids: list[str]
     road_system_references: list[str]  # A list of "short form" road references. An example could be a road reference (short form) contained in the road_reference_short_form attribute of a TrafficRegistrationPoint instance
     road_category: str  # One letter road category
-    road_category_extended: str  # Road category's full name. Examples: Europaveg, Riksveg
     road_sequence_id: int  # In "roadPlacements"
     start_position: float  # In "roadPlacements"
     end_position: float  # In "roadPlacements"
@@ -62,8 +62,8 @@ class Link(BaseModel):
     end_position_with_placement_direction: float  # In "roadPlacements"
     functional_road_class: int
     function_class: str
-    start_traffic_node_id: str  # TODO VERIFY IF THIS IS THE START OF THE LINK
-    end_traffic_node_id: str  # TODO VERIFY IF THIS IS THE END OF THE LINK
+    start_traffic_node_id: str
+    end_traffic_node_id: str
     subsumed_traffic_node_ids: list[str]
     road_link_ids: list[str]
     road_node_ids: list[str]
@@ -88,8 +88,6 @@ class Link(BaseModel):
     number_of_inhabitants: PositiveInt
     has_anomalies: bool
     anomalies: list  # TODO YET TO DEFINE THE DATA TYPE OF THE ELEMENTS OF THIS LIST
-    has_trps: bool
-    associated_trp_ids: list[str]
     weight: PositiveFloat | None = None  # Only set when executing forecasting with weighted arches
 
 
