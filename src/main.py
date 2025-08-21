@@ -457,14 +457,10 @@ def execute_forecasting(functionality: str) -> None:
                 loader=loader,
                 forecasting_toolbox=ft
             )
-            future_records = forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=GlobalDefinitions.TARGET_DATA[option]))  #Already preprocessed
 
             #TODO TEST training_mode = BOTH 0 AND 1
-            model_training_dataset = forecaster.get_training_records(
-                training_mode=0,
-            )
             X, y = split_by_target(
-                data=model_training_dataset,
+                data=forecaster.get_training_records(training_mode=0),
                 target=GlobalDefinitions.TARGET_DATA[option],
                 mode=1
             )
@@ -484,8 +480,10 @@ def execute_forecasting(functionality: str) -> None:
                     client=client,
                     db_broker=db_broker
                 )
-                data = learner.model.fit(X, y)
-                predictions = data.predict(future_records)
+                learner.model.fit(X, y)
+                predictions = learner.model.predict(forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=GlobalDefinitions.TARGET_DATA[option]))) #Already preprocessed
+
+                print(f"**************** {name}'s Predictions ****************")
                 print(predictions)
 
     return None
