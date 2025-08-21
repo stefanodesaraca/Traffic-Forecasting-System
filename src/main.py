@@ -465,10 +465,11 @@ def execute_forecasting(functionality: str) -> None:
                 mode=1
             )
 
-            for name, data in db_broker.get_model_objects()["model_data"].items(): #Load model name and data (pickle object, the best parameters and so on)
+            print(db_broker.get_model_objects())
+            for name, data in db_broker.get_model_objects().items(): #Load model name and data (pickle object, the best parameters and so on)
 
-                model = pickle.load(data[name]["pickle_object"])
-                best_params = data[name][f"{target}_best_params"]
+                model = pickle.loads(data["pickle_object"])
+                best_params = data[f"{target}_best_params"]
 
                 if best_params is None:
                     raise ModelBestParametersNotFound("Model's best parameters are None, check if the model has been trained or has best parameters set")
