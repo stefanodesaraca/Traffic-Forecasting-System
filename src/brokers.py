@@ -136,11 +136,11 @@ class DBBroker:
                 yield row
 
 
-    def get_trp_ids(self, road_category_filter: list[str] | None = None) -> list[tuple[Any, ...]]:
-        with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
+    def get_trp_ids(self, road_category_filter: list[str] | None = None) -> list[tuple[Any, ...] | dict[Any, ...]]:
+        with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with self.PostgresConnectionCursor(query=f"""
-                    SELECT id FROM "{ProjectTables.TrafficRegistrationPoints.value}";
-                    {"WHERE road_category = ANY(%s)"} if road_category_filter else "") as cur:
+                    SELECT "id" FROM "{ProjectTables.TrafficRegistrationPoints.value}"
+                    {'WHERE "road_category" = ANY(%s)' if road_category_filter else ""};
                  """, *tuple(f for f in [road_category_filter] if f), conn=conn) as cur:
                 return cur.fetchall()
 

@@ -435,7 +435,7 @@ def execute_forecasting(functionality: str) -> None:
     if functionality == "3.3.1":
 
         with dask_cluster_client(processes=False) as client:
-            trp_ids = db_broker.get_trp_ids()
+            trp_ids = [d.get("id") for d in db_broker.get_trp_ids()]
             print("TRP IDs: ", trp_ids)
             trp_id = input("Insert TRP ID for forecasting: ")
 
