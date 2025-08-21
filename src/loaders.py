@@ -95,8 +95,8 @@ class BatchStreamLoader:
             FROM "{ProjectTables.Volume.value}" v JOIN "{ProjectTables.TrafficRegistrationPoints.value}" t ON v.trp_id = t.id
             WHERE {"v.trp_id = ANY(%s)" if trp_list_filter else "1=1"}
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
-            AND {f'''"zoned_dt_iso" > '{str(zoned_dt_start)}'::timestamptz''' if zoned_dt_start else "1=1"}
-            AND {f'''"zoned_dt_iso" < '{str(zoned_dt_end)}'::timestamptz''' if zoned_dt_end else "1=1"}
+            AND {f'''"zoned_dt_iso" >= '{str(zoned_dt_start)}'::timestamptz''' if zoned_dt_start else "1=1"}
+            AND {f'''"zoned_dt_iso" =< '{str(zoned_dt_end)}'::timestamptz''' if zoned_dt_end else "1=1"}
             {f'''
             ORDER BY "zoned_dt_iso" {"ASC" if sort_ascending else "DESC"}
             ''' if sort_by_date else ""
@@ -162,8 +162,8 @@ class BatchStreamLoader:
             FROM "{ProjectTables.MeanSpeed.value}" ms JOIN "{ProjectTables.TrafficRegistrationPoints.value}" t ON ms.trp_id = t.id
             WHERE {"ms.trp_id = ANY(%s)" if trp_list_filter else "1=1"}
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
-            AND {f'''"zoned_dt_iso" > '{str(zoned_dt_start)}'::timestamptz''' if zoned_dt_start else "1=1"}
-            AND {f'''"zoned_dt_iso" < '{str(zoned_dt_end)}'::timestamptz''' if zoned_dt_end else "1=1"}
+            AND {f'''"zoned_dt_iso" >= '{str(zoned_dt_start)}'::timestamptz''' if zoned_dt_start else "1=1"}
+            AND {f'''"zoned_dt_iso" =< '{str(zoned_dt_end)}'::timestamptz''' if zoned_dt_end else "1=1"}
             {f'''
             ORDER BY "zoned_dt_iso" {"ASC" if sort_ascending else "DESC"}''' 
             if sort_by_date else ""

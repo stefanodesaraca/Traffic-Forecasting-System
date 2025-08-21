@@ -6,7 +6,9 @@ import warnings
 from warnings import simplefilter
 import hashlib
 import datetime
+from datetime import timedelta
 from typing import Any, Literal
+from functools import lru_cache
 from pydantic import BaseModel, field_validator
 from pydantic.types import PositiveInt
 import numpy as np
@@ -38,7 +40,7 @@ from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastin
 from exceptions import WrongEstimatorTypeError, ModelNotSetError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
 from brokers import DBBroker
 from loaders import BatchStreamLoader
-from utils import GlobalDefinitions, check_target, ZScore
+from utils import GlobalDefinitions, ForecastingToolbox, check_target, ZScore
 from db_config import ProjectTables, ProjectConstraints
 
 
@@ -606,39 +608,78 @@ class TFSLearner:
 
 class OnePointForecaster:
 
-    def __init__(self, trp_id: str, road_category: str, target: str, client: Client, db_broker: DBBroker, loader: BatchStreamLoader):
+    def __init__(self, trp_id: str, road_category: str, target: str, client: Client, db_broker: DBBroker, loader: BatchStreamLoader, forecasting_toolbox: ForecastingToolbox):
         self._trp_id: str = trp_id
         self._road_category: str = road_category
         self._target: str = target
         self._client: Client = client
         self._db_broker: DBBroker = db_broker
         self._loader: BatchStreamLoader = loader
+        self._ft: ForecastingToolbox = forecasting_toolbox
 
         check_target(target=self._target, errors=True)
 
 
-    def get_training_records(self, training_mode: Literal[0, 1], forecasting_horizon: datetime.datetime, limit: int | None = None) -> dd.DataFrame:
+    @lru_cache
+    def _get_latest_volume_dt_cached(self, trp_id_filter: str | None = None) -> datetime.datetime:
+        return self._db_broker.send_sql(sql=f"""
+            SELECT MAX(v."zoned_dt_iso") AS "latest_volume_dt"
+            FROM "{ProjectTables.Volume.value}" v 
+            {f"WHERE v.trp_id = {trp_id_filter}" if trp_id_filter else ""};""", single=True)["latest_volume_dt"]
+
+    @lru_cache
+    def _get_latest_mean_speed_dt_cached(self, trp_id_filter: str | None = None) -> datetime.datetime:
+        return self._db_broker.send_sql(sql=f"""
+        SELECT MAX(m."zoned_dt_iso") AS "latest_mean_speed_dt"
+        FROM "{ProjectTables.MeanSpeed.value}" m)
+        {f"WHERE v.trp_id = {trp_id_filter}" if trp_id_filter else ""};""", single=True)["latest_mean_speed_dt"]
+
+
+    def _get_latest_volume_dt(self, cached: bool = False, trp_id_filter: str | None = None) -> datetime.datetime:
+        if not cached:
+            self._get_latest_volume_dt_cached.cache_clear()
+        return self._get_latest_volume_dt_cached(trp_id_filter=trp_id_filter)
+
+
+    def _get_latest_mean_speed_dt(self, cached: bool = False, trp_id_filter: str | None = None) -> datetime.datetime:
+        if not cached:
+            self._get_latest_volume_dt_cached.cache_clear()
+        return self._get_latest_mean_speed_dt_cached(trp_id_filter=trp_id_filter)
+
+
+    def get_training_records(self, training_mode: Literal[0, 1], cache_latest_dt_collection: bool = True) -> dd.DataFrame:
         """
         Parameters:
             training_mode: the training mode we want to use.
                 0 - Stands for single-point training, so only the data from the TRP we want to predict future records for is used
                 1 - Stands for multipoint training, where data from all TRPs of the same road category as the one we want to predict future records for is used
-            limit: the maximum amount of records to return. The practice adopted is: latest records first. So we'll collect records starting from the latest one to the oldest one.
-                   If None, we'll just return all records available.
-                   Example: if we had a limit of 2000, we'll only collect the latest 2000 records.
         """
-        loading_functions_mapping = {
-            GlobalDefinitions.VOLUME: self._loader.get_volume,
-            GlobalDefinitions.MEAN_SPEED: self._loader.get_mean_speed
+        trp_id_filter = self._trp_id if training_mode == 0 else None
+        training_functions_mapping = {
+            GlobalDefinitions.VOLUME: {
+                "loader": self._loader.get_volume,
+                "training_data_interval": self._get_latest_volume_dt(trp_id_filter=trp_id_filter, cached=cache_latest_dt_collection) - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._get_latest_volume_dt(trp_id_filter=trp_id_filter, cached=cache_latest_dt_collection)).days * 24) * 2)
+            },
+            GlobalDefinitions.MEAN_SPEED: {
+                "loader": self._loader.get_mean_speed,
+                "training_data_interval": self._get_latest_mean_speed_dt(trp_id_filter=trp_id_filter, cached=cache_latest_dt_collection) - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._get_latest_mean_speed_dt(trp_id_filter=trp_id_filter, cached=cache_latest_dt_collection)).days * 24) * 2)
+            }
         }
+
         if training_mode == 0:
-            if limit:
-                return loading_functions_mapping[self._target](road_category_filter=[self._road_category], trp_list_filter=[self._trp_id], limit=limit) #TODO THE LIMIT HERE WONT' RETURN CORRECT RESULTS
-            return loading_functions_mapping[self._target](road_category_filter=[self._road_category], trp_list_filter=[self._trp_id])
+            return training_functions_mapping[self._target]["loader"](
+                road_category_filter=[self._road_category],
+                trp_list_filter=[self._trp_id],
+                zoned_dt_start=training_functions_mapping[self._target]["training_data_interval"],
+                zoned_dt_end=self._get_latest_volume_dt(trp_id_filter=trp_id_filter, cached=cache_latest_dt_collection)
+            )
         elif training_mode == 1:
-            if limit:
-                return loading_functions_mapping[self._target](road_category_filter=[self._road_category], limit=limit)
-            return loading_functions_mapping[self._target](road_category_filter=[self._road_category])
+            return training_functions_mapping[self._target]["loader"](
+                road_category_filter=[self._road_category],
+                trp_list_filter=[self._trp_id],
+                zoned_dt_start=training_functions_mapping[self._target]["training_data_interval"],
+                zoned_dt_end=self._get_latest_volume_dt(cached=cache_latest_dt_collection)
+            )
         raise WrongTrainRecordsRetrievalMode("training_mode parameter value is not valid")
 
 

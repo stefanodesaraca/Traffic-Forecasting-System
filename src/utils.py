@@ -20,23 +20,6 @@ pd.set_option("display.max_columns", None)
 
 
 
-@contextmanager
-def dask_cluster_client(processes=False):
-    """
-    - Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
-    - Check localhost:8787 to watch real-time processing
-    - By default, the number of workers is obtained by dask using the standard os.cpu_count()
-    - More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
-    """
-    cluster = LocalCluster(processes=processes)
-    client = Client(cluster)
-    try:
-        yield client
-    finally:
-        client.close()
-        cluster.close()
-
-
 class GlobalDefinitions(BaseModel):
     class Config:
         arbitrary_types_allowed = True
@@ -74,78 +57,6 @@ class GlobalDefinitions(BaseModel):
     CUDF_BACKEND = "cudf"
     GRAPH_PROCESSING_BACKENDS: ClassVar[list[str]] = [NETWORKX_BACKEND, CUDF_BACKEND]
 
-
-
-def check_target(target: str, errors: bool = False) -> bool:
-    if target not in GlobalDefinitions.TARGET_DATA.keys() and target not in GlobalDefinitions.TARGET_DATA.values():
-        if errors:
-            raise TargetVariableNotFoundError(f"Wrong target variable: {target}")
-        return False
-    return True
-
-
-def to_pg_array(py_list: list[str]) -> str:
-    return "{" + ",".join(py_list) + "}"
-
-
-def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
-        df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
-        return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
-
-
-def split_by_target(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
-    """
-    Splits the Dask DataFrame into training and testing sets based on the target column and mode.
-
-    Parameters:
-        data: dd.DataFrame
-        target: str ("volume" or "mean_speed")
-        mode: the mode which indicates the kind of split it's intended to execute.
-                0 - Stands for the classic 4 section train-test-split (X_train, X_test, y_train, y_test)
-                1 - Indicates a forecasted specific train-test-split (X, y)
-
-    Returns:
-        X_train, X_test, y_train, y_test
-    """
-
-    X = data.drop(columns=[target])
-    y = data[[target]]
-
-    if mode == 1:
-        return X.persist(), y.persist()
-    elif mode == 0:
-        n_rows = data.shape[0].compute()
-        p_70 = int(n_rows * 0.70)
-        return (dd.from_pandas(X.head(p_70)),
-                dd.from_pandas(X.tail(n_rows - p_70)),
-                dd.from_pandas(y.head(p_70)),
-                dd.from_pandas(y.tail(n_rows - p_70)))
-    else:
-        raise WrongSplittingMode("Wrong splitting mode imputed")
-
-
-def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:
-    """
-    Dask Dataframes merger function
-    Parameters:
-        dfs: a list of Dask Dataframes to concatenate
-    """
-    try:
-        return (dd.concat(dfs, axis=0)
-                .repartition(partition_size="512MB")
-                .sort_values(["zoned_dt_iso"], ascending=True)
-                .persist())  # Sorting records by date
-    except ValueError as e:
-        raise NoDataError(f"No data to concatenate. Error: {e}")
-
-
-def get_n_items_from_gen(gen: Generator[Any, None, None], n: PositiveInt) -> Generator[list[list | tuple], None, None]:
-    """Yield lists of up to n items from the generator."""
-    while True:
-        chunk = list(islice(gen, n))
-        if not chunk:
-            break
-        yield chunk
 
 
 class ForecastingToolbox:
@@ -239,3 +150,96 @@ class ForecastingToolbox:
                                                        SET "config" = jsonb_set("config", '{{{f"'{target}_forecasting_horizon'"}}}', 'null'::jsonb)
                                                        WHERE "id" = TRUE;""")
         return None
+
+
+
+@contextmanager
+def dask_cluster_client(processes=False):
+    """
+    - Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
+    - Check localhost:8787 to watch real-time processing
+    - By default, the number of workers is obtained by dask using the standard os.cpu_count()
+    - More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
+    """
+    cluster = LocalCluster(processes=processes)
+    client = Client(cluster)
+    try:
+        yield client
+    finally:
+        client.close()
+        cluster.close()
+
+
+def check_target(target: str, errors: bool = False) -> bool:
+    if target not in GlobalDefinitions.TARGET_DATA.keys() and target not in GlobalDefinitions.TARGET_DATA.values():
+        if errors:
+            raise TargetVariableNotFoundError(f"Wrong target variable: {target}")
+        return False
+    return True
+
+
+def to_pg_array(py_list: list[str]) -> str:
+    return "{" + ",".join(py_list) + "}"
+
+
+def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
+        df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
+        return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
+
+
+def split_by_target(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
+    """
+    Splits the Dask DataFrame into training and testing sets based on the target column and mode.
+
+    Parameters:
+        data: dd.DataFrame
+        target: str ("volume" or "mean_speed")
+        mode: the mode which indicates the kind of split it's intended to execute.
+                0 - Stands for the classic 4 section train-test-split (X_train, X_test, y_train, y_test)
+                1 - Indicates a forecasted specific train-test-split (X, y)
+
+    Returns:
+        X_train, X_test, y_train, y_test
+    """
+
+    X = data.drop(columns=[target])
+    y = data[[target]]
+
+    if mode == 1:
+        return X.persist(), y.persist()
+    elif mode == 0:
+        n_rows = data.shape[0].compute()
+        p_70 = int(n_rows * 0.70)
+        return (dd.from_pandas(X.head(p_70)),
+                dd.from_pandas(X.tail(n_rows - p_70)),
+                dd.from_pandas(y.head(p_70)),
+                dd.from_pandas(y.tail(n_rows - p_70)))
+    else:
+        raise WrongSplittingMode("Wrong splitting mode imputed")
+
+
+def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:
+    """
+    Dask Dataframes merger function
+    Parameters:
+        dfs: a list of Dask Dataframes to concatenate
+    """
+    try:
+        return (dd.concat(dfs, axis=0)
+                .repartition(partition_size="512MB")
+                .sort_values(["zoned_dt_iso"], ascending=True)
+                .persist())  # Sorting records by date
+    except ValueError as e:
+        raise NoDataError(f"No data to concatenate. Error: {e}")
+
+
+def get_n_items_from_gen(gen: Generator[Any, None, None], n: PositiveInt) -> Generator[list[list | tuple], None, None]:
+    """Yield lists of up to n items from the generator."""
+    while True:
+        chunk = list(islice(gen, n))
+        if not chunk:
+            break
+        yield chunk
+
+
+
