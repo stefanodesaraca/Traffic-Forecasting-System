@@ -482,7 +482,7 @@ class AIODBManager:
                             is_norwegian_scenic_route BOOLEAN,
                             is_ferry_route BOOLEAN,
                             is_ramp BOOLEAN,
-                            toll_station_ids TEXT[],
+                            toll_station_ids INTEGER[],
                             associated_trp_ids TEXT[],
                             traffic_volumes JSONB,          -- array of traffic volume objects
                             urban_ratio DOUBLE PRECISION,
