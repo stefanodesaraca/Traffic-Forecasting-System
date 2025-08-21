@@ -650,7 +650,6 @@ class AIODBManager:
                         "{ProjectTables.TrafficRegistrationPoints.value}",
                         "{ProjectTables.Volume.value}",
                         "{ProjectTables.MeanSpeed.value}",
-                        "{ProjectTables.TrafficRegistrationPointsMetadata.value}",
                         "{ProjectTables.MLModels.value}",
                         "{ProjectTables.TrainedModels.value}",
                         "{ProjectTables.ModelGridSearchCVResults.value}",
