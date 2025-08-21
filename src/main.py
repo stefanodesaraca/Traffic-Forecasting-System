@@ -454,14 +454,14 @@ def execute_forecasting(functionality: str) -> None:
                 target=GlobalDefinitions.TARGET_DATA[option],
                 client=client,
                 db_broker=db_broker,
-                loader=loader
+                loader=loader,
+                forecasting_toolbox=ft
             )
             future_records = forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=GlobalDefinitions.TARGET_DATA[option]))  #Already preprocessed
 
             #TODO TEST training_mode = BOTH 0 AND 1
             model_training_dataset = forecaster.get_training_records(
                 training_mode=0,
-                limit=future_records.shape[0].compute() * 24
             )
             X, y = split_by_target(
                 data=model_training_dataset,

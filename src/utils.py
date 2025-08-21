@@ -12,8 +12,9 @@ from dateutil.relativedelta import relativedelta
 from pydantic import BaseModel
 from pydantic.types import PositiveInt
 from dask.distributed import Client, LocalCluster
+from functools import lru_cache, wraps
 
-from exceptions import WrongSplittingMode, TargetVariableNotFoundError, NoDataError
+from exceptions import TargetVariableNotFoundError, MissingDataError
 from db_config import ProjectTables
 
 pd.set_option("display.max_columns", None)
@@ -215,7 +216,7 @@ def split_by_target(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tup
                 dd.from_pandas(y.head(p_70)),
                 dd.from_pandas(y.tail(n_rows - p_70)))
     else:
-        raise WrongSplittingMode("Wrong splitting mode imputed")
+        raise ValueError(f"{mode} is not a valid splitting mode")
 
 
 def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:
@@ -230,7 +231,7 @@ def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:
                 .sort_values(["zoned_dt_iso"], ascending=True)
                 .persist())  # Sorting records by date
     except ValueError as e:
-        raise NoDataError(f"No data to concatenate. Error: {e}")
+        raise MissingDataError(f"No data to concatenate. Error: {e}")
 
 
 def get_n_items_from_gen(gen: Generator[Any, None, None], n: PositiveInt) -> Generator[list[list | tuple], None, None]:
@@ -242,4 +243,17 @@ def get_n_items_from_gen(gen: Generator[Any, None, None], n: PositiveInt) -> Gen
         yield chunk
 
 
-
+def cached(maxsize: int | None = 128, typed: bool = False) -> Any:
+    """
+    Decorator that applies lru_cache, but allows per-call opt-out with enable_cache=False.
+    """
+    def decorator(func):
+        cached_func = lru_cache(maxsize=maxsize, typed=typed)(func)
+        @wraps(func)
+        def wrapper(*args, enable_cache: bool = False, **kwargs):
+            if enable_cache:
+                return cached_func(*args, **kwargs)
+            else:
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator

@@ -11,12 +11,6 @@ class TargetVariableNotFoundError(ValueError):
         super().__init__(self.message)
 
 
-class WrongEstimatorTypeError(TypeError):
-    def __init__(self, message: str):
-        self.message: str = message
-        super().__init__(self.message)
-
-
 class ModelNotSetError(AttributeError):
     def __init__(self, message: str):
         self.message: str = message
@@ -29,31 +23,13 @@ class TRPNotFoundError(Exception):
         super().__init__(self.message)
 
 
-class WrongSplittingMode(ValueError):
+class WrongSQLStatementError(ValueError):
     def __init__(self, message: str):
         self.message: str = message
         super().__init__(self.message)
 
 
-class WrongTrainRecordsRetrievalMode(ValueError):
-    def __init__(self, message: str):
-        self.message: str = message
-        super().__init__(self.message)
-
-
-class WrongSQLStatement(ValueError):
-    def __init__(self, message: str):
-        self.message: str = message
-        super().__init__(self.message)
-
-
-class MissingDataException(Exception):
-    def __init__(self, message: str):
-        self.message: str = message
-        super().__init__(self.message)
-
-
-class NoDataError(Exception):
+class MissingDataError(Exception):
     def __init__(self, message: str):
         self.message: str = message
         super().__init__(self.message)

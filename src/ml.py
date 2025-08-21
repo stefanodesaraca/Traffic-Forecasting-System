@@ -37,10 +37,10 @@ from sklearn.metrics import (
 from sktime.base import BaseEstimator as SktimeBaseEstimator
 from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastingBaseModel
 
-from exceptions import WrongEstimatorTypeError, ModelNotSetError, ScoringNotFoundError, WrongTrainRecordsRetrievalMode
+from exceptions import ModelNotSetError, ScoringNotFoundError
 from brokers import DBBroker
 from loaders import BatchStreamLoader
-from utils import GlobalDefinitions, ForecastingToolbox, check_target, ZScore
+from utils import GlobalDefinitions, ForecastingToolbox, check_target, ZScore, cached
 from db_config import ProjectTables, ProjectConstraints
 
 
@@ -249,7 +249,7 @@ class ModelWrapper(BaseModel):
     @classmethod
     def validate_model_obj(cls, model_obj) -> Any:
         if not issubclass(model_obj.__class__, ScikitLearnBaseEstimator | PyTorchForecastingBaseModel | SktimeBaseEstimator):
-            raise WrongEstimatorTypeError(f"Object passed is not an estimator accepted from this class. Type of the estimator received: {type(model_obj)}")
+            raise ValueError(f"Object passed is not an estimator accepted from this class. Type of the estimator received: {type(model_obj)}")
         return model_obj
 
 
@@ -619,32 +619,19 @@ class OnePointForecaster:
 
         check_target(target=self._target, errors=True)
 
-
-    @lru_cache
-    def _get_latest_volume_dt_cached(self, trp_id_filter: str | None = None) -> datetime.datetime:
+    @cached
+    def _get_latest_volume_dt(self, trp_id_filter: str | None = None) -> datetime.datetime:
         return self._db_broker.send_sql(sql=f"""
             SELECT MAX(v."zoned_dt_iso") AS "latest_volume_dt"
             FROM "{ProjectTables.Volume.value}" v 
             {f"WHERE v.trp_id = {trp_id_filter}" if trp_id_filter else ""};""", single=True)["latest_volume_dt"]
 
-    @lru_cache
-    def _get_latest_mean_speed_dt_cached(self, trp_id_filter: str | None = None) -> datetime.datetime:
+    @cached
+    def _get_latest_mean_speed_dt(self, trp_id_filter: str | None = None) -> datetime.datetime:
         return self._db_broker.send_sql(sql=f"""
-        SELECT MAX(m."zoned_dt_iso") AS "latest_mean_speed_dt"
-        FROM "{ProjectTables.MeanSpeed.value}" m)
-        {f"WHERE v.trp_id = {trp_id_filter}" if trp_id_filter else ""};""", single=True)["latest_mean_speed_dt"]
-
-
-    def _get_latest_volume_dt(self, cached: bool = False, trp_id_filter: str | None = None) -> datetime.datetime:
-        if not cached:
-            self._get_latest_volume_dt_cached.cache_clear()
-        return self._get_latest_volume_dt_cached(trp_id_filter=trp_id_filter)
-
-
-    def _get_latest_mean_speed_dt(self, cached: bool = False, trp_id_filter: str | None = None) -> datetime.datetime:
-        if not cached:
-            self._get_latest_volume_dt_cached.cache_clear()
-        return self._get_latest_mean_speed_dt_cached(trp_id_filter=trp_id_filter)
+            SELECT MAX(m."zoned_dt_iso") AS "latest_mean_speed_dt"
+            FROM "{ProjectTables.MeanSpeed.value}" m)
+            {f"WHERE v.trp_id = {trp_id_filter}" if trp_id_filter else ""};""", single=True)["latest_mean_speed_dt"]
 
 
     def get_training_records(self, training_mode: Literal[0, 1], cache_latest_dt_collection: bool = True) -> dd.DataFrame:
@@ -658,11 +645,11 @@ class OnePointForecaster:
         training_functions_mapping = {
             GlobalDefinitions.VOLUME: {
                 "loader": self._loader.get_volume,
-                "training_data_interval": self._get_latest_volume_dt(trp_id_filter=trp_id_filter, cached=cache_latest_dt_collection) - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._get_latest_volume_dt(trp_id_filter=trp_id_filter, cached=cache_latest_dt_collection)).days * 24) * 2)
+                "training_data_start": self._get_latest_volume_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection) - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._get_latest_volume_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)).days * 24) * 2)
             },
             GlobalDefinitions.MEAN_SPEED: {
                 "loader": self._loader.get_mean_speed,
-                "training_data_interval": self._get_latest_mean_speed_dt(trp_id_filter=trp_id_filter, cached=cache_latest_dt_collection) - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._get_latest_mean_speed_dt(trp_id_filter=trp_id_filter, cached=cache_latest_dt_collection)).days * 24) * 2)
+                "training_data_start": self._get_latest_mean_speed_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection) - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._get_latest_mean_speed_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)).days * 24) * 2)
             }
         }
 
@@ -670,17 +657,16 @@ class OnePointForecaster:
             return training_functions_mapping[self._target]["loader"](
                 road_category_filter=[self._road_category],
                 trp_list_filter=[self._trp_id],
-                zoned_dt_start=training_functions_mapping[self._target]["training_data_interval"],
+                zoned_dt_start=training_functions_mapping[self._target]["training_data_start"],
                 zoned_dt_end=self._get_latest_volume_dt(trp_id_filter=trp_id_filter, cached=cache_latest_dt_collection)
             )
         elif training_mode == 1:
             return training_functions_mapping[self._target]["loader"](
                 road_category_filter=[self._road_category],
-                trp_list_filter=[self._trp_id],
-                zoned_dt_start=training_functions_mapping[self._target]["training_data_interval"],
+                zoned_dt_start=training_functions_mapping[self._target]["training_data_start"],
                 zoned_dt_end=self._get_latest_volume_dt(cached=cache_latest_dt_collection)
             )
-        raise WrongTrainRecordsRetrievalMode("training_mode parameter value is not valid")
+        raise ValueError("'training_mode' parameter value is not valid")
 
 
     def get_future_records(self, forecasting_horizon: datetime.datetime) -> dd.DataFrame | None:

@@ -292,7 +292,7 @@ class RoadGraphObjectsIngestionPipeline:
 
 
     async def _get_road_category_name_from_id(self, road_category_id: str) -> bool:
-        if (corresponding_name := (await self._db_broker_async.get_road_categories_async(cached=True)).get(road_category_id, None)) is None:
+        if (corresponding_name := (await self._db_broker_async.get_road_categories_async(enable_cache=True)).get(road_category_id, None)) is None:
             raise RoadCategoryNotFound(f"Road category ID: {road_category_id} has no matching name within the available road categories ID-Name couples")
         return corresponding_name
 

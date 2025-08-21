@@ -5,10 +5,10 @@ from pydantic.types import PositiveInt
 import asyncpg
 from async_lru import alru_cache
 
-from exceptions import WrongSQLStatement, MissingDataException
+from exceptions import WrongSQLStatementError, MissingDataError
 from dbmanager import AIODBManager, postgres_conn_async, postgres_conn
 from db_config import HubDBTables, ProjectTables, ProjectViews, RowFactories
-from utils import GlobalDefinitions
+from utils import GlobalDefinitions, cached
 
 
 class AIODBBroker:
@@ -33,10 +33,10 @@ class AIODBBroker:
                     if many and many_values:
                         return await conn.executemany(sql, many_values)
                     elif many and not many_values:
-                        raise MissingDataException("Missing data to insert")
+                        raise MissingDataError("Missing data to insert")
                     return await conn.execute(sql)
                 else:
-                    raise WrongSQLStatement("The SQL query isn't correct")
+                    raise WrongSQLStatementError("The SQL query isn't correct")
 
 
     async def get_trp_ids_async(self, road_category_filter: list[str] | None = None) -> list[asyncpg.Record]:
@@ -79,17 +79,11 @@ class AIODBBroker:
                 return {"min": result["mean_speed_start_date"], "max": result["mean_speed_end_date"]} #Respectively: min and max
 
 
-    @alru_cache()
-    async def _get_road_categories_cached(self):
+    @cached
+    async def get_road_categories_async(self) -> dict[str, str]:
         async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
                 return {row['id']: row['name'] for row in (await conn.fetch(f'SELECT id, name FROM "{ProjectTables.RoadCategories.value}";'))}
-
-
-    async def get_road_categories_async(self, cached: bool = False) -> dict[str, str]:
-        if cached is False:
-            self._get_road_categories_cached.cache_clear()
-        return await self._get_road_categories_cached()
 
 
 
@@ -126,15 +120,15 @@ class DBBroker:
                     if many and many_values:
                         return cur.executemany(sql, many_values)
                     elif many and not many_values:
-                        raise MissingDataException("Missing data to insert")
+                        raise MissingDataError("Missing data to insert")
                     return cur.execute(sql, *execute_args) if execute_args else cur.execute(sql)
                 else:
-                    raise WrongSQLStatement("The SQL query isn't correct")
+                    raise WrongSQLStatementError("The SQL query isn't correct")
 
 
     def get_stream(self, sql: str, batch_size: PositiveInt, filters: tuple[Any] | tuple[str, ...] | tuple[list[Any], ...], row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> Generator:
         if "SELECT" not in sql:
-            raise WrongSQLStatement("Cannot return a data stream from a non selective statement (SELECT)")
+            raise WrongSQLStatementError("Cannot return a data stream from a non selective statement (SELECT)")
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host, row_factory=row_factory) as conn:
             for row in conn.cursor().stream(query=sql, params=filters, size=batch_size):
                 yield row
@@ -171,8 +165,8 @@ class DBBroker:
     def get_volume_date_boundaries(self) -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with self.PostgresConnectionCursor(query=f"""
-                        SELECT volume_start_date, volume_end_date
-                        FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
+                    SELECT volume_start_date, volume_end_date
+                    FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
                     """, conn=conn) as cur:
                 result = cur.fetchone()
                 return {"min": result["volume_start_date"], "max": result["volume_end_date"]} #Respectively: min and max
@@ -181,8 +175,8 @@ class DBBroker:
     def get_mean_speed_date_boundaries(self) -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with self.PostgresConnectionCursor(f"""
-                        SELECT mean_speed_start_date, mean_speed_end_date
-                        FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
+                    SELECT mean_speed_start_date, mean_speed_end_date
+                    FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
                     """, conn=conn) as cur:
                 result = cur.fetchone()
                 return {"min": result["mean_speed_start_date"], "max": result["mean_speed_end_date"]} #Respectively: min and max
