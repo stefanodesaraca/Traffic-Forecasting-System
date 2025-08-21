@@ -374,17 +374,6 @@ class AIODBManager:
                             zoned_dt_iso TIMESTAMPTZ NOT NULL,
                             FOREIGN KEY (trp_id) REFERENCES "{ProjectTables.TrafficRegistrationPoints.value}"(id)
                         );
-
-                        CREATE TABLE IF NOT EXISTS "{ProjectTables.TrafficRegistrationPointsMetadata.value}" (
-                            trp_id TEXT PRIMARY KEY,
-                            has_{GlobalDefinitions.VOLUME} BOOLEAN DEFAULT FALSE,
-                            has_{GlobalDefinitions.MEAN_SPEED} BOOLEAN DEFAULT FALSE,
-                            {GlobalDefinitions.VOLUME}_start_date TIMESTAMPTZ,
-                            {GlobalDefinitions.VOLUME}_end_date TIMESTAMPTZ,
-                            {GlobalDefinitions.MEAN_SPEED}_start_date TIMESTAMPTZ,
-                            {GlobalDefinitions.MEAN_SPEED}_end_date TIMESTAMPTZ,
-                            FOREIGN KEY (trp_id) REFERENCES "{ProjectTables.TrafficRegistrationPoints.value}"(id)
-                        );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.MLModels.value}" (
                             id TEXT PRIMARY KEY,
@@ -521,21 +510,21 @@ class AIODBManager:
                 CREATE OR REPLACE VIEW "{ProjectViews.TrafficRegistrationPointsMetadataView.value}" AS
                 WITH v_agg AS (
                     SELECT
-                        trp_id,
+                        "trp_id",
                         COALESCE(BOOL_OR("{GlobalDefinitions.VOLUME}" IS NOT NULL), FALSE) AS has_{GlobalDefinitions.VOLUME},
                         MIN("zoned_dt_iso") FILTER (WHERE "{GlobalDefinitions.VOLUME}" IS NOT NULL) AS {GlobalDefinitions.VOLUME}_start_date,
                         MAX("zoned_dt_iso") FILTER (WHERE "{GlobalDefinitions.VOLUME}" IS NOT NULL) AS {GlobalDefinitions.VOLUME}_end_date
                     FROM "{ProjectTables.Volume.value}"
-                    GROUP BY trp_id
+                    GROUP BY "trp_id"
                 ),
                 ms_agg AS (
                     SELECT
-                        trp_id,
+                        "trp_id",
                         COALESCE(BOOL_OR("{GlobalDefinitions.MEAN_SPEED}" IS NOT NULL), FALSE) AS has_{GlobalDefinitions.MEAN_SPEED},
                         MIN("zoned_dt_iso") FILTER (WHERE "{GlobalDefinitions.MEAN_SPEED}" IS NOT NULL) AS {GlobalDefinitions.MEAN_SPEED}_start_date,
                         MAX("zoned_dt_iso") FILTER (WHERE "{GlobalDefinitions.MEAN_SPEED}" IS NOT NULL) AS {GlobalDefinitions.MEAN_SPEED}_end_date
                     FROM "{ProjectTables.MeanSpeed.value}"
-                    GROUP BY trp_id
+                    GROUP BY "trp_id"
                 )
                 SELECT
                     trp.id AS trp_id,
@@ -543,7 +532,7 @@ class AIODBManager:
                     COALESCE(v_agg.has_{GlobalDefinitions.VOLUME}, FALSE) AS has_{GlobalDefinitions.VOLUME}, -- If there weren't any rows for a specific TRP this would be NULL, instead we want FALSE
                     v_agg.{GlobalDefinitions.VOLUME}_start_date,
                     v_agg.{GlobalDefinitions.VOLUME}_end_date,
-                    COALESCE(ms_agg.has_mean_speed, FALSE) AS has_{GlobalDefinitions.MEAN_SPEED}, -- If there weren't any rows for a specific TRP this would be NULL, instead we want FALSE
+                    COALESCE(ms_agg.has_{GlobalDefinitions.MEAN_SPEED}, FALSE) AS has_{GlobalDefinitions.MEAN_SPEED}, -- If there weren't any rows for a specific TRP this would be NULL, instead we want FALSE
                     ms_agg.{GlobalDefinitions.MEAN_SPEED}_start_date,
                     ms_agg.{GlobalDefinitions.MEAN_SPEED}_end_date
                 FROM "{ProjectTables.TrafficRegistrationPoints.value}" trp

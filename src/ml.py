@@ -619,19 +619,19 @@ class OnePointForecaster:
 
         check_target(target=self._target, errors=True)
 
-    @cached
+    @cached()
     def _get_latest_volume_dt(self, trp_id_filter: str | None = None) -> datetime.datetime:
         return self._db_broker.send_sql(sql=f"""
             SELECT MAX(v."zoned_dt_iso") AS "latest_volume_dt"
             FROM "{ProjectTables.Volume.value}" v 
-            {f"WHERE v.trp_id = {trp_id_filter}" if trp_id_filter else ""};""", single=True)["latest_volume_dt"]
+            {f"WHERE v.trp_id = '{trp_id_filter}'" if trp_id_filter else ""};""", single=True)["latest_volume_dt"]
 
-    @cached
+    @cached()
     def _get_latest_mean_speed_dt(self, trp_id_filter: str | None = None) -> datetime.datetime:
         return self._db_broker.send_sql(sql=f"""
             SELECT MAX(m."zoned_dt_iso") AS "latest_mean_speed_dt"
-            FROM "{ProjectTables.MeanSpeed.value}" m)
-            {f"WHERE v.trp_id = {trp_id_filter}" if trp_id_filter else ""};""", single=True)["latest_mean_speed_dt"]
+            FROM "{ProjectTables.MeanSpeed.value}" m
+            {f"WHERE m.trp_id = '{trp_id_filter}'" if trp_id_filter else ""};""", single=True)["latest_mean_speed_dt"]
 
 
     def get_training_records(self, training_mode: Literal[0, 1], cache_latest_dt_collection: bool = True) -> dd.DataFrame:
@@ -642,6 +642,11 @@ class OnePointForecaster:
                 1 - Stands for multipoint training, where data from all TRPs of the same road category as the one we want to predict future records for is used
         """
         trp_id_filter = self._trp_id if training_mode == 0 else None
+        print("V:", self._get_latest_volume_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection))
+        print("MS:", self._get_latest_mean_speed_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection))
+        print(timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._get_latest_mean_speed_dt(
+            trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)).days * 24) * 2))
+
         training_functions_mapping = {
             GlobalDefinitions.VOLUME: {
                 "loader": self._loader.get_volume,

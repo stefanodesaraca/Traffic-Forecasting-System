@@ -66,13 +66,13 @@ class ForecastingToolbox:
         self._db_broker: Any | None = db_broker
 
 
-    def get_forecasting_horizon(self, target: str) -> datetime.datetime:
+    def get_forecasting_horizon(self, target: str) -> datetime.datetime | None:
         check_target(target, errors=True)
         return self._db_broker.send_sql(
             f"""SELECT config -> {f"'{target}_forecasting_horizon'"} AS volume_horizon
                 FROM "{ProjectTables.ForecastingSettings.value}"
-                WHERE id = TRUE;"""
-        )[target]
+                WHERE "id" = TRUE;""",
+            single=True).get("volume_horizon", None)
 
 
     async def set_forecasting_horizon_async(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE) -> None:
