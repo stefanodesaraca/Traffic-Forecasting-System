@@ -28,7 +28,7 @@ from exceptions import RoadCategoryNotFound
 pd.set_option("display.max_rows", None)
 pd.set_option("display.max_columns", None)
 
-
+from pprint import pprint
 
 class RegressorTypes(BaseModel):
     lasso: str = "lasso"
@@ -294,7 +294,7 @@ class RoadGraphObjectsIngestionPipeline:
     async def ingest_nodes(self, fp: str | Path, batch_size: PositiveInt = 200, n_async_jobs: PositiveInt = 10) -> None:
         semaphore = asyncio.Semaphore(n_async_jobs)
 
-        nodes = (await self._load_geojson_async(fp=fp)).get("features", {})
+        nodes = (await self._load_geojson_async(fp=fp)).get("features", [])
         ing_query = f"""
             INSERT INTO "{ProjectTables.RoadGraphNodes.value}" (
                 "node_id",
@@ -311,7 +311,7 @@ class RoadGraphObjectsIngestionPipeline:
                 "raw_properties"
             ) VALUES (
                 $1, $2, ST_GeomFromText($3, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}), $4, $5, $6, $7, $8, $9, $10, $11, $12
-            )
+            );
         """
 
         batches = get_n_items_from_gen(gen=((
@@ -342,7 +342,8 @@ class RoadGraphObjectsIngestionPipeline:
         semaphore = asyncio.Semaphore(n_async_jobs)
         road_categories = await self._db_broker_async.get_road_categories_async(enable_cache=True, name_as_key=True)
 
-        links = (await self._load_geojson_async(fp=fp)).get("properties", {})
+        links = (await self._load_geojson_async(fp=fp)).get("features", [])
+        pprint(len(links))
         ing_query = f"""
                     INSERT INTO "{ProjectTables.RoadGraphLinks.value}" (
                         "link_id",
@@ -385,8 +386,8 @@ class RoadGraphObjectsIngestionPipeline:
                     ) VALUES (
                         $1, $2, ST_GeomFromText($3, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}), $4, $5, $6, $7, $8, $9, $10,
                         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-                        $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38
-                    )
+                        $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37
+                    );
                 """
 
         batches = get_n_items_from_gen(gen=((
