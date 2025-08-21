@@ -442,10 +442,10 @@ def execute_forecasting(functionality: str) -> None:
             if trp_id not in trp_ids:
                 raise TRPNotFoundError("TRP ID not in available TRP IDs list")
 
-            trp_metadata = db_broker.get_trp_metadata(trp_id)
-            trp_road_category = trp_metadata["road_category"]
+            print(db_broker.get_trp_metadata(trp_id=trp_id))
+            trp_road_category = db_broker.get_trp_metadata(trp_id=trp_id)["road_category"]
 
-            print("\nTRP road category: ", trp_road_category)
+            print("TRP road category: ", trp_road_category)
 
             forecaster = OnePointForecaster(
                 trp_id=trp_id,

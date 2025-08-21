@@ -1,9 +1,8 @@
-from typing import Any, Literal, Generator, LiteralString
+from typing import Any, Literal, Generator, LiteralString, Sequence, Mapping
 from contextlib import contextmanager
 import psycopg
 from pydantic.types import PositiveInt
 import asyncpg
-from async_lru import alru_cache
 
 from exceptions import WrongSQLStatementError, MissingDataError
 from dbmanager import AIODBManager, postgres_conn_async, postgres_conn
@@ -101,10 +100,10 @@ class DBBroker:
 
 
     @contextmanager
-    def PostgresConnectionCursor(self, conn: psycopg.Connection, query: LiteralString, row_factory: Literal["tuple_row", "dict_row"] = "dict_row", *execute_args, **execute_kwargs) -> Generator[Any, Any, None]:
+    def PostgresConnectionCursor(self, conn: psycopg.Connection, query: LiteralString, row_factory: Literal["tuple_row", "dict_row"] = "dict_row", params: Sequence | Mapping[str, Any] | None = None) -> Generator[Any, Any, None]:
         try:
             with conn.cursor(row_factory=RowFactories.factories[row_factory]) as cursor:
-                cursor.execute(query, *execute_args, **execute_kwargs)
+                cursor.execute(query, params=params)
                 yield cursor
         finally:
             pass
@@ -141,7 +140,7 @@ class DBBroker:
             with self.PostgresConnectionCursor(query=f"""
                     SELECT "id" FROM "{ProjectTables.TrafficRegistrationPoints.value}"
                     {'WHERE "road_category" = ANY(%s)' if road_category_filter else ""};
-                 """, *tuple(f for f in [road_category_filter] if f), conn=conn) as cur:
+                 """, params=tuple(f for f in [road_category_filter] if f), conn=conn) as cur:
                 return cur.fetchall()
 
 
@@ -199,11 +198,11 @@ class DBBroker:
     def get_trp_metadata(self, trp_id: str) -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with self.PostgresConnectionCursor(query=f"""
-                        SELECT TO_JSONB(t)
+                        SELECT TO_JSONB(t) AS metadata
                         FROM "{ProjectViews.TrafficRegistrationPointsMetadataView.value}" t
-                        WHERE trp_id = %s;
-                    """, **{"trp_id": trp_id}, conn=conn) as cur:
-                return cur.fetchone()
+                        WHERE "trp_id" = %s;
+                    """, conn=conn, params=[trp_id]) as cur:
+                return cur.fetchone()["metadata"]
 
     #TODO TRANSFER THIS OPERATION DIRECTLY INTO main.py AND USE send_sql()
     def get_model_objects(self) -> dict[str, dict[str, Any]]:
