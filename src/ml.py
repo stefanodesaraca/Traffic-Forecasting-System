@@ -614,8 +614,10 @@ class OnePointForecaster:
         self._db_broker: DBBroker = db_broker
         self._loader: BatchStreamLoader = loader
 
+        check_target(target=self._target, errors=True)
 
-    def get_training_records(self, training_mode: Literal[0, 1], limit: int | None = None) -> dd.DataFrame:
+
+    def get_training_records(self, training_mode: Literal[0, 1], forecasting_horizon: datetime.datetime, limit: int | None = None) -> dd.DataFrame:
         """
         Parameters:
             training_mode: the training mode we want to use.
@@ -631,7 +633,7 @@ class OnePointForecaster:
         }
         if training_mode == 0:
             if limit:
-                return loading_functions_mapping[self._target](road_category_filter=[self._road_category], trp_list_filter=[self._trp_id], limit=limit)
+                return loading_functions_mapping[self._target](road_category_filter=[self._road_category], trp_list_filter=[self._trp_id], limit=limit) #TODO THE LIMIT HERE WONT' RETURN CORRECT RESULTS
             return loading_functions_mapping[self._target](road_category_filter=[self._road_category], trp_list_filter=[self._trp_id])
         elif training_mode == 1:
             if limit:
@@ -654,8 +656,6 @@ class OnePointForecaster:
         dd.DataFrame
             A dask dataframe of empty records for future predictions.
         """
-
-        check_target(target=self._target, errors=True)
 
         attr = {GlobalDefinitions.VOLUME: np.nan} if self._target == GlobalDefinitions.VOLUME else {GlobalDefinitions.MEAN_SPEED: np.nan, "percentile_85": np.nan}
 

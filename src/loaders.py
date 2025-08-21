@@ -1,5 +1,7 @@
+import datetime
 from typing import Any, Generator
 import dask.dataframe as dd
+import numpy as np
 import pandas as pd
 from pydantic.types import PositiveInt
 
@@ -46,6 +48,8 @@ class BatchStreamLoader:
                    split_cyclical_features: bool = False,
                    encoded_cyclical_features: bool = False,
                    is_covid_year: bool = False,
+                   zoned_dt_start: datetime.datetime | None = None,
+                   zoned_dt_end: datetime.datetime | None = None,
                    sort_by_date: bool = True,
                    sort_ascending: bool = True,
                    df_partitions_size: PositiveInt = 100000
@@ -91,6 +95,8 @@ class BatchStreamLoader:
             FROM "{ProjectTables.Volume.value}" v JOIN "{ProjectTables.TrafficRegistrationPoints.value}" t ON v.trp_id = t.id
             WHERE {"v.trp_id = ANY(%s)" if trp_list_filter else "1=1"}
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
+            AND {f'''"zoned_dt_iso" > '{str(zoned_dt_start)}'::timestamptz''' if zoned_dt_start else "1=1"}
+            AND {f'''"zoned_dt_iso" < '{str(zoned_dt_end)}'::timestamptz''' if zoned_dt_end else "1=1"}
             {f'''
             ORDER BY "zoned_dt_iso" {"ASC" if sort_ascending else "DESC"}
             ''' if sort_by_date else ""
@@ -108,6 +114,8 @@ class BatchStreamLoader:
                        split_cyclical_features: bool = False,
                        encoded_cyclical_features: bool = False,
                        is_covid_year: bool = False,
+                       zoned_dt_start: datetime.datetime | None = None,
+                       zoned_dt_end: datetime.datetime | None = None,
                        sort_by_date: bool = True,
                        sort_ascending: bool = True,
                        df_partitions_size: PositiveInt = 100000
@@ -154,6 +162,8 @@ class BatchStreamLoader:
             FROM "{ProjectTables.MeanSpeed.value}" ms JOIN "{ProjectTables.TrafficRegistrationPoints.value}" t ON ms.trp_id = t.id
             WHERE {"ms.trp_id = ANY(%s)" if trp_list_filter else "1=1"}
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
+            AND {f'''"zoned_dt_iso" > '{str(zoned_dt_start)}'::timestamptz''' if zoned_dt_start else "1=1"}
+            AND {f'''"zoned_dt_iso" < '{str(zoned_dt_end)}'::timestamptz''' if zoned_dt_end else "1=1"}
             {f'''
             ORDER BY "zoned_dt_iso" {"ASC" if sort_ascending else "DESC"}''' 
             if sort_by_date else ""
@@ -205,6 +215,7 @@ class BatchStreamLoader:
                   county_ids_filter: list[str] | None = None,
                   node_ids_filter: list[str] | None = None,
                   link_ids_filter: list[str] | None = None,
+                  has_only_public_transport_lanes_filter: bool | None = False,
                   limit: PositiveInt | None = None,
                   df_partitions_size: PositiveInt = 100000) -> dd.DataFrame:
         return self._load_from_stream(self._db_broker.get_stream(sql=f"""
@@ -266,6 +277,9 @@ class BatchStreamLoader:
             AND {f'''"road_link_ids" && ANY(%s)'''
                 if link_ids_filter else "1=1"
             }
+            AND {f'"has_only_public_transport_lanes" = FALSE' 
+                if has_only_public_transport_lanes_filter is False else "1=1"
+            }
             {f"LIMIT {limit}" if limit else ""}
             ;
             """, filters=tuple(to_pg_array(f) for f in [
@@ -276,7 +290,3 @@ class BatchStreamLoader:
                     node_ids_filter,
                     link_ids_filter
                 ] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
-
-
-
-
