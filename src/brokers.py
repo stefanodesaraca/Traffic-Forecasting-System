@@ -194,7 +194,7 @@ class DBBroker:
                             AND {f"has_{GlobalDefinitions.MEAN_SPEED} = TRUE" if has_mean_speed_filter else "1=1"}
                         ) AS t;
                     """, conn=conn) as cur:
-                return cur.fetchone()
+                return cur.fetchone().get("trp_metadata")
 
 
     def get_trp_metadata(self, trp_id: str) -> dict[str, Any]:
@@ -212,14 +212,14 @@ class DBBroker:
             with self.PostgresConnectionCursor(query=f"""
                         SELECT json_object_agg(
                             m.name,
+                            m.base_params,
                             json_build_object(
-                                'pickle_object', o.pickle_object,
-                                'volume_best_params', m.volume_best_params,
-                                'mean_speed_best_params', m.mean_speed_best_params
+                                'pickle_object', bm.pickle_object
+                                'joblib_object', bm.joblib_object
                             )
                         ) AS model_data
                         FROM "{ProjectTables.MLModels.value}" m
-                        JOIN "{ProjectTables.TrainedModels.value}" o ON m.id = o.id;
+                        JOIN "{ProjectTables.BaseModels.value}" bm ON m.id = bm.id;
                     """, conn=conn) as cur:
                 return cur.fetchall()
 

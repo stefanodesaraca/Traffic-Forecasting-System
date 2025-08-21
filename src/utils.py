@@ -69,7 +69,7 @@ class ForecastingToolbox:
     def get_forecasting_horizon(self, target: str) -> datetime.datetime | None:
         check_target(target, errors=True)
         return self._db_broker.send_sql(
-            f"""SELECT config -> {f"'{target}_forecasting_horizon'"} AS volume_horizon
+            f"""SELECT ("config" ->> '{target}_forecasting_horizon')::timestamptz AS volume_horizon
                 FROM "{ProjectTables.ForecastingSettings.value}"
                 WHERE "id" = TRUE;""",
             single=True).get("volume_horizon", None)
@@ -140,7 +140,7 @@ class ForecastingToolbox:
 
     async def get_forecasting_horizon_async(self, target: str) -> datetime.datetime:
         await asyncio.to_thread(check_target, target, errors=True)
-        return (await self._db_broker_async.send_sql_async(f"""SELECT "config" -> '{f"'{target}_forecasting_horizon'"}' AS horizon
+        return (await self._db_broker_async.send_sql_async(f"""SELECT ("config" ->> '{target}_forecasting_horizon')::timestamptz AS horizon
                                                                FROM "{ProjectTables.ForecastingSettings.value}"
                                                                WHERE "id" = TRUE;"""))[0]["horizon"]
 

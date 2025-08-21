@@ -445,9 +445,7 @@ def execute_forecasting(functionality: str) -> None:
             if trp_id not in db_broker.get_all_trps_metadata(**{f"has_{target}_filter": True}).keys():
                 raise Exception(f"TRP doesn't have {target} data")
 
-            print(db_broker.get_trp_metadata(trp_id=trp_id))
             trp_road_category = db_broker.get_trp_metadata(trp_id=trp_id)["road_category"]
-
             print("TRP road category: ", trp_road_category)
 
             forecaster = OnePointForecaster(

@@ -641,20 +641,20 @@ class OnePointForecaster:
                 0 - Stands for single-point training, so only the data from the TRP we want to predict future records for is used
                 1 - Stands for multipoint training, where data from all TRPs of the same road category as the one we want to predict future records for is used
         """
-        trp_id_filter = self._trp_id if training_mode == 0 else None
-        print("V:", self._get_latest_volume_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection))
-        print("MS:", self._get_latest_mean_speed_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection))
-        print(timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._get_latest_mean_speed_dt(
-            trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)).days * 24) * 2))
+        def get_volume_training_data_start():
+            return self._get_latest_volume_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection) - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._get_latest_volume_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)).days * 24) * 2)
+        def get_mean_speed_training_data_start():
+            return self._get_latest_mean_speed_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection) - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._get_latest_mean_speed_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)).days * 24) * 2)
 
+        trp_id_filter = self._trp_id if training_mode == 0 else None
         training_functions_mapping = {
             GlobalDefinitions.VOLUME: {
                 "loader": self._loader.get_volume,
-                "training_data_start": self._get_latest_volume_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection) - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._get_latest_volume_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)).days * 24) * 2)
+                "training_data_start": get_volume_training_data_start
             },
             GlobalDefinitions.MEAN_SPEED: {
                 "loader": self._loader.get_mean_speed,
-                "training_data_start": self._get_latest_mean_speed_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection) - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._get_latest_mean_speed_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)).days * 24) * 2)
+                "training_data_start": get_mean_speed_training_data_start
             }
         }
 
@@ -662,14 +662,14 @@ class OnePointForecaster:
             return training_functions_mapping[self._target]["loader"](
                 road_category_filter=[self._road_category],
                 trp_list_filter=[self._trp_id],
-                zoned_dt_start=training_functions_mapping[self._target]["training_data_start"],
-                zoned_dt_end=self._get_latest_volume_dt(trp_id_filter=trp_id_filter, cached=cache_latest_dt_collection)
+                zoned_dt_start=training_functions_mapping[self._target]["training_data_start"](),
+                zoned_dt_end=self._get_latest_volume_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)
             )
         elif training_mode == 1:
             return training_functions_mapping[self._target]["loader"](
                 road_category_filter=[self._road_category],
-                zoned_dt_start=training_functions_mapping[self._target]["training_data_start"],
-                zoned_dt_end=self._get_latest_volume_dt(cached=cache_latest_dt_collection)
+                zoned_dt_start=training_functions_mapping[self._target]["training_data_start"](),
+                zoned_dt_end=self._get_latest_volume_dt(enable_cache=cache_latest_dt_collection)
             )
         raise ValueError("'training_mode' parameter value is not valid")
 
