@@ -207,21 +207,20 @@ class DBBroker:
                 return cur.fetchone()["metadata"]
 
     #TODO TRANSFER THIS OPERATION DIRECTLY INTO main.py AND USE send_sql()
-    def get_model_objects(self) -> dict[str, dict[str, Any]]:
+    def get_base_model_objects(self) -> list[dict[str, Any]]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with self.PostgresConnectionCursor(query=f"""
-                        SELECT json_object_agg(
-                               m.name,
-                               json_build_object(
-                                   'base_params', m.base_params,
-                                   'pickle_object', bm.pickle_object,
-                                   'joblib_object', bm.joblib_object
-                               )
-                           ) AS model_data
-                           FROM "{ProjectTables.MLModels.value}" m
-                           JOIN "{ProjectTables.BaseModels.value}" bm ON m.id = bm.id;
-                    """, conn=conn) as cur:
-                return cur.fetchone().get("model_data")
+                            SELECT 
+                                m.id as id,
+                                m.name as name, 
+                                m.base_params AS params,
+                                bm.pickle_object AS pickle_object
+                            FROM
+                                "{ProjectTables.MLModels.value}" m
+                            JOIN
+                                "{ProjectTables.BaseModels.value}" bm ON m.id = bm.id;
+                            """, conn=conn) as cur:
+                return cur.fetchall()
 
 
 
