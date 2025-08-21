@@ -291,12 +291,6 @@ class RoadGraphObjectsIngestionPipeline:
             return geojson.loads(await geo.read())
 
 
-    async def _get_road_category_name_from_id(self, road_category_id: str) -> bool:
-        if (corresponding_name := (await self._db_broker_async.get_road_categories_async(enable_cache=True)).get(road_category_id, None)) is None:
-            raise RoadCategoryNotFound(f"Road category ID: {road_category_id} has no matching name within the available road categories ID-Name couples")
-        return corresponding_name
-
-
     async def ingest_nodes(self, fp: str | Path, batch_size: PositiveInt = 200, n_async_jobs: PositiveInt = 10) -> None:
         semaphore = asyncio.Semaphore(n_async_jobs)
 
@@ -321,17 +315,17 @@ class RoadGraphObjectsIngestionPipeline:
         """
 
         batches = get_n_items_from_gen(gen=((
-            feature.get("id"),
+            feature.get("properties").get("id"),
             feature.get("type"),
             shape(feature.get("geometry")).wkt, # Convertion of the geometry to WKT for PostGIS compatibility (so that PostGIS can read the actual shape of the feature)
-            feature.get("connectedTrafficLinkIds"),
-            feature.get("roadNodeIds"),
-            feature.get("isRoundabout"),
-            feature.get("numberOfIncomingLinks"),
-            feature.get("numberOfOutgoingLinks"),
-            feature.get("numberOfUndirectedLinks"),
-            json.dumps(feature.get("legalTurningMovements", [])),
-            feature.get("roadSystemReferences"),
+            feature.get("properties").get("connectedTrafficLinkIds"),
+            feature.get("properties").get("roadNodeIds"),
+            feature.get("properties").get("isRoundabout"),
+            feature.get("properties").get("numberOfIncomingLinks"),
+            feature.get("properties").get("numberOfOutgoingLinks"),
+            feature.get("properties").get("numberOfUndirectedLinks"),
+            json.dumps(feature.get("properties").get("legalTurningMovements", [])),
+            feature.get("properties").get("roadSystemReferences"),
             json.dumps(feature)  # keep raw properties for flexibility
         ) for feature in nodes), n=batch_size)
 
@@ -346,6 +340,7 @@ class RoadGraphObjectsIngestionPipeline:
 
     async def ingest_links(self, fp: str | Path, batch_size: PositiveInt = 200, n_async_jobs: PositiveInt = 10) -> None:
         semaphore = asyncio.Semaphore(n_async_jobs)
+        road_categories = await self._db_broker_async.get_road_categories_async(enable_cache=True, name_as_key=True)
 
         links = (await self._load_geojson_async(fp=fp)).get("properties", {})
         ing_query = f"""
@@ -395,42 +390,42 @@ class RoadGraphObjectsIngestionPipeline:
                 """
 
         batches = get_n_items_from_gen(gen=((
-            feature.get("id"),
+            feature.get("properties").get("id"),
             feature.get("type"),
             shape(feature.get("geometry")).wkt, # Convert geometry to WKT with shapely's shape() and then extracting the wkt
-            feature.get("yearAppliesTo"),
-            feature.get("candidateIds"),
-            feature.get("roadSystemReferences"),
-            await self._get_road_category_name_from_id(feature.get("roadCategory")),
-            json.dumps(feature.get("roadPlacements", [])),
-            feature.get("functionalRoadClass"),
-            feature.get("functionClass"),
-            feature.get("startTrafficNodeId"),
-            feature.get("endTrafficNodeId"),
-            feature.get("subsumedTrafficNodeIds"),
-            feature.get("roadLinkIds"),
-            feature.get("roadNodeIds"),
-            feature.get("municipalityIds"), #TODO ADD FOREIGN KEY
-            feature.get("countyIds"), #TODO ADD FOREIGN KEY
-            feature.get("highestSpeedLimit"),
-            feature.get("lowestSpeedLimit"),
-            feature.get("maxLanes"),
-            feature.get("minLanes"),
-            feature.get("hasOnlyPublicTransportLanes"),
-            feature.get("length"),
-            feature.get("trafficDirectionWrtMeteringDirection"),
-            feature.get("isNorwegianScenicRoute"),
-            feature.get("isFerryRoute"),
-            feature.get("isRamp"),
-            feature.get("tollStationIds"),
-            feature.get("associatedTrpIds"),
-            json.dumps(feature.get("trafficVolumes", [])),
-            feature.get("urbanRatio"),
-            feature.get("numberOfEstablishments"),
-            feature.get("numberOfEmployees"),
-            feature.get("numberOfInhabitants"),
-            feature.get("hasAnomalies"),
-            json.dumps(feature.get("anomalies", [])),
+            feature.get("properties").get("yearAppliesTo"),
+            feature.get("properties").get("candidateIds"),
+            feature.get("properties").get("roadSystemReferences"),
+            road_categories.get(feature.get("properties").get("roadCategory"), None),
+            json.dumps(feature.get("properties").get("roadPlacements", [])),
+            feature.get("properties").get("functionalRoadClass"),
+            feature.get("properties").get("functionClass"),
+            feature.get("properties").get("startTrafficNodeId"),
+            feature.get("properties").get("endTrafficNodeId"),
+            feature.get("properties").get("subsumedTrafficNodeIds"),
+            feature.get("properties").get("roadLinkIds"),
+            feature.get("properties").get("roadNodeIds"),
+            feature.get("properties").get("municipalityIds"),
+            feature.get("properties").get("countyIds"),
+            feature.get("properties").get("highestSpeedLimit"),
+            feature.get("properties").get("lowestSpeedLimit"),
+            feature.get("properties").get("maxLanes"),
+            feature.get("properties").get("minLanes"),
+            feature.get("properties").get("hasOnlyPublicTransportLanes"),
+            feature.get("properties").get("length"),
+            feature.get("properties").get("trafficDirectionWrtMeteringDirection"),
+            feature.get("properties").get("isNorwegianScenicRoute"),
+            feature.get("properties").get("isFerryRoute"),
+            feature.get("properties").get("isRamp"),
+            feature.get("properties").get("tollStationIds"),
+            feature.get("properties").get("associatedTrpIds"),
+            json.dumps(feature.get("properties").get("trafficVolumes", [])),
+            feature.get("properties").get("urbanRatio"),
+            feature.get("properties").get("numberOfEstablishments"),
+            feature.get("properties").get("numberOfEmployees"),
+            feature.get("properties").get("numberOfInhabitants"),
+            feature.get("properties").get("hasAnomalies"),
+            json.dumps(feature.get("properties").get("anomalies", [])),
             json.dumps(feature)
         ) for feature in links), n=batch_size)
 

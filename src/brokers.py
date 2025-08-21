@@ -80,10 +80,12 @@ class AIODBBroker:
 
 
     @cached
-    async def get_road_categories_async(self) -> dict[str, str]:
+    async def get_road_categories_async(self, name_as_key: bool = False) -> dict[str, str]:
         async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
-                return {row['id']: row['name'] for row in (await conn.fetch(f'SELECT id, name FROM "{ProjectTables.RoadCategories.value}";'))}
+                if not name_as_key:
+                    return {row['id']: row['name'] for row in (await conn.fetch(f'SELECT id, name FROM "{ProjectTables.RoadCategories.value}";'))}
+                return {row['name']: row['id'] for row in (await conn.fetch(f'SELECT id, name FROM "{ProjectTables.RoadCategories.value}";'))}
 
 
 
