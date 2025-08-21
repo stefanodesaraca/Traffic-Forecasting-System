@@ -428,9 +428,10 @@ def execute_forecasting(functionality: str) -> None:
 
     print("Enter target data to forecast: ")
     print("V: Volumes | MS: Mean Speed")
-    option = input("Choice: ").upper()
+    target = input("Choice: ").upper()
 
-    check_target(option, errors=True)
+    check_target(target, errors=True)
+    target = GlobalDefinitions.TARGET_DATA[target]
 
     if functionality == "3.3.1":
 
@@ -441,6 +442,8 @@ def execute_forecasting(functionality: str) -> None:
 
             if trp_id not in trp_ids:
                 raise TRPNotFoundError("TRP ID not in available TRP IDs list")
+            if trp_id not in db_broker.get_all_trps_metadata(**{f"has_{target}_filter": True}).keys():
+                raise Exception(f"TRP doesn't have {target} data")
 
             print(db_broker.get_trp_metadata(trp_id=trp_id))
             trp_road_category = db_broker.get_trp_metadata(trp_id=trp_id)["road_category"]
@@ -450,7 +453,7 @@ def execute_forecasting(functionality: str) -> None:
             forecaster = OnePointForecaster(
                 trp_id=trp_id,
                 road_category=trp_road_category,
-                target=GlobalDefinitions.TARGET_DATA[option],
+                target=target,
                 client=client,
                 db_broker=db_broker,
                 loader=loader,
@@ -460,14 +463,14 @@ def execute_forecasting(functionality: str) -> None:
             #TODO TEST training_mode = BOTH 0 AND 1
             X, y = split_by_target(
                 data=forecaster.get_training_records(training_mode=0),
-                target=GlobalDefinitions.TARGET_DATA[option],
+                target=target,
                 mode=1
             )
 
             for name, data in db_broker.get_model_objects()["model_data"].items(): #Load model name and data (pickle object, the best parameters and so on)
 
                 model = pickle.load(data[name]["pickle_object"])
-                best_params = data[name][f"{GlobalDefinitions.TARGET_DATA[option]}_best_params"]
+                best_params = data[name][f"{target}_best_params"]
 
                 if best_params is None:
                     raise ModelBestParametersNotFound("Model's best parameters are None, check if the model has been trained or has best parameters set")
@@ -475,12 +478,12 @@ def execute_forecasting(functionality: str) -> None:
                 learner = TFSLearner(
                     model=model(**best_params),
                     road_category=trp_road_category,
-                    target=GlobalDefinitions.TARGET_DATA[option],
+                    target=target,
                     client=client,
                     db_broker=db_broker
                 )
                 learner.model.fit(X, y)
-                predictions = learner.model.predict(forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=GlobalDefinitions.TARGET_DATA[option]))) #Already preprocessed
+                predictions = learner.model.predict(forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target))) #Already preprocessed
 
                 print(f"**************** {name}'s Predictions ****************")
                 print(predictions)

@@ -6,7 +6,7 @@ import pandas as pd
 from pydantic.types import PositiveInt
 
 from brokers import DBBroker
-from utils import to_pg_array
+from utils import GlobalDefinitions, to_pg_array
 from db_config import ProjectTables
 
 
@@ -57,7 +57,7 @@ class BatchStreamLoader:
         return self._load_from_stream(stream=self._db_broker.get_stream(sql=f"""
             SELECT 
                 v.trp_id AS trp_id,
-                v.volume AS volume,
+                v.{GlobalDefinitions.VOLUME} AS {GlobalDefinitions.VOLUME},
                 v.coverage AS coverage,
                 v.is_mice AS is_mice,
                 v.zoned_dt_iso AS zoned_dt_iso
@@ -123,7 +123,7 @@ class BatchStreamLoader:
         return self._load_from_stream(self._db_broker.get_stream(sql=f"""
              SELECT 
                  ms.trp_id AS trp_id,
-                 ms.mean_speed AS mean_speed,
+                 ms.{GlobalDefinitions.MEAN_SPEED} AS {GlobalDefinitions.MEAN_SPEED},
                  ms.percentile_85 AS percentile_85,
                  ms.coverage AS coverage,
                  ms.is_mice AS is_mice,

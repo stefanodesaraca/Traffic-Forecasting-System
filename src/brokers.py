@@ -183,13 +183,15 @@ class DBBroker:
                 return {"min": result["mean_speed_start_date"], "max": result["mean_speed_end_date"]} #Respectively: min and max
 
 
-    def get_all_trps_metadata(self) -> dict[str, dict[str, Any]]:
+    def get_all_trps_metadata(self, has_volume_filter: bool = False, has_mean_speed_filter: bool = False) -> dict[str, dict[str, Any]]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with self.PostgresConnectionCursor(f"""
+            with self.PostgresConnectionCursor(query=f"""
                         SELECT jsonb_object_agg("trp_id", to_jsonb(t) - 'trp_id') AS trp_metadata
                         FROM (
                             SELECT *
                             FROM "{ProjectViews.TrafficRegistrationPointsMetadataView.value}"
+                            WHERE {f"has_{GlobalDefinitions.VOLUME} = TRUE" if has_volume_filter else "1=1"}
+                            AND {f"has_{GlobalDefinitions.MEAN_SPEED} = TRUE" if has_mean_speed_filter else "1=1"}
                         ) AS t;
                     """, conn=conn) as cur:
                 return cur.fetchone()
