@@ -8,7 +8,7 @@ from async_lru import alru_cache
 from exceptions import WrongSQLStatementError, MissingDataError
 from dbmanager import AIODBManager, postgres_conn_async, postgres_conn
 from db_config import HubDBTables, ProjectTables, ProjectViews, RowFactories
-from utils import GlobalDefinitions, cached
+from utils import GlobalDefinitions, cached_async
 
 
 class AIODBBroker:
@@ -79,7 +79,7 @@ class AIODBBroker:
                 return {"min": result["mean_speed_start_date"], "max": result["mean_speed_end_date"]} #Respectively: min and max
 
 
-    @cached
+    @cached_async()
     async def get_road_categories_async(self, name_as_key: bool = False) -> dict[str, str]:
         async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():

@@ -257,3 +257,24 @@ def cached(maxsize: int | None = 128, typed: bool = False) -> Any:
                 return func(*args, **kwargs)
         return wrapper
     return decorator
+
+
+def cached_async():
+    """
+    Async-compatible cache decorator with per-call enable/disable.
+    """
+    def decorator(func):
+        cache = {}
+        @wraps(func)
+        async def wrapper(*args, enable_cache: bool = False, **kwargs):
+            key = (args, tuple(sorted(kwargs.items())))
+            if enable_cache:
+                if key in cache:
+                    return cache[key]
+                result = await func(*args, **kwargs)
+                cache[key] = result
+                return result
+            else:
+                return await func(*args, **kwargs)
+        return wrapper
+    return decorator
