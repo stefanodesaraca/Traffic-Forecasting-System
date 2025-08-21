@@ -54,8 +54,8 @@ class GlobalDefinitions(BaseModel):
 
     MICE_COLS: ClassVar[list[str]] = ["volume", "coverage"]
 
-    NETWORKX_BACKEND = "networkx"
-    CUDF_BACKEND = "cudf"
+    NETWORKX_BACKEND: ClassVar[str] = "networkx"
+    CUDF_BACKEND: ClassVar[str] = "cudf"
     GRAPH_PROCESSING_BACKENDS: ClassVar[list[str]] = [NETWORKX_BACKEND, CUDF_BACKEND]
 
 

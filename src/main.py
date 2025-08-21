@@ -56,7 +56,6 @@ def get_db_broker():
 async def initialize() -> None:
     os.makedirs(GlobalDefinitions.MEAN_SPEED_DIR, exist_ok=True) #The directory where mean speed files need to be placed
     await (await get_aiodbmanager_broker()).init()
-    await setup_road_network()
     return None
 
 
@@ -503,7 +502,7 @@ async def manage_road_network(functionality: str) -> None:
     #TODO FILTER ONLY THE OSLO MUNICIPALITY!
 
     if functionality == "4.1":
-        ...
+        await setup_road_network()
 
     elif functionality == "4.2":
         ...
@@ -571,8 +570,8 @@ def main():
     3.3 Execute forecast
         3.3.1 One-Point Forecast
 4. Road network graph
-    4.1 Graph generation
-    4.2 Graph read (from already existing graph)
+    4.1 Set up road network
+    4.2 Graph generation
     4.3 Graph analysis
 5. Other options
     5.1 Update best parameters for a model
