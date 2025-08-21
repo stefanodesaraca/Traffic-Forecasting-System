@@ -343,7 +343,6 @@ class RoadGraphObjectsIngestionPipeline:
         road_categories = await self._db_broker_async.get_road_categories_async(enable_cache=True, name_as_key=True)
 
         links = (await self._load_geojson_async(fp=fp)).get("features", [])
-        pprint(len(links))
         ing_query = f"""
                     INSERT INTO "{ProjectTables.RoadGraphLinks.value}" (
                         "link_id",

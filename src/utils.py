@@ -119,19 +119,19 @@ class ForecastingToolbox:
                                                        VALUES (
                                                            TRUE,
                                                            jsonb_set(
-                                                               '{{}}'::jsonb,
-                                                               {f"'{target}_forecasting_horizon'"},
-                                                               to_jsonb('{f"{horizon}"}'::timestamptz::text),
-                                                               TRUE
-                                                           )
-                                                       )
-                                                       ON CONFLICT ("id") DO UPDATE
-                                                       SET "config" = jsonb_set(
-                                                           "{ProjectTables.ForecastingSettings.value}"."config",
-                                                           {f"'{target}_forecasting_horizon'"},
-                                                           to_jsonb('{f"{horizon}"}'::timestamptz::text),
-                                                           TRUE
-                                                       );""")
+                                                                '{{}}'::jsonb,
+                                                                '{{{target}_forecasting_horizon}}',
+                                                                to_jsonb('{horizon}'::timestamptz::text),
+                                                                TRUE
+                                                            )
+                                                        )
+                                                         ON CONFLICT ("id") DO UPDATE
+                                                        SET "config" = jsonb_set(
+                                                            "{ProjectTables.ForecastingSettings.value}"."config",
+                                                            '{{{target}_forecasting_horizon}}',
+                                                            to_jsonb('{horizon}'::timestamptz::text),
+                                                            TRUE
+                                                        );""")
         #The horizon datetime value is already in zoned datetime format
         #The TRUE after to_jsonb(...) is needed to create the record in case it didn't exist before
 
