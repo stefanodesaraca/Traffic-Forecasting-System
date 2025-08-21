@@ -487,7 +487,7 @@ class AIODBManager:
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadNetworks.value}" (
                             id SERIAL PRIMARY KEY,
                             name TEXT NOT NULL UNIQUE,
-                            binary BYTEA
+                            binary_obj BYTEA
                         );
                 """)
 
@@ -650,7 +650,6 @@ class AIODBManager:
                         "{ProjectTables.TrafficRegistrationPoints.value}",
                         "{ProjectTables.Volume.value}",
                         "{ProjectTables.MeanSpeed.value}",
-                        "{ProjectTables.TrafficRegistrationPointsMetadata.value}",
                         "{ProjectTables.MLModels.value}",
                         "{ProjectTables.TrainedModels.value}",
                         "{ProjectTables.ModelGridSearchCVResults.value}",

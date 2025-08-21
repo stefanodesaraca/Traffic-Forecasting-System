@@ -46,7 +46,6 @@ class ProjectTables(Enum):
     TrafficRegistrationPoints = "TrafficRegistrationPoints"
     Volume = "Volume"
     MeanSpeed = "MeanSpeed"
-    TrafficRegistrationPointsMetadata = "TrafficRegistrationPointsMetadata"
     MLModels = "MLModels"
     TrainedModels = "TrainedModels"
     BaseModels = "BaseModels"
