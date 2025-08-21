@@ -288,7 +288,7 @@ class RoadGraphObjectsIngestionPipeline:
     @staticmethod
     async def _load_geojson_async(fp: str) -> dict[str, Any]:
         async with aiofiles.open(fp, "r", encoding="utf-8") as geo:
-            return geojson.load(geo)
+            return geojson.loads(await geo.read())
 
 
     async def _get_road_category_name_from_id(self, road_category_id: str) -> bool:
@@ -302,7 +302,7 @@ class RoadGraphObjectsIngestionPipeline:
 
         nodes = (await self._load_geojson_async(fp=fp)).get("features", {})
         ing_query = f"""
-            INSERT INTO {ProjectTables.RoadGraphNodes.value} (
+            INSERT INTO "{ProjectTables.RoadGraphNodes.value}" (
                 "node_id",
                 "type",
                 "geom",
@@ -349,7 +349,7 @@ class RoadGraphObjectsIngestionPipeline:
 
         links = (await self._load_geojson_async(fp=fp)).get("properties", {})
         ing_query = f"""
-                    INSERT INTO {ProjectTables.RoadGraphLinks.value} (
+                    INSERT INTO "{ProjectTables.RoadGraphLinks.value}" (
                         "link_id",
                         "type",
                         "geom",

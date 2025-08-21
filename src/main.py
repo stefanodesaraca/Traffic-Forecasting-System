@@ -491,20 +491,19 @@ def execute_forecasting(functionality: str) -> None:
 async def setup_road_network() -> None:
     pipeline = RoadGraphObjectsIngestionPipeline(db_broker_async=await get_aiodb_broker())
     print("Setting up road network data...")
-    await pipeline.ingest_nodes(fp="traffic-nodes-2024_2025-02-28.geojson")
-    await pipeline.ingest_links(fp="traffic_links_2024_2025-02-27.geojson")
+    await pipeline.ingest_nodes(fp="data/road_network/traffic-nodes-2024_2025-02-28.geojson")
+    await pipeline.ingest_links(fp="data/road_network/traffic_links_2024_2025-02-27.geojson")
     print("Road network data successfully ingested into the DB")
     return None
 
 
 async def manage_road_network(functionality: str) -> None:
 
-    #TODO FILTER ONLY THE OSLO MUNICIPALITY!
-
     if functionality == "4.1":
         await setup_road_network()
 
     elif functionality == "4.2":
+        # TODO FILTER ONLY THE OSLO MUNICIPALITY!
         ...
 
     return None
