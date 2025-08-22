@@ -96,7 +96,7 @@ class TFSPreprocessor:
 
         Returns
         -------
-        dd.DataFrame
+        dd.DataFrame | pd.DataFrame
             The preprocessed traffic volume dataframe ready for ML models.
 
         Notes
@@ -702,9 +702,9 @@ class OnePointForecaster:
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
         return getattr(TFSPreprocessor(
-                                data=pd.DataFrame(list(rows_to_predict)),
-                                road_category=self._road_category,
-                                client=self._client), f"preprocess_{self._target}"
+                        data=dd.from_pandas(pd.DataFrame(list(rows_to_predict))), #NOTE IMPROVE THIS IN THE FUTURE
+                        road_category=self._road_category,
+                        client=self._client), f"preprocess_{self._target}"
         )(z_score=False)
 
 

@@ -495,6 +495,8 @@ def execute_forecasting(functionality: str) -> None:
 
                 #TODO BRING TFSPreprocessor HERE FROM forecaster.get_future_records()
                 predictions = learner.model.predict(forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target))) #Already preprocessed
+                #TODO forecaster.get_future_records returns a pandas dataframe which doesn't have .persist()
+                # LET get_future_records return a dask dataframe
 
                 print(f"**************** {name}'s Predictions ****************")
                 print(predictions)
