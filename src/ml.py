@@ -701,16 +701,11 @@ class OnePointForecaster:
             } for dt in pd.date_range(start=last_available_data_dt, end=forecasting_horizon, freq="1h"))
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
-        if self._target == GlobalDefinitions.VOLUME:
-            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)),
-                                   road_category=self._road_category,
-                                   client=self._client).preprocess_volume(z_score=False)
-        elif self._target == GlobalDefinitions.MEAN_SPEED:
-            return TFSPreprocessor(data=pd.DataFrame(list(rows_to_predict)),
-                                   road_category=self._road_category,
-                                   client=self._client).preprocess_mean_speed(z_score=False)
-        else:
-            return None
+        return getattr(TFSPreprocessor(
+                                data=pd.DataFrame(list(rows_to_predict)),
+                                road_category=self._road_category,
+                                client=self._client), f"preprocess_{self._target}"
+        )(z_score=False)
 
 
     @staticmethod

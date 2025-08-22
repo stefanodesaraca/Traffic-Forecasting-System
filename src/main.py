@@ -492,6 +492,8 @@ def execute_forecasting(functionality: str) -> None:
                 print("X: ", X)
                 print("y: ", y)
                 learner.model.fit(X, y)
+
+                #TODO BRING TFSPreprocessor HERE FROM forecaster.get_future_records()
                 predictions = learner.model.predict(forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target))) #Already preprocessed
 
                 print(f"**************** {name}'s Predictions ****************")
