@@ -214,6 +214,8 @@ class DBBroker:
                                 m.id as id,
                                 m.name as name, 
                                 m.base_params AS params,
+                                m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx AS best_{GlobalDefinitions.VOLUME}_params_idx,
+                                m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx AS best_{GlobalDefinitions.MEAN_SPEED}_params_idx,
                                 bm.pickle_object AS pickle_object
                             FROM
                                 "{ProjectTables.MLModels.value}" m

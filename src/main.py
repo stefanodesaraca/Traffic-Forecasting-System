@@ -460,12 +460,13 @@ def execute_forecasting(functionality: str) -> None:
 
             #TODO TEST training_mode = BOTH 0 AND 1
             X, y = split_by_target(
-                data=forecaster.get_training_records(training_mode=0),
+                data=getattr(TFSPreprocessor(data=forecaster.get_training_records(training_mode=0),
+                                             road_category=trp_road_category,
+                                             client=client), f"preprocess_{target}")(),
                 target=target,
                 mode=1
             )
 
-            print(db_broker.get_base_model_objects())
             for name, data in {
                 m["name"]: {
                     "binary": pickle.loads(m["pickle_object"]),
@@ -474,8 +475,8 @@ def execute_forecasting(functionality: str) -> None:
                 for m in db_broker.get_base_model_objects()
             }.items(): #Load model name and data (pickle object, the best parameters and so on)
 
-                model = pickle.loads(data["binary"])
-                best_params = data["params"]
+                model = data["binary"]
+                best_params = data["params"] #TODO FIND BEST PARAMS WITH BEST_PARAMS_IDX FROM MODEL
 
                 if best_params is None:
                     raise ModelBestParametersNotFound("Model's best parameters are None, check if the model has been trained or has best parameters set")
@@ -487,6 +488,9 @@ def execute_forecasting(functionality: str) -> None:
                     client=client,
                     db_broker=db_broker
                 )
+
+                print("X: ", X)
+                print("y: ", y)
                 learner.model.fit(X, y)
                 predictions = learner.model.predict(forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target))) #Already preprocessed
 
