@@ -504,19 +504,58 @@ class MLPreprocessedDataExtractionPipeline:
         return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
 
-    def get_volume(self, trp_ids_filter: list[str], lags: list[PositiveInt]) -> dd.DataFrame:
-        self._loader.get_volume(
-            batch_size=50000,
-            trp_list_filter=trp_ids,
-            road_category_filter=road_category,
-            split_cyclical_features=False,
-            encoded_cyclical_features=True,
-            is_covid_year=True,
-            sort_by_date=True,
-            sort_ascending=True)
+    def get_volume(self,
+                   lags: list[PositiveInt],
+                   batch_size: PositiveInt = 50000,
+                   trp_ids_filter: list[str] | None = None,
+                   road_category_filter: list[str] | None = None,
+                   encoded_cyclical_features: bool = True,
+                   is_covid_year: bool = True,
+                   sort_by_date: bool = True,
+                   sort_ascending: bool = True,
+                   z_score: bool = False) -> dd.DataFrame:
+        data = self._loader.get_volume(
+            batch_size=batch_size,
+            trp_list_filter=trp_ids_filter,
+            road_category_filter=road_category_filter,
+            encoded_cyclical_features=encoded_cyclical_features,
+            is_covid_year=is_covid_year,
+            sort_by_date=sort_by_date,
+            sort_ascending=sort_ascending
+        )
+        if z_score:
+            data = ZScore(data, column=GlobalDefinitions.VOLUME)
+        data = self._add_lag_features(data=data, target=GlobalDefinitions.VOLUME, lags=lags)
+        data = self._encode_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES, encoder=LabelEncoder)
+        data = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_SCALED_FEATURES, scaler=MinMaxScaler)
+        return data
 
 
-
+    def get_mean_speed(self,
+                   lags: list[PositiveInt],
+                   batch_size: PositiveInt = 50000,
+                   trp_ids_filter: list[str] | None = None,
+                   road_category_filter: list[str] | None = None,
+                   encoded_cyclical_features: bool = True,
+                   is_covid_year: bool = True,
+                   sort_by_date: bool = True,
+                   sort_ascending: bool = True,
+                   z_score: bool = False) -> dd.DataFrame:
+        data = self._loader.get_mean_speed(
+            batch_size=batch_size,
+            trp_list_filter=trp_ids_filter,
+            road_category_filter=road_category_filter,
+            encoded_cyclical_features=encoded_cyclical_features,
+            is_covid_year=is_covid_year,
+            sort_by_date=sort_by_date,
+            sort_ascending=sort_ascending
+        )
+        if z_score:
+            data = ZScore(data, column=GlobalDefinitions.MEAN_SPEED)
+        data = self._add_lag_features(data=data, target=GlobalDefinitions.MEAN_SPEED, lags=lags)
+        data = self._encode_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES, encoder=LabelEncoder)
+        data = self._scale_features(data=data, feats=GlobalDefinitions.MEAN_SPEED_SCALED_FEATURES, scaler=MinMaxScaler)
+        return data
 
 
 
