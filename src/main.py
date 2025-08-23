@@ -271,11 +271,8 @@ def forecast_warmup(functionality: str) -> None:
             print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 
             X_train, X_test, y_train, y_test = split_by_target(
-                data=getattr(preprocessor := TFSPreprocessor(
-                                road_category=road_category,
-                                client=client
-                            ),
-                    functionality_mapping[functionality]["preprocessing_method"])(
+                data=getattr(TFSPreprocessor(),
+                             functionality_mapping[functionality]["preprocessing_method"])(
                         data=getattr(loader, functionality_mapping[functionality]["loading_method"])(
                             batch_size=50000,
                             trp_list_filter=trp_ids,
@@ -291,7 +288,7 @@ def forecast_warmup(functionality: str) -> None:
                 target=target,
                 mode=0
             )
-            print(f"Shape of the merged data for road category {road_category}: ", preprocessor)
+            print(f"Shape of the merged data for road category {road_category}: ", X_train.shape[0].compute() + X_test.shape[0].compute() + y_train.shape[0].compute() + y_test.shape[0].compute())
 
             for model, metadata in models.items():
                 if functionality_mapping[functionality]["type"] == "gridsearch":
@@ -464,7 +461,7 @@ def forecast(functionality: str) -> None:
 
             #TODO TEST training_mode = BOTH 0 AND 1
             X, y = split_by_target(
-                data=getattr(TFSPreprocessor(road_category=trp_road_category, client=client), f"preprocess_{target}")(),
+                data=getattr(TFSPreprocessor(), f"preprocess_{target}")(),
                 target=target,
                 mode=1
             )

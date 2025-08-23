@@ -52,10 +52,8 @@ pd.set_option("display.max_rows", None)
 
 class TFSPreprocessor:
 
-    def __init__(self, road_category: str, client: Client):
-        self.road_category: str = road_category
-        self.client: Client = client
-
+    def __init__(self):
+        pass
 
     @staticmethod
     def arctan2_decoder(sin_val: float, cos_val: float) -> int | float:  # TODO VERIFY IF IT'S ACTUALLY AN INT (IF SO REMOVE | float)
@@ -580,7 +578,7 @@ class OnePointForecaster:
             } for dt in pd.date_range(start=last_available_data_dt, end=forecasting_horizon, freq="1h"))
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
-        return getattr(TFSPreprocessor(road_category=self._road_category, client=self._client), f"preprocess_{self._target}"
+        return getattr(TFSPreprocessor(), f"preprocess_{self._target}"
                        )(z_score=False)
 
 
