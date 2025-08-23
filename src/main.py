@@ -436,16 +436,6 @@ def forecast(functionality: str) -> None:
         trp_road_category = db_broker.get_trp_metadata(trp_id=trp_id)["road_category"]
         print("TRP road category: ", trp_road_category)
 
-        forecaster = OnePointForecaster(
-            trp_id=trp_id,
-            road_category=trp_road_category,
-            target=target,
-            client=client,
-            db_broker=db_broker,
-            loader=loader,
-            forecasting_toolbox=ft
-        )
-
         X, y = split_by_target(
             data=getattr(pipeline, f"get_{target}")(
                     lags=[24, 36, 48, 60, 72],
@@ -462,22 +452,26 @@ def forecast(functionality: str) -> None:
                 "binary": pickle.loads(m["pickle_object"]),
                 "params": m.get("params", None)
             }
-            for m in db_broker.get_base_model_objects()
+            for m in db_broker.get_trained_model_objects(target=target)
         }.items():  # Load model name and data (pickle object, the best parameters and so on)
 
             model = data["binary"]
-            best_params = data["params"]  # TODO FIND BEST PARAMS WITH BEST_PARAMS_IDX FROM MODEL
-
-            if best_params is None:
-                raise ModelBestParametersNotFound(
-                    "Model's best parameters are None, check if the model has been trained or has best parameters set")
 
             learner = TFSLearner(
-                model=model(**best_params),
+                model=model,
                 road_category=trp_road_category,
                 target=target,
                 client=client,
                 db_broker=db_broker
+            )
+            forecaster = OnePointForecaster(
+                trp_id=trp_id,
+                road_category=trp_road_category,
+                target=target,
+                client=client,
+                db_broker=db_broker,
+                loader=loader,
+                forecasting_toolbox=ft
             )
 
             print("X: ", X)

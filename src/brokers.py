@@ -227,6 +227,21 @@ class DBBroker:
                 return cur.fetchall()
 
 
+    def get_trained_model_objects(self, target: str) -> list[dict[str, Any]]:
+        with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
+            with self.PostgresConnectionCursor(query=f"""
+                            SELECT 
+                                tm.id as id,
+                                mm.name as name, 
+                                tm.pickle_object AS pickle_object
+                            FROM
+                                "{ProjectTables.MLModels.value}" mm
+                            JOIN
+                                "{ProjectTables.TrainedModels.value}" tm ON m.id = bm.id
+                            WHERE tm.target = {target};
+                            """, conn=conn) as cur:
+                return cur.fetchall()
+
 
 class AIODBManagerBroker:
 
