@@ -130,9 +130,9 @@ class TFSPreprocessor:
         for idx, n in enumerate((f"{GlobalDefinitions.MEAN_SPEED}_lag12h_{i}" for i in range(1, 7))): self._data[n] = self._data[GlobalDefinitions.MEAN_SPEED].shift(idx + 12)  # 12 hours shift
         for idx, n in enumerate((f"{GlobalDefinitions.MEAN_SPEED}_lag24h_{i}" for i in range(1, 7))): self._data[n] = self._data[GlobalDefinitions.MEAN_SPEED].shift(idx + 24)  # 24 hours shift
 
-        for idx, n in enumerate((f"percentile_85_lag{i}" for i in range(1, 7))): self._data[n] = self._data["percentile_85"].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate((f"percentile_85_lag{i}" for i in range(1, 7))): self._data[n] = self._data["percentile_85"].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate((f"percentile_85_lag{i}" for i in range(1, 7))): self._data[n] = self._data["percentile_85"].shift(idx + 24)  # 24 hours shift
+        #for idx, n in enumerate((f"percentile_85_lag{i}" for i in range(1, 7))): self._data[n] = self._data["percentile_85"].shift(idx + 6)  # 6 hours shift
+        #for idx, n in enumerate((f"percentile_85_lag{i}" for i in range(1, 7))): self._data[n] = self._data["percentile_85"].shift(idx + 12)  # 12 hours shift
+        #for idx, n in enumerate((f"percentile_85_lag{i}" for i in range(1, 7))): self._data[n] = self._data["percentile_85"].shift(idx + 24)  # 24 hours shift
 
         self._data = self._data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
@@ -522,20 +522,6 @@ class OnePointForecaster:
 
         check_target(target=self._target, errors=True)
 
-    @cached()
-    def _get_latest_volume_dt(self, trp_id_filter: str | None = None) -> datetime.datetime:
-        return self._db_broker.send_sql(sql=f"""
-            SELECT MAX(v."zoned_dt_iso") AS "latest_volume_dt"
-            FROM "{ProjectTables.Volume.value}" v 
-            {f"WHERE v.trp_id = '{trp_id_filter}'" if trp_id_filter else ""};""", single=True)["latest_volume_dt"]
-
-    @cached()
-    def _get_latest_mean_speed_dt(self, trp_id_filter: str | None = None) -> datetime.datetime:
-        return self._db_broker.send_sql(sql=f"""
-            SELECT MAX(m."zoned_dt_iso") AS "latest_mean_speed_dt"
-            FROM "{ProjectTables.MeanSpeed.value}" m
-            {f"WHERE m.trp_id = '{trp_id_filter}'" if trp_id_filter else ""};""", single=True)["latest_mean_speed_dt"]
-
 
     def get_training_records(self, training_mode: Literal[0, 1], cache_latest_dt_collection: bool = True) -> dd.DataFrame:
         """
@@ -545,9 +531,9 @@ class OnePointForecaster:
                 1 - Stands for multipoint training, where data from all TRPs of the same road category as the one we want to predict future records for is used
         """
         def get_volume_training_data_start():
-            return self._get_latest_volume_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection) - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._get_latest_volume_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)).days * 24) * 2)
+            return self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"] - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2)
         def get_mean_speed_training_data_start():
-            return self._get_latest_mean_speed_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection) - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._get_latest_mean_speed_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)).days * 24) * 2)
+            return self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"] - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2)
 
         trp_id_filter = self._trp_id if training_mode == 0 else None
         training_functions_mapping = {
@@ -565,14 +551,18 @@ class OnePointForecaster:
             return training_functions_mapping[self._target]["loader"](
                 road_category_filter=[self._road_category],
                 trp_list_filter=[self._trp_id],
+                encoded_cyclical_features=True,
+                is_covid_year=True,
                 zoned_dt_start=training_functions_mapping[self._target]["training_data_start"](),
-                zoned_dt_end=self._get_latest_volume_dt(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)
+                zoned_dt_end=self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
             )
         elif training_mode == 1:
             return training_functions_mapping[self._target]["loader"](
                 road_category_filter=[self._road_category],
+                encoded_cyclical_features=True,
+                is_covid_year=True,
                 zoned_dt_start=training_functions_mapping[self._target]["training_data_start"](),
-                zoned_dt_end=self._get_latest_volume_dt(enable_cache=cache_latest_dt_collection)
+                zoned_dt_end=self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
             )
         raise ValueError("'training_mode' parameter value is not valid")
 
@@ -594,7 +584,7 @@ class OnePointForecaster:
 
         attr = {GlobalDefinitions.VOLUME: np.nan} if self._target == GlobalDefinitions.VOLUME else {GlobalDefinitions.MEAN_SPEED: np.nan, "percentile_85": np.nan}
 
-        last_available_data_dt = self._db_broker.get_volume_date_boundaries()["max"] if self._target == GlobalDefinitions.VOLUME else self._db_broker.get_mean_speed_date_boundaries()["max"]
+        last_available_data_dt = self._db_broker.get_volume_date_boundaries(enable_cache=False)["max"] if self._target == GlobalDefinitions.VOLUME else self._db_broker.get_mean_speed_date_boundaries(enable_cache=False)["max"]
         rows_to_predict = ({
                 **attr,
                 "coverage": np.nan,

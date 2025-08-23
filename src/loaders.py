@@ -67,8 +67,7 @@ class BatchStreamLoader:
                 EXTRACT(HOUR FROM zoned_dt_iso) AS hour_of_day,
                 EXTRACT(MONTH FROM zoned_dt_iso) AS month_of_year,
                 EXTRACT(WEEK FROM zoned_dt_iso) AS week_of_year
-            ''' if split_cyclical_features else ""
-        }
+            ''' if split_cyclical_features else ""}
             {'''    
                 ,
                 COS(2 * PI() * EXTRACT(DAY FROM zoned_dt_iso) / 31) AS day_cos,
@@ -82,8 +81,7 @@ class BatchStreamLoader:
             
                 COS(2 * PI() * EXTRACT(WEEK FROM zoned_dt_iso) / 53) AS week_cos,
                 SIN(2 * PI() * EXTRACT(WEEK FROM zoned_dt_iso) / 53) AS week_sin'''
-        if encoded_cyclical_features else ""
-        }
+            if encoded_cyclical_features else ""}
             {'''
             ,
             CASE 
@@ -91,7 +89,7 @@ class BatchStreamLoader:
                     ELSE FALSE
                 END AS is_covid_year
             ''' if is_covid_year else ""
-        }
+            }
             FROM "{ProjectTables.Volume.value}" v JOIN "{ProjectTables.TrafficRegistrationPoints.value}" t ON v.trp_id = t.id
             WHERE {"v.trp_id = ANY(%s)" if trp_list_filter else "1=1"}
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
@@ -100,7 +98,7 @@ class BatchStreamLoader:
             {f'''
             ORDER BY "zoned_dt_iso" {"ASC" if sort_ascending else "DESC"}
             ''' if sort_by_date else ""
-        }
+            }
             {f"LIMIT {limit}" if limit else ""}
         """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
         # The ORDER BY (descending order) is necessary since in time series forecasting the order of the records is fundamental
@@ -134,8 +132,7 @@ class BatchStreamLoader:
                 EXTRACT(HOUR FROM zoned_dt_iso) AS hour_of_day,
                 EXTRACT(MONTH FROM zoned_dt_iso) AS month_of_year,
                 EXTRACT(WEEK FROM zoned_dt_iso) AS week_of_year''' 
-        if split_cyclical_features else ""
-        }
+            if split_cyclical_features else ""}
             {'''    
                 ,
                 COS(2 * PI() * EXTRACT(DAY FROM zoned_dt_iso) / 31) AS day_cos,
@@ -149,16 +146,15 @@ class BatchStreamLoader:
             
                 COS(2 * PI() * EXTRACT(WEEK FROM zoned_dt_iso) / 53) AS week_cos,
                 SIN(2 * PI() * EXTRACT(WEEK FROM zoned_dt_iso) / 53) AS week_sin'''
-        if encoded_cyclical_features else ""
-        }
+            if encoded_cyclical_features else ""}
             {'''
             ,
             CASE 
                 WHEN EXTRACT(YEAR FROM zoned_dt_iso) IN (2020, 2021, 2022) THEN TRUE
                     ELSE FALSE
                 END AS is_covid_year''' 
-        if is_covid_year else ""
-        }
+            if is_covid_year else ""
+            }
             FROM "{ProjectTables.MeanSpeed.value}" ms JOIN "{ProjectTables.TrafficRegistrationPoints.value}" t ON ms.trp_id = t.id
             WHERE {"ms.trp_id = ANY(%s)" if trp_list_filter else "1=1"}
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
@@ -167,8 +163,8 @@ class BatchStreamLoader:
             {f'''
             ORDER BY "zoned_dt_iso" {"ASC" if sort_ascending else "DESC"}''' 
             if sort_by_date else ""
-        }            
-        {f"LIMIT {limit}" if limit else ""}
+            }            
+            {f"LIMIT {limit}" if limit else ""}
         """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
         # The ORDER BY (descending order) is necessary since in time series forecasting the order of the records is fundamental
 

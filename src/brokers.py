@@ -7,7 +7,7 @@ import asyncpg
 from exceptions import WrongSQLStatementError, MissingDataError
 from dbmanager import AIODBManager, postgres_conn_async, postgres_conn
 from db_config import HubDBTables, ProjectTables, ProjectViews, RowFactories
-from utils import GlobalDefinitions, cached_async
+from utils import GlobalDefinitions, cached, cached_async
 
 
 class AIODBBroker:
@@ -162,22 +162,24 @@ class DBBroker:
             #    "R": ["03375V625405"]
             #}
 
-
-    def get_volume_date_boundaries(self) -> dict[str, Any]:
+    @cached()
+    def get_volume_date_boundaries(self, trp_id_filter: list[str] | None = None) -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with self.PostgresConnectionCursor(query=f"""
                     SELECT volume_start_date, volume_end_date
                     FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
+                    {f"WHERE m.trp_id = '{trp_id_filter}'" if trp_id_filter else ""};
                     """, conn=conn) as cur:
                 result = cur.fetchone()
                 return {"min": result["volume_start_date"], "max": result["volume_end_date"]} #Respectively: min and max
 
-
-    def get_mean_speed_date_boundaries(self) -> dict[str, Any]:
+    @cached()
+    def get_mean_speed_date_boundaries(self, trp_id_filter: list[str] | None = None) -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with self.PostgresConnectionCursor(f"""
                     SELECT mean_speed_start_date, mean_speed_end_date
                     FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
+                    {f"WHERE m.trp_id = '{trp_id_filter}'" if trp_id_filter else ""};
                     """, conn=conn) as cur:
                 result = cur.fetchone()
                 return {"min": result["mean_speed_start_date"], "max": result["mean_speed_end_date"]} #Respectively: min and max
