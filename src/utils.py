@@ -61,8 +61,8 @@ class GlobalDefinitions(BaseModel):
 
     NON_PREDICTORS: ClassVar[list[str]] = ["zoned_dt_iso"]
     ENCODED_FEATURES: ClassVar[list[str]] = ["trp_id"]
-    VOLUME_SCALED_FEATURES: ClassVar[list[str]] = [VOLUME]
-    MEAN_SPEED_SCALED_FEATURES: ClassVar[list[str]] = [MEAN_SPEED, "percentile_85"]
+    VOLUME_SCALED_FEATURES: ClassVar[list[str]] = [VOLUME, "coverage"]
+    MEAN_SPEED_SCALED_FEATURES: ClassVar[list[str]] = [MEAN_SPEED, "percentile_85", "coverage"]
 
 
 

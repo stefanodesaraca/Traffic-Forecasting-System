@@ -14,7 +14,7 @@ from downloader import start_client_async, volumes_to_db, fetch_trps, fetch_trps
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
 from pipelines import MeanSpeedIngestionPipeline, RoadGraphObjectsIngestionPipeline
 from loaders import BatchStreamLoader
-from ml import TFSLearner, TFSPreprocessor, OnePointForecaster
+from ml import TFSLearner, OnePointForecaster
 from road_network import *
 from utils import GlobalDefinitions, dask_cluster_client, ForecastingToolbox, check_target, split_by_target
 
@@ -188,8 +188,11 @@ def eda() -> None:
 
 def forecast_warmup(functionality: str) -> None:
     db_broker = get_db_broker()
-    loader = BatchStreamLoader(db_broker=db_broker)
-    preprocessor = TFSPreprocessor()
+
+    if long_term:
+        lags = [24, 36, 48, 60, 72]  # One, two and three days in the past
+    else:
+        lags = [8766, 17532, 26298]  # One, two and three years in the past
 
 
     def get_model_query(operation_type: str, target: str):
@@ -273,11 +276,7 @@ def forecast_warmup(functionality: str) -> None:
             print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 
             X_train, X_test, y_train, y_test = split_by_target(
-                data=getattr(preprocessor, functionality_mapping[functionality]["preprocessing_method"])(
-                    data=..., #TODO Pipeline get data
-                    long_term=False,
-                    z_score=True
-                ),
+                data=..., #TODO PIPELINE GET DATA AND FILTER BY TRP_IDS (BECAUSE ONLY THE ONES FROM THE CURRENT ROAD_CATEGORY MUST BE FED TO THE MODELS
                 target=target,
                 mode=0
             )

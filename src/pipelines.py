@@ -472,38 +472,6 @@ class MLPreprocessedDataExtractionPipeline:
         return data.assign(**{feat: encoder(**encoder_params).fit_transform(data[feat]) for feat in feats}).persist() # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
 
 
-    def _preprocess_volume(self, data: dd.DataFrame, long_term: bool = False, z_score: bool = True) -> dd.DataFrame:
-        if z_score:
-            data = ZScore(data, GlobalDefinitions.VOLUME)
-
-        if long_term:
-            lags = [24, 36, 48, 60, 72] #One, two and three days in the past
-        else:
-            lags = [8766, 17532, 26298] #One, two and three years in the past
-
-        data = self._scale_features(data, feats=[GlobalDefinitions.MEAN_SPEED, "percentile_85", "coverage"])
-        data = self._add_lag_features(data=data, lags=lags, target=GlobalDefinitions.VOLUME)
-        data = self._encode_features(data=data, feats=["trp_id"], encoder=LabelEncoder)
-
-        return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()  # Keeping year and hour data and the encoded_trp_id
-
-
-    def _preprocess_mean_speed(self, data, long_term: bool = False, z_score: bool = True) -> dd.DataFrame:
-        if z_score:
-            data = ZScore(data, GlobalDefinitions.VOLUME)
-
-        if long_term:
-            lags = [24, 36, 48, 60, 72] #One, two and three days in the past
-        else:
-            lags = [8766, 17532, 26298] #One, two and three years in the past
-
-        data = self._scale_features(data, feats=[GlobalDefinitions.MEAN_SPEED, "coverage"])
-        data = self._add_lag_features(data=data, lags=lags, target=GlobalDefinitions.MEAN_SPEED)
-        data = self._encode_features(data=data, feats=["trp_id"], encoder=LabelEncoder)
-
-        return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
-
-
     def get_volume(self,
                    lags: list[PositiveInt],
                    batch_size: PositiveInt = 50000,
@@ -528,7 +496,7 @@ class MLPreprocessedDataExtractionPipeline:
         data = self._add_lag_features(data=data, target=GlobalDefinitions.VOLUME, lags=lags)
         data = self._encode_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES, encoder=LabelEncoder)
         data = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_SCALED_FEATURES, scaler=MinMaxScaler)
-        return data
+        return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
 
     def get_mean_speed(self,
@@ -555,7 +523,7 @@ class MLPreprocessedDataExtractionPipeline:
         data = self._add_lag_features(data=data, target=GlobalDefinitions.MEAN_SPEED, lags=lags)
         data = self._encode_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES, encoder=LabelEncoder)
         data = self._scale_features(data=data, feats=GlobalDefinitions.MEAN_SPEED_SCALED_FEATURES, scaler=MinMaxScaler)
-        return data
+        return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
 
 
