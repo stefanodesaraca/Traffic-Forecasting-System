@@ -58,6 +58,8 @@ class GlobalDefinitions(BaseModel):
     CUDF_BACKEND: ClassVar[str] = "cudf"
     GRAPH_PROCESSING_BACKENDS: ClassVar[list[str]] = [NETWORKX_BACKEND, CUDF_BACKEND]
 
+    NON_PREDICTORS: ClassVar[list[str]] = ["trp_id", "is_mice", "zoned_dt_iso"]
+
 
 
 class ForecastingToolbox:
@@ -72,7 +74,7 @@ class ForecastingToolbox:
             f"""SELECT ("config" ->> '{target}_forecasting_horizon')::timestamptz AS volume_horizon
                 FROM "{ProjectTables.ForecastingSettings.value}"
                 WHERE "id" = TRUE;""",
-            single=True).get("volume_horizon", None)
+            single=True).get(f"{target}_horizon", None)
 
 
     async def set_forecasting_horizon_async(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE) -> None:

@@ -163,7 +163,7 @@ async def manage_forecasting_horizon(functionality: str) -> None:
     return None
 
 
-def execute_eda() -> None:
+def eda() -> None:
     db_broker = get_db_broker()
     trps_data = db_broker.get_all_trps_metadata()
 
@@ -185,7 +185,7 @@ def execute_eda() -> None:
     return None
 
 
-def forecasts_warmup(functionality: str) -> None:
+def forecast_warmup(functionality: str) -> None:
     db_broker = get_db_broker()
     loader = BatchStreamLoader(db_broker=db_broker)
 
@@ -421,7 +421,7 @@ def manage_ml(functionality: str) -> None:
 
 
 
-def execute_forecasting(functionality: str) -> None:
+def forecast(functionality: str) -> None:
     db_broker = get_db_broker()
     loader = BatchStreamLoader(db_broker=db_broker)
     ft = ForecastingToolbox(db_broker=db_broker)
@@ -494,7 +494,7 @@ def execute_forecasting(functionality: str) -> None:
                 learner.model.fit(X, y)
 
                 #TODO BRING TFSPreprocessor HERE FROM forecaster.get_future_records()
-                predictions = learner.model.predict(forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target))) #Already preprocessed
+                predictions = learner.model.predict(forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target)))  #Already preprocessed
                 #TODO forecaster.get_future_records returns a pandas dataframe which doesn't have .persist()
                 # LET get_future_records return a dask dataframe
 
@@ -541,18 +541,18 @@ def main():
         "3.1.1": manage_forecasting_horizon,
         "3.1.2": manage_forecasting_horizon,
         "3.1.3": manage_forecasting_horizon,
-        "3.2.1": forecasts_warmup,
-        "3.2.2": forecasts_warmup,
-        "3.2.3": forecasts_warmup,
-        "3.2.4": forecasts_warmup,
-        "3.2.5": forecasts_warmup,
-        "3.2.6": forecasts_warmup,
-        "3.3.1": execute_forecasting,
+        "3.2.1": forecast_warmup,
+        "3.2.2": forecast_warmup,
+        "3.2.3": forecast_warmup,
+        "3.2.4": forecast_warmup,
+        "3.2.5": forecast_warmup,
+        "3.2.6": forecast_warmup,
+        "3.3.1": forecast,
         "4.1": manage_road_network,
         "4.2": manage_road_network,
         "4.3": manage_road_network,
         "5.1": manage_ml,
-        "5.2": execute_eda
+        "5.2": eda
     }
 
     while True:

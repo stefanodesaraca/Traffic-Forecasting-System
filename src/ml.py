@@ -8,7 +8,6 @@ import hashlib
 import datetime
 from datetime import timedelta
 from typing import Any, Literal
-from functools import lru_cache
 from pydantic import BaseModel, field_validator
 from pydantic.types import PositiveInt
 import numpy as np
@@ -85,38 +84,15 @@ class TFSPreprocessor:
         return (angle_rad * 360) / (2 * np.pi)
 
 
+    @staticmethod
+    def _add_lag_features(df: dd.DataFrame, target: str) -> dd.DataFrame:
+        ...
+
+
     def preprocess_volume(self, z_score: bool = True) -> dd.DataFrame:
-        """
-        Preprocess traffic volume data for machine learning models.
-
-        Parameters
-        ----------
-        z_score : bool, default=True
-            Whether to apply Z-score outlier filtering.
-
-        Returns
-        -------
-        dd.DataFrame | pd.DataFrame
-            The preprocessed traffic volume dataframe ready for ML models.
-
-        Notes
-        -----
-        This method performs the following preprocessing steps:
-        1. Cyclical variables encoding (hour, week, day, month)
-        2. Outliers filtering with Z-Score (optional)
-        3. TRP ID Target-Encoding
-        4. Variables normalization
-        5. Creating lag features (6h, 12h, 24h)
-        6. Creating COVID dummy variables
-        7. Dropping unnecessary columns
-        """
-
-        # ------------------ Outliers filtering with Z-Score ------------------
 
         if z_score:
             self._data = ZScore(self._data, GlobalDefinitions.VOLUME)
-
-        # ------------------ TRP ID Target-Encoding ------------------
 
         self._data["trp_id"] = self._data["trp_id"].astype("category")
 
@@ -124,71 +100,22 @@ class TFSPreprocessor:
         self._data = self._data.assign(trp_id_encoded=encoder.fit_transform(self._data["trp_id"]))  # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
         self._data.persist()
 
-        #print("Encoded TRP IDs:", sorted(self._data["trp_id_encoded"].unique().compute()))
-
-        # ------------------ Variables normalization ------------------
-
         scaler = MinMaxScaler()
         self._data[[GlobalDefinitions.VOLUME, "coverage"]] = scaler.fit_transform(self._data[[GlobalDefinitions.VOLUME, "coverage"]])
 
-        # ------------------ Creating lag features ------------------
+        for idx, n in enumerate((f"{GlobalDefinitions.VOLUME}_lag6h_{i}" for i in range(1, 7))): self._data[n] = self._data[GlobalDefinitions.VOLUME].shift(idx + 6)  # 6 hours shift
+        for idx, n in enumerate((f"{GlobalDefinitions.VOLUME}_lag12h_{i}" for i in range(1, 7))): self._data[n] = self._data[GlobalDefinitions.VOLUME].shift(idx + 12)  # 12 hours shift
+        for idx, n in enumerate((f"{GlobalDefinitions.VOLUME}_lag24h_{i}" for i in range(1, 7))): self._data[n] = self._data[GlobalDefinitions.VOLUME].shift(idx + 24)  # 24 hours shift
 
-        lag6h_column_names = (f"{GlobalDefinitions.VOLUME}_lag6h_{i}" for i in range(1, 7))
-        lag12h_column_names = (f"{GlobalDefinitions.VOLUME}_lag12h_{i}" for i in range(1, 7))
-        lag24h_column_names = (f"{GlobalDefinitions.VOLUME}_lag24h_{i}" for i in range(1, 7))
-
-        for idx, n in enumerate(lag6h_column_names): self._data[n] = self._data[GlobalDefinitions.VOLUME].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate(lag12h_column_names): self._data[n] = self._data[GlobalDefinitions.VOLUME].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate(lag24h_column_names): self._data[n] = self._data[GlobalDefinitions.VOLUME].shift(idx + 24)  # 24 hours shift
-
-        # print(self._data.head(10))
-        # print(self._data.dtypes)
-
-        # ------------------ Dropping columns which won't be fed to the ML models ------------------
-
-        self._data = self._data.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1).persist()  # Keeping year and hour data and the encoded_trp_id
-
-        # print("Volumes dataframe head: ")
-        # print(self._data.head(5), "\n")
-
-        # print("Volumes dataframe tail: ")
-        # print(self._data.tail(5), "\n")
+        self._data = self._data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()  # Keeping year and hour data and the encoded_trp_id
 
         return self._data
 
 
     def preprocess_mean_speed(self, z_score: bool = True) -> dd.DataFrame:
-        """
-        Preprocess average speed data for machine learning models.
-
-        Parameters
-        ----------
-        z_score : bool, default=True
-            Whether to apply Z-score outlier filtering.
-
-        Returns
-        -------
-        dd.DataFrame
-            The preprocessed average speed dataframe ready for ML models.
-
-        Notes
-        -----
-        This method performs the following preprocessing steps:
-        1. Cyclical variables encoding (hour_start, week, day, month)
-        2. Outliers filtering with Z-Score (optional)
-        3. TRP ID Target-Encoding
-        4. Variables normalization
-        5. Creating lag features for mean_speed and percentile_85 (6h, 12h, 24h)
-        6. Creating COVID dummy variables
-        7. Dropping unnecessary columns
-        """
-
-        # ------------------ Outliers filtering with Z-Score ------------------
 
         if z_score:
             self._data = ZScore(self._data, GlobalDefinitions.MEAN_SPEED)
-
-        # ------------------ TRP ID Target-Encoding ------------------
 
         self._data["trp_id"] = self._data["trp_id"].astype("category")
 
@@ -196,42 +123,18 @@ class TFSPreprocessor:
         self._data = self._data.assign(trp_id_encoded=encoder.fit_transform(self._data["trp_id"]))  # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
         self._data.persist()
 
-        # print("Encoded TRP IDs:", sorted(self._data["trp_id_encoded"].unique().compute()))
-
-        # ------------------ Variables normalization ------------------
-
         scaler = MinMaxScaler()
         self._data[[GlobalDefinitions.MEAN_SPEED, "percentile_85", "coverage"]] = scaler.fit_transform(self._data[[GlobalDefinitions.MEAN_SPEED, "percentile_85", "coverage"]])
 
-        # ------------------ Creating lag features ------------------
+        for idx, n in enumerate((f"{GlobalDefinitions.MEAN_SPEED}_lag6h_{i}" for i in range(1, 7))): self._data[n] = self._data[GlobalDefinitions.MEAN_SPEED].shift(idx + 6)  # 6 hours shift
+        for idx, n in enumerate((f"{GlobalDefinitions.MEAN_SPEED}_lag12h_{i}" for i in range(1, 7))): self._data[n] = self._data[GlobalDefinitions.MEAN_SPEED].shift(idx + 12)  # 12 hours shift
+        for idx, n in enumerate((f"{GlobalDefinitions.MEAN_SPEED}_lag24h_{i}" for i in range(1, 7))): self._data[n] = self._data[GlobalDefinitions.MEAN_SPEED].shift(idx + 24)  # 24 hours shift
 
-        lag6h_column_names = (f"{GlobalDefinitions.MEAN_SPEED}_lag6h_{i}" for i in range(1, 7))
-        lag12h_column_names = (f"{GlobalDefinitions.MEAN_SPEED}_lag12_{i}" for i in range(1, 7))
-        lag24h_column_names = (f"{GlobalDefinitions.MEAN_SPEED}_lag24_{i}" for i in range(1, 7))
-        percentile_85_lag6_column_names = (f"percentile_85_lag{i}" for i in range(1, 7))
-        percentile_85_lag12_column_names = (f"percentile_85_lag{i}" for i in range(1, 7))
-        percentile_85_lag24_column_names = (f"percentile_85_lag{i}" for i in range(1, 7))
+        for idx, n in enumerate((f"percentile_85_lag{i}" for i in range(1, 7))): self._data[n] = self._data["percentile_85"].shift(idx + 6)  # 6 hours shift
+        for idx, n in enumerate((f"percentile_85_lag{i}" for i in range(1, 7))): self._data[n] = self._data["percentile_85"].shift(idx + 12)  # 12 hours shift
+        for idx, n in enumerate((f"percentile_85_lag{i}" for i in range(1, 7))): self._data[n] = self._data["percentile_85"].shift(idx + 24)  # 24 hours shift
 
-        for idx, n in enumerate(lag6h_column_names): self._data[n] = self._data[GlobalDefinitions.MEAN_SPEED].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate(lag12h_column_names): self._data[n] = self._data[GlobalDefinitions.MEAN_SPEED].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate(lag24h_column_names): self._data[n] = self._data[GlobalDefinitions.MEAN_SPEED].shift(idx + 24)  # 24 hours shift
-
-        for idx, n in enumerate(percentile_85_lag6_column_names): self._data[n] = self._data["percentile_85"].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate(percentile_85_lag12_column_names): self._data[n] = self._data["percentile_85"].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate(percentile_85_lag24_column_names): self._data[n] = self._data["percentile_85"].shift(idx + 24)  # 24 hours shift
-
-        # print(self._data.head(10))
-        # print(self._data.dtypes)
-
-        # ------------------ Dropping columns which won't be fed to the ML models ------------------
-
-        self._data = self._data.drop(columns=["trp_id", "is_mice", "zoned_dt_iso"], axis=1).persist()
-
-        # print("Average speeds dataframe head: ")
-        # print(self._data.head(5), "\n")
-
-        # print("Average speeds dataframe tail: ")
-        # print(self._data.tail(5), "\n")
+        self._data = self._data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
         return self._data
 
@@ -337,15 +240,15 @@ class ModelWrapper(BaseModel):
         return self.model_obj
 
 
-    def fit(self, X_train: dd.DataFrame, y_train: dd.DataFrame) -> Any:
+    def fit(self, X: dd.DataFrame, y: dd.DataFrame) -> Any:
         """
         Train the model on the input data.
 
         Parameters
         ----------
-        X_train : dd.DataFrame
+        X : dd.DataFrame
             Predictor variables' data for training.
-        y_train : dd.DataFrame
+        y : dd.DataFrame
             The target variable's data for training.
 
         Returns
@@ -354,16 +257,16 @@ class ModelWrapper(BaseModel):
             The trained model object.
         """
         with joblib.parallel_backend("dask"):
-            return self.model_obj.fit(X_train.compute(), y_train.compute())
+            return self.model_obj.fit(X.compute(), y.compute())
 
 
-    def predict(self, X_test: dd.DataFrame) -> Any:
+    def predict(self, X: dd.DataFrame) -> Any:
         """
         Make predictions using the trained model.
 
         Parameters
         ----------
-        X_test : dd.DataFrame
+        X : dd.DataFrame
             Input features for prediction.
 
         Returns
@@ -383,7 +286,7 @@ class ModelWrapper(BaseModel):
         """
         if isinstance(self.model_obj, ScikitLearnBaseEstimator):
             with joblib.parallel_backend("dask"):
-                return self.model_obj.predict(X_test.compute()) # type: ignore[attr-defined] # <- WARNING: this comment is used to avoid seeing a useless warning since the model will indeed have a predict method, but the scikit-learn BaseEstimator class doesn't
+                return self.model_obj.predict(X.compute()) # type: ignore[attr-defined] # <- WARNING: this comment is used to avoid seeing a useless warning since the model will indeed have a predict method, but the scikit-learn BaseEstimator class doesn't
         elif isinstance(self.model_obj, PyTorchForecastingBaseModel):
             return ... #NOTE STILL TO IMPLEMENT
         elif isinstance(self.model_obj, SktimeBaseEstimator):
