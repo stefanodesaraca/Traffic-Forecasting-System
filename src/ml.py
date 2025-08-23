@@ -52,8 +52,7 @@ pd.set_option("display.max_rows", None)
 
 class TFSPreprocessor:
 
-    def __init__(self, data: dd.DataFrame, road_category: str, client: Client):
-        self._data: dd.DataFrame = data
+    def __init__(self, road_category: str, client: Client):
         self.road_category: str = road_category
         self.client: Client = client
 
@@ -581,11 +580,8 @@ class OnePointForecaster:
             } for dt in pd.date_range(start=last_available_data_dt, end=forecasting_horizon, freq="1h"))
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
-        return getattr(TFSPreprocessor(
-                        data=dd.from_pandas(pd.DataFrame(list(rows_to_predict))), #NOTE IMPROVE THIS IN THE FUTURE
-                        road_category=self._road_category,
-                        client=self._client), f"preprocess_{self._target}"
-        )(z_score=False)
+        return getattr(TFSPreprocessor(road_category=self._road_category, client=self._client), f"preprocess_{self._target}"
+                       )(z_score=False)
 
 
     @staticmethod

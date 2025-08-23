@@ -272,22 +272,26 @@ def forecast_warmup(functionality: str) -> None:
 
             X_train, X_test, y_train, y_test = split_by_target(
                 data=getattr(preprocessor := TFSPreprocessor(
-                    data=getattr(loader, functionality_mapping[functionality]["loading_method"])(
-                        batch_size=50000,
-                        trp_list_filter=trp_ids,
-                        road_category_filter=road_category,
-                        split_cyclical_features=False,
-                        encoded_cyclical_features=True,
-                        is_covid_year=True,
-                        sort_by_date=True,
-                        sort_ascending=True),
-                    road_category=road_category,
-                    client=client
-                ), functionality_mapping[functionality]["preprocessing_method"])(),
+                                road_category=road_category,
+                                client=client
+                            ),
+                    functionality_mapping[functionality]["preprocessing_method"])(
+                        data=getattr(loader, functionality_mapping[functionality]["loading_method"])(
+                            batch_size=50000,
+                            trp_list_filter=trp_ids,
+                            road_category_filter=road_category,
+                            split_cyclical_features=False,
+                            encoded_cyclical_features=True,
+                            is_covid_year=True,
+                            sort_by_date=True,
+                            sort_ascending=True),
+                        long_term=False,
+                        z_score=True
+                    ),
                 target=target,
                 mode=0
             )
-            print(f"Shape of the merged data for road category {road_category}: ", preprocessor.shape)
+            print(f"Shape of the merged data for road category {road_category}: ", preprocessor)
 
             for model, metadata in models.items():
                 if functionality_mapping[functionality]["type"] == "gridsearch":
@@ -460,9 +464,7 @@ def forecast(functionality: str) -> None:
 
             #TODO TEST training_mode = BOTH 0 AND 1
             X, y = split_by_target(
-                data=getattr(TFSPreprocessor(data=forecaster.get_training_records(training_mode=0),
-                                             road_category=trp_road_category,
-                                             client=client), f"preprocess_{target}")(),
+                data=getattr(TFSPreprocessor(road_category=trp_road_category, client=client), f"preprocess_{target}")(),
                 target=target,
                 mode=1
             )
