@@ -48,6 +48,7 @@ class BatchStreamLoader:
                    split_cyclical_features: bool = False,
                    encoded_cyclical_features: bool = False,
                    is_covid_year: bool = False,
+                   is_mice: bool = False,
                    zoned_dt_start: datetime.datetime | None = None,
                    zoned_dt_end: datetime.datetime | None = None,
                    sort_by_date: bool = True,
@@ -59,7 +60,7 @@ class BatchStreamLoader:
                 v.trp_id AS trp_id,
                 v.{GlobalDefinitions.VOLUME} AS {GlobalDefinitions.VOLUME},
                 v.coverage AS coverage,
-                v.is_mice AS is_mice,
+                {"v.is_mice AS is_mice," if is_mice else ""}
                 v.zoned_dt_iso AS zoned_dt_iso
             {'''
                 ,
@@ -112,6 +113,7 @@ class BatchStreamLoader:
                        split_cyclical_features: bool = False,
                        encoded_cyclical_features: bool = False,
                        is_covid_year: bool = False,
+                       is_mice: bool = False,
                        zoned_dt_start: datetime.datetime | None = None,
                        zoned_dt_end: datetime.datetime | None = None,
                        sort_by_date: bool = True,
@@ -124,7 +126,7 @@ class BatchStreamLoader:
                  ms.{GlobalDefinitions.MEAN_SPEED} AS {GlobalDefinitions.MEAN_SPEED},
                  ms.percentile_85 AS percentile_85,
                  ms.coverage AS coverage,
-                 ms.is_mice AS is_mice,
+                 {"ms.is_mice AS is_mice," if is_mice else ""}
                  ms.zoned_dt_iso AS zoned_dt_iso
             {'''
                 ,

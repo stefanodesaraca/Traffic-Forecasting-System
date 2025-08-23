@@ -9,7 +9,6 @@ import datetime
 from datetime import timedelta
 from typing import Any, Literal
 from pydantic import BaseModel, field_validator
-from pydantic.types import PositiveInt
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -18,7 +17,6 @@ import joblib
 import dask.dataframe as dd
 from dask.distributed import Client
 
-from dask_ml.preprocessing import MinMaxScaler, LabelEncoder
 from dask_ml.model_selection import GridSearchCV
 
 from sklearn.base import BaseEstimator as ScikitLearnBaseEstimator
@@ -39,7 +37,7 @@ from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastin
 from exceptions import ModelNotSetError, ScoringNotFoundError
 from brokers import DBBroker
 from loaders import BatchStreamLoader
-from utils import GlobalDefinitions, ForecastingToolbox, check_target, ZScore, cached
+from utils import GlobalDefinitions, ForecastingToolbox, check_target
 from db_config import ProjectTables, ProjectConstraints
 
 
@@ -49,87 +47,6 @@ pd.set_option("display.max_columns", None)
 pd.set_option("display.max_rows", None)
 
 
-
-class TFSPreprocessor:
-
-    def __init__(self):
-        pass
-
-    @staticmethod
-    def arctan2_decoder(sin_val: float, cos_val: float) -> int | float:  # TODO VERIFY IF IT'S ACTUALLY AN INT (IF SO REMOVE | float)
-        """
-        Decode cyclical features using arctan2 function.
-
-        Parameters
-        ----------
-        sin_val : float
-            The sine component value.
-        cos_val : float
-            The cosine component value.
-
-        Returns
-        -------
-        int or float
-            The decoded angle in degrees.
-        """
-        angle_rad = np.arctan2(sin_val, cos_val)
-        return (angle_rad * 360) / (2 * np.pi)
-
-
-    @staticmethod
-    def _add_lag_features(data: dd.DataFrame, target: str, lags: list[PositiveInt]) -> dd.DataFrame:
-        for lag in lags:
-            data[f"{target}_lag{lag}h"] = data[target].shift(lag)  # n hours shift
-        return data
-
-
-    @staticmethod
-    def _scale_features(data: dd.DataFrame, feats: list[str], scaler: MinMaxScaler | callable = MinMaxScaler) -> dd.DataFrame:
-        data[feats] = scaler().fit_transform(data[feats])
-        return data
-
-
-    @staticmethod
-    def _encode_features(data: dd.DataFrame, feats: list[str], encoder: LabelEncoder | callable = LabelEncoder) -> dd.DataFrame:
-        encoder_params = {}
-        # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
-        if isinstance(encoder, LabelEncoder):
-            encoder_params = {"use_categorical": True}
-            for feat in feats:
-                data[feat] = data[feat].astype("category")
-        return data.assign(**{feat: encoder(**encoder_params).fit_transform(data[feat]) for feat in feats}).persist() # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
-
-
-    def preprocess_volume(self, data: dd.DataFrame, long_term: bool = False, z_score: bool = True) -> dd.DataFrame:
-        if z_score:
-            data = ZScore(data, GlobalDefinitions.VOLUME)
-
-        if long_term:
-            lags = [24, 36, 48, 60, 72] #One, two and three days in the past
-        else:
-            lags = [8766, 17532, 26298] #One, two and three years in the past
-
-        data = self._scale_features(data, feats=[GlobalDefinitions.MEAN_SPEED, "percentile_85", "coverage"])
-        data = self._add_lag_features(data=data, lags=lags, target=GlobalDefinitions.VOLUME)
-        data = self._encode_features(data=data, feats=["trp_id"], encoder=LabelEncoder)
-
-        return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()  # Keeping year and hour data and the encoded_trp_id
-
-
-    def preprocess_mean_speed(self, data, long_term: bool = False, z_score: bool = True) -> dd.DataFrame:
-        if z_score:
-            data = ZScore(data, GlobalDefinitions.VOLUME)
-
-        if long_term:
-            lags = [24, 36, 48, 60, 72] #One, two and three days in the past
-        else:
-            lags = [8766, 17532, 26298] #One, two and three years in the past
-
-        data = self._scale_features(data, feats=[GlobalDefinitions.MEAN_SPEED, "coverage"])
-        data = self._add_lag_features(data=data, lags=lags, target=GlobalDefinitions.MEAN_SPEED)
-        data = self._encode_features(data=data, feats=["trp_id"], encoder=LabelEncoder)
-
-        return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
 
 
@@ -543,7 +460,7 @@ class OnePointForecaster:
         }
         return training_functions_mapping[self._target]["loader"](
             road_category_filter=[self._road_category],
-            trp_list_filter=[self._trp_id],
+            trp_list_filter=trp_id_filter,
             encoded_cyclical_features=True,
             is_covid_year=True,
             zoned_dt_start=training_functions_mapping[self._target]["training_data_start"](),
@@ -574,12 +491,12 @@ class OnePointForecaster:
                 "coverage": np.nan,
                 "zoned_dt_iso": dt,
                 "is_mice": False, #Being a future record to predict it's not a MICEd record
-                "trp_id": self._trp_id
+                "trp_id": self._trp_id,
+                "is_covid_year": False
             } for dt in pd.date_range(start=last_available_data_dt, end=forecasting_horizon, freq="1h"))
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
-        return getattr(TFSPreprocessor(), f"preprocess_{self._target}"
-                       )(z_score=False)
+        return dd.from_pandas(pd.DataFrame(list(rows_to_predict)))
 
 
     @staticmethod

@@ -5,6 +5,7 @@ import pickle
 import asyncio
 import dask
 import dask.dataframe as dd
+from torch.utils.hipify.hipify_python import preprocessor
 
 from exceptions import TRPNotFoundError, ModelBestParametersNotFound
 from db_config import DBConfig, ProjectTables
@@ -188,6 +189,7 @@ def eda() -> None:
 def forecast_warmup(functionality: str) -> None:
     db_broker = get_db_broker()
     loader = BatchStreamLoader(db_broker=db_broker)
+    preprocessor = TFSPreprocessor()
 
 
     def get_model_query(operation_type: str, target: str):
@@ -271,20 +273,11 @@ def forecast_warmup(functionality: str) -> None:
             print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 
             X_train, X_test, y_train, y_test = split_by_target(
-                data=getattr(TFSPreprocessor(),
-                             functionality_mapping[functionality]["preprocessing_method"])(
-                        data=getattr(loader, functionality_mapping[functionality]["loading_method"])(
-                            batch_size=50000,
-                            trp_list_filter=trp_ids,
-                            road_category_filter=road_category,
-                            split_cyclical_features=False,
-                            encoded_cyclical_features=True,
-                            is_covid_year=True,
-                            sort_by_date=True,
-                            sort_ascending=True),
-                        long_term=False,
-                        z_score=True
-                    ),
+                data=getattr(preprocessor, functionality_mapping[functionality]["preprocessing_method"])(
+                    data=..., #TODO Pipeline get data
+                    long_term=False,
+                    z_score=True
+                ),
                 target=target,
                 mode=0
             )
@@ -293,7 +286,7 @@ def forecast_warmup(functionality: str) -> None:
             for model, metadata in models.items():
                 if functionality_mapping[functionality]["type"] == "gridsearch":
                     func(X_train, y_train, TFSLearner(
-                            model=models[model]["binary"](**models[model]["params"]),
+                            model=models[model]["binary_obj"](**models[model]["params"]),
                             road_category=road_category,
                             target=target,
                             client=client,
@@ -302,7 +295,7 @@ def forecast_warmup(functionality: str) -> None:
                     )
                 elif functionality_mapping[functionality]["type"] == "training":
                     func(X_test, y_test, TFSLearner(
-                            model=models[model]["binary"](**models[model]["params"]),
+                            model=models[model]["binary_obj"](**models[model]["params"]),
                             road_category=road_category,
                             target=target,
                             client=client,
@@ -311,7 +304,7 @@ def forecast_warmup(functionality: str) -> None:
                     )
                 elif functionality_mapping[functionality]["type"] == "testing":
                     func(X_test, y_test, TFSLearner(
-                            model=models[model]["binary"],
+                            model=models[model]["binary_obj"],
                             road_category=road_category,
                             target=target,
                             client=client,
@@ -427,6 +420,8 @@ def forecast(functionality: str) -> None:
     loader = BatchStreamLoader(db_broker=db_broker)
     ft = ForecastingToolbox(db_broker=db_broker)
 
+    is_long_term = False #TODO TO SET IN THE FUTURE
+
     print("Enter target data to forecast: ")
     print("V: Volumes | MS: Mean Speed")
     target = input("Choice: ").upper()
@@ -434,71 +429,80 @@ def forecast(functionality: str) -> None:
     check_target(target, errors=True)
     target = GlobalDefinitions.TARGET_DATA[target]
 
-    if functionality == "3.3.1":
+    def one_point_forecast():
+        trps_with_data = db_broker.get_all_trps_metadata(**{f"has_{target}_filter": True}).keys()
+        trp_ids = [d.get("id") for d in db_broker.get_trp_ids() if d.get("id") in trps_with_data]
+        print("TRP IDs: ", trp_ids)
+        trp_id = input("Insert TRP ID for forecasting: ")
 
-        with dask_cluster_client(processes=False) as client:
-            trp_ids = [d.get("id") for d in db_broker.get_trp_ids()]
-            print("TRP IDs: ", trp_ids)
-            trp_id = input("Insert TRP ID for forecasting: ")
+        if trp_id not in trp_ids:
+            raise TRPNotFoundError("TRP ID not in available TRP IDs list")
 
-            if trp_id not in trp_ids:
-                raise TRPNotFoundError("TRP ID not in available TRP IDs list")
-            if trp_id not in db_broker.get_all_trps_metadata(**{f"has_{target}_filter": True}).keys():
-                raise Exception(f"TRP doesn't have {target} data")
+        trp_road_category = db_broker.get_trp_metadata(trp_id=trp_id)["road_category"]
+        print("TRP road category: ", trp_road_category)
 
-            trp_road_category = db_broker.get_trp_metadata(trp_id=trp_id)["road_category"]
-            print("TRP road category: ", trp_road_category)
+        forecaster = OnePointForecaster(
+            trp_id=trp_id,
+            road_category=trp_road_category,
+            target=target,
+            client=client,
+            db_broker=db_broker,
+            loader=loader,
+            forecasting_toolbox=ft
+        )
 
-            forecaster = OnePointForecaster(
-                trp_id=trp_id,
+        X, y = split_by_target(
+            data=...,  # TODO LOADER GET ALL DATA FROM THE SPECIFIC TRP
+            target=target,
+            mode=1
+        )
+
+        for name, data in {
+            m["name"]: {
+                "binary": pickle.loads(m["pickle_object"]),
+                "params": m.get("params", None)
+            }
+            for m in db_broker.get_base_model_objects()
+        }.items():  # Load model name and data (pickle object, the best parameters and so on)
+
+            model = data["binary"]
+            best_params = data["params"]  # TODO FIND BEST PARAMS WITH BEST_PARAMS_IDX FROM MODEL
+
+            if best_params is None:
+                raise ModelBestParametersNotFound(
+                    "Model's best parameters are None, check if the model has been trained or has best parameters set")
+
+            learner = TFSLearner(
+                model=model(**best_params),
                 road_category=trp_road_category,
                 target=target,
                 client=client,
-                db_broker=db_broker,
-                loader=loader,
-                forecasting_toolbox=ft
+                db_broker=db_broker
             )
 
-            #TODO TEST training_mode = BOTH 0 AND 1
-            X, y = split_by_target(
-                data=getattr(TFSPreprocessor(), f"preprocess_{target}")(),
-                target=target,
-                mode=1
-            )
+            print("X: ", X)
+            print("y: ", y)
+            learner.model.fit(X, y)
 
-            for name, data in {
-                m["name"]: {
-                    "binary": pickle.loads(m["pickle_object"]),
-                    "params": m.get("params", None)
-                }
-                for m in db_broker.get_base_model_objects()
-            }.items(): #Load model name and data (pickle object, the best parameters and so on)
+            # TODO BRING TFSPreprocessor HERE FROM forecaster.get_future_records()
+            forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target),
+                                          is_long_term=is_long_term)  # Already preprocessed
+            # TODO THESE DATA HAVE TO BE FIRST MERGED WITH N RECORDS FROM THE PAST (ENOUGHT TO COMPLETE THE LAGS FEATURES FOR EACH RECORD THAT COMPOSES THE FUTURE RECORDS SKELETON FRAME AND THEN ONLY KEEP THE FUTURE RECORDS PREPROCESSED WITH LAGS, AND SO ON (ADD A COLUMN CALLED "is_future"
 
-                model = data["binary"]
-                best_params = data["params"] #TODO FIND BEST PARAMS WITH BEST_PARAMS_IDX FROM MODEL
+            predictions = learner.model.predict(...)
+            # TODO forecaster.get_future_records returns a pandas dataframe which doesn't have .persist()
+            # LET get_future_records return a dask dataframe
 
-                if best_params is None:
-                    raise ModelBestParametersNotFound("Model's best parameters are None, check if the model has been trained or has best parameters set")
+            print(f"**************** {name}'s Predictions ****************")
+            print(predictions)
 
-                learner = TFSLearner(
-                    model=model(**best_params),
-                    road_category=trp_road_category,
-                    target=target,
-                    client=client,
-                    db_broker=db_broker
-                )
 
-                print("X: ", X)
-                print("y: ", y)
-                learner.model.fit(X, y)
 
-                #TODO BRING TFSPreprocessor HERE FROM forecaster.get_future_records()
-                predictions = learner.model.predict(forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target)))  #Already preprocessed
-                #TODO forecaster.get_future_records returns a pandas dataframe which doesn't have .persist()
-                # LET get_future_records return a dask dataframe
+    if functionality == "3.3.1":
 
-                print(f"**************** {name}'s Predictions ****************")
-                print(predictions)
+        with dask_cluster_client(processes=False) as client:
+            one_point_forecast()
+
 
     return None
 

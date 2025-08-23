@@ -6,6 +6,7 @@ from datetime import timezone, timedelta
 from typing import Literal, Any, ClassVar, Generator
 import os
 import asyncio
+import numpy as np
 import pandas as pd
 import dask.dataframe as dd
 from dateutil.relativedelta import relativedelta
@@ -58,7 +59,7 @@ class GlobalDefinitions(BaseModel):
     CUDF_BACKEND: ClassVar[str] = "cudf"
     GRAPH_PROCESSING_BACKENDS: ClassVar[list[str]] = [NETWORKX_BACKEND, CUDF_BACKEND]
 
-    NON_PREDICTORS: ClassVar[list[str]] = ["is_mice", "zoned_dt_iso"]
+    NON_PREDICTORS: ClassVar[list[str]] = ["zoned_dt_iso"]
 
 
 
@@ -188,6 +189,26 @@ def to_pg_array(py_list: list[str]) -> str:
 def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
         df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
         return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
+
+
+def arctan2_decoder(sin_val: float, cos_val: float) -> int | float:  # TODO VERIFY IF IT'S ACTUALLY AN INT (IF SO REMOVE | float)
+    """
+    Decode cyclical features using arctan2 function.
+
+    Parameters
+    ----------
+    sin_val : float
+        The sine component value.
+    cos_val : float
+        The cosine component value.
+
+    Returns
+    -------
+    int or float
+        The decoded angle in degrees.
+    """
+    angle_rad = np.arctan2(sin_val, cos_val)
+    return (angle_rad * 360) / (2 * np.pi)
 
 
 def split_by_target(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:

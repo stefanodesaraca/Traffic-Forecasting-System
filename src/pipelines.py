@@ -17,13 +17,18 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 from sklego.meta import ZeroInflatedRegressor
 
+from dask_ml.preprocessing import MinMaxScaler, LabelEncoder
+
+
 import geojson
 from shapely.geometry import shape
 from shapely import wkt
 
-from utils import GlobalDefinitions, get_n_items_from_gen
 from db_config import ProjectTables
 from exceptions import RoadCategoryNotFound
+from loaders import BatchStreamLoader
+from utils import GlobalDefinitions, ZScore, get_n_items_from_gen
+
 
 pd.set_option("display.max_rows", None)
 pd.set_option("display.max_columns", None)
@@ -439,9 +444,76 @@ class RoadGraphObjectsIngestionPipeline:
 
 
 
+class MLPreprocessedDataExtractionPipeline:
+
+    def __init__(self, loader: BatchStreamLoader):
+        self._loader: BatchStreamLoader = loader
 
 
+    @staticmethod
+    def _add_lag_features(data: dd.DataFrame, target: str, lags: list[PositiveInt]) -> dd.DataFrame:
+        for lag in lags:
+            data[f"{target}_lag{lag}h"] = data[target].shift(lag)  # n hours shift
+        return data
 
+    @staticmethod
+    def _scale_features(data: dd.DataFrame, feats: list[str], scaler: MinMaxScaler | callable = MinMaxScaler) -> dd.DataFrame:
+        data[feats] = scaler().fit_transform(data[feats])
+        return data
+
+    @staticmethod
+    def _encode_features(data: dd.DataFrame, feats: list[str], encoder: LabelEncoder | callable = LabelEncoder) -> dd.DataFrame:
+        encoder_params = {}
+        # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
+        if isinstance(encoder, LabelEncoder):
+            encoder_params = {"use_categorical": True}
+            for feat in feats:
+                data[feat] = data[feat].astype("category")
+        return data.assign(**{feat: encoder(**encoder_params).fit_transform(data[feat]) for feat in feats}).persist() # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
+
+
+    def _preprocess_volume(self, data: dd.DataFrame, long_term: bool = False, z_score: bool = True) -> dd.DataFrame:
+        if z_score:
+            data = ZScore(data, GlobalDefinitions.VOLUME)
+
+        if long_term:
+            lags = [24, 36, 48, 60, 72] #One, two and three days in the past
+        else:
+            lags = [8766, 17532, 26298] #One, two and three years in the past
+
+        data = self._scale_features(data, feats=[GlobalDefinitions.MEAN_SPEED, "percentile_85", "coverage"])
+        data = self._add_lag_features(data=data, lags=lags, target=GlobalDefinitions.VOLUME)
+        data = self._encode_features(data=data, feats=["trp_id"], encoder=LabelEncoder)
+
+        return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()  # Keeping year and hour data and the encoded_trp_id
+
+
+    def _preprocess_mean_speed(self, data, long_term: bool = False, z_score: bool = True) -> dd.DataFrame:
+        if z_score:
+            data = ZScore(data, GlobalDefinitions.VOLUME)
+
+        if long_term:
+            lags = [24, 36, 48, 60, 72] #One, two and three days in the past
+        else:
+            lags = [8766, 17532, 26298] #One, two and three years in the past
+
+        data = self._scale_features(data, feats=[GlobalDefinitions.MEAN_SPEED, "coverage"])
+        data = self._add_lag_features(data=data, lags=lags, target=GlobalDefinitions.MEAN_SPEED)
+        data = self._encode_features(data=data, feats=["trp_id"], encoder=LabelEncoder)
+
+        return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
+
+
+    def get_volume(self, trp_ids_filter: list[str], lags: list[PositiveInt]) -> dd.DataFrame:
+        self._loader.get_volume(
+            batch_size=50000,
+            trp_list_filter=trp_ids,
+            road_category_filter=road_category,
+            split_cyclical_features=False,
+            encoded_cyclical_features=True,
+            is_covid_year=True,
+            sort_by_date=True,
+            sort_ascending=True)
 
 
 
