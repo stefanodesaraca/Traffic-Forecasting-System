@@ -58,11 +58,6 @@ class TFSPreprocessor:
         self.client: Client = client
 
 
-    @property
-    def shape(self) -> tuple[int, int]:
-        return self._data.shape[0].compute(), self._data.shape[1]
-
-
     @staticmethod
     def arctan2_decoder(sin_val: float, cos_val: float) -> int | float:  # TODO VERIFY IF IT'S ACTUALLY AN INT (IF SO REMOVE | float)
         """
@@ -85,58 +80,59 @@ class TFSPreprocessor:
 
 
     @staticmethod
-    def _add_lag_features(df: dd.DataFrame, target: str) -> dd.DataFrame:
-        ...
+    def _add_lag_features(data: dd.DataFrame, target: str, lags: list[PositiveInt]) -> dd.DataFrame:
+        for lag in lags:
+            data[f"{target}_lag{lag}h"] = data[target].shift(lag)  # n hours shift
+        return data
 
 
-    def preprocess_volume(self, z_score: bool = True) -> dd.DataFrame:
+    @staticmethod
+    def _scale_features(data: dd.DataFrame, feats: list[str], scaler: MinMaxScaler | callable = MinMaxScaler) -> dd.DataFrame:
+        data[feats] = scaler().fit_transform(data[feats])
+        return data
 
+
+    @staticmethod
+    def _encode_features(data: dd.DataFrame, feats: list[str], encoder: LabelEncoder | callable = LabelEncoder) -> dd.DataFrame:
+        encoder_params = {}
+        # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
+        if isinstance(encoder, LabelEncoder):
+            encoder_params = {"use_categorical": True}
+            for feat in feats:
+                data[feat] = data[feat].astype("category")
+        return data.assign(**{feat: encoder(**encoder_params).fit_transform(data[feat]) for feat in feats}).persist() # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
+
+
+    def preprocess_volume(self, data: dd.DataFrame, long_term: bool = False, z_score: bool = True) -> dd.DataFrame:
         if z_score:
-            self._data = ZScore(self._data, GlobalDefinitions.VOLUME)
+            data = ZScore(data, GlobalDefinitions.VOLUME)
 
-        self._data["trp_id"] = self._data["trp_id"].astype("category")
+        if long_term:
+            lags = [24, 36, 48, 60, 72] #One, two and three days in the past
+        else:
+            lags = [8766, 17532, 26298] #One, two and three years in the past
 
-        encoder = LabelEncoder(use_categorical=True)  # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
-        self._data = self._data.assign(trp_id_encoded=encoder.fit_transform(self._data["trp_id"]))  # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
-        self._data.persist()
+        data = self._scale_features(data, feats=[GlobalDefinitions.MEAN_SPEED, "percentile_85", "coverage"])
+        data = self._add_lag_features(data=data, lags=lags, target=GlobalDefinitions.VOLUME)
+        data = self._encode_features(data=data, feats=["trp_id"], encoder=LabelEncoder)
 
-        scaler = MinMaxScaler()
-        self._data[[GlobalDefinitions.VOLUME, "coverage"]] = scaler.fit_transform(self._data[[GlobalDefinitions.VOLUME, "coverage"]])
-
-        for idx, n in enumerate((f"{GlobalDefinitions.VOLUME}_lag6h_{i}" for i in range(1, 7))): self._data[n] = self._data[GlobalDefinitions.VOLUME].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate((f"{GlobalDefinitions.VOLUME}_lag12h_{i}" for i in range(1, 7))): self._data[n] = self._data[GlobalDefinitions.VOLUME].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate((f"{GlobalDefinitions.VOLUME}_lag24h_{i}" for i in range(1, 7))): self._data[n] = self._data[GlobalDefinitions.VOLUME].shift(idx + 24)  # 24 hours shift
-
-        self._data = self._data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()  # Keeping year and hour data and the encoded_trp_id
-
-        return self._data
+        return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()  # Keeping year and hour data and the encoded_trp_id
 
 
-    def preprocess_mean_speed(self, z_score: bool = True) -> dd.DataFrame:
-
+    def preprocess_mean_speed(self, data, long_term: bool = False, z_score: bool = True) -> dd.DataFrame:
         if z_score:
-            self._data = ZScore(self._data, GlobalDefinitions.MEAN_SPEED)
+            data = ZScore(data, GlobalDefinitions.VOLUME)
 
-        self._data["trp_id"] = self._data["trp_id"].astype("category")
+        if long_term:
+            lags = [24, 36, 48, 60, 72] #One, two and three days in the past
+        else:
+            lags = [8766, 17532, 26298] #One, two and three years in the past
 
-        encoder = LabelEncoder(use_categorical=True)  # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
-        self._data = self._data.assign(trp_id_encoded=encoder.fit_transform(self._data["trp_id"]))  # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
-        self._data.persist()
+        data = self._scale_features(data, feats=[GlobalDefinitions.MEAN_SPEED, "coverage"])
+        data = self._add_lag_features(data=data, lags=lags, target=GlobalDefinitions.MEAN_SPEED)
+        data = self._encode_features(data=data, feats=["trp_id"], encoder=LabelEncoder)
 
-        scaler = MinMaxScaler()
-        self._data[[GlobalDefinitions.MEAN_SPEED, "percentile_85", "coverage"]] = scaler.fit_transform(self._data[[GlobalDefinitions.MEAN_SPEED, "percentile_85", "coverage"]])
-
-        for idx, n in enumerate((f"{GlobalDefinitions.MEAN_SPEED}_lag6h_{i}" for i in range(1, 7))): self._data[n] = self._data[GlobalDefinitions.MEAN_SPEED].shift(idx + 6)  # 6 hours shift
-        for idx, n in enumerate((f"{GlobalDefinitions.MEAN_SPEED}_lag12h_{i}" for i in range(1, 7))): self._data[n] = self._data[GlobalDefinitions.MEAN_SPEED].shift(idx + 12)  # 12 hours shift
-        for idx, n in enumerate((f"{GlobalDefinitions.MEAN_SPEED}_lag24h_{i}" for i in range(1, 7))): self._data[n] = self._data[GlobalDefinitions.MEAN_SPEED].shift(idx + 24)  # 24 hours shift
-
-        #for idx, n in enumerate((f"percentile_85_lag{i}" for i in range(1, 7))): self._data[n] = self._data["percentile_85"].shift(idx + 6)  # 6 hours shift
-        #for idx, n in enumerate((f"percentile_85_lag{i}" for i in range(1, 7))): self._data[n] = self._data["percentile_85"].shift(idx + 12)  # 12 hours shift
-        #for idx, n in enumerate((f"percentile_85_lag{i}" for i in range(1, 7))): self._data[n] = self._data["percentile_85"].shift(idx + 24)  # 24 hours shift
-
-        self._data = self._data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
-
-        return self._data
+        return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
 
 

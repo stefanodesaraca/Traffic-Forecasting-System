@@ -58,7 +58,7 @@ class GlobalDefinitions(BaseModel):
     CUDF_BACKEND: ClassVar[str] = "cudf"
     GRAPH_PROCESSING_BACKENDS: ClassVar[list[str]] = [NETWORKX_BACKEND, CUDF_BACKEND]
 
-    NON_PREDICTORS: ClassVar[list[str]] = ["trp_id", "is_mice", "zoned_dt_iso"]
+    NON_PREDICTORS: ClassVar[list[str]] = ["is_mice", "zoned_dt_iso"]
 
 
 
