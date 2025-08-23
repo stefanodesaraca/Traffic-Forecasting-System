@@ -12,7 +12,7 @@ from db_config import DBConfig, ProjectTables
 
 from downloader import start_client_async, volumes_to_db, fetch_trps, fetch_trps_from_ids
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
-from pipelines import MeanSpeedIngestionPipeline, RoadGraphObjectsIngestionPipeline
+from pipelines import MeanSpeedIngestionPipeline, RoadGraphObjectsIngestionPipeline, MLPreprocessedDataExtractionPipeline
 from loaders import BatchStreamLoader
 from ml import TFSLearner, OnePointForecaster
 from road_network import *
@@ -188,11 +188,13 @@ def eda() -> None:
 
 def forecast_warmup(functionality: str) -> None:
     db_broker = get_db_broker()
+    pipeline = MLPreprocessedDataExtractionPipeline(loader=BatchStreamLoader(db_broker=db_broker))
 
-    if long_term:
-        lags = [24, 36, 48, 60, 72]  # One, two and three days in the past
-    else:
-        lags = [8766, 17532, 26298]  # One, two and three years in the past
+    #NOTE FOR A FUTURE UPDATE WE'LL INTEGRATE THE ABILITY TO PREDICT AT DIFFERENT TIME HORIZONS (LONG TERM PREDICTIONS AND SHORT TERM PREDICTIONS)
+    #if long_term:
+    #    lags = [24, 36, 48, 60, 72]  # One, two and three days in the past
+    #else:
+    #    lags = [8766, 17532, 26298]  # One, two and three years in the past
 
 
     def get_model_query(operation_type: str, target: str):
@@ -276,16 +278,21 @@ def forecast_warmup(functionality: str) -> None:
             print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 
             X_train, X_test, y_train, y_test = split_by_target(
-                data=..., #TODO PIPELINE GET DATA AND FILTER BY TRP_IDS (BECAUSE ONLY THE ONES FROM THE CURRENT ROAD_CATEGORY MUST BE FED TO THE MODELS
+                data=functionality_mapping[functionality]["loading_method"](
+                    lags=[24, 36, 48, 60, 72],
+                    trp_ids_filter=trp_ids,
+                    road_category_filter=[road_category],
+                    z_score=True
+                ),
                 target=target,
                 mode=0
             )
             print(f"Shape of the merged data for road category {road_category}: ", X_train.shape[0].compute() + X_test.shape[0].compute() + y_train.shape[0].compute() + y_test.shape[0].compute())
 
-            for model, metadata in models.items():
+            for model, content in models.items():
                 if functionality_mapping[functionality]["type"] == "gridsearch":
                     func(X_train, y_train, TFSLearner(
-                            model=models[model]["binary_obj"](**models[model]["params"]),
+                            model=content["binary_obj"](**content["params"]),
                             road_category=road_category,
                             target=target,
                             client=client,
@@ -294,19 +301,15 @@ def forecast_warmup(functionality: str) -> None:
                     )
                 elif functionality_mapping[functionality]["type"] == "training":
                     func(X_test, y_test, TFSLearner(
-                            model=models[model]["binary_obj"](**models[model]["params"]),
-                            road_category=road_category,
+                            model=content["binary_obj"](**content["params"]),
                             target=target,
-                            client=client,
                             db_broker=db_broker
                         )
                     )
                 elif functionality_mapping[functionality]["type"] == "testing":
                     func(X_test, y_test, TFSLearner(
-                            model=models[model]["binary_obj"],
-                            road_category=road_category,
+                            model=content["binary_obj"],
                             target=target,
-                            client=client,
                             db_broker=db_broker
                         )
                     )
@@ -321,48 +324,42 @@ def forecast_warmup(functionality: str) -> None:
                 "func": ml_gridsearch,
                 "type": "gridsearch",
                 "target": GlobalDefinitions.VOLUME,
-                "preprocessing_method": "preprocess_volume",
-                "loading_method": "get_volume",
+                "loading_method": pipeline.get_volume,
                 "model_query": get_model_query(operation_type="gridsearch", target=GlobalDefinitions.VOLUME)
             },
             "3.2.2": {
                 "func": ml_gridsearch,
                 "type": "gridsearch",
                 "target": GlobalDefinitions.MEAN_SPEED,
-                "preprocessing_method": "preprocess_mean_speed",
-                "loading_method": "get_mean_speed",
+                "loading_method": pipeline.get_mean_speed,
                 "model_query": get_model_query(operation_type="gridsearch", target=GlobalDefinitions.MEAN_SPEED)
             },
             "3.2.3": {
                 "func": ml_training,
                 "type": "training",
                 "target": GlobalDefinitions.VOLUME,
-                "preprocessing_method": "preprocess_volume",
-                "loading_method": "get_volume",
+                "loading_method": pipeline.get_volume,
                 "model_query": get_model_query(operation_type="training", target=GlobalDefinitions.VOLUME)
             },
             "3.2.4": {
                 "func": ml_training,
                 "type": "training",
                 "target": GlobalDefinitions.MEAN_SPEED,
-                "preprocessing_method": "preprocess_mean_speed",
-                "loading_method": "get_mean_speed",
+                "loading_method": pipeline.get_mean_speed,
                 "model_query": get_model_query(operation_type="training", target=GlobalDefinitions.MEAN_SPEED)
             },
             "3.2.5": {
                 "func": ml_testing,
                 "type": "testing",
                 "target": GlobalDefinitions.VOLUME,
-                "preprocessing_method": "preprocess_volume",
-                "loading_method": "get_volume",
+                "loading_method": pipeline.get_volume,
                 "model_query": get_model_query(operation_type="testing", target=GlobalDefinitions.VOLUME)
             },
             "3.2.6": {
                 "func": ml_testing,
                 "type": "testing",
                 "target": GlobalDefinitions.MEAN_SPEED,
-                "preprocessing_method": "preprocess_mean_speed",
-                "loading_method": "get_mean_speed",
+                "loading_method": pipeline.get_mean_speed,
                 "model_query": get_model_query(operation_type="testing", target=GlobalDefinitions.MEAN_SPEED)
             }
         }
@@ -417,9 +414,8 @@ def manage_ml(functionality: str) -> None:
 def forecast(functionality: str) -> None:
     db_broker = get_db_broker()
     loader = BatchStreamLoader(db_broker=db_broker)
+    pipeline = MLPreprocessedDataExtractionPipeline(loader=loader)
     ft = ForecastingToolbox(db_broker=db_broker)
-
-    is_long_term = False #TODO TO SET IN THE FUTURE
 
     print("Enter target data to forecast: ")
     print("V: Volumes | MS: Mean Speed")
@@ -451,7 +447,12 @@ def forecast(functionality: str) -> None:
         )
 
         X, y = split_by_target(
-            data=...,  # TODO LOADER GET ALL DATA FROM THE SPECIFIC TRP
+            data=getattr(pipeline, f"get_{target}")(
+                    lags=[24, 36, 48, 60, 72],
+                    trp_ids_filter=[trp_id],
+                    road_category_filter=[trp_road_category],
+                    z_score=True
+            ),
             target=target,
             mode=1
         )
@@ -484,8 +485,7 @@ def forecast(functionality: str) -> None:
             learner.model.fit(X, y)
 
             # TODO BRING TFSPreprocessor HERE FROM forecaster.get_future_records()
-            forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target),
-                                          is_long_term=is_long_term)  # Already preprocessed
+            forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target))
             # TODO THESE DATA HAVE TO BE FIRST MERGED WITH N RECORDS FROM THE PAST (ENOUGHT TO COMPLETE THE LAGS FEATURES FOR EACH RECORD THAT COMPOSES THE FUTURE RECORDS SKELETON FRAME AND THEN ONLY KEEP THE FUTURE RECORDS PREPROCESSED WITH LAGS, AND SO ON (ADD A COLUMN CALLED "is_future"
 
             predictions = learner.model.predict(...)

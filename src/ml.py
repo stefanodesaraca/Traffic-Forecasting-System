@@ -228,7 +228,7 @@ class TFSLearner:
         A Dask distributed client used to parallelize computation.
     """
 
-    def __init__(self, model: callable, road_category: str, target: str, client: Client | None, db_broker: DBBroker):
+    def __init__(self, model: callable, target: str, db_broker: DBBroker, client: Client | None = None, road_category: str | None = None):
         self._scoring_functions: dict[str, callable] = {
             "r2": r2_score,
             "mean_squared_error": mean_squared_error,
@@ -239,8 +239,8 @@ class TFSLearner:
             func_name: make_scorer(func) for func_name, func in self._scoring_functions.items()
         }
         self._client: Client | None = client
-        self._road_category: str = road_category
         self._target: str = target
+        self._road_category: str | None = road_category
         self._model: ModelWrapper = ModelWrapper(model_obj=model, target=self._target)
         self._db_broker: DBBroker = db_broker
 
