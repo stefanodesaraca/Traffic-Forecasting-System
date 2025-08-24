@@ -122,7 +122,7 @@ class DBBroker:
                         return cur.executemany(sql, many_values)
                     elif many and not many_values:
                         raise MissingDataError("Missing data to insert")
-                    return cur.execute(sql, *execute_args) if execute_args else cur.execute(sql)
+                    return cur.execute(sql, execute_args) if execute_args else cur.execute(sql)
                 else:
                     raise WrongSQLStatementError("The SQL query isn't correct")
 

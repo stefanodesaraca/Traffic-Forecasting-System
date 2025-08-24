@@ -412,7 +412,7 @@ class TFSLearner:
         joblib_bytes.seek(0)
         self._db_broker.send_sql(f"""
                 INSERT INTO "{ProjectTables.TrainedModels.value}" ("id", "joblib_object", "pickle_object")
-                VALUES ($1, $2, $3)
+                VALUES (%s, %s, %s)
                 ON CONFLICT ("id") DO UPDATE;
             """, execute_args=[self._model.model_id, joblib_bytes.getvalue(), pickle.dumps(self._model)])
         return None
