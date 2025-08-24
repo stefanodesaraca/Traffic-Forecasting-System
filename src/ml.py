@@ -417,7 +417,7 @@ class TFSLearner:
                 SET 
                 "joblib_object" = EXCLUDED."joblib_object",
                 "pickle_object" = EXCLUDED."pickle_object";
-            """, execute_args=[self._model.model_id, self._target, joblib_bytes.getvalue(), pickle.dumps(self._model)])
+            """, execute_args=[self._model.model_id, self._target, self._road_category, joblib_bytes.getvalue(), pickle.dumps(self._model)])
         return None
 
 

@@ -400,7 +400,7 @@ class AIODBManager:
                             joblib_object BYTEA,
                             pickle_object BYTEA NOT NULL,
                             FOREIGN KEY (id) REFERENCES "{ProjectTables.MLModels.value}" (id),
-                            FOREIGN KEY (target) REFERENCES "{ProjectTables.RoadCategories}" (id),
+                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories}" (id),
                             PRIMARY KEY (id, target, road_category)
                         );
                         

@@ -318,7 +318,8 @@ def forecast_warmup(functionality: str) -> None:
                 elif functionality_mapping[functionality]["type"] == "training":
                     func(X_test, y_test, TFSLearner(
                             model=content["binary"](**content["params"]),
-                            target=target,
+                            target=target, #Needed for model export
+                            road_category=road_category, #Needed for model export
                             db_broker=db_broker
                         )
                     )
