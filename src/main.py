@@ -279,7 +279,7 @@ def forecast_warmup(functionality: str) -> None:
 
             X_train, X_test, y_train, y_test = split_by_target(
                 data=functionality_mapping[functionality]["preprocessing_pipeline"](
-                    functionality_mapping[functionality]["loading_method"](
+                    data=functionality_mapping[functionality]["loading_method"](
                         batch_size=50000,
                         trp_list_filter=trp_ids,
                         road_category_filter=[road_category],

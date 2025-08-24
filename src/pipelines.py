@@ -443,9 +443,8 @@ class RoadGraphObjectsIngestionPipeline:
 
 class MLPreprocessingPipeline:
 
-    def __init__(self, data: dd.DataFrame):
-        self._data: dd.DataFrame = data
-
+    def __init__(self):
+        pass
 
     @staticmethod
     def _add_lag_features(data: dd.DataFrame, target: str, lags: list[PositiveInt]) -> dd.DataFrame:
@@ -470,41 +469,27 @@ class MLPreprocessingPipeline:
 
 
     def preprocess_volume(self,
-                   lags: list[PositiveInt],
-                   z_score: bool = False) -> dd.DataFrame:
+                          data: dd.DataFrame,
+                          lags: list[PositiveInt],
+                          z_score: bool = False) -> dd.DataFrame:
         if z_score:
-            self._data = ZScore(self._data, column=GlobalDefinitions.VOLUME)
-        self._data = self._add_lag_features(data=self._data, target=GlobalDefinitions.VOLUME, lags=lags)
-        self._data = self._encode_features(data=self._data, feats=GlobalDefinitions.ENCODED_FEATURES, encoder=LabelEncoder)
-        self._data = self._scale_features(data=self._data, feats=GlobalDefinitions.VOLUME_SCALED_FEATURES, scaler=MinMaxScaler)
-        return self._data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
+            data = ZScore(data, column=GlobalDefinitions.VOLUME)
+        data = self._add_lag_features(data=data, target=GlobalDefinitions.VOLUME, lags=lags)
+        data = self._encode_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES, encoder=LabelEncoder)
+        data = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_SCALED_FEATURES, scaler=MinMaxScaler)
+        return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
 
     def preprocess_mean_speed(self,
-                   lags: list[PositiveInt],
-                   batch_size: PositiveInt = 50000,
-                   trp_ids_filter: list[str] | None = None,
-                   road_category_filter: list[str] | None = None,
-                   encoded_cyclical_features: bool = True,
-                   is_covid_year: bool = True,
-                   sort_by_date: bool = True,
-                   sort_ascending: bool = True,
-                   z_score: bool = False) -> dd.DataFrame:
-        data = loader.get_mean_speed(
-            batch_size=batch_size,
-            trp_list_filter=trp_ids_filter,
-            road_category_filter=road_category_filter,
-            encoded_cyclical_features=encoded_cyclical_features,
-            is_covid_year=is_covid_year,
-            sort_by_date=sort_by_date,
-            sort_ascending=sort_ascending
-        )
+                              data: dd.DataFrame,
+                              lags: list[PositiveInt],
+                              z_score: bool = False) -> dd.DataFrame:
         if z_score:
-            self._data = ZScore(self._data, column=GlobalDefinitions.MEAN_SPEED)
-        self._data = self._add_lag_features(data=self._data, target=GlobalDefinitions.MEAN_SPEED, lags=lags)
-        self._data = self._encode_features(data=self._data, feats=GlobalDefinitions.ENCODED_FEATURES, encoder=LabelEncoder)
-        self._data = self._scale_features(data=self._data, feats=GlobalDefinitions.MEAN_SPEED_SCALED_FEATURES, scaler=MinMaxScaler)
-        return self._data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
+            data = ZScore(data, column=GlobalDefinitions.MEAN_SPEED)
+        data = self._add_lag_features(data=data, target=GlobalDefinitions.MEAN_SPEED, lags=lags)
+        data = self._encode_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES, encoder=LabelEncoder)
+        data = self._scale_features(data=data, feats=GlobalDefinitions.MEAN_SPEED_SCALED_FEATURES, scaler=MinMaxScaler)
+        return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
 
 
