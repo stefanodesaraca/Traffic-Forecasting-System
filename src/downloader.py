@@ -11,7 +11,7 @@ from pydantic.types import PositiveInt
 from aiohttp.client_exceptions import ClientConnectorError, ClientOSError, ServerDisconnectedError
 
 from pipelines import VolumeIngestionPipeline
-from utils import GlobalDefinitions
+from definitions import GlobalDefinitions
 
 simplefilter("ignore")
 

@@ -13,7 +13,7 @@ from geopy.distance import geodesic # To calculate distance (in meters) between 
 from shapely import Point, LineString
 
 from exceptions import WrongGraphProcessingBackendError
-from utils import GlobalDefinitions
+from definitions import GlobalDefinitions
 from loaders import BatchStreamLoader
 
 Node = Hashable  # Any object usable as a node

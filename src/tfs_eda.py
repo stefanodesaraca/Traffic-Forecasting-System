@@ -13,7 +13,7 @@ import plotly.express as px
 import inspect
 from functools import wraps
 
-from utils import GlobalDefinitions
+from definitions import GlobalDefinitions
 
 tab10 = sns.color_palette("tab10")
 

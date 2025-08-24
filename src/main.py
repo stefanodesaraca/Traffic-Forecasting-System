@@ -8,15 +8,14 @@ import dask.dataframe as dd
 import pandas as pd
 
 from exceptions import TRPNotFoundError
-from db_config import DBConfig, ProjectTables
-
+from definitions import GlobalDefinitions, DBConfig, ProjectTables
 from downloader import start_client_async, volumes_to_db, fetch_trps, fetch_trps_from_ids
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
 from pipelines import MeanSpeedIngestionPipeline, RoadGraphObjectsIngestionPipeline, MLPreprocessingPipeline
 from loaders import BatchStreamLoader
 from ml import TFSLearner, OnePointForecaster
 from road_network import *
-from utils import GlobalDefinitions, dask_cluster_client, ForecastingToolbox, check_target, split_by_target
+from utils import dask_cluster_client, ForecastingToolbox, check_target, split_by_target
 
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
 
@@ -303,9 +302,7 @@ def forecast_warmup(functionality: str) -> None:
             print(f"Shape of the merged data for road category {road_category}: ", X_train.shape[0].compute() + X_test.shape[0].compute() + y_train.shape[0].compute() + y_test.shape[0].compute())
 
             for model, content in models.items():
-
-                print(content)
-
+                #print(content)
                 if functionality_mapping[functionality]["type"] == "gridsearch":
                     func(X_train, y_train, TFSLearner(
                             model=content["binary"](**content["params"]),

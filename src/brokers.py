@@ -5,9 +5,9 @@ from pydantic.types import PositiveInt
 import asyncpg
 
 from exceptions import WrongSQLStatementError, MissingDataError
+from definitions import GlobalDefinitions, HubDBTables, ProjectTables, ProjectViews, RowFactories
 from dbmanager import AIODBManager, postgres_conn_async, postgres_conn
-from db_config import HubDBTables, ProjectTables, ProjectViews, RowFactories
-from utils import GlobalDefinitions, cached, cached_async
+from utils import to_pg_array, cached, cached_async
 
 
 class AIODBBroker:
@@ -140,7 +140,7 @@ class DBBroker:
             with self.PostgresConnectionCursor(query=f"""
                     SELECT "id" FROM "{ProjectTables.TrafficRegistrationPoints.value}"
                     {'WHERE "road_category" = ANY(%s)' if road_category_filter else ""};
-                 """, params=tuple(f for f in [road_category_filter] if f), conn=conn) as cur:
+                 """, params=tuple(to_pg_array(f) for f in [road_category_filter] if f), conn=conn) as cur:
                 return cur.fetchall()
 
 
@@ -168,8 +168,8 @@ class DBBroker:
             with self.PostgresConnectionCursor(query=f"""
                     SELECT volume_start_date, volume_end_date
                     FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
-                    {f"WHERE m.trp_id = '{trp_id_filter}'" if trp_id_filter else ""};
-                    """, conn=conn) as cur:
+                    {f"WHERE trp_id = ANY(%s)" if trp_id_filter else ""};
+                    """, conn=conn, params=tuple(f for f in [trp_id_filter] if f)) as cur:
                 result = cur.fetchone()
                 return {"min": result["volume_start_date"], "max": result["volume_end_date"]} #Respectively: min and max
 

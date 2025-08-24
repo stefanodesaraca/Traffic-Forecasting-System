@@ -5,9 +5,9 @@ import numpy as np
 import pandas as pd
 from pydantic.types import PositiveInt
 
+from definitions import GlobalDefinitions, ProjectTables
 from brokers import DBBroker
-from utils import GlobalDefinitions, to_pg_array
-from db_config import ProjectTables
+from utils import to_pg_array
 
 
 

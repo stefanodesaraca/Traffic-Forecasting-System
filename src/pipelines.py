@@ -23,8 +23,8 @@ import geojson
 from shapely.geometry import shape
 from shapely import wkt
 
-from db_config import ProjectTables
-from utils import GlobalDefinitions, ZScore, get_n_items_from_gen
+from definitions import GlobalDefinitions, ProjectTables
+from utils import ZScore, get_n_items_from_gen
 
 
 pd.set_option("display.max_rows", None)

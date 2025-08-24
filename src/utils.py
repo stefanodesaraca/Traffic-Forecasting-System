@@ -16,7 +16,7 @@ from dask.distributed import Client, LocalCluster
 from functools import lru_cache, wraps
 
 from exceptions import TargetVariableNotFoundError, MissingDataError
-from db_config import ProjectTables
+from definitions import ProjectTables
 
 pd.set_option("display.max_columns", None)
 
@@ -185,7 +185,7 @@ def check_target(target: str, errors: bool = False) -> bool:
     return True
 
 
-def to_pg_array(py_list: list[str]) -> str:
+def to_pg_array(py_list: list[str] | tuple[str]) -> str:
     return "{" + ",".join(py_list) + "}"
 
 
