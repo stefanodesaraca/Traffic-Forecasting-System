@@ -11,7 +11,7 @@ from db_config import DBConfig, ProjectTables
 
 from downloader import start_client_async, volumes_to_db, fetch_trps, fetch_trps_from_ids
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
-from pipelines import MeanSpeedIngestionPipeline, RoadGraphObjectsIngestionPipeline, MLPreprocessedDataExtractionPipeline
+from pipelines import MeanSpeedIngestionPipeline, RoadGraphObjectsIngestionPipeline, MLPreprocessingPipeline
 from loaders import BatchStreamLoader
 from ml import TFSLearner, OnePointForecaster
 from road_network import *
@@ -187,7 +187,8 @@ def eda() -> None:
 
 def forecast_warmup(functionality: str) -> None:
     db_broker = get_db_broker()
-    pipeline = MLPreprocessedDataExtractionPipeline(loader=BatchStreamLoader(db_broker=db_broker))
+    loader = BatchStreamLoader(db_broker=db_broker)
+    preprocessing_pipeline = MLPreprocessingPipeline
 
     #NOTE FOR A FUTURE UPDATE WE'LL INTEGRATE THE ABILITY TO PREDICT AT DIFFERENT TIME HORIZONS (LONG TERM PREDICTIONS AND SHORT TERM PREDICTIONS)
     #if long_term:
@@ -277,10 +278,18 @@ def forecast_warmup(functionality: str) -> None:
             print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 
             X_train, X_test, y_train, y_test = split_by_target(
-                data=functionality_mapping[functionality]["loading_method"](
+                data=functionality_mapping[functionality]["preprocessing_pipeline"](
+                    functionality_mapping[functionality]["loading_method"](
+                        batch_size=50000,
+                        trp_list_filter=trp_ids,
+                        road_category_filter=[road_category],
+                        encoded_cyclical_features=True,
+                        is_mice=False,
+                        is_covid_year=True,
+                        sort_by_date=True,
+                        sort_ascending=True
+                    ),
                     lags=[24, 36, 48, 60, 72],
-                    trp_ids_filter=trp_ids,
-                    road_category_filter=[road_category],
                     z_score=True
                 ),
                 target=target,
@@ -323,42 +332,48 @@ def forecast_warmup(functionality: str) -> None:
                 "func": ml_gridsearch,
                 "type": "gridsearch",
                 "target": GlobalDefinitions.VOLUME,
-                "loading_method": pipeline.get_volume,
+                "loading_method": loader.get_volume,
+                "preprocessing_pipeline": preprocessing_pipeline.preprocess_volume,
                 "model_query": get_model_query(operation_type="gridsearch", target=GlobalDefinitions.VOLUME)
             },
             "3.2.2": {
                 "func": ml_gridsearch,
                 "type": "gridsearch",
                 "target": GlobalDefinitions.MEAN_SPEED,
-                "loading_method": pipeline.get_mean_speed,
+                "loading_method": loader.get_mean_speed,
+                "preprocessing_pipeline": preprocessing_pipeline.preprocess_mean_speed,
                 "model_query": get_model_query(operation_type="gridsearch", target=GlobalDefinitions.MEAN_SPEED)
             },
             "3.2.3": {
                 "func": ml_training,
                 "type": "training",
                 "target": GlobalDefinitions.VOLUME,
-                "loading_method": pipeline.get_volume,
+                "loading_method": loader.get_volume,
+                "preprocessing_pipeline": preprocessing_pipeline.preprocess_volume,
                 "model_query": get_model_query(operation_type="training", target=GlobalDefinitions.VOLUME)
             },
             "3.2.4": {
                 "func": ml_training,
                 "type": "training",
                 "target": GlobalDefinitions.MEAN_SPEED,
-                "loading_method": pipeline.get_mean_speed,
+                "loading_method": loader.get_mean_speed,
+                "preprocessing_pipeline": preprocessing_pipeline.preprocess_mean_speed,
                 "model_query": get_model_query(operation_type="training", target=GlobalDefinitions.MEAN_SPEED)
             },
             "3.2.5": {
                 "func": ml_testing,
                 "type": "testing",
                 "target": GlobalDefinitions.VOLUME,
-                "loading_method": pipeline.get_volume,
+                "loading_method": loader.get_volume,
+                "preprocessing_pipeline": preprocessing_pipeline.preprocess_volume,
                 "model_query": get_model_query(operation_type="testing", target=GlobalDefinitions.VOLUME)
             },
             "3.2.6": {
                 "func": ml_testing,
                 "type": "testing",
                 "target": GlobalDefinitions.MEAN_SPEED,
-                "loading_method": pipeline.get_mean_speed,
+                "loading_method": loader.get_mean_speed,
+                "preprocessing_pipeline": preprocessing_pipeline.preprocess_mean_speed,
                 "model_query": get_model_query(operation_type="testing", target=GlobalDefinitions.MEAN_SPEED)
             }
         }
@@ -413,7 +428,6 @@ def manage_ml(functionality: str) -> None:
 def forecast(functionality: str) -> None:
     db_broker = get_db_broker()
     loader = BatchStreamLoader(db_broker=db_broker)
-    pipeline = MLPreprocessedDataExtractionPipeline(loader=loader)
     ft = ForecastingToolbox(db_broker=db_broker)
 
     print("Enter target data to forecast: ")
@@ -436,7 +450,7 @@ def forecast(functionality: str) -> None:
         print("TRP road category: ", trp_road_category)
 
         X, y = split_by_target(
-            data=getattr(pipeline, f"get_{target}")(
+            data=getattr(..., f"get_{target}")(
                     lags=[24, 36, 48, 60, 72],
                     trp_ids_filter=[trp_id],
                     road_category_filter=[trp_road_category],
@@ -473,9 +487,9 @@ def forecast(functionality: str) -> None:
                 forecasting_toolbox=ft
             )
 
-            print("X: ", X)
-            print("y: ", y)
-            learner.model.fit(X, y)
+            #print("X: ", X)
+            #print("y: ", y)
+            #learner.model.fit(X, y) #TODO IMPLEMENT THIS *AFTER* THE FORECAST WARMUP PHASE AS A POST-WARMUP TO IMPROVE THE MODEL LEVERAGING ON ALL THE DATA WE ACTUALLY HAVE
 
             forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target)) #TODO TO PREPROCESS THESE
             #TODO THESE DATA HAVE TO BE FIRST MERGED WITH N RECORDS FROM THE PAST (ENOUGH TO COMPLETE THE LAGS FEATURES FOR EACH RECORD THAT COMPOSES THE FUTURE RECORDS SKELETON FRAME AND THEN ONLY KEEP THE FUTURE RECORDS PREPROCESSED WITH LAGS, AND SO ON (ADD A COLUMN CALLED "is_future"
