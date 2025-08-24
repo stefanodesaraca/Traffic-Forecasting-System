@@ -411,10 +411,13 @@ class TFSLearner:
         joblib.dump(self._model, joblib_bytes)
         joblib_bytes.seek(0)
         self._db_broker.send_sql(f"""
-                INSERT INTO "{ProjectTables.TrainedModels.value}" ("id", "joblib_object", "pickle_object")
-                VALUES (%s, %s, %s)
-                ON CONFLICT ("id") DO UPDATE;
-            """, execute_args=[self._model.model_id, joblib_bytes.getvalue(), pickle.dumps(self._model)])
+                INSERT INTO "{ProjectTables.TrainedModels.value}" ("id", "target", "road_category", "joblib_object", "pickle_object")
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT ("id", "target", "road_category") DO UPDATE
+                SET 
+                "joblib_object" = EXCLUDED."joblib_object",
+                "pickle_object" = EXCLUDED."pickle_object";
+            """, execute_args=[self._model.model_id, self._target, joblib_bytes.getvalue(), pickle.dumps(self._model)])
         return None
 
 

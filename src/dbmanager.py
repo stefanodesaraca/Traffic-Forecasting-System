@@ -395,11 +395,13 @@ class AIODBManager:
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.TrainedModels.value}" (
                             id TEXT,
-                            target TEXT,
+                            target TEXT NOT NULL,
+                            road_category TEXT NOT NULL,
                             joblib_object BYTEA,
                             pickle_object BYTEA NOT NULL,
-                            FOREIGN KEY (id) REFERENCES "{ProjectTables.MLModels.value}"(id),
-                            PRIMARY KEY (id, target)
+                            FOREIGN KEY (id) REFERENCES "{ProjectTables.MLModels.value}" (id),
+                            FOREIGN KEY (target) REFERENCES "{ProjectTables.RoadCategories}" (id),
+                            PRIMARY KEY (id, target, road_category)
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.ModelGridSearchCVResults.value}" (
