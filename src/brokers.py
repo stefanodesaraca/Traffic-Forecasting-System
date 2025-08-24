@@ -172,7 +172,7 @@ class DBBroker:
                     FROM "{ProjectTables.Volume.value}"
                     {f'''WHERE "trp_id" = ANY(%s)''' if trp_id_filter else ""}
                     ;
-                    """, conn=conn, params=tuple(f for f in [trp_id_filter] if f)) as cur:
+                    """, conn=conn, params=tuple(to_pg_array(f) for f in [list(trp_id_filter)])) as cur:
                 result = cur.fetchone()
                 return {"min": result[f"{GlobalDefinitions.VOLUME}_start_date"], "max": result[f"{GlobalDefinitions.VOLUME}_end_date"]} #Respectively: min and max
 
@@ -186,9 +186,9 @@ class DBBroker:
                     FROM "{ProjectTables.MeanSpeed.value}"
                     {f"WHERE m.trp_id = '{trp_id_filter}'" if trp_id_filter else ""}
                     ;
-                    """, conn=conn) as cur:
+                    """, conn=conn, params=tuple(to_pg_array(f) for f in [list(trp_id_filter)])) as cur:
                 result = cur.fetchone()
-                return {"min": result["mean_speed_start_date"], "max": result["mean_speed_end_date"]} #Respectively: min and max
+                return {"min": result[f"{GlobalDefinitions.MEAN_SPEED}_start_date"], "max": result[f"{GlobalDefinitions.MEAN_SPEED}_end_date"]} #Respectively: min and max
 
 
     def get_all_trps_metadata(self, has_volume_filter: bool = False, has_mean_speed_filter: bool = False) -> dict[str, dict[str, Any]]:

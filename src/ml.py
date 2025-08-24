@@ -469,7 +469,7 @@ class OnePointForecaster:
             is_covid_year=True,
             is_mice=False,
             zoned_dt_start=training_functions_mapping[self._target]["training_data_start"](),
-            zoned_dt_end=training_functions_mapping[self._target](trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
+            zoned_dt_end=training_functions_mapping[self._target]["date_boundaries"](trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
         )
 
 
