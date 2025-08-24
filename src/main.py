@@ -5,6 +5,7 @@ import pickle
 import asyncio
 import dask
 import dask.dataframe as dd
+import pandas as pd
 
 from exceptions import TRPNotFoundError
 from db_config import DBConfig, ProjectTables
@@ -188,7 +189,7 @@ def eda() -> None:
 def forecast_warmup(functionality: str) -> None:
     db_broker = get_db_broker()
     loader = BatchStreamLoader(db_broker=db_broker)
-    preprocessing_pipeline = MLPreprocessingPipeline
+    preprocessing_pipeline = MLPreprocessingPipeline()
 
     #NOTE FOR A FUTURE UPDATE WE'LL INTEGRATE THE ABILITY TO PREDICT AT DIFFERENT TIME HORIZONS (LONG TERM PREDICTIONS AND SHORT TERM PREDICTIONS)
     #if long_term:
@@ -428,6 +429,7 @@ def manage_ml(functionality: str) -> None:
 def forecast(functionality: str) -> None:
     db_broker = get_db_broker()
     loader = BatchStreamLoader(db_broker=db_broker)
+    pipeline = MLPreprocessingPipeline()
     ft = ForecastingToolbox(db_broker=db_broker)
 
     print("Enter target data to forecast: ")
@@ -449,17 +451,6 @@ def forecast(functionality: str) -> None:
         trp_road_category = db_broker.get_trp_metadata(trp_id=trp_id)["road_category"]
         print("TRP road category: ", trp_road_category)
 
-        X, y = split_by_target(
-            data=getattr(..., f"get_{target}")(
-                    lags=[24, 36, 48, 60, 72],
-                    trp_ids_filter=[trp_id],
-                    road_category_filter=[trp_road_category],
-                    z_score=True
-            ),
-            target=target,
-            mode=1
-        )
-
         for name, data in {
             m["name"]: {
                 "binary": pickle.loads(m["pickle_object"]),
@@ -468,10 +459,8 @@ def forecast(functionality: str) -> None:
             for m in db_broker.get_trained_model_objects(target=target)
         }.items():  # Load model name and data (pickle object, the best parameters and so on)
 
-            model = data["binary"]
-
             learner = TFSLearner(
-                model=model,
+                model=data["binary"],
                 road_category=trp_road_category,
                 target=target,
                 client=client,
@@ -487,11 +476,14 @@ def forecast(functionality: str) -> None:
                 forecasting_toolbox=ft
             )
 
-            #print("X: ", X)
-            #print("y: ", y)
-            #learner.model.fit(X, y) #TODO IMPLEMENT THIS *AFTER* THE FORECAST WARMUP PHASE AS A POST-WARMUP TO IMPROVE THE MODEL LEVERAGING ON ALL THE DATA WE ACTUALLY HAVE
 
-            forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target)) #TODO TO PREPROCESS THESE
+            trp_past_data=forecaster.get_training_records(training_mode=0, cache_latest_dt_collection=True).assign(is_future=False).persist()
+            data=dd.from_pandas(pd.DataFrame(list(forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target))))).assign(is_future=True).persist()
+
+            data = getattr(pipeline, f"preprocess_{target}")(data=dd.concat([trp_past_data, data], axis=0), lags=[24, 36, 48, 60, 72], z_score=False)
+            data = data[data["is_future"] != False].persist()
+            data = data.drop(columns=["is_future"]).persist()
+
             #TODO THESE DATA HAVE TO BE FIRST MERGED WITH N RECORDS FROM THE PAST (ENOUGH TO COMPLETE THE LAGS FEATURES FOR EACH RECORD THAT COMPOSES THE FUTURE RECORDS SKELETON FRAME AND THEN ONLY KEEP THE FUTURE RECORDS PREPROCESSED WITH LAGS, AND SO ON (ADD A COLUMN CALLED "is_future"
             # 1. GET PAST DATA FROM THE SPECIFIC TRP ONLY (WITH trp_id_filter)
             # 2. CREATE SKELETON DATAFRAME FOR FUTURE RECORDS WITH forecaster.get_future_records()
@@ -501,10 +493,24 @@ def forecast(functionality: str) -> None:
             # 6. PREDICT THE DATA WITH THE DATASET
             # 6.1 REMOVE THE is_future COLUMN WHEN FEEDING THE MODEL WITH THE DATASET AND ADD THEM BACK AT THE END FOR REPORTING PURPOSES
 
+            # TODO IMPLEMENT THIS *AFTER* THE FORECAST WARMUP PHASE AS A POST-WARMUP TO IMPROVE THE MODEL LEVERAGING ON ALL THE DATA WE ACTUALLY HAVE
 
+            #data = getattr(..., f"get_{target}")(
+            #    lags=[24, 36, 48, 60, 72],
+            #    trp_ids_filter=[trp_id],
+            #    road_category_filter=[trp_road_category],
+            #    z_score=True
+            #)
+            X, y = split_by_target(
+                data=data,
+                target=target,
+                mode=1
+            )
+            # print("X: ", X)
+            # print("y: ", y)
+            # learner.model.fit(X, y)
 
-
-            predictions = learner.model.predict(...)
+            predictions = learner.model.predict(X)
 
             print(f"**************** {name}'s Predictions ****************")
             print(predictions)

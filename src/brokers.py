@@ -237,8 +237,8 @@ class DBBroker:
                             FROM
                                 "{ProjectTables.MLModels.value}" mm
                             JOIN
-                                "{ProjectTables.TrainedModels.value}" tm ON m.id = bm.id
-                            WHERE tm.target = {target};
+                                "{ProjectTables.TrainedModels.value}" tm ON mm.id =tm.id
+                            WHERE tm.target = '{target}';
                             """, conn=conn) as cur:
                 return cur.fetchall()
 
