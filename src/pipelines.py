@@ -464,7 +464,7 @@ class MLPreprocessingPipeline:
             encoder_params = {"use_categorical": True}
             for feat in feats:
                 data[feat] = data[feat].astype("category")
-        return data.assign(**{feat: encoder(**encoder_params).fit_transform(data[feat]) for feat in feats}).persist() # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
+        return data.assign(**{feat: encoder(**encoder_params).fit_transform(data[feat]) for feat in feats}).persist().repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE) # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
 
 
     def preprocess_volume(self,

@@ -52,6 +52,8 @@ class GlobalDefinitions(BaseModel):
     VOLUME_SCALED_FEATURES: ClassVar[list[str]] = [VOLUME, "coverage"]
     MEAN_SPEED_SCALED_FEATURES: ClassVar[list[str]] = [MEAN_SPEED, "percentile_85", "coverage"]
 
+    DEFAULT_DASK_DF_PARTITION_SIZE: ClassVar[str] = "512MB"
+
 
 
 class DBConfig(Enum):

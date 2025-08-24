@@ -204,7 +204,7 @@ def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:
     """
     try:
         return (dd.concat(dfs, axis=0)
-                .repartition(partition_size="512MB")
+                .repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE)
                 .sort_values(["zoned_dt_iso"], ascending=True)
                 .persist())  # Sorting records by date
     except ValueError as e:

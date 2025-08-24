@@ -470,7 +470,7 @@ class OnePointForecaster:
             is_mice=False,
             zoned_dt_start=training_functions_mapping[self._target]["training_data_start"](),
             zoned_dt_end=training_functions_mapping[self._target]["date_boundaries"](trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
-        ).assign(is_future=False).persist()
+        ).assign(is_future=False).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).persist()
 
 
     def get_future_records(self, forecasting_horizon: datetime.datetime) -> dd.DataFrame | None:
@@ -500,7 +500,7 @@ class OnePointForecaster:
             } for dt in pd.date_range(start=last_available_data_dt, end=forecasting_horizon, freq="1h"))
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
-        return dd.from_pandas(pd.DataFrame(list(rows_to_predict))).assign(is_future=True).persist()
+        return dd.from_pandas(pd.DataFrame(list(rows_to_predict))).assign(is_future=True).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).persist()
 
 
     @staticmethod

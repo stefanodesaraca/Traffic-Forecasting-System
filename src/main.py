@@ -494,6 +494,8 @@ def forecast(functionality: str) -> None:
             data = data[data["is_future"] != False].persist()
             data = data.drop(columns=["is_future"]).persist()
 
+
+
             # TODO IMPLEMENT THIS *AFTER* THE FORECAST WARMUP PHASE AS A POST-WARMUP TO IMPROVE THE MODEL LEVERAGING ON ALL THE DATA WE ACTUALLY HAVE
 
             #data = getattr(..., f"get_{target}")(
