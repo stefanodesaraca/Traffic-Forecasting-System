@@ -470,7 +470,7 @@ class OnePointForecaster:
             is_mice=False,
             zoned_dt_start=training_functions_mapping[self._target]["training_data_start"](),
             zoned_dt_end=training_functions_mapping[self._target]["date_boundaries"](trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
-        )
+        ).assign(is_future=False).persist()
 
 
     def get_future_records(self, forecasting_horizon: datetime.datetime) -> dd.DataFrame | None:
@@ -490,18 +490,17 @@ class OnePointForecaster:
 
         attr = {GlobalDefinitions.VOLUME: np.nan} if self._target == GlobalDefinitions.VOLUME else {GlobalDefinitions.MEAN_SPEED: np.nan, "percentile_85": np.nan}
 
-        last_available_data_dt = self._db_broker.get_volume_date_boundaries(enable_cache=False)["max"] if self._target == GlobalDefinitions.VOLUME else self._db_broker.get_mean_speed_date_boundaries(enable_cache=False)["max"]
+        last_available_data_dt = self._db_broker.get_volume_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"] if self._target == GlobalDefinitions.VOLUME else self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"]
         rows_to_predict = ({
                 **attr,
                 "coverage": np.nan,
                 "zoned_dt_iso": dt,
-                "is_mice": False, #Being a future record to predict it's not a MICEd record
                 "trp_id": self._trp_id,
                 "is_covid_year": False
             } for dt in pd.date_range(start=last_available_data_dt, end=forecasting_horizon, freq="1h"))
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
-        return dd.from_pandas(pd.DataFrame(list(rows_to_predict)))
+        return dd.from_pandas(pd.DataFrame(list(rows_to_predict))).assign(is_future=True).persist()
 
 
     @staticmethod

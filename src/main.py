@@ -481,10 +481,16 @@ def forecast(functionality: str) -> None:
                 forecasting_toolbox=ft
             )
 
-            trp_past_data=forecaster.get_training_records(training_mode=0, cache_latest_dt_collection=True).assign(is_future=False).persist()
-            data=dd.from_pandas(pd.DataFrame(list(forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target))))).assign(is_future=True).persist()
 
-            data = getattr(pipeline, f"preprocess_{target}")(data=dd.concat([trp_past_data, data], axis=0), lags=[24, 36, 48, 60, 72], z_score=False)
+            trp_past_data=forecaster.get_training_records(training_mode=0, cache_latest_dt_collection=True)
+            future_records=forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target))
+
+
+            print(trp_past_data.head(5))
+            print(future_records.head(5))
+
+
+            data = getattr(pipeline, f"preprocess_{target}")(data=dd.concat([trp_past_data, future_records], axis=0), lags=[24, 36, 48, 60, 72], z_score=False)
             data = data[data["is_future"] != False].persist()
             data = data.drop(columns=["is_future"]).persist()
 
