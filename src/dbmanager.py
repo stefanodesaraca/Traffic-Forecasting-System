@@ -592,8 +592,9 @@ class AIODBManager:
                     END AS mean_train_mean_absolute_error
                 FROM "{ProjectTables.MLModels.value}" m
                 LEFT JOIN "{ProjectTables.ModelGridSearchCVResults.value}" r
-                    ON m.id = r.model_id;
-                    
+                    ON m.id = r.model_id
+                WHERE r.id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx
+                AND r.target = '{GlobalDefinitions.VOLUME}';                    
                     
                 CREATE OR REPLACE VIEW "best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_results" AS
                 SELECT 
@@ -637,7 +638,9 @@ class AIODBManager:
                     END AS mean_train_mean_absolute_error
                 FROM "{ProjectTables.MLModels.value}" m
                 LEFT JOIN "{ProjectTables.ModelGridSearchCVResults.value}" r
-                    ON m.id = r.model_id; 
+                    ON m.id = r.model_id
+	            WHERE r.id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx
+                AND r.target = '{GlobalDefinitions.MEAN_SPEED}';
                 """)
 
                 # Granting permission to access to all tables to the TFS user

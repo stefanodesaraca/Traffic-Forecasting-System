@@ -239,7 +239,7 @@ def forecast_warmup(functionality: str) -> None:
         }.get(operation_type, None)
 
 
-    def ml_gridsearch(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
+    def ml_gridsearch(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: TFSLearner) -> None:
 
         gridsearch_results = learner.gridsearch(X_train, y_train)
         learner.export_gridsearch_results(gridsearch_results)
@@ -250,14 +250,18 @@ def forecast_warmup(functionality: str) -> None:
         return None
 
 
-    def ml_training(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: callable) -> None:
-        print(f"Fitting phase for model: {learner.model.name} started")
-        learner.model.fit(X_train, y_train).export()
+    def ml_training(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: TFSLearner) -> None:
+        print(f"Fitting phase for model: {learner.model.name} started...")
+        learner.model.fit(X_train, y_train)
         print("Fitting phase ended")
+
+        print("Exporting trained model...")
+        learner.export_internal_model()
+        print("Model exported correctly to the DB")
         return None
 
 
-    def ml_testing(X_test: dd.DataFrame, y_test: dd.DataFrame, learner: callable) -> None:
+    def ml_testing(X_test: dd.DataFrame, y_test: dd.DataFrame, learner: TFSLearner) -> None:
         y_pred = learner.model.predict(X_test)
         learner.compute_fpe(y_true=y_test, y_pred=y_pred)
         return None
@@ -299,6 +303,9 @@ def forecast_warmup(functionality: str) -> None:
             print(f"Shape of the merged data for road category {road_category}: ", X_train.shape[0].compute() + X_test.shape[0].compute() + y_train.shape[0].compute() + y_test.shape[0].compute())
 
             for model, content in models.items():
+
+                print(content)
+
                 if functionality_mapping[functionality]["type"] == "gridsearch":
                     func(X_train, y_train, TFSLearner(
                             model=content["binary"](**content["params"]),
@@ -476,22 +483,12 @@ def forecast(functionality: str) -> None:
                 forecasting_toolbox=ft
             )
 
-
             trp_past_data=forecaster.get_training_records(training_mode=0, cache_latest_dt_collection=True).assign(is_future=False).persist()
             data=dd.from_pandas(pd.DataFrame(list(forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target))))).assign(is_future=True).persist()
 
             data = getattr(pipeline, f"preprocess_{target}")(data=dd.concat([trp_past_data, data], axis=0), lags=[24, 36, 48, 60, 72], z_score=False)
             data = data[data["is_future"] != False].persist()
             data = data.drop(columns=["is_future"]).persist()
-
-            #TODO THESE DATA HAVE TO BE FIRST MERGED WITH N RECORDS FROM THE PAST (ENOUGH TO COMPLETE THE LAGS FEATURES FOR EACH RECORD THAT COMPOSES THE FUTURE RECORDS SKELETON FRAME AND THEN ONLY KEEP THE FUTURE RECORDS PREPROCESSED WITH LAGS, AND SO ON (ADD A COLUMN CALLED "is_future"
-            # 1. GET PAST DATA FROM THE SPECIFIC TRP ONLY (WITH trp_id_filter)
-            # 2. CREATE SKELETON DATAFRAME FOR FUTURE RECORDS WITH forecaster.get_future_records()
-            # 3. MERGE PAST DATA WITH THE SKELETON FRAME
-            # 4. CREATE LAG FEATURES FOR THE FUTURE DATA, ADD THE is_future COLUMN
-            # 5. DELETE ALL ROWS WHERE is_future IS FALSE
-            # 6. PREDICT THE DATA WITH THE DATASET
-            # 6.1 REMOVE THE is_future COLUMN WHEN FEEDING THE MODEL WITH THE DATASET AND ADD THEM BACK AT THE END FOR REPORTING PURPOSES
 
             # TODO IMPLEMENT THIS *AFTER* THE FORECAST WARMUP PHASE AS A POST-WARMUP TO IMPROVE THE MODEL LEVERAGING ON ALL THE DATA WE ACTUALLY HAVE
 
@@ -506,8 +503,8 @@ def forecast(functionality: str) -> None:
                 target=target,
                 mode=1
             )
-            # print("X: ", X)
-            # print("y: ", y)
+            print("X: ", X)
+            print("y: ", y)
             # learner.model.fit(X, y)
 
             predictions = learner.model.predict(X)
