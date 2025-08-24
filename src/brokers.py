@@ -166,20 +166,26 @@ class DBBroker:
     def get_volume_date_boundaries(self, trp_id_filter: list[str] | None = None) -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with self.PostgresConnectionCursor(query=f"""
-                    SELECT volume_start_date, volume_end_date
-                    FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
-                    {f"WHERE trp_id = ANY(%s)" if trp_id_filter else ""};
+                    SELECT
+                        MIN(zoned_dt_iso) AS {GlobalDefinitions.VOLUME}_start_date,
+                        MAX(zoned_dt_iso) AS {GlobalDefinitions.VOLUME}_end_date
+                    FROM "{ProjectTables.Volume.value}"
+                    {f'''WHERE "trp_id" = ANY(%s)''' if trp_id_filter else ""}
+                    ;
                     """, conn=conn, params=tuple(f for f in [trp_id_filter] if f)) as cur:
                 result = cur.fetchone()
-                return {"min": result["volume_start_date"], "max": result["volume_end_date"]} #Respectively: min and max
+                return {"min": result[f"{GlobalDefinitions.VOLUME}_start_date"], "max": result[f"{GlobalDefinitions.VOLUME}_end_date"]} #Respectively: min and max
 
     @cached()
     def get_mean_speed_date_boundaries(self, trp_id_filter: list[str] | None = None) -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with self.PostgresConnectionCursor(f"""
-                    SELECT mean_speed_start_date, mean_speed_end_date
-                    FROM "{ProjectViews.VolumeMeanSpeedDateRangesView.value}"
-                    {f"WHERE m.trp_id = '{trp_id_filter}'" if trp_id_filter else ""};
+                    SELECT
+                        MIN(zoned_dt_iso) AS {GlobalDefinitions.MEAN_SPEED}_start_date,
+                        MAX(zoned_dt_iso) AS {GlobalDefinitions.MEAN_SPEED}_end_date
+                    FROM "{ProjectTables.MeanSpeed.value}"
+                    {f"WHERE m.trp_id = '{trp_id_filter}'" if trp_id_filter else ""}
+                    ;
                     """, conn=conn) as cur:
                 result = cur.fetchone()
                 return {"min": result["mean_speed_start_date"], "max": result["mean_speed_end_date"]} #Respectively: min and max

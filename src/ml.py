@@ -445,11 +445,11 @@ class OnePointForecaster:
                 1 - Stands for multipoint training, where data from all TRPs of the same road category as the one we want to predict future records for is used
         """
         def get_volume_training_data_start():
-            return self._db_broker.get_volume_date_boundaries(trp_id_filter=tuple(trp_id_filter), enable_cache=cache_latest_dt_collection)["max"] - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2)
+            return self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"] - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2)
         def get_mean_speed_training_data_start():
-            return self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=tuple(trp_id_filter), enable_cache=cache_latest_dt_collection)["max"] - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2)
+            return self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"] - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2)
 
-        trp_id_filter = [self._trp_id] if training_mode == 0 else None
+        trp_id_filter = (self._trp_id,) if training_mode == 0 else None
         training_functions_mapping = {
             GlobalDefinitions.VOLUME: {
                 "loader": self._loader.get_volume,

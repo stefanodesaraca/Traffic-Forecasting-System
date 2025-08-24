@@ -1,69 +1,20 @@
 from contextlib import contextmanager
-from pathlib import Path
 from itertools import islice
 import datetime
-from datetime import timezone, timedelta
-from typing import Literal, Any, ClassVar, Generator
-import os
+from typing import Literal, Any, Generator
 import asyncio
 import numpy as np
 import pandas as pd
 import dask.dataframe as dd
 from dateutil.relativedelta import relativedelta
-from pydantic import BaseModel
 from pydantic.types import PositiveInt
 from dask.distributed import Client, LocalCluster
 from functools import lru_cache, wraps
 
 from exceptions import TargetVariableNotFoundError, MissingDataError
-from definitions import ProjectTables
+from definitions import GlobalDefinitions, ProjectTables
 
 pd.set_option("display.max_columns", None)
-
-
-
-class GlobalDefinitions(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-        frozen = True
-
-    VOLUME_INGESTION_FIELDS: ClassVar[list[str]] = ["trp_id", "volume", "coverage", "is_mice", "zoned_dt_iso"]
-    MEAN_SPEED_INGESTION_FIELDS: ClassVar[list[str]] = ["trp_id", "mean_speed", "percentile_85", "coverage", "is_mice", "zoned_dt_iso"]
-    TARGET_DATA: ClassVar[dict[str, str]] = {"V": "volume", "MS": "mean_speed"}
-    ROAD_CATEGORIES: ClassVar[list[str]] = ["E", "R", "F", "K", "P"]
-    DEFAULT_MAX_FORECASTING_WINDOW_SIZE: ClassVar[PositiveInt] = 14
-
-    HAS_VOLUME_CHECK: ClassVar[str] = "has_volume"
-    HAS_MEAN_SPEED_CHECK: ClassVar[str] = "has_mean_speed"
-
-    VOLUME: ClassVar[str] = "volume"
-    MEAN_SPEED: ClassVar[str] = "mean_speed"
-
-    DT_ISO_TZ_FORMAT: ClassVar[str] = "%Y-%m-%dT%H:%M:%S%z"
-    DT_INPUT_FORMAT: ClassVar[str] = "%Y-%m-%dT%H"
-    NORWEGIAN_UTC_TIME_ZONE: ClassVar[str] = "+01:00"
-    NORWEGIAN_UTC_TIME_ZONE_TIMEDELTA: ClassVar[timezone] = timezone(timedelta(hours=1))
-
-    COORDINATES_REFERENCE_SYSTEM: ClassVar[int] = 4326 #WGS84
-
-    COVID_YEARS: ClassVar[list[int]] = [2020, 2021, 2022]
-    ML_CPUS: ClassVar[int] = int(os.cpu_count() * 0.75)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
-    # The value multiplied with the n_cpu values shouldn't be above .80, otherwise processes could crash during execution
-
-    MEAN_SPEED_DIR: ClassVar[Path] = Path("data", MEAN_SPEED)
-    MODEL_GRIDS_FILE: ClassVar[Path] = Path("data", "model_grids.json")
-
-    MICE_COLS: ClassVar[list[str]] = ["volume", "coverage"]
-
-    NETWORKX_BACKEND: ClassVar[str] = "networkx"
-    CUDF_BACKEND: ClassVar[str] = "cudf"
-    GRAPH_PROCESSING_BACKENDS: ClassVar[list[str]] = [NETWORKX_BACKEND, CUDF_BACKEND]
-
-    NON_PREDICTORS: ClassVar[list[str]] = ["zoned_dt_iso"]
-    ENCODED_FEATURES: ClassVar[list[str]] = ["trp_id"]
-    VOLUME_SCALED_FEATURES: ClassVar[list[str]] = [VOLUME, "coverage"]
-    MEAN_SPEED_SCALED_FEATURES: ClassVar[list[str]] = [MEAN_SPEED, "percentile_85", "coverage"]
-
 
 
 class ForecastingToolbox:

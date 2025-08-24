@@ -23,9 +23,8 @@ from sklearn.ensemble import (
 )
 
 from exceptions import ProjectDBNotFoundError
-from db_config import HubDBTables, HUBDBConstraints, ProjectTables, ProjectConstraints, ProjectViews, RowFactories, AIODBManagerInternalConfig as AIODBMInternalConfig
+from definitions import GlobalDefinitions, HubDBTables, HUBDBConstraints, ProjectTables, ProjectConstraints, ProjectViews, RowFactories, AIODBManagerInternalConfig as AIODBMInternalConfig
 from downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
-from utils import GlobalDefinitions
 
 
 @asynccontextmanager
