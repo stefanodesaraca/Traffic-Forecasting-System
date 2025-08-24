@@ -5,9 +5,8 @@ import pickle
 import asyncio
 import dask
 import dask.dataframe as dd
-from torch.utils.hipify.hipify_python import preprocessor
 
-from exceptions import TRPNotFoundError, ModelBestParametersNotFound
+from exceptions import TRPNotFoundError
 from db_config import DBConfig, ProjectTables
 
 from downloader import start_client_async, volumes_to_db, fetch_trps, fetch_trps_from_ids
@@ -292,7 +291,7 @@ def forecast_warmup(functionality: str) -> None:
             for model, content in models.items():
                 if functionality_mapping[functionality]["type"] == "gridsearch":
                     func(X_train, y_train, TFSLearner(
-                            model=content["binary_obj"](**content["params"]),
+                            model=content["binary"](**content["params"]),
                             road_category=road_category,
                             target=target,
                             client=client,
@@ -301,14 +300,14 @@ def forecast_warmup(functionality: str) -> None:
                     )
                 elif functionality_mapping[functionality]["type"] == "training":
                     func(X_test, y_test, TFSLearner(
-                            model=content["binary_obj"](**content["params"]),
+                            model=content["binary"](**content["params"]),
                             target=target,
                             db_broker=db_broker
                         )
                     )
                 elif functionality_mapping[functionality]["type"] == "testing":
                     func(X_test, y_test, TFSLearner(
-                            model=content["binary_obj"],
+                            model=content["binary"],
                             target=target,
                             db_broker=db_broker
                         )
@@ -478,17 +477,23 @@ def forecast(functionality: str) -> None:
             print("y: ", y)
             learner.model.fit(X, y)
 
-            # TODO BRING TFSPreprocessor HERE FROM forecaster.get_future_records()
-            forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target))
-            # TODO THESE DATA HAVE TO BE FIRST MERGED WITH N RECORDS FROM THE PAST (ENOUGHT TO COMPLETE THE LAGS FEATURES FOR EACH RECORD THAT COMPOSES THE FUTURE RECORDS SKELETON FRAME AND THEN ONLY KEEP THE FUTURE RECORDS PREPROCESSED WITH LAGS, AND SO ON (ADD A COLUMN CALLED "is_future"
+            forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target)) #TODO TO PREPROCESS THESE
+            #TODO THESE DATA HAVE TO BE FIRST MERGED WITH N RECORDS FROM THE PAST (ENOUGH TO COMPLETE THE LAGS FEATURES FOR EACH RECORD THAT COMPOSES THE FUTURE RECORDS SKELETON FRAME AND THEN ONLY KEEP THE FUTURE RECORDS PREPROCESSED WITH LAGS, AND SO ON (ADD A COLUMN CALLED "is_future"
+            # 1. GET PAST DATA FROM THE SPECIFIC TRP ONLY (WITH trp_id_filter)
+            # 2. CREATE SKELETON DATAFRAME FOR FUTURE RECORDS WITH forecaster.get_future_records()
+            # 3. MERGE PAST DATA WITH THE SKELETON FRAME
+            # 4. CREATE LAG FEATURES FOR THE FUTURE DATA, ADD THE is_future COLUMN
+            # 5. DELETE ALL ROWS WHERE is_future IS FALSE
+            # 6. PREDICT THE DATA WITH THE DATASET
+            # 6.1 REMOVE THE is_future COLUMN WHEN FEEDING THE MODEL WITH THE DATASET AND ADD THEM BACK AT THE END FOR REPORTING PURPOSES
+
+
+
 
             predictions = learner.model.predict(...)
-            # TODO forecaster.get_future_records returns a pandas dataframe which doesn't have .persist()
-            # LET get_future_records return a dask dataframe
 
             print(f"**************** {name}'s Predictions ****************")
             print(predictions)
-
 
 
     if functionality == "3.3.1":

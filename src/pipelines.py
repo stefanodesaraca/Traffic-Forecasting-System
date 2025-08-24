@@ -19,14 +19,11 @@ from sklego.meta import ZeroInflatedRegressor
 
 from dask_ml.preprocessing import MinMaxScaler, LabelEncoder
 
-
 import geojson
 from shapely.geometry import shape
 from shapely import wkt
 
 from db_config import ProjectTables
-from exceptions import RoadCategoryNotFound
-from loaders import BatchStreamLoader
 from utils import GlobalDefinitions, ZScore, get_n_items_from_gen
 
 
@@ -446,23 +443,23 @@ class RoadGraphObjectsIngestionPipeline:
 
 class MLPreprocessedDataExtractionPipeline:
 
-    def __init__(self, loader: BatchStreamLoader):
-        self._loader: BatchStreamLoader = loader
+    def __init__(self, loader: type[callable]):
+        self._loader: type[callable] = loader
 
 
     @staticmethod
     def _add_lag_features(data: dd.DataFrame, target: str, lags: list[PositiveInt]) -> dd.DataFrame:
         for lag in lags:
             data[f"{target}_lag{lag}h"] = data[target].shift(lag)  # n hours shift
-        return data
+        return data.persist()
 
     @staticmethod
-    def _scale_features(data: dd.DataFrame, feats: list[str], scaler: MinMaxScaler | callable = MinMaxScaler) -> dd.DataFrame:
+    def _scale_features(data: dd.DataFrame, feats: list[str], scaler: MinMaxScaler | type[callable] = MinMaxScaler) -> dd.DataFrame:
         data[feats] = scaler().fit_transform(data[feats])
-        return data
+        return data.persist()
 
     @staticmethod
-    def _encode_features(data: dd.DataFrame, feats: list[str], encoder: LabelEncoder | callable = LabelEncoder) -> dd.DataFrame:
+    def _encode_features(data: dd.DataFrame, feats: list[str], encoder: LabelEncoder | type[callable] = LabelEncoder) -> dd.DataFrame:
         encoder_params = {}
         # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
         if isinstance(encoder, LabelEncoder):

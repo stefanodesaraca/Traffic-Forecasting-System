@@ -1,3 +1,4 @@
+import pipelines as pipelines
 import downloader as downloader
 import dbmanager as dbmanager
 import loaders as loaders
@@ -10,5 +11,5 @@ import db_config as db_config
 import tfs_eda as eda
 
 
-__all__ = ["downloader", "dbmanager", "loaders", "ml", "road_network", "exceptions", "utils", "db_config", "eda"]
+__all__ = ["downloader", "pipelines", "dbmanager", "loaders", "ml", "road_network", "exceptions", "utils", "db_config", "eda"]
 
