@@ -233,18 +233,21 @@ class DBBroker:
                 return cur.fetchall()
 
 
-    def get_trained_model_objects(self, target: str) -> list[dict[str, Any]]:
+    def get_trained_model_objects(self, target: str, road_category: str) -> list[dict[str, Any]]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with self.PostgresConnectionCursor(query=f"""
                             SELECT 
                                 tm.id as id,
                                 mm.name as name, 
+                                tm.target,
+                                tm.road_category,
                                 tm.pickle_object AS pickle_object
                             FROM
                                 "{ProjectTables.MLModels.value}" mm
                             JOIN
-                                "{ProjectTables.TrainedModels.value}" tm ON mm.id =tm.id
-                            WHERE tm.target = '{target}';
+                                "{ProjectTables.TrainedModels.value}" tm ON mm.id=tm.id
+                            WHERE tm.target = '{target}'
+                            AND tm.road_category = '{road_category}';
                             """, conn=conn) as cur:
                 return cur.fetchall()
 

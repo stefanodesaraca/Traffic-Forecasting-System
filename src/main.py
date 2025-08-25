@@ -458,16 +458,17 @@ def forecast(functionality: str) -> None:
         trp_road_category = db_broker.get_trp_metadata(trp_id=trp_id)["road_category"]
         print("TRP road category: ", trp_road_category)
 
-        for name, data in {
+        print({
             m["name"]: {
                 "binary": pickle.loads(m["pickle_object"]),
-                "params": m.get("params", None)
             }
-            for m in db_broker.get_trained_model_objects(target=target)
-        }.items():  # Load model name and data (pickle object, the best parameters and so on)
+            for m in db_broker.get_trained_model_objects(target=target, road_category=trp_road_category)
+        }.items())
+
+        for name, model in {m["name"]: pickle.loads(m["pickle_object"]) for m in db_broker.get_trained_model_objects(target=target, road_category=trp_road_category)}.items():  # Load model name and data (pickle object, the best parameters and so on)
 
             learner = TFSLearner(
-                model=data["binary"],
+                model=model,
                 road_category=trp_road_category,
                 target=target,
                 client=client,
@@ -506,8 +507,8 @@ def forecast(functionality: str) -> None:
                 target=target,
                 mode=1
             )
-            print("X: ", X)
-            print("y: ", y)
+            #print("X: ", X)
+            #print("y: ", y)
             # learner.model.fit(X, y)
 
             predictions = learner.model.predict(X)
