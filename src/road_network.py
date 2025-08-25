@@ -76,7 +76,7 @@ class RoadNetwork:
             "geometry_wkt": road["geometri"]["wkt"],  # Well-known-text geometry of the whole road
             "geometry_srid": road["geometri"]["srid"],
             # Spatial Reference System Identifier, identifies the EPSG code which represents the UTM projection used
-            "own_geometry": road["geometri"].get("egengeometri", None),
+            "has_own_geometry": road["geometri"].get("egengeometri", None),
             # Indicates whether the geometry of road inherits from another object in the NVDB
 
             # Lokasjon (Location)
@@ -120,7 +120,58 @@ class RoadNetwork:
             "georeference_short_form": road["lokasjon"]["stedfestinger"]["kortform"],
 
             # Lengde (Length)
-            "length": road["lokasjon"]["lengde"]
+            "length": road["lokasjon"]["lengde"],
+
+            "road_segments": ({
+                 "veglenkesekvensid": segment.get("veglenkesekvensid"),
+                 "startposisjon": segment.get("startposisjon"),
+                 "sluttposisjon": segment.get("sluttposisjon"),
+                 "lengde": segment.get("lengde"),
+                 "retning": segment.get("retning"),
+                 "feltoversikt": (f for f in segment.get("feltoversikt", [])),
+                 "veglenkeType": segment.get("veglenkeType"),
+                 "detaljnivå": segment.get("detaljnivå"),
+                 "typeVeg": segment.get("typeVeg"),
+                 "typeVeg_sosi": segment.get("typeVeg_sosi"),
+                 "startdato": segment.get("startdato"),
+
+                 # Nested dictionary: geometri
+                 "geometri": {
+                     "wkt": segment.get("geometri", {}).get("wkt"),
+                     "srid": segment.get("geometri", {}).get("srid")
+                 },
+
+                 # Nested dictionary: vegsystemreferanse
+                 "vegsystemreferanse": {
+                     "vegsystem": {
+                         "vegkategori": segment.get("vegsystemreferanse", {}).get("vegsystem", {}).get("vegkategori"),
+                         "fase": segment.get("vegsystemreferanse", {}).get("vegsystem", {}).get("fase"),
+                         "nummer": segment.get("vegsystemreferanse", {}).get("vegsystem", {}).get("nummer")
+                     },
+                     "strekning": {
+                         "strekning": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("strekning"),
+                         "delstrekning": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("delstrekning"),
+                         "arm": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("arm"),
+                         "adskilte_løp": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("adskilte_løp"),
+                         "trafikantgruppe": segment.get("vegsystemreferanse", {}).get("strekning", {}).get(
+                             "trafikantgruppe"),
+                         "retning": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("retning"),
+                         "fra_meter": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("fra_meter"),
+                         "til_meter": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("til_meter")
+                     },
+                     "kortform": segment.get("vegsystemreferanse", {}).get("kortform")
+                 },
+
+                 # Lists
+                 "kontraktsområder": (k for k in segment.get("kontraktsområder", [])),
+                 "vegforvaltere": (v for v in segment.get("vegforvaltere", [])),
+                 "adresser": (a for a in segment.get("adresser", [])) if "adresser" in segment else None,
+
+                 # Other top-level keys
+                 "municipality": segment.get("kommune"),
+                 "county": segment.get("fylke")
+             } for segment in road["vegsegmenter"])
+
         } for road in road_system)
 
 
