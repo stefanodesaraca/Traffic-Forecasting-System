@@ -276,6 +276,8 @@ def forecast_warmup(functionality: str) -> None:
             for m in db_broker.send_sql(functionality_mapping[functionality]["model_query"])
         }
 
+        print(models)
+
         for road_category, trp_ids in db_broker.get_trp_ids_by_road_category(has_volumes=True if target == GlobalDefinitions.VOLUME else None,
                                                                              has_mean_speed=True if target == GlobalDefinitions.MEAN_SPEED else None).items():
 

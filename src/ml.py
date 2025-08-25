@@ -371,6 +371,7 @@ class TFSLearner:
                                            "mean_train_mean_absolute_error"]) #Changing the columns order to match the one in the SQL query below
         self._db_broker.send_sql(f'''
             INSERT INTO "{ProjectTables.ModelGridSearchCVResults.value}" (
+                "result_id",
                 "model_id",
                 "road_category_id",
                 "target",
@@ -387,7 +388,7 @@ class TFSLearner:
                 "mean_train_mean_absolute_error"
             )
             VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
             ON CONFLICT ON CONSTRAINT {ProjectConstraints.UNIQUE_MODEL_ROAD_TARGET_PARAMS.value} DO UPDATE
             SET
@@ -404,7 +405,7 @@ class TFSLearner:
                 "mean_train_root_mean_squared_error" = EXCLUDED.mean_train_root_mean_squared_error,
                 "mean_test_mean_absolute_error" = EXCLUDED.mean_test_mean_absolute_error,
                 "mean_train_mean_absolute_error" = EXCLUDED.mean_train_mean_absolute_error;
-        ''', many=True, many_values=[tuple(row) for row in results.itertuples(index=False, name=None)])
+        ''', many=True, many_values=[tuple(row) for row in results.itertuples(name=None)])
         return None
 
 

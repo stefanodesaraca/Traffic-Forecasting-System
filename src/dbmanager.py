@@ -404,6 +404,7 @@ class AIODBManager:
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.ModelGridSearchCVResults.value}" (
                             id SERIAL,
+                            result_id INT NOT NULL,
                             model_id TEXT REFERENCES "{ProjectTables.MLModels.value}"(id) ON DELETE CASCADE,
                             road_category_id TEXT REFERENCES "{ProjectTables.RoadCategories.value}"(id) ON DELETE CASCADE,
                             target TEXT NOT NULL,
@@ -593,8 +594,8 @@ class AIODBManager:
                 FROM "{ProjectTables.MLModels.value}" m
                 LEFT JOIN "{ProjectTables.ModelGridSearchCVResults.value}" r
                     ON m.id = r.model_id
-                WHERE r.id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx
-                AND r.target = '{GlobalDefinitions.VOLUME}';                    
+                WHERE r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx
+                AND r.target = '{GlobalDefinitions.VOLUME}';
                     
                 CREATE OR REPLACE VIEW "best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_results" AS
                 SELECT 
