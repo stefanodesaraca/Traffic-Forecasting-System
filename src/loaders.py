@@ -17,7 +17,7 @@ class BatchStreamLoader:
     def __init__(self, db_broker: DBBroker):
         self._data: dd.DataFrame
         self._db_broker: DBBroker = db_broker
-        self._dask_partition_size: str = "500MB"
+        self._dask_partition_size: str = GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE
 
 
     def _load_from_stream(self, stream: Generator[Any, None, None], df_partitions_size: PositiveInt):

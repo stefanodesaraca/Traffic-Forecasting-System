@@ -490,7 +490,7 @@ def forecast(functionality: str) -> None:
             print(future_records.head(5))
 
 
-            data = getattr(pipeline, f"preprocess_{target}")(data=dd.concat([trp_past_data, future_records], axis=0), lags=[24, 36, 48, 60, 72], z_score=False)
+            data = getattr(pipeline, f"preprocess_{target}")(data=dd.concat([trp_past_data, future_records], axis=0).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
             data = data[data["is_future"] != False].persist()
             data = data.drop(columns=["is_future"]).persist()
 

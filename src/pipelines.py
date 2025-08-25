@@ -458,9 +458,6 @@ class MLPreprocessingPipeline:
 
     @staticmethod
     def _encode_features(data: dd.DataFrame, feats: list[str]) -> dd.DataFrame:
-        print(data.head())
-        data = data.repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE)
-        print(len(data.partitions))
         # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
         for feat in feats:
             data[feat] = data[feat].astype("category")
@@ -469,6 +466,7 @@ class MLPreprocessingPipeline:
             le = LabelEncoder(use_categorical=True)
             data[feat] = le.fit_transform(data[feat])
         return data.persist()
+
 
     def preprocess_volume(self,
                           data: dd.DataFrame,
