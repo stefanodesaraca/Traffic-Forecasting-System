@@ -522,7 +522,7 @@ def forecast(functionality: str) -> None:
 
             print(f"**************** {name}'s Predictions ****************")
 
-            scaler.inverse_transform(X=data[GlobalDefinitions.VOLUME_SCALED_FEATURES])
+            data[GlobalDefinitions.VOLUME_SCALED_FEATURES] = scaler.inverse_transform(X=data[GlobalDefinitions.VOLUME_SCALED_FEATURES])
 
             print("Inversed: ", data.compute())
 
