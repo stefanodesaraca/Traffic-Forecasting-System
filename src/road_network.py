@@ -60,6 +60,7 @@ class RoadNetwork:
         with open(fp, "r", encoding="utf-8") as f:
             road_system = json.load(f)
 
+        #Each dictionary is a road object
         data = ({
             "id": road["id"],
             "href": road["href"],
@@ -96,10 +97,15 @@ class RoadNetwork:
             "address_names": (i["navn"] for i in road["lokasjon"].get("adresser", [])),
             "address_codes": (i["adressekode"] for i in road["lokasjon"].get("adresser", [])),
 
-            # Vegsystemreferanser (Road System Reference) - One road is represented as many logical intervals, not every interval does necessarily belong to the same road, some could belong to other roads as well
+            # Vegsystemreferanser (Road System Reference)
+            # -- vegsystem --
             "reference_road_category": (i["vegsystem"]["vegkategori"] for i in road["lokasjon"]["vegsystemreferanser"]),
             "reference_fase": (i["vegsystem"]["fase"] for i in road["lokasjon"]["vegsystemreferanser"]),
             "reference_number": (i["vegsystem"]["nummer"] for i in road["lokasjon"]["vegsystemreferanser"]),
+
+            # -- strekning --
+            # Strekning(s) are portions of the road object which are needed to calculate the road segments of the object itself
+            # Essentially they represent the location of the portion itself with a specific referencing system of the NVDB
             "main_stretch_id": (i["strekning"]["strekning"] for i in road["lokasjon"]["vegsystemreferanser"]),
             "stretch_subsection_id": (i["strekning"]["delstrekning"] for i in road["lokasjon"]["vegsystemreferanser"]),
             "is_intersection_or_junction_arm": (i["strekning"]["arm"] for i in road["lokasjon"]["vegsystemreferanser"]),
@@ -122,6 +128,7 @@ class RoadNetwork:
             # Lengde (Length)
             "length": road["lokasjon"]["lengde"],
 
+            # Every segment of a single road object belongs only to that object
             "road_segments": ({
                 "road_link_sequence_id": segment.get("veglenkesekvensid"),
                 "georeference_start_position": segment.get("startposisjon"),
