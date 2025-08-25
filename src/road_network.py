@@ -96,14 +96,14 @@ class RoadNetwork:
             "address_names": (i["navn"] for i in road["lokasjon"].get("adresser", [])),
             "address_codes": (i["adressekode"] for i in road["lokasjon"].get("adresser", [])),
 
-            # Vegsystemreferanser (Logical Section of Road) - Made of small subsections that compose the whole section
+            # Vegsystemreferanser (Road System Reference) - One road is represented as many logical intervals, not every interval does necessarily belong to the same road, some could belong to other roads as well
             "reference_road_category": (i["vegsystem"]["vegkategori"] for i in road["lokasjon"]["vegsystemreferanser"]),
             "reference_fase": (i["vegsystem"]["fase"] for i in road["lokasjon"]["vegsystemreferanser"]),
             "reference_number": (i["vegsystem"]["nummer"] for i in road["lokasjon"]["vegsystemreferanser"]),
-            "reference_main_section": (i["strekning"]["strekning"] for i in road["lokasjon"]["vegsystemreferanser"]),
-            "reference_subsection": (i["strekning"]["delstrekning"] for i in road["lokasjon"]["vegsystemreferanser"]),
+            "main_stretch_id": (i["strekning"]["strekning"] for i in road["lokasjon"]["vegsystemreferanser"]),
+            "stretch_subsection_id": (i["strekning"]["delstrekning"] for i in road["lokasjon"]["vegsystemreferanser"]),
             "is_intersection_or_junction_arm": (i["strekning"]["arm"] for i in road["lokasjon"]["vegsystemreferanser"]),
-            "lanes_direction_separated": (i["strekning"]["adskilte_løp"] for i in road["lokasjon"]["vegsystemreferanser"]), #Indicates whether the lanes in opposite direction are physically separated or not
+            "has_lanes_divider": (i["strekning"]["adskilte_løp"] for i in road["lokasjon"]["vegsystemreferanser"]), #Indicates whether the lanes in opposite direction are physically separated or not
             "reference_traffic_group": (i["strekning"]["trafikantgruppe"] for i in road["lokasjon"]["vegsystemreferanser"]),
             "reference_direction": (i["strekning"]["retning"] for i in road["lokasjon"]["vegsystemreferanser"]), #Traffic direction from the reference direction perspective (meaning there's a reference direction when defining if a road is with or against the direction itself)
             "reference_start_meter": (i["strekning"]["fra_meter"] for i in road["lokasjon"]["vegsystemreferanser"]), #Meter of the road start
@@ -123,54 +123,53 @@ class RoadNetwork:
             "length": road["lokasjon"]["lengde"],
 
             "road_segments": ({
-                 "veglenkesekvensid": segment.get("veglenkesekvensid"),
-                 "startposisjon": segment.get("startposisjon"),
-                 "sluttposisjon": segment.get("sluttposisjon"),
-                 "lengde": segment.get("lengde"),
-                 "retning": segment.get("retning"),
-                 "feltoversikt": (f for f in segment.get("feltoversikt", [])),
-                 "veglenkeType": segment.get("veglenkeType"),
-                 "detaljnivå": segment.get("detaljnivå"),
-                 "typeVeg": segment.get("typeVeg"),
-                 "typeVeg_sosi": segment.get("typeVeg_sosi"),
-                 "startdato": segment.get("startdato"),
+                "road_link_sequence_id": segment.get("veglenkesekvensid"),
+                "georeference_start_position": segment.get("startposisjon"),
+                "georeference_end_position": segment.get("sluttposisjon"),
+                "length": segment.get("lengde"),
+                "road_link_sequence_direction": segment.get("retning"),
+                "segment_lanes": (f for f in segment.get("feltoversikt", [])),
+                "road_link_type": segment.get("veglenkeType"),
+                "detail_level": segment.get("detaljnivå"),
+                "segment_road_type": segment.get("typeVeg"), #The type of road segment
+                "validation_date": segment.get("startdato"), #Date when the segment has become valid
 
-                 # Nested dictionary: geometri
-                 "geometri": {
-                     "wkt": segment.get("geometri", {}).get("wkt"),
-                     "srid": segment.get("geometri", {}).get("srid")
-                 },
+                # Nested dictionary: geometry
+                "geometry": {
+                    "wkt": segment.get("geometri", {}).get("wkt"),
+                    "srid": segment.get("geometri", {}).get("srid")
+                },
 
-                 # Nested dictionary: vegsystemreferanse
-                 "vegsystemreferanse": {
-                     "vegsystem": {
-                         "vegkategori": segment.get("vegsystemreferanse", {}).get("vegsystem", {}).get("vegkategori"),
-                         "fase": segment.get("vegsystemreferanse", {}).get("vegsystem", {}).get("fase"),
-                         "nummer": segment.get("vegsystemreferanse", {}).get("vegsystem", {}).get("nummer")
-                     },
-                     "strekning": {
-                         "strekning": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("strekning"),
-                         "delstrekning": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("delstrekning"),
-                         "arm": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("arm"),
-                         "adskilte_løp": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("adskilte_løp"),
-                         "trafikantgruppe": segment.get("vegsystemreferanse", {}).get("strekning", {}).get(
-                             "trafikantgruppe"),
-                         "retning": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("retning"),
-                         "fra_meter": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("fra_meter"),
-                         "til_meter": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("til_meter")
-                     },
-                     "kortform": segment.get("vegsystemreferanse", {}).get("kortform")
-                 },
+                # Nested dictionary: Vegsystemreferanse
+                "road_system_reference": {
+                    "road_system": {
+                        "vegkategori": segment.get("vegsystemreferanse", {}).get("vegsystem", {}).get("vegkategori"),
+                        "fase": segment.get("vegsystemreferanse", {}).get("vegsystem", {}).get("fase"),
+                        "nummer": segment.get("vegsystemreferanse", {}).get("vegsystem", {}).get("nummer")
+                    },
+                    # Strekning: a major stretch of the road (like a long continuous part)
+                    "stretch": {
+                        "main_stretch_id": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("strekning"),
+                        "stretch_subsection_id": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("delstrekning"), #Delstrekning: a subdivision of a stretch (these are official NVDB units)
+                        "is_intersection_or_junction_arm": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("arm"),
+                        "has_lanes_divider": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("adskilte_løp"),
+                        "reference_traffic_group": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("trafikantgruppe"),
+                        "reference_direction": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("retning"),
+                        "reference_start_meter": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("fra_meter"),
+                        "reference_end_meter": segment.get("vegsystemreferanse", {}).get("strekning", {}).get("til_meter")
+                    },
+                    "reference_short_form": segment.get("vegsystemreferanse", {}).get("kortform")
+                },
 
-                 # Lists
-                 "kontraktsområder": (k for k in segment.get("kontraktsområder", [])),
-                 "vegforvaltere": (v for v in segment.get("vegforvaltere", [])),
-                 "adresser": (a for a in segment.get("adresser", [])) if "adresser" in segment else None,
+                # Lists
+                "road_maintainers": (k for k in segment.get("kontraktsområder", [])),
+                "road_administrators": (v for v in segment.get("vegforvaltere", [])),
+                "associated_segment_ids": (a for a in segment.get("adresser", [])) if "adresser" in segment else None, #Segments associated to this one #TODO USEFUL TO COMPUTE THE GRAPH EDGES
 
-                 # Other top-level keys
-                 "municipality": segment.get("kommune"),
-                 "county": segment.get("fylke")
-             } for segment in road["vegsegmenter"])
+                # Other top-level keys
+                "municipality": segment.get("kommune"),
+                "county": segment.get("fylke")
+            } for segment in road["vegsegmenter"])
 
         } for road in road_system)
 
