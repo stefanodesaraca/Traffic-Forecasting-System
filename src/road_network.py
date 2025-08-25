@@ -66,7 +66,7 @@ class RoadNetwork:
             "href": road["href"],
 
             # Egenskaper (assuming we want them individually by name)
-            "vegnummer": road["egenskaper"][0]["verdi"],
+            "road_number": road["egenskaper"][0]["verdi"],
             "phase": road["egenskaper"][1]["verdi"],
             # The status of the road itself, example: built, under construction, historical, etc.
             "phase_id": road["egenskaper"][1].get("enum_id"),  # The id of the phase
@@ -109,8 +109,7 @@ class RoadNetwork:
             ),
 
             # -- strekning --
-            # Strekning(s) are portions of the road object which are needed to calculate the road segments of the object itself
-            # Essentially they represent the location of the portion itself with a specific referencing system of the NVDB
+            # Strekning(s) are portions of the road object from a descriptive perspective
             "stretches": (
                 {
                     "main_stretch_id": ref["strekning"]["strekning"], # Strekning(s) are portions of the road object
@@ -128,14 +127,19 @@ class RoadNetwork:
             "overall_direction": road["metrertLokasjon"]["retning"],
 
             # Stedfestinger (NVDB Geographical Reference to a Specific Road)
-            "georeference_type": road["lokasjon"]["stedfestinger"]["type"],
-            "road_link_sequence_id": road["lokasjon"]["stedfestinger"]["veglenkesekvensid"],
-            "georeference_start_position": road["lokasjon"]["stedfestinger"]["startposisjon"],
-            "georeference_end_position": road["lokasjon"]["stedfestinger"]["sluttposisjon"],
-            "road_link_sequence_direction": road["lokasjon"]["stedfestinger"]["retning"],
-            "lanes_object_location": road["lokasjon"]["stedfestinger"].get("kjørefelt", []), #On which lanes the object is located
-            "georeference_short_form": road["lokasjon"]["stedfestinger"]["kortform"],
-
+            # Stedfestinger are portions of the road object which are needed to calculate the road segments of the object itself
+            # Essentially they represent the shape and the location of the portion itself with a specific referencing system of the NVDB
+            "physical_road_stretches": (
+                {
+                "georeference_type": stedfesting["type"],
+                "road_link_sequence_id": stedfesting["veglenkesekvensid"],
+                "georeference_start_position": stedfesting["startposisjon"],
+                "georeference_end_position": stedfesting["sluttposisjon"],
+                "road_link_sequence_direction": stedfesting["retning"],
+                "lanes_object_location": stedfesting.get("kjørefelt", []),  # On which lanes the object is located
+                "georeference_short_form": stedfesting["kortform"],
+                } for stedfesting in road["lokasjon"]["stedfestinger"]
+            ),
             # Lengde (Length)
             "length": road["lokasjon"]["lengde"],
 
