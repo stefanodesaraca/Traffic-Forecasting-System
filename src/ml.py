@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import joblib
+from scipy.stats.distributions import gamma
 
 import dask.dataframe as dd
 from dask.distributed import Client
@@ -152,7 +153,7 @@ class ModelWrapper(BaseModel):
         return self.model_obj
 
 
-    def fit(self, X: dd.DataFrame, y: dd.DataFrame) -> Any:
+    def fit(self, X: dd.DataFrame, y: dd.DataFrame | None = None) -> Any:
         """
         Train the model on the input data.
 
@@ -406,6 +407,11 @@ class TFSLearner:
                 "mean_test_mean_absolute_error" = EXCLUDED.mean_test_mean_absolute_error,
                 "mean_train_mean_absolute_error" = EXCLUDED.mean_train_mean_absolute_error;
         ''', many=True, many_values=[tuple(row) for row in results.itertuples(name=None)])
+
+
+        #TODO EXPORT PARAMETERES TO JSON FOR DEEPER ANALYSES
+
+
         return None
 
 
@@ -506,8 +512,17 @@ class OnePointForecaster:
 
 
     @staticmethod
+    def fit_predictions(arr: np.ndarray, d: gamma = gamma) -> dd.DataFrame:
+        shape, loc, scale = d.fit(arr, floc=0)
+        x = np.linspace(min(arr), max(arr), num=len(arr))  # 100 points between min and max
+        return gamma.pdf(x, shape, loc=loc, scale=scale)
+
+
+
+
+    @staticmethod
     def export_predictions(y_preds: dd.DataFrame) -> None:
-        #TODO QUERY INSERT
+        #TODO EXPORT PARAMETERES TO JSON FOR DEEPER ANALYSES
         return None
 
 

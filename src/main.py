@@ -5,6 +5,7 @@ import pickle
 import asyncio
 import dask
 import dask.dataframe as dd
+import numpy as np
 import pandas as pd
 
 from exceptions import TRPNotFoundError
@@ -395,6 +396,23 @@ def forecast_warmup(functionality: str) -> None:
         print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
         time.sleep(1)  # To cool down the system
 
+    # TODO IMPLEMENT THIS *AFTER* THE FORECAST WARMUP PHASE AS A POST-WARMUP TO IMPROVE THE MODEL LEVERAGING ON ALL THE DATA WE ACTUALLY HAVE
+
+    # data = getattr(..., f"get_{target}")(
+    #    lags=[24, 36, 48, 60, 72],
+    #    trp_ids_filter=[trp_id],
+    #    road_category_filter=[trp_road_category],
+    #    z_score=True
+    # )
+    #X, y = split_by_target(
+    #    data=data,
+    #    target=target,
+    #    mode=1
+    #)
+    # print("X: ", X)
+    # print("y: ", y)
+    # learner.model.fit(X, y)
+
     return None
 
 
@@ -488,40 +506,35 @@ def forecast(functionality: str) -> None:
             trp_past_data=forecaster.get_training_records(training_mode=0, cache_latest_dt_collection=True)
             future_records=forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target))
 
-            data = getattr(pipeline, f"preprocess_{target}")(data=dd.concat([trp_past_data, future_records], axis=0).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
+            data, scaler = getattr(pipeline, f"preprocess_{target}")(data=dd.concat([trp_past_data, future_records], axis=0).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
+            prediction_training_set = data[data["is_future"] != True].persist()
             data = data[data["is_future"] != False].persist()
             data = data.drop(columns=["is_future"]).persist()
 
-
-
-            # TODO IMPLEMENT THIS *AFTER* THE FORECAST WARMUP PHASE AS A POST-WARMUP TO IMPROVE THE MODEL LEVERAGING ON ALL THE DATA WE ACTUALLY HAVE
-
-            #data = getattr(..., f"get_{target}")(
-            #    lags=[24, 36, 48, 60, 72],
-            #    trp_ids_filter=[trp_id],
-            #    road_category_filter=[trp_road_category],
-            #    z_score=True
-            #)
             X, y = split_by_target(
-                data=data,
+                data=prediction_training_set,
                 target=target,
                 mode=1
             )
-            #print("X: ", X)
-            #print("y: ", y)
-            # learner.model.fit(X, y)
-
+            learner.model.fit(X, y)
             predictions = learner.model.predict(X)
+            data[target] = dd.from_array(predictions)
 
             print(f"**************** {name}'s Predictions ****************")
-            print(predictions)
+
+            scaler.inverse_transform(X=data[GlobalDefinitions.VOLUME_SCALED_FEATURES])
+
+            print("Inversed: ", data.compute())
+
+            print("Adapted: ", forecaster.fit_predictions(predictions))
+            #NOTE ValueError: The function value at x=inf is NaN; solver cannot continue. -> VALUES ARE ALL THE SAME
+
 
 
     if functionality == "3.3.1":
 
         with dask_cluster_client(processes=False) as client:
             one_point_forecast()
-
 
     return None
 
