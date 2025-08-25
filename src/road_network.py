@@ -99,22 +99,33 @@ class RoadNetwork:
 
             # Vegsystemreferanser (Road System Reference)
             # -- vegsystem --
-            "reference_road_category": (i["vegsystem"]["vegkategori"] for i in road["lokasjon"]["vegsystemreferanser"]),
-            "reference_fase": (i["vegsystem"]["fase"] for i in road["lokasjon"]["vegsystemreferanser"]),
-            "reference_number": (i["vegsystem"]["nummer"] for i in road["lokasjon"]["vegsystemreferanser"]),
+            "road_system": (
+                {
+                "reference_road_category": ref["vegsystem"]["vegkategori"],
+                "reference_fase": ref["vegsystem"]["fase"],
+                "reference_number": ref["vegsystem"]["nummer"],
+                }
+                for ref in road["lokasjon"]["vegsystemreferanser"]
+            ),
 
             # -- strekning --
             # Strekning(s) are portions of the road object which are needed to calculate the road segments of the object itself
             # Essentially they represent the location of the portion itself with a specific referencing system of the NVDB
-            "main_stretch_id": (i["strekning"]["strekning"] for i in road["lokasjon"]["vegsystemreferanser"]),
-            "stretch_subsection_id": (i["strekning"]["delstrekning"] for i in road["lokasjon"]["vegsystemreferanser"]),
-            "is_intersection_or_junction_arm": (i["strekning"]["arm"] for i in road["lokasjon"]["vegsystemreferanser"]),
-            "has_lanes_divider": (i["strekning"]["adskilte_løp"] for i in road["lokasjon"]["vegsystemreferanser"]), #Indicates whether the lanes in opposite direction are physically separated or not
-            "reference_traffic_group": (i["strekning"]["trafikantgruppe"] for i in road["lokasjon"]["vegsystemreferanser"]),
-            "reference_direction": (i["strekning"]["retning"] for i in road["lokasjon"]["vegsystemreferanser"]), #Traffic direction from the reference direction perspective (meaning there's a reference direction when defining if a road is with or against the direction itself)
-            "reference_start_meter": (i["strekning"]["fra_meter"] for i in road["lokasjon"]["vegsystemreferanser"]), #Meter of the road start
-            "reference_end_meter": (i["strekning"]["til_meter"] for i in road["lokasjon"]["vegsystemreferanser"]), #Meter of the road ending
-            "reference_short_form": (i["kortform"] for i in road["lokasjon"]["vegsystemreferanser"]), #Road reference short form
+            "stretches": (
+                {
+                    "main_stretch_id": ref["strekning"]["strekning"], # Strekning(s) are portions of the road object
+                    "stretch_subsection_id": ref["strekning"]["delstrekning"], # Subsection of the stretch
+                    "is_intersection_or_junction_arm": ref["strekning"]["arm"], # Indicates if it's an intersection or junction arm
+                    "has_lanes_divider": ref["strekning"]["adskilte_løp"], # Indicates whether the lanes in opposite direction are physically separated or not
+                    "reference_traffic_group": ref["strekning"]["trafikantgruppe"], # Reference traffic group
+                    "reference_direction": ref["strekning"]["retning"], # Traffic direction from the reference direction perspective
+                    "reference_start_meter": ref["strekning"]["fra_meter"], # Meter of the road start
+                    "reference_end_meter": ref["strekning"]["til_meter"], # Meter of the road ending
+                    "reference_short_form": ref["kortform"], # Road reference short form
+                }
+                for ref in road["lokasjon"]["vegsystemreferanser"]
+            ),
+            "overall_direction": road["metrertLokasjon"]["retning"],
 
             # Stedfestinger (NVDB Geographical Reference to a Specific Road)
             "georeference_type": road["lokasjon"]["stedfestinger"]["type"],
