@@ -19,7 +19,8 @@ from dask.distributed import Client
 
 from dask_ml.model_selection import GridSearchCV
 
-from sklearn.base import BaseEstimator as ScikitLearnBaseEstimator
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor, HistGradientBoostingRegressor
 from sklearn.model_selection import TimeSeriesSplit
 
 from sklearn.metrics import (
@@ -195,7 +196,7 @@ class ModelWrapper(BaseModel):
         Currently supports ScikitLearnBaseEstimator. PyTorchForecastingBaseModel
         and SktimeBaseEstimator support is still to be implemented.
         """
-        if isinstance(self.model_obj, ScikitLearnBaseEstimator):
+        if isinstance(self.model_obj, (RandomForestRegressor, DecisionTreeRegressor, HistGradientBoostingRegressor)):
             with joblib.parallel_backend("dask"):
                 return self.model_obj.predict(X.compute()) # type: ignore[attr-defined] # <- WARNING: this comment is used to avoid seeing a useless warning since the model will indeed have a predict method, but the scikit-learn BaseEstimator class doesn't
         elif isinstance(self.model_obj, PyTorchForecastingBaseModel):
@@ -418,7 +419,7 @@ class TFSLearner:
                 SET 
                 "joblib_object" = EXCLUDED."joblib_object",
                 "pickle_object" = EXCLUDED."pickle_object";
-            """, execute_args=[self._model.model_id, self._target, self._road_category, joblib_bytes.getvalue(), pickle.dumps(self._model)])
+            """, execute_args=[self._model.model_id, self._target, self._road_category, joblib_bytes.getvalue(), pickle.dumps(self._model.model_obj)])
         return None
 
 
@@ -493,7 +494,7 @@ class OnePointForecaster:
         last_available_data_dt = self._db_broker.get_volume_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"] if self._target == GlobalDefinitions.VOLUME else self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"]
         rows_to_predict = ({
                 **attr,
-                "coverage": np.nan,
+                "coverage": 100.0, #We'll assume it's 100 since we won't know the coverage until the measurements are actually made
                 "zoned_dt_iso": dt,
                 "trp_id": self._trp_id,
                 "is_covid_year": False
