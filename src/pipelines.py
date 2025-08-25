@@ -457,15 +457,18 @@ class MLPreprocessingPipeline:
         return data.persist()
 
     @staticmethod
-    def _encode_features(data: dd.DataFrame, feats: list[str], encoder: LabelEncoder | type[callable] = LabelEncoder) -> dd.DataFrame:
-        encoder_params = {}
+    def _encode_features(data: dd.DataFrame, feats: list[str]) -> dd.DataFrame:
+        print(data.head())
+        data = data.repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE)
+        print(len(data.partitions))
         # Using a label encoder to encode TRP IDs to include the effect of the non-independence of observations from each other inside the forecasting models
-        if isinstance(encoder, LabelEncoder):
-            encoder_params = {"use_categorical": True}
-            for feat in feats:
-                data[feat] = data[feat].astype("category")
-        return data.assign(**{feat: encoder(**encoder_params).fit_transform(data[feat]) for feat in feats}).persist().repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE) # The assign methods returns the dataframe obtained as input with the new column (in this case called "trp_id_encoded") added
-
+        for feat in feats:
+            data[feat] = data[feat].astype("category")
+        # Encode each feature
+        for feat in feats:
+            le = LabelEncoder(use_categorical=True)
+            data[feat] = le.fit_transform(data[feat])
+        return data.persist()
 
     def preprocess_volume(self,
                           data: dd.DataFrame,
@@ -474,7 +477,7 @@ class MLPreprocessingPipeline:
         if z_score:
             data = ZScore(data, column=GlobalDefinitions.VOLUME)
         data = self._add_lag_features(data=data, target=GlobalDefinitions.VOLUME, lags=lags)
-        data = self._encode_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES, encoder=LabelEncoder)
+        data = self._encode_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES)
         data = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_SCALED_FEATURES, scaler=MinMaxScaler)
         return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
@@ -486,7 +489,7 @@ class MLPreprocessingPipeline:
         if z_score:
             data = ZScore(data, column=GlobalDefinitions.MEAN_SPEED)
         data = self._add_lag_features(data=data, target=GlobalDefinitions.MEAN_SPEED, lags=lags)
-        data = self._encode_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES, encoder=LabelEncoder)
+        data = self._encode_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES)
         data = self._scale_features(data=data, feats=GlobalDefinitions.MEAN_SPEED_SCALED_FEATURES, scaler=MinMaxScaler)
         return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
