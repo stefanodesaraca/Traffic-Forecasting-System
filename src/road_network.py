@@ -55,6 +55,78 @@ class RoadNetwork:
         return self._network
 
 
+    def _parse_road_network_json(self, fp: str) -> dict[str, Any]:
+
+        with open(fp, "r", encoding="utf-8") as f:
+            road_system = json.load(f)
+
+        data = ({
+            "id": road["id"],
+            "href": road["href"],
+
+            # Egenskaper (assuming we want them individually by name)
+            "vegnummer": road["egenskaper"][0]["verdi"],
+            "phase": road["egenskaper"][1]["verdi"],
+            # The status of the road itself, example: built, under construction, historical, etc.
+            "phase_id": road["egenskaper"][1].get("enum_id"),  # The id of the phase
+            "road_category": road["egenskaper"][2]["verdi"],  # Road category #TODO TO CONVERT TO ID
+            "road_category_enum_id": road["egenskaper"][2].get("enum_id"),  # Road category enum in the NVDB system
+
+            # Geometri (Geometry)
+            "geometry_wkt": road["geometri"]["wkt"],  # Well-known-text geometry of the whole road
+            "geometry_srid": road["geometri"]["srid"],
+            # Spatial Reference System Identifier, identifies the EPSG code which represents the UTM projection used
+            "own_geometry": road["geometri"].get("egengeometri", None),
+            # Indicates whether the geometry of road inherits from another object in the NVDB
+
+            # Lokasjon (Location)
+            "municipality_ids": road["lokasjon"]["kommuner"],  # Municipalities which the road belongs to
+            "counties": road["lokasjon"]["fylker"],  # Counties which the road belongs to
+
+            # Kontraktsområder (Road Maintainers) (list of dicts)
+            "maintainer_ids": (i["id"] for i in road["lokasjon"].get("kontraktsområder", [])),
+            "maintainer_numbers": (i["nummer"] for i in road["lokasjon"].get("kontraktsområder", [])),
+            "maintainer_names": (i["navn"] for i in road["lokasjon"].get("kontraktsområder", [])),
+
+            # Vegforvaltere (Road Managers)
+            "manager_enum_ids": (i["enumid"] for i in road["lokasjon"].get("vegforvaltere", [])),
+            "manager_names": (i["vegforvalter"] for i in road["lokasjon"].get("vegforvaltere", [])),
+
+            # Adresser (Addresses)
+            "address_names": (i["navn"] for i in road["lokasjon"].get("adresser", [])),
+            "address_codes": (i["adressekode"] for i in road["lokasjon"].get("adresser", [])),
+
+            # Vegsystemreferanser (Logical Section of Road) - Made of small subsections that compose the whole section
+            "reference_road_category": (i["vegsystem"]["vegkategori"] for i in road["lokasjon"]["vegsystemreferanser"]),
+            "reference_fase": (i["vegsystem"]["fase"] for i in road["lokasjon"]["vegsystemreferanser"]),
+            "reference_number": (i["vegsystem"]["nummer"] for i in road["lokasjon"]["vegsystemreferanser"]),
+            "reference_main_section": (i["strekning"]["strekning"] for i in road["lokasjon"]["vegsystemreferanser"]),
+            "reference_subsection": (i["strekning"]["delstrekning"] for i in road["lokasjon"]["vegsystemreferanser"]),
+            "is_intersection_or_junction_arm": (i["strekning"]["arm"] for i in road["lokasjon"]["vegsystemreferanser"]),
+            "lanes_direction_separated": (i["strekning"]["adskilte_løp"] for i in road["lokasjon"]["vegsystemreferanser"]), #Indicates whether the lanes in opposite direction are physically separated or not
+            "reference_traffic_group": (i["strekning"]["trafikantgruppe"] for i in road["lokasjon"]["vegsystemreferanser"]),
+            "reference_direction": (i["strekning"]["retning"] for i in road["lokasjon"]["vegsystemreferanser"]), #Traffic direction from the reference direction perspective (meaning there's a reference direction when defining if a road is with or against the direction itself)
+            "reference_start_meter": (i["strekning"]["fra_meter"] for i in road["lokasjon"]["vegsystemreferanser"]), #Meter of the road start
+            "reference_end_meter": (i["strekning"]["til_meter"] for i in road["lokasjon"]["vegsystemreferanser"]), #Meter of the road ending
+            "reference_short_form": (i["kortform"] for i in road["lokasjon"]["vegsystemreferanser"]), #Road reference short form
+
+            # Stedfestinger (NVDB Geographical Reference to a Specific Road)
+            "georeference_type": road["lokasjon"]["stedfestinger"]["type"],
+            "road_link_sequence_id": road["lokasjon"]["stedfestinger"]["veglenkesekvensid"],
+            "georeference_start_position": road["lokasjon"]["stedfestinger"]["startposisjon"],
+            "georeference_end_position": road["lokasjon"]["stedfestinger"]["sluttposisjon"],
+            "road_link_sequence_direction": road["lokasjon"]["stedfestinger"]["retning"],
+            "lanes_object_location": road["lokasjon"]["stedfestinger"].get("kjørefelt", []), #On which lanes the object is located
+            "georeference_short_form": road["lokasjon"]["stedfestinger"]["kortform"],
+
+            # Lengde (Length)
+            "length": road["lokasjon"]["lengde"]
+        } for road in road_system)
+
+
+        return ...
+
+
     def get_data(self) -> dict[Any, Any]:
         return self.__dict__
 
