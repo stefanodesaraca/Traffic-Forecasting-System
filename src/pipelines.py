@@ -446,7 +446,7 @@ class RoadGraphObjectsIngestionPipeline:
 class MLPreprocessingPipeline:
 
     def __init__(self):
-        self._scaler : MinMaxScaler
+        self._scaler: MinMaxScaler
 
     @property
     def scaler(self) -> MinMaxScaler | None:
@@ -617,12 +617,13 @@ class MLPredictionPipeline:
         return getattr(self._pipeline, f"preprocess_{self._target}")(data=dd.concat([past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
 
 
-    def compute(self, trp_tuning: bool = False) -> dd.DataFrame:
+    def start(self, trp_tuning: bool = False) -> dd.DataFrame:
         # trp_tuning defines if we want to train the already trained model on data exclusively from the TRP which we want to forecast data for to improve prediction accuracy
         scaling_mapping = {
             GlobalDefinitions.VOLUME: GlobalDefinitions.VOLUME_SCALED_FEATURES,
             GlobalDefinitions.MEAN_SPEED: GlobalDefinitions.MEAN_SPEED_SCALED_FEATURES
         }
+        scaled_cols = scaling_mapping[self._target]
         data = self._get_future_records()
         if trp_tuning:
             X_tune, y_tune = split_by_target(
@@ -638,7 +639,9 @@ class MLPredictionPipeline:
             target=self._target,
             mode=1
         )
-        data[self._target] = self._pipeline.scaler.inverse_transform(dd.from_array(self._model.predict(X_predict)))
+        data[self._target] = dd.from_array(self._model.predict(X_predict))
+        data[scaled_cols] = self._pipeline.scaler.inverse_transform(data[scaled_cols])
+        print(data.compute())
         return data
 
 
