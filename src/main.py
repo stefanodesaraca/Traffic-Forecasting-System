@@ -470,7 +470,7 @@ def forecast(functionality: str) -> None:
 
                 data = pipeline.compute()
 
-                print(data)
+                print(data.compute())
 
 
 
