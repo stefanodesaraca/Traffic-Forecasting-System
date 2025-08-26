@@ -507,18 +507,29 @@ def forecast(functionality: str) -> None:
             future_records=forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target))
 
             data, scaler = getattr(pipeline, f"preprocess_{target}")(data=dd.concat([trp_past_data, future_records], axis=0).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
-            prediction_training_set = data[data["is_future"] != True].persist()
+            prediction_training_set = data[data["is_future"] != True].drop(columns=["is_future"]).persist()
             data = data[data["is_future"] != False].persist()
             data = data.drop(columns=["is_future"]).persist()
 
-            X, y = split_by_target(
+            print(data.compute())
+
+            X_train, y_train = split_by_target(
                 data=prediction_training_set,
                 target=target,
                 mode=1
             )
-            learner.model.fit(X, y)
-            predictions = learner.model.predict(X)
-            data[target] = dd.from_array(predictions)
+
+            X_predict, _ = split_by_target(
+                data=data,
+                target=target,
+                mode=1
+            )
+
+
+
+            learner.model.fit(X_train, y_train)
+            y_pred = learner.model.predict(X_predict)
+            data[target] = dd.from_array(y_pred)
 
             print(f"**************** {name}'s Predictions ****************")
 
@@ -526,7 +537,7 @@ def forecast(functionality: str) -> None:
 
             print("Inversed: ", data.compute())
 
-            print("Adapted: ", forecaster.fit_predictions(predictions))
+            print("Adapted: ", forecaster.fit_predictions(y_pred))
             #NOTE ValueError: The function value at x=inf is NaN; solver cannot continue. -> VALUES ARE ALL THE SAME
 
 
