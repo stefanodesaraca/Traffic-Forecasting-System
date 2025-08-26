@@ -8,6 +8,8 @@ import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 
+from dask_ml.preprocessing import MinMaxScaler
+
 from exceptions import TRPNotFoundError
 from definitions import GlobalDefinitions, DBConfig, ProjectTables
 from downloader import start_client_async, volumes_to_db, fetch_trps, fetch_trps_from_ids
@@ -504,20 +506,33 @@ def forecast(functionality: str) -> None:
 
 
             trp_past_data=forecaster.get_training_records(training_mode=0, cache_latest_dt_collection=True)
+
+            print("\nPASTDATA: ", trp_past_data.compute())
+
             future_records=forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target))
 
-            data, scaler = getattr(pipeline, f"preprocess_{target}")(data=dd.concat([trp_past_data, future_records], axis=0).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
-            prediction_training_set = data[data["is_future"] != True].drop(columns=["is_future"]).persist()
-            data = data[data["is_future"] != False].persist()
-            data = data.drop(columns=["is_future"]).persist()
+            print("\nFUTURE: ", future_records.compute())
 
-            print(data.compute())
+            data = getattr(pipeline, f"preprocess_{target}")(data=dd.concat([trp_past_data, future_records], axis=0).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
+
+            print("\nMERGED: ", dd.concat([trp_past_data, future_records], axis=0).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE))
+            print("\nPREPROCESSED: ", data.compute())
+
+            prediction_training_set = data[data["is_future"] != True].drop(columns=["is_future"]).persist()
+            print("\nPREPREDICTIONSET: ", prediction_training_set.compute())
+
+            data = data[data["is_future"] != False].drop(columns=["is_future"]).persist()
+
+            print("\nFEDTOTHEMODEL: ", data.compute())
 
             X_train, y_train = split_by_target(
                 data=prediction_training_set,
                 target=target,
                 mode=1
             )
+
+            scaler = pipeline.scaler
+            scaler.fit(prediction_training_set[GlobalDefinitions.VOLUME_SCALED_FEATURES])
 
             X_predict, _ = split_by_target(
                 data=data,

@@ -443,7 +443,11 @@ class RoadGraphObjectsIngestionPipeline:
 class MLPreprocessingPipeline:
 
     def __init__(self):
-        pass
+        self._scaler : MinMaxScaler
+
+    @property
+    def scaler(self) -> MinMaxScaler | None:
+        return self._scaler or None
 
     @staticmethod
     def _add_lag_features(data: dd.DataFrame, target: str, lags: list[PositiveInt]) -> dd.DataFrame:
@@ -451,9 +455,10 @@ class MLPreprocessingPipeline:
             data[f"{target}_lag{lag}h"] = data[target].shift(lag)  # n hours shift
         return data.persist()
 
-    @staticmethod
-    def _scale_features(data: dd.DataFrame, feats: list[str], scaler: MinMaxScaler | type[callable] = MinMaxScaler) -> dd.DataFrame:
-        data[feats] = scaler().fit_transform(data[feats])
+
+    def _scale_features(self, data: dd.DataFrame, feats: list[str], scaler: MinMaxScaler | type[callable] = MinMaxScaler) -> dd.DataFrame:
+        self._scaler = scaler()
+        data[feats] = self.scaler.fit_transform(data[feats])
         return data.persist()
 
     @staticmethod
