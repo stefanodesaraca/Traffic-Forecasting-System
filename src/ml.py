@@ -422,7 +422,7 @@ class TFS:
                 SET 
                 "joblib_object" = EXCLUDED."joblib_object",
                 "pickle_object" = EXCLUDED."pickle_object";
-            """, execute_args=[self._model.model_id, self._target, self._road_category, joblib_bytes.getvalue(), pickle.dumps(self._model.model_obj)])
+            """, execute_args=[self._model.model_id, self._target, self._road_category, joblib_bytes.getvalue(), pickle.dumps(self._model)]) #Before it was: pickle.dumps(self._model.model_obj)
         return None
 
 

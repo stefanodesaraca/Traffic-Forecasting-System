@@ -5,16 +5,12 @@ import pickle
 import asyncio
 import dask
 import dask.dataframe as dd
-import numpy as np
-import pandas as pd
-
-from dask_ml.preprocessing import MinMaxScaler
 
 from exceptions import TRPNotFoundError
 from definitions import GlobalDefinitions, DBConfig, ProjectTables
 from downloader import start_client_async, volumes_to_db, fetch_trps, fetch_trps_from_ids
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
-from pipelines import MeanSpeedIngestionPipeline, RoadGraphObjectsIngestionPipeline, MLPreprocessingPipeline
+from pipelines import MeanSpeedIngestionPipeline, RoadGraphObjectsIngestionPipeline, MLPreprocessingPipeline, MLPredictionPipeline
 from loaders import BatchStreamLoader
 from ml import TFS
 from road_network import *
@@ -279,8 +275,6 @@ def forecast_warmup(functionality: str) -> None:
             for m in db_broker.send_sql(functionality_mapping[functionality]["model_query"])
         }
 
-        print(models)
-
         for road_category, trp_ids in db_broker.get_trp_ids_by_road_category(has_volumes=True if target == GlobalDefinitions.VOLUME else None,
                                                                              has_mean_speed=True if target == GlobalDefinitions.MEAN_SPEED else None).items():
 
@@ -398,23 +392,6 @@ def forecast_warmup(functionality: str) -> None:
         print("Alive Dask cluster workers: ", dask.distributed.worker.Worker._instances)
         time.sleep(1)  # To cool down the system
 
-    # TODO IMPLEMENT THIS *AFTER* THE FORECAST WARMUP PHASE AS A POST-WARMUP TO IMPROVE THE MODEL LEVERAGING ON ALL THE DATA WE ACTUALLY HAVE
-
-    # data = getattr(..., f"get_{target}")(
-    #    lags=[24, 36, 48, 60, 72],
-    #    trp_ids_filter=[trp_id],
-    #    road_category_filter=[trp_road_category],
-    #    z_score=True
-    # )
-    #X, y = split_by_target(
-    #    data=data,
-    #    target=target,
-    #    mode=1
-    #)
-    # print("X: ", X)
-    # print("y: ", y)
-    # learner.model.fit(X, y)
-
     return None
 
 
@@ -455,7 +432,6 @@ def manage_ml(functionality: str) -> None:
 
 def forecast(functionality: str) -> None:
     db_broker = get_db_broker()
-    pipeline = MLPreprocessingPipeline()
 
     print("Enter target data to forecast: ")
     print("V: Volumes | MS: Mean Speed")
@@ -480,27 +456,21 @@ def forecast(functionality: str) -> None:
 
             for name, model in {m["name"]: pickle.loads(m["pickle_object"]) for m in db_broker.get_trained_model_objects(target=target, road_category=trp_road_category)}.items():  # Load model name and data (pickle object, the best parameters and so on)
 
-                learner = TFS(
-                    model=model,
+                pipeline = MLPredictionPipeline(
+                    trp_id=trp_id,
                     road_category=trp_road_category,
                     target=target,
-                    client=client,
-                    db_broker=db_broker
+                    db_broker=db_broker,
+                    loader=BatchStreamLoader(db_broker),
+                    preprocessing_pipeline=MLPreprocessingPipeline(),
+                    model=model,
                 )
 
+                print(f"**************** {name}'s Predictions ****************")
 
+                data = pipeline.compute()
 
-                scaler = pipeline.scaler
-                #scaler.fit(trp_past_data[GlobalDefinitions.VOLUME_SCALED_FEATURES])
-
-                ## = learner.model.predict(X_predict)
-
-                #print(f"**************** {name}'s Predictions ****************")
-
-                #data[GlobalDefinitions.VOLUME_SCALED_FEATURES] = scaler.inverse_transform(X=data[GlobalDefinitions.VOLUME_SCALED_FEATURES])
-
-                #print("Inversed: ", data.compute())
-
+                print(data)
 
 
 
