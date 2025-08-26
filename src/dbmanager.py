@@ -1,0 +1,881 @@
+import io
+import json
+import pickle
+from datetime import datetime, timezone, timedelta
+from contextlib import contextmanager, asynccontextmanager
+from typing import Any, Literal
+import hashlib
+import joblib
+import asyncio
+import aiofiles
+import asyncpg
+from asyncpg.exceptions import DuplicateDatabaseError
+import psycopg
+from psycopg.rows import tuple_row
+from cleantext import clean
+from pydantic import with_config
+from pydantic.types import PositiveInt
+
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import (
+    RandomForestRegressor,
+    HistGradientBoostingRegressor,
+)
+
+from exceptions import ProjectDBNotFoundError
+from definitions import GlobalDefinitions, HubDBTables, HUBDBConstraints, ProjectTables, ProjectConstraints, ProjectViews, RowFactories, AIODBManagerInternalConfig as AIODBMInternalConfig
+from downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
+
+
+@asynccontextmanager
+async def postgres_conn_async(user: str, password: str, dbname: str, host: str = 'localhost') -> asyncpg.connection:
+    conn = None
+    try:
+        conn = await asyncpg.connect(
+            user=user,
+            password=password,
+            database=dbname,
+            host=host
+        )
+        yield conn
+    finally:
+        await conn.close()
+
+
+@contextmanager
+def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost', autocommit: bool = True, row_factory: Literal["tuple_row", "dict_row"] = "dict_row") -> psycopg.connection:
+    conn = None
+    try:
+        conn = psycopg.connect(
+            dbname=dbname,
+            user=user,
+            password=password,
+            host=host,
+            row_factory=RowFactories.factories.get(row_factory, tuple_row)
+        )
+        conn.autocommit = autocommit
+        yield conn
+    finally:
+        conn.close()
+
+
+class AIODBManager:
+
+    def __init__(self, superuser: str, superuser_password: str, tfs_user: str, tfs_password: str, tfs_role: str,
+                 tfs_role_password: str, hub_db: str = "tfs_hub", maintenance_db: str = "postgres", db_host: str = "localhost"):
+        self._superuser: str = superuser
+        self._superuser_password: str = superuser_password
+        self._tfs_user: str = tfs_user
+        self._tfs_password: str = tfs_password
+        self._hub_db: str = hub_db
+        self._maintenance_db: str = maintenance_db
+        self._tfs_role: str = tfs_role
+        self._tfs_role_password: str = tfs_role_password
+        self._db_host: str = db_host
+
+
+    async def _check_table_existance(self, table: str) -> bool:
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
+                                       dbname=self._maintenance_db, host=self._db_host) as conn:
+            return (await conn.fetchval(f"""
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.tables 
+                WHERE table_schema = '{AIODBMInternalConfig.HUB_DB_TABLES_SCHEMA.value}'  -- or another schema name
+                  AND table_name = '{table}'
+            );
+            """))
+
+
+    async def _check_db(self, dbname: str) -> bool:  # First check layer
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
+                                       dbname=self._maintenance_db, host=self._db_host) as conn:
+            if not await conn.fetchval(
+                    "SELECT 1 FROM pg_database WHERE datname = $1",
+                    dbname) == 1:
+                return False  #First check layer
+            return True
+
+
+    async def _check_hub_db_integrity(self) -> bool:
+        #Steps:
+        #1. Check the "Projects" table existance
+        if any(check is False for check in [await self._check_table_existance(HubDBTables.Projects.value)]):
+            return False
+        return True
+
+
+    @staticmethod
+    async def insert_areas(conn: asyncpg.connection, data: dict[str, Any]) -> None:
+
+        for part in data["areas"]["countryParts"]:
+            # Insert country part
+            await conn.execute(
+                f"""INSERT INTO "{ProjectTables.CountryParts.value}" ("id", "name") 
+                    VALUES ($1, $2) ON CONFLICT ("id") DO NOTHING""",
+                part["id"], part["name"]
+            )
+
+            for county in part["counties"]:
+                # Insert county
+                await conn.execute(
+                    f"""INSERT INTO "{ProjectTables.Counties.value}" ("number", "name", "country_part_id") 
+                        VALUES ($1, $2, $3) ON CONFLICT ("number") DO NOTHING""",
+                    county["number"], county["name"], part["id"]
+                )
+
+                # Insert municipalities for this county
+                for muni in county.get("municipalities", []):
+                    await conn.execute(
+                        f"""INSERT INTO "{ProjectTables.Municipalities.value}" ("number", "name", "county_number", "country_part_id")
+                            VALUES ($1, $2, $3, $4)
+                            ON CONFLICT ("number") DO NOTHING""",
+                        muni["number"], muni["name"], county["number"], part["id"]
+                    )
+
+        return None
+
+    @staticmethod
+    async def insert_road_categories(conn: asyncpg.connection, data: dict[str, Any]) -> None:
+        for cat in data["roadCategories"]:
+            await conn.execute(
+                f"""
+                INSERT INTO "{ProjectTables.RoadCategories.value}" ("id", "name")
+                VALUES ($1, $2)
+                ON CONFLICT ("id") DO NOTHING
+                """,
+                cat["id"], cat["name"]
+            )
+        return None
+
+    @staticmethod
+    async def insert_trps(conn: asyncpg.connection, data: dict[str, Any]) -> None:
+        for trp in data["trafficRegistrationPoints"]:
+            await conn.execute(
+                f"""
+                INSERT INTO "{ProjectTables.TrafficRegistrationPoints.value}" (
+                    "id", "name", "lat", "lon",
+                    "road_reference_short_form", "road_category",
+                    "road_link_sequence", "relative_position",
+                    "county", "country_part_id", "country_part_name",
+                    "county_number", "geographic_number",
+                    "traffic_registration_type",
+                    "first_data", "first_data_with_quality_metrics"
+                )
+                VALUES (
+                    $1, $2, $3, $4,
+                    $5, $6,
+                    $7, $8,
+                    $9, $10, $11,
+                    $12, $13,
+                    $14,
+                    $15, $16
+                )
+                ON CONFLICT ("id") DO NOTHING
+                """,
+                trp["id"],
+                trp["name"],
+                trp["location"]["coordinates"]["latLon"]["lat"],
+                trp["location"]["coordinates"]["latLon"]["lon"],
+                trp["location"].get("roadReference", {}).get("shortForm"),
+                trp["location"].get("roadReference", {}).get("roadCategory", {}).get("id"),
+                trp["location"].get("roadLinkSequence", {}).get("roadLinkSequenceId"),
+                trp["location"].get("roadLinkSequence", {}).get("relativePosition"),
+                trp["location"].get("county", {}).get("name"),
+                (
+                    trp["location"].get("county", {})
+                    .get("countryPart", {})
+                    .get("id")
+                ),
+                trp["location"].get("county", {}).get("countryPart", {}).get("name"),
+                trp["location"].get("county", {}).get("number"),
+                trp["location"].get("county", {}).get("geographicNumber"),
+                trp.get("trafficRegistrationType"),
+                datetime.strptime(trp.get("dataTimeSpan", {}).get("firstData"), GlobalDefinitions.DT_ISO_TZ_FORMAT),
+                datetime.strptime(trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics"), GlobalDefinitions.DT_ISO_TZ_FORMAT)
+            )
+        return None
+
+    @staticmethod
+    async def insert_models(conn: asyncpg.connection) -> None:
+
+        for model in (RandomForestRegressor, DecisionTreeRegressor, HistGradientBoostingRegressor):
+            estimator_name = model.__name__
+            async with aiofiles.open(GlobalDefinitions.MODEL_GRIDS_FILE, "r", encoding="utf-8") as gs:
+                data = json.loads(await gs.read())[estimator_name] ##estimator_name
+
+            await conn.execute(f"""
+                INSERT INTO "{ProjectTables.MLModels.value}" (
+                    "id", "name", "type", "base_params",
+                    "volume_grid", "mean_speed_grid"
+                )
+                VALUES ($1, $2, $3, $4::json,
+                        $5::json, $6::json)
+                ON CONFLICT ("id") DO NOTHING;
+            """,
+                await asyncio.to_thread(lambda: hashlib.sha256(estimator_name.encode("utf-8")).hexdigest()), #estimator_id (generating a unique id of the model to be inserted as primary key)
+                estimator_name,
+                model._estimator_type, #estimator_type
+                json.dumps(data["base_parameters"]),
+                json.dumps(data[f"{GlobalDefinitions.VOLUME}_grid"]), #volume_grid
+                json.dumps(data[f"{GlobalDefinitions.MEAN_SPEED}_grid"]) #mean_speed_grid
+            )
+
+            joblib_bytes = io.BytesIO()  # Serializing model into a joblib object directly in memory through the BytesIO class
+            joblib.dump(model, joblib_bytes)
+            joblib_bytes.seek(0)
+
+            await conn.execute(f"""
+                INSERT INTO "{ProjectTables.BaseModels.value}" (
+                    "id", "joblib_object", "pickle_object"
+                )
+                VALUES ($1, $2, $3)
+                ON CONFLICT ("id") DO NOTHING;
+            """,
+                await asyncio.to_thread(lambda: hashlib.sha256(estimator_name.encode("utf-8")).hexdigest()),
+                pickle.dumps(obj=model, protocol=pickle.HIGHEST_PROTOCOL),
+                joblib_bytes.getvalue()
+            )
+
+        return None
+
+
+    async def _setup_project(self, conn: asyncpg.connection) -> None:
+        # -- Fetch or import necessary data to work with during program usage --
+
+        fetch_funcs = (fetch_areas, fetch_road_categories, fetch_trps)
+        insert_funcs = (self.insert_areas, self.insert_road_categories, self.insert_trps)
+        try_desc = ("Trying to download areas data...",
+                    "Trying to download road categories data...",
+                    "Trying to download TRPs' data...")
+        success_desc = ("Areas inserted correctly into project db",
+                        "Road categories inserted correctly into project db",
+                        "TRPs' data inserted correctly into project db")
+        fail_desc = ("Areas download failed, load them from a JSON file",
+                     "Road categories download failed, load them from a JSON file",
+                     "TRPs' data download failed, load them from a JSON file")
+        json_enter_desc = ("Enter json areas file path: ",
+                           "Enter json road categories file path: ",
+                           "Enter json TRPs' data file path: ")
+
+        print("Setting up necessary data...")
+        for fetch, insert, td, sd, fd, jed in zip(fetch_funcs, insert_funcs, try_desc, success_desc, fail_desc,
+                                                  json_enter_desc, strict=True):
+            print(td)
+            data = await fetch(await start_client_async())
+            if data:
+                await insert(conn=conn, data=data)
+                print(sd)
+            else:
+                print(fd)
+                json_file = input(jed)
+                async with aiofiles.open(json_file, "r", encoding="utf-8") as a:
+                    await insert(conn=conn, data=json.load(a))
+
+        return None
+
+
+    async def create_project(self, name: str, lang: str, auto_project_setup: bool = True) -> None:
+
+        # -- New Project DB Setup --
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._hub_db, host=self._db_host) as conn:
+            # Accessing as superuser since some tools may require this configuration to create a new database
+            try:
+                await conn.execute(f'CREATE DATABASE "{name}";')
+            except asyncpg.DuplicateDatabaseError:
+                pass  # Database already exists
+
+        # -- Grant permissions on the NEW project database --
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=name, host=self._db_host) as conn:
+            # Grant permissions on the public schema of the NEW database
+            await conn.execute(f"""
+               GRANT CREATE ON SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+               GRANT SELECT ON ALL SEQUENCES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+               ALTER DEFAULT PRIVILEGES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} GRANT SELECT ON SEQUENCES TO {self._tfs_role};
+               GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+               ALTER DEFAULT PRIVILEGES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {self._tfs_role};
+           """)
+
+        # -- Creating extensions (must be superuser) --
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=name, host=self._db_host) as conn:
+            await conn.execute("""CREATE EXTENSION IF NOT EXISTS postgis;""")
+
+        # -- Project Tables Setup --
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=name, host=self._db_host) as conn:
+            async with conn.transaction():
+                # Tables
+                await conn.execute(f"""
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadCategories.value}" (
+                            id TEXT PRIMARY KEY,
+                            name TEXT NOT NULL
+                        );
+
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.CountryParts.value}" (
+                            id INTEGER PRIMARY KEY,
+                            name TEXT NOT NULL
+                        );
+
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.Counties.value}" (
+                            number INTEGER PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            country_part_id INTEGER NOT NULL,
+                            FOREIGN KEY (country_part_id) REFERENCES "{ProjectTables.CountryParts.value}"(id)
+                        );
+
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.Municipalities.value}" (
+                            number INTEGER PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            county_number INTEGER NOT NULL,
+                            country_part_id INTEGER NOT NULL,
+                            FOREIGN KEY (county_number) REFERENCES "{ProjectTables.Counties.value}"(number),
+                            FOREIGN KEY (country_part_id) REFERENCES "{ProjectTables.CountryParts.value}"(id)
+                        );
+
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.TrafficRegistrationPoints.value}" (
+                            id TEXT PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            lat FLOAT NOT NULL,
+                            lon FLOAT NOT NULL,
+                            road_reference_short_form TEXT NOT NULL,
+                            road_category TEXT NOT NULL,
+                            road_link_sequence INTEGER NOT NULL,
+                            relative_position FLOAT NOT NULL,
+                            county TEXT NOT NULL,
+                            country_part_id INTEGER NOT NULL,
+                            country_part_name TEXT NOT NULL,
+                            county_number INTEGER NOT NULL,
+                            geographic_number INTEGER NOT NULL,
+                            traffic_registration_type TEXT NOT NULL,
+                            first_data TIMESTAMPTZ,
+                            first_data_with_quality_metrics TIMESTAMPTZ,
+                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id)
+                        );
+
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.Volume.value}" (
+                            row_idx SERIAL,
+                            trp_id TEXT NOT NULL,
+                            {GlobalDefinitions.VOLUME} INTEGER NOT NULL,
+                            coverage FLOAT NOT NULL,
+                            is_mice BOOLEAN DEFAULT FALSE,
+                            zoned_dt_iso TIMESTAMPTZ NOT NULL,
+                            FOREIGN KEY (trp_id) REFERENCES "{ProjectTables.TrafficRegistrationPoints.value}"(id),
+                            PRIMARY KEY (row_idx, trp_id, zoned_dt_iso)
+                        );
+
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.MeanSpeed.value}" (
+                            row_idx SERIAL PRIMARY KEY,
+                            trp_id TEXT NOT NULL,
+                            {GlobalDefinitions.MEAN_SPEED} FLOAT NOT NULL,
+                            coverage FLOAT NOT NULL,
+                            is_mice BOOLEAN DEFAULT FALSE,
+                            percentile_85 FLOAT NOT NULL,
+                            zoned_dt_iso TIMESTAMPTZ NOT NULL,
+                            FOREIGN KEY (trp_id) REFERENCES "{ProjectTables.TrafficRegistrationPoints.value}"(id)
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.MLModels.value}" (
+                            id TEXT PRIMARY KEY,
+                            name TEXT NOT NULL UNIQUE,
+                            type TEXT DEFAULT 'Regression',
+                            base_params JSON NOT NULL,
+                            {GlobalDefinitions.VOLUME}_grid JSON,
+                            {GlobalDefinitions.MEAN_SPEED}_grid JSON,
+                            best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx INT DEFAULT 1,
+                            best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx INT DEFAULT 1
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.BaseModels.value}" (
+                            id TEXT PRIMARY KEY,
+                            joblib_object BYTEA,
+                            pickle_object BYTEA NOT NULL,
+                            FOREIGN KEY (id) REFERENCES "{ProjectTables.MLModels.value}"(id)
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.TrainedModels.value}" (
+                            id TEXT,
+                            target TEXT NOT NULL,
+                            road_category TEXT NOT NULL,
+                            joblib_object BYTEA,
+                            pickle_object BYTEA NOT NULL,
+                            FOREIGN KEY (id) REFERENCES "{ProjectTables.MLModels.value}" (id),
+                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}" (id),
+                            PRIMARY KEY (id, target, road_category)
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.ModelGridSearchCVResults.value}" (
+                            id SERIAL,
+                            result_id INT NOT NULL,
+                            model_id TEXT REFERENCES "{ProjectTables.MLModels.value}"(id) ON DELETE CASCADE,
+                            road_category_id TEXT REFERENCES "{ProjectTables.RoadCategories.value}"(id) ON DELETE CASCADE,
+                            target TEXT NOT NULL,
+                            params JSON NOT NULL,
+                            params_hash TEXT NOT NULL,
+                            mean_fit_time FLOAT NOT NULL,
+                            mean_test_r2 FLOAT NOT NULL,
+                            mean_train_r2 FLOAT NOT NULL,
+                            mean_test_mean_squared_error FLOAT NOT NULL,
+                            mean_train_mean_squared_error FLOAT NOT NULL,
+                            mean_test_root_mean_squared_error FLOAT NOT NULL,
+                            mean_train_root_mean_squared_error FLOAT NOT NULL,
+                            mean_test_mean_absolute_error FLOAT NOT NULL,
+                            mean_train_mean_absolute_error FLOAT NOT NULL,
+                            PRIMARY KEY (id, model_id, road_category_id, target)
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.ForecastingSettings.value}" (
+                            id BOOLEAN PRIMARY KEY CHECK (id = TRUE),
+                            config JSONB DEFAULT '{{"volume_forecasting_horizon": null, "mean_speed_forecasting_horizon": null}}'
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadGraphNodes.value}" (
+                            id SERIAL PRIMARY KEY,
+                            node_id TEXT, -- corresponds to "id" in properties
+                            type TEXT NOT NULL DEFAULT 'Feature',
+                            geom GEOMETRY(Point, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}) NOT NULL, -- store coordinates in WGS84
+                            connected_traffic_link_ids TEXT[],   -- array of strings
+                            road_node_ids TEXT[],                -- array of strings
+                            is_roundabout BOOLEAN,
+                            number_of_incoming_links INTEGER,
+                            number_of_outgoing_links INTEGER,
+                            number_of_undirected_links INTEGER,
+                            legal_turning_movements JSONB,       -- store array of objects
+                            road_system_references TEXT[],       -- array of strings
+                            raw_properties JSONB                 -- store the entire properties object (for flexibility)
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadGraphLinks.value}" (
+                            id SERIAL PRIMARY KEY,
+                            link_id TEXT,  -- properties.id
+                            type TEXT NOT NULL DEFAULT 'Feature',
+                            geom GEOMETRY,    -- supports any geometry type; use GEOMETRY(LineString, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}) if always lines
+                            year_applies_to INTEGER,
+                            candidate_ids TEXT[],
+                            road_system_references TEXT[],
+                            road_category TEXT,
+                            road_placements JSONB,          -- nested array of road placements
+                            functional_road_class INTEGER,
+                            function_class TEXT,
+                            start_traffic_node_id TEXT,
+                            end_traffic_node_id TEXT,
+                            subsumed_traffic_node_ids TEXT[],
+                            road_link_ids TEXT[],
+                            road_node_ids TEXT[],
+                            municipality_ids INTEGER[],
+                            county_ids INTEGER[],
+                            highest_speed_limit INTEGER,
+                            lowest_speed_limit INTEGER,
+                            max_lanes INTEGER,
+                            min_lanes INTEGER,
+                            has_only_public_transport_lanes BOOLEAN,
+                            length DOUBLE PRECISION,
+                            traffic_direction_wrt_metering_direction TEXT,
+                            is_norwegian_scenic_route BOOLEAN,
+                            is_ferry_route BOOLEAN,
+                            is_ramp BOOLEAN,
+                            toll_station_ids INTEGER[],
+                            associated_trp_ids TEXT[],
+                            traffic_volumes JSONB,          -- array of traffic volume objects
+                            urban_ratio DOUBLE PRECISION,
+                            number_of_establishments INTEGER,
+                            number_of_employees INTEGER,
+                            number_of_inhabitants INTEGER,
+                            has_anomalies BOOLEAN,
+                            anomalies JSONB,                -- array of anomaly objects
+                            raw_properties JSONB,            -- optional: store full original properties
+                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id)
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadNetworks.value}" (
+                            id SERIAL PRIMARY KEY,
+                            name TEXT NOT NULL UNIQUE,
+                            binary_obj BYTEA
+                        );
+                """)
+
+                #Constraints
+                await conn.execute(f"""
+                            ALTER TABLE "{ProjectTables.Volume.value}"
+                            ADD CONSTRAINT "{ProjectConstraints.UNIQUE_VOLUME_PER_TRP_AND_TIME.value}"
+                            UNIQUE (trp_id, zoned_dt_iso);
+                            
+                            ALTER TABLE "{ProjectTables.MeanSpeed.value}"
+                            ADD CONSTRAINT "{ProjectConstraints.UNIQUE_MEAN_SPEED_PER_TRP_AND_TIME.value}"
+                            UNIQUE (trp_id, zoned_dt_iso);
+                            
+                            ALTER TABLE "{ProjectTables.ModelGridSearchCVResults.value}"
+                            ADD CONSTRAINT {ProjectConstraints.UNIQUE_MODEL_ROAD_TARGET_PARAMS.value} UNIQUE (model_id, road_category_id, target, params_hash);
+                """)  #There can only be one registration at one specific time and location (where the location is the place where the TRP lies) #TODO THIS MAKES THE VALUES UPDATE EVERYTIME SINCE THESE ATTRIBUTES ARE ALWAYS THE SAME FOR EVERY MODEL RESULT
+
+                # Views
+                await conn.execute(f"""
+                CREATE OR REPLACE VIEW "{ProjectViews.TrafficRegistrationPointsMetadataView.value}" AS
+                WITH v_agg AS (
+                    SELECT
+                        "trp_id",
+                        COALESCE(BOOL_OR("{GlobalDefinitions.VOLUME}" IS NOT NULL), FALSE) AS has_{GlobalDefinitions.VOLUME},
+                        MIN("zoned_dt_iso") FILTER (WHERE "{GlobalDefinitions.VOLUME}" IS NOT NULL) AS {GlobalDefinitions.VOLUME}_start_date,
+                        MAX("zoned_dt_iso") FILTER (WHERE "{GlobalDefinitions.VOLUME}" IS NOT NULL) AS {GlobalDefinitions.VOLUME}_end_date
+                    FROM "{ProjectTables.Volume.value}"
+                    GROUP BY "trp_id"
+                ),
+                ms_agg AS (
+                    SELECT
+                        "trp_id",
+                        COALESCE(BOOL_OR("{GlobalDefinitions.MEAN_SPEED}" IS NOT NULL), FALSE) AS has_{GlobalDefinitions.MEAN_SPEED},
+                        MIN("zoned_dt_iso") FILTER (WHERE "{GlobalDefinitions.MEAN_SPEED}" IS NOT NULL) AS {GlobalDefinitions.MEAN_SPEED}_start_date,
+                        MAX("zoned_dt_iso") FILTER (WHERE "{GlobalDefinitions.MEAN_SPEED}" IS NOT NULL) AS {GlobalDefinitions.MEAN_SPEED}_end_date
+                    FROM "{ProjectTables.MeanSpeed.value}"
+                    GROUP BY "trp_id"
+                )
+                SELECT
+                    trp.id AS trp_id,
+                    trp.road_category,
+                    COALESCE(v_agg.has_{GlobalDefinitions.VOLUME}, FALSE) AS has_{GlobalDefinitions.VOLUME}, -- If there weren't any rows for a specific TRP this would be NULL, instead we want FALSE
+                    v_agg.{GlobalDefinitions.VOLUME}_start_date,
+                    v_agg.{GlobalDefinitions.VOLUME}_end_date,
+                    COALESCE(ms_agg.has_{GlobalDefinitions.MEAN_SPEED}, FALSE) AS has_{GlobalDefinitions.MEAN_SPEED}, -- If there weren't any rows for a specific TRP this would be NULL, instead we want FALSE
+                    ms_agg.{GlobalDefinitions.MEAN_SPEED}_start_date,
+                    ms_agg.{GlobalDefinitions.MEAN_SPEED}_end_date
+                FROM "{ProjectTables.TrafficRegistrationPoints.value}" trp
+                LEFT JOIN v_agg ON trp.id = v_agg.trp_id
+                LEFT JOIN ms_agg ON trp.id = ms_agg.trp_id;
+                
+                
+                CREATE OR REPLACE VIEW "{ProjectViews.VolumeMeanSpeedDateRangesView.value}" AS
+                SELECT
+                    MIN(v.zoned_dt_iso) AS {GlobalDefinitions.VOLUME}_start_date,
+                    MAX(v.zoned_dt_iso) AS {GlobalDefinitions.VOLUME}_end_date,
+                    MIN(ms.zoned_dt_iso) AS {GlobalDefinitions.MEAN_SPEED}_start_date,
+                    MAX(ms.zoned_dt_iso) AS {GlobalDefinitions.MEAN_SPEED}_end_date
+                FROM "{ProjectTables.Volume.value}" v
+                FULL OUTER JOIN "{ProjectTables.MeanSpeed.value}" ms ON false;  -- Force Cartesian for aggregation without joining
+                
+                
+                CREATE OR REPLACE VIEW "best_{GlobalDefinitions.VOLUME}_gridsearch_results" AS
+                SELECT 
+                    m.id AS model_id,
+                    m.name AS model_name,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.params
+                        ELSE NULL
+                    END AS best_{GlobalDefinitions.VOLUME}_params,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_test_r2
+                        ELSE NULL
+                    END AS mean_test_r2,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_train_r2
+                        ELSE NULL
+                    END AS mean_train_r2,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_test_mean_squared_error
+                        ELSE NULL
+                    END AS mean_test_mean_squared_error,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_train_mean_squared_error
+                        ELSE NULL
+                    END AS mean_train_mean_squared_error,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_test_root_mean_squared_error
+                        ELSE NULL
+                    END AS mean_test_root_mean_squared_error,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_train_root_mean_squared_error
+                        ELSE NULL
+                    END AS mean_train_root_mean_squared_error,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_test_mean_absolute_error
+                        ELSE NULL
+                    END AS mean_test_mean_absolute_error,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_train_mean_absolute_error
+                        ELSE NULL
+                    END AS mean_train_mean_absolute_error
+                FROM "{ProjectTables.MLModels.value}" m
+                LEFT JOIN "{ProjectTables.ModelGridSearchCVResults.value}" r
+                    ON m.id = r.model_id
+                WHERE r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx
+                AND r.target = '{GlobalDefinitions.VOLUME}';
+                    
+                CREATE OR REPLACE VIEW "best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_results" AS
+                SELECT 
+                    m.id AS model_id,
+                    m.name AS model_name,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.params
+                        ELSE NULL
+                    END AS best_{GlobalDefinitions.MEAN_SPEED}_params,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_test_r2
+                        ELSE NULL
+                    END AS mean_test_r2,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_train_r2
+                        ELSE NULL
+                    END AS mean_train_r2,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_test_mean_squared_error
+                        ELSE NULL
+                    END AS mean_test_mean_squared_error,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_train_mean_squared_error
+                        ELSE NULL
+                    END AS mean_train_mean_squared_error,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_test_root_mean_squared_error
+                        ELSE NULL
+                    END AS mean_test_root_mean_squared_error,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_train_root_mean_squared_error
+                        ELSE NULL
+                    END AS mean_train_root_mean_squared_error,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_test_mean_absolute_error
+                        ELSE NULL
+                    END AS mean_test_mean_absolute_error,
+                    CASE 
+                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_train_mean_absolute_error
+                        ELSE NULL
+                    END AS mean_train_mean_absolute_error
+                FROM "{ProjectTables.MLModels.value}" m
+                LEFT JOIN "{ProjectTables.ModelGridSearchCVResults.value}" r
+                    ON m.id = r.model_id
+	            WHERE r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx
+                AND r.target = '{GlobalDefinitions.MEAN_SPEED}';
+                """)
+
+                # Granting permission to access to all tables to the TFS user
+                await conn.execute(f"""
+                    GRANT SELECT, INSERT, UPDATE ON TABLE 
+                        "{ProjectTables.RoadCategories.value}",
+                        "{ProjectTables.CountryParts.value}",
+                        "{ProjectTables.Counties.value}",
+                        "{ProjectTables.Municipalities.value}",
+                        "{ProjectTables.TrafficRegistrationPoints.value}",
+                        "{ProjectTables.Volume.value}",
+                        "{ProjectTables.MeanSpeed.value}",
+                        "{ProjectTables.MLModels.value}",
+                        "{ProjectTables.TrainedModels.value}",
+                        "{ProjectTables.ModelGridSearchCVResults.value}",
+                        "{ProjectTables.ForecastingSettings.value}"
+                    TO {self._tfs_role};
+                """)
+
+        # -- New Project Metadata Insertions --
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
+            new_project = await conn.fetchrow(
+                f"""INSERT INTO "{HubDBTables.Projects.value}" (name, lang, is_current, creation_zoned_dt) VALUES ($1, $2, $3, $4) RETURNING *""",
+                name, lang, False, datetime.now(tz=timezone(timedelta(hours=1)))
+            )
+            print(f"New project created: {new_project}")
+
+        # -- New Project Setup Insertions --
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=name, host=self._db_host) as conn:
+            if auto_project_setup:
+                await self._setup_project(conn=conn)
+                await self.insert_models(conn=conn)
+
+        return None
+
+
+    async def delete_project(self, name: str) -> None:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db,
+                                       host=self._db_host) as conn:
+            # Step 1: Deleting the actual project database
+            await conn.execute(f"""
+                DROP DATABASE IF EXISTS {name}
+            """)
+            # Step 2: Deleting the project record from the Projects table in the Hub DB
+            # Creating a function that deletes a project by its name and executing a transaction directly from the SQL statement
+            await conn.execute(f"""
+                CREATE OR REPLACE FUNCTION delete_project_by_name(p_name TEXT)
+                RETURNS BOOLEAN AS $$
+                DECLARE
+                    deleted_is_current BOOLEAN;
+                BEGIN
+                    DELETE FROM "{HubDBTables.Projects.value}"
+                    WHERE name = p_name
+                    RETURNING is_current INTO deleted_is_current;
+                
+                    IF deleted_is_current THEN
+                        UPDATE "{HubDBTables.Projects.value}"
+                        SET is_current = TRUE
+                        WHERE id = (
+                            SELECT id
+                            FROM "{HubDBTables.Projects.value}"
+                            ORDER BY creation_zoned_dt DESC
+                            LIMIT 1
+                        );
+                    END IF;
+                
+                    RETURN deleted_is_current;
+                END;
+                $$ LANGUAGE plpgsql;
+                """)
+            if (await conn.fetchval("SELECT delete_project_by_name($1)", name)) is True and (
+            current_project := await self.get_current_project()):  #If the deleted project was the current one then... (if the return statement of delete_project_by_name is True then the deleted project was the current one)
+                print(f"The deleted project was the current one, now the current project is: {current_project}")
+            else:
+                print(
+                    "The deleted project was the only one existing. Create a new one or exit the program? - 1: Yes | 0: Exit")
+                if choice := await asyncio.to_thread(lambda: input("Choice: ")) == "1":
+                    await self.init()
+                elif choice == "0":
+                    exit()
+                else:
+                    raise Exception(f"Wrong input {choice}")
+        return None
+
+
+    async def init(self, auto_project_setup: bool = True) -> None:
+
+        # -- Initialize users and DBs --
+
+        #Accessing as superuser and creating tfs user
+        async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db, host=self._db_host) as conn:
+            try:
+                await conn.execute(f"""
+                    CREATE ROLE {self._tfs_role} WITH LOGIN PASSWORD '{self._tfs_role_password}';
+                """)
+                await conn.execute(f"""
+                    GRANT USAGE, SELECT ON ALL TABLES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+                """)
+                print(f"Role {self._tfs_role} created.")
+            except asyncpg.DuplicateObjectError:
+                print(f"Role {self._tfs_role} already exists.")
+
+            try:
+                await conn.execute(f"""
+                    CREATE USER {self._tfs_user} WITH PASSWORD '{self._tfs_password}' IN ROLE {self._tfs_role};
+                """)
+                print(f"User {self._tfs_user} created.")
+            except asyncpg.DuplicateObjectError:
+                print(f"User {self._tfs_user} already exists.")
+
+        # -- Hub DB Initialization --
+        if not await self._check_db(dbname=self._hub_db):
+            # -- Hub DB Creation --
+            async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._maintenance_db, host=self._db_host) as conn:
+                #It's important to specify that in this specific connection the maintenance db is used because the hub db doesn't exist yet, so trying to connect to it would result in an error (exception)
+                #After creating the database there's the setup section, where we can actually start to use the hub db
+                try:
+                    await conn.execute(f"""
+                        CREATE DATABASE "{self._hub_db}"
+                    """)
+                    #Granting permission to connect to the database to the TFS role
+                    await conn.execute(f"""
+                        GRANT CONNECT ON DATABASE "{self._hub_db}" TO {self._tfs_role};
+                    """)  #Once created we can finally grant access to the tfs role to the hub db
+                except DuplicateDatabaseError:
+                    pass
+
+            # -- Hub DB Setup (If It Doesn't Exist) --
+            async with postgres_conn_async(user=self._superuser, password=self._superuser_password, dbname=self._hub_db, host=self._db_host) as conn:
+
+                # Grant CREATE privilege on public schema to the TFS role
+                await conn.execute(f"""
+                    GRANT CREATE, USAGE ON SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+                """)
+
+                # Grant privileges on sequences (needed for SERIAL columns)
+                await conn.execute(f"""
+                    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+                """)
+
+                # Set default privileges for future sequences
+                await conn.execute(f"""
+                    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO {self._tfs_role};
+                """)
+
+                # -- Granting permissions to the TFS role --
+                await conn.execute(f"""
+                    GRANT USAGE, SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {AIODBMInternalConfig.PUBLIC_SCHEMA.value} TO {self._tfs_role};
+                """)
+
+                # Granting permissions to operate the public schema in the Hub DB
+                await conn.execute(f"""
+                    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {self._tfs_role};
+                """)
+
+            # -- DB Content Setup --
+            async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
+                #Hub DB Tables (Projects)
+                await conn.execute(f"""
+                        CREATE TABLE IF NOT EXISTS "{HubDBTables.Projects.value}" (
+                            id SERIAL PRIMARY KEY,
+                            name TEXT NOT NULL UNIQUE,
+                            lang TEXT,
+                            is_current BOOL NOT NULL DEFAULT FALSE,
+                            creation_zoned_dt TIMESTAMPTZ NOT NULL
+                        )
+                """)
+
+                #Hub DB Constraints
+                await conn.execute(f"""
+                        CREATE UNIQUE INDEX IF NOT EXISTS "{HUBDBConstraints.ONE_CURRENT_PROJECT.value}" ON "{HubDBTables.Projects.value}" (is_current)
+                        WHERE is_current = TRUE;
+                """)
+
+                #Permissions grants to the TFS role
+                await conn.execute(f"""
+                    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "{HubDBTables.Projects.value}" TO {self._tfs_role};
+                """)
+
+        await self._check_hub_db_integrity()
+
+        # -- Check if any projects exist --
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
+            project_check = await conn.fetchrow(
+                f"""SELECT * FROM "{HubDBTables.Projects.value}" LIMIT 1""")  #TODO ADD DATABASE EXISTANCE CHECK. IF THE DB DOESN'T EXIST, BUT THERE'S A RECORD WITH THAT NAME IN Projects, THEN JUST REPLACE IT
+
+            #If there aren't any projects, let the user impute one and insert it into the Projects table
+            if not project_check:
+                print("Initialize the program. Create your first project!")
+                name = clean(input("Enter project name: "), no_emoji=True, no_punct=True, no_emails=True, no_currency_symbols=True, no_urls=True, normalize_whitespace=True, lower=True)
+                lang = input("Enter project language: ")
+                print("Cleaned project DB name: ", name)
+                print("Project language: ", lang)
+
+                await self.create_project(name=name, lang=lang, auto_project_setup=auto_project_setup)
+
+        #TODO IF SOME Projects EXIST CHECK WHICH IS THE CURRENT ONE, IF THE RETURN IS NONE SET IT AS CURRENT. ALSO, ADD THE ABILITY TO DO THAT INSIDE CREATE_PROJECT VIA A PARAMETER (NOT AN INPUT)
+        # LIKE auto_current_setup: bool = False
+        # ALSO IF auto_current_setup IS TRUE, CHECK DO reset_current_project() FIRST AND THEN SET IT
+
+        return None
+
+
+    async def get_current_project(self) -> asyncpg.Record | None:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
+            return await conn.fetchrow(f"""
+                    SELECT *
+                    FROM "{HubDBTables.Projects.value}"
+                    WHERE is_current = TRUE;
+            """)
+
+
+    async def set_current_project(self, name: str) -> None:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
+            if not await self._check_db(name):  #If the project doesn't exist raise error
+                raise ProjectDBNotFoundError("Project DB doesn't exist")
+            async with conn.transaction():  #Needing to execute both of the operations in one transaction because otherwise the one_current_project constraint wouldn't be respected. Checkout the Hub DB Constraints sections to learn more
+                await conn.execute(
+                    f"""UPDATE "{HubDBTables.Projects.value}" SET is_current = FALSE WHERE is_current = TRUE;""")
+                await conn.execute(f"""                
+                    UPDATE "{HubDBTables.Projects.value}"
+                    SET is_current = TRUE
+                    WHERE name = $1;
+                """, name)
+                print("Current project set to: ", name)
+        return None
+
+
+    async def reset_current_project(self) -> None:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=self._hub_db, host=self._db_host) as conn:
+            async with conn.transaction():
+                await conn.execute(f"""
+                    UPDATE "{HubDBTables.Projects.value}"
+                    SET is_current = FALSE
+                    WHERE is_current = TRUE;
+                """)
+        return None

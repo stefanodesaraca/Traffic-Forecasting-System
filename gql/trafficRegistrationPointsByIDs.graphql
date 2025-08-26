@@ -1,0 +1,53 @@
+{
+  trafficRegistrationPoints(trafficRegistrationPointIds: ["TRP_IDS"]) {
+    id
+    name
+    location {
+      coordinates {
+        latLon {
+          lat
+          lon
+        }
+      }
+      roadReference {
+        shortForm
+        roadCategory {
+          id
+        }
+      }
+      roadLinkSequence {
+        roadLinkSequenceId
+        relativePosition
+      }
+      roadReferenceHistory {
+        validFrom
+        validTo
+      }
+      county {
+        name
+        number
+        geographicNumber
+        countryPart {
+          id
+          name
+        }
+      }
+      municipality {
+        name
+        number
+      }
+    }
+    trafficRegistrationType
+    dataTimeSpan {
+      firstData
+      firstDataWithQualityMetrics
+      latestData {
+        volumeByDay
+        volumeByHour
+        volumeAverageDailyByYear
+        volumeAverageDailyBySeason
+        volumeAverageDailyByMonth
+      }
+    }
+  }
+}

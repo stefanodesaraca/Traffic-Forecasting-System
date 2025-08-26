@@ -1,0 +1,59 @@
+{
+    "RandomForestRegressor": {
+        "volume_grid": {
+            "n_estimators": [200, 400],
+            "max_depth": [20, 40],
+            "criterion": ["friedman_mse"],
+            "ccp_alpha": [0, 0.00002]
+        },
+        "mean_speed_grid": {
+            "n_estimators": [100, 300],
+            "max_depth": [40, 70],
+            "criterion": ["squared_error", "friedman_mse"],
+            "ccp_alpha": [0.002, 0.0002]
+        },
+        "base_parameters": {
+            "n_jobs": -1,
+            "random_state": 100
+        }
+    },
+    "DecisionTreeRegressor": {
+        "volume_grid": {
+            "criterion": ["friedman_mse"],
+            "max_depth": [null, 100, 200],
+            "ccp_alpha": [0.0002, 0.00002]
+        },
+        "mean_speed_grid": {
+            "criterion": ["squared_error", "friedman_mse"],
+            "max_depth": [null, 30],
+            "ccp_alpha": [0, 0.0002, 0.00002]
+        },
+        "base_parameters": {
+            "random_state": 100
+        }
+    },
+    "HistGradientBoostingRegressor": {
+        "volume_grid": {
+            "max_iter": [500, 1500],
+            "max_depth": [null, 100],
+            "loss": ["absolute_error"],
+            "validation_fraction": [0.25],
+            "n_iter_no_change": [20],
+            "tol": [1e-7, 1e-4, 1e-3],
+            "l2_regularization": [0.001, 0.0001]
+        },
+        "mean_speed_grid": {
+            "categorical_features": null,
+            "max_iter": [100, 200, 300],
+            "max_depth": [null, 20, 50, 100],
+            "loss": ["absolute_error"],
+            "validation_fraction": [0.25],
+            "n_iter_no_change": [20, 50],
+            "tol": [1e-7, 1e-4, 1e-3],
+            "l2_regularization": [0, 0.001, 0.0001]
+        },
+        "base_parameters": {
+            "random_state": 100
+        }
+    }
+}
