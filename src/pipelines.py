@@ -452,10 +452,9 @@ class MLPreprocessingPipeline:
         return data.persist()
 
     @staticmethod
-    def _scale_features(data: dd.DataFrame, feats: list[str], scaler: MinMaxScaler | type[callable] = MinMaxScaler) -> tuple[dd.DataFrame, MinMaxScaler]:
-        scaler = scaler()
-        data[feats] = scaler.fit_transform(data[feats])
-        return data.persist(), scaler
+    def _scale_features(data: dd.DataFrame, feats: list[str], scaler: MinMaxScaler | type[callable] = MinMaxScaler) -> dd.DataFrame:
+        data[feats] = scaler().fit_transform(data[feats])
+        return data.persist()
 
     @staticmethod
     def _encode_features(data: dd.DataFrame, feats: list[str]) -> dd.DataFrame:
@@ -472,25 +471,25 @@ class MLPreprocessingPipeline:
     def preprocess_volume(self,
                           data: dd.DataFrame,
                           lags: list[PositiveInt],
-                          z_score: bool = False) -> tuple[dd.DataFrame, MinMaxScaler]:
+                          z_score: bool = False) -> dd.DataFrame:
         if z_score:
             data = ZScore(data, column=GlobalDefinitions.VOLUME)
         data = self._add_lag_features(data=data, target=GlobalDefinitions.VOLUME, lags=lags)
         data = self._encode_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES)
-        data, scaler = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_SCALED_FEATURES, scaler=MinMaxScaler)
-        return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist(), scaler
+        data = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_SCALED_FEATURES, scaler=MinMaxScaler)
+        return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
 
     def preprocess_mean_speed(self,
                               data: dd.DataFrame,
                               lags: list[PositiveInt],
-                              z_score: bool = False) -> tuple[dd.DataFrame, MinMaxScaler]:
+                              z_score: bool = False) -> dd.DataFrame:
         if z_score:
             data = ZScore(data, column=GlobalDefinitions.MEAN_SPEED)
         data = self._add_lag_features(data=data, target=GlobalDefinitions.MEAN_SPEED, lags=lags)
         data = self._encode_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES)
-        data, scaler = self._scale_features(data=data, feats=GlobalDefinitions.MEAN_SPEED_SCALED_FEATURES, scaler=MinMaxScaler)
-        return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist(), scaler
+        data = self._scale_features(data=data, feats=GlobalDefinitions.MEAN_SPEED_SCALED_FEATURES, scaler=MinMaxScaler)
+        return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
 
 

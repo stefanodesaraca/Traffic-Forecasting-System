@@ -20,7 +20,7 @@ class BatchStreamLoader:
         self._dask_partition_size: str = GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE
 
 
-    def _load_from_stream(self, stream: Generator[Any, None, None], df_partitions_size: PositiveInt):
+    def _load_from_stream(self, stream: Generator[Any, None, None], df_partitions_size: PositiveInt) -> dd.DataFrame:
         df_partitions = []
         # WARNING: the order of the filters in the list within the list comprehension must be the same as the order of conditions inside the sql query
         batch = []
