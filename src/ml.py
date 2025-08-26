@@ -7,13 +7,12 @@ from warnings import simplefilter
 import hashlib
 import datetime
 from datetime import timedelta
-from typing import Any, Literal
-from pydantic import BaseModel, field_validator
+from typing import Any
+from pydantic import BaseModel
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import joblib
-from scipy.stats.distributions import gamma
 
 import dask.dataframe as dd
 from dask.distributed import Client
@@ -40,8 +39,7 @@ from exceptions import ModelNotSetError, ScoringNotFoundError
 from definitions import GlobalDefinitions, ProjectTables, ProjectConstraints
 
 from brokers import DBBroker
-from loaders import BatchStreamLoader
-from utils import ForecastingToolbox, check_target, sin_encoder, cos_encoder
+from utils import check_target
 
 
 simplefilter(action="ignore", category=FutureWarning)
@@ -428,117 +426,6 @@ class TFSLearner:
                 "pickle_object" = EXCLUDED."pickle_object";
             """, execute_args=[self._model.model_id, self._target, self._road_category, joblib_bytes.getvalue(), pickle.dumps(self._model.model_obj)])
         return None
-
-
-
-class OnePointForecaster:
-
-    def __init__(self, trp_id: str, road_category: str, target: str, client: Client, db_broker: DBBroker, loader: BatchStreamLoader, forecasting_toolbox: ForecastingToolbox):
-        self._trp_id: str = trp_id
-        self._road_category: str = road_category
-        self._target: str = target
-        self._client: Client = client
-        self._db_broker: DBBroker = db_broker
-        self._loader: BatchStreamLoader = loader
-        self._ft: ForecastingToolbox = forecasting_toolbox
-
-        check_target(target=self._target, errors=True)
-
-
-    def get_training_records(self, training_mode: Literal[0, 1], cache_latest_dt_collection: bool = True) -> dd.DataFrame:
-        """
-        Parameters:
-            training_mode: the training mode we want to use.
-                0 - Stands for single-point training, so only the data from the TRP we want to predict future records for is used
-                1 - Stands for multipoint training, where data from all TRPs of the same road category as the one we want to predict future records for is used
-        """
-        def get_volume_training_data_start():
-            return self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"] - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2)
-        def get_mean_speed_training_data_start():
-            return self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"] - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2)
-
-        trp_id_filter = (self._trp_id,) if training_mode == 0 else None
-        training_functions_mapping = {
-            GlobalDefinitions.VOLUME: {
-                "loader": self._loader.get_volume,
-                "training_data_start": get_volume_training_data_start,
-                "date_boundaries": self._db_broker.get_volume_date_boundaries
-            },
-            GlobalDefinitions.MEAN_SPEED: {
-                "loader": self._loader.get_mean_speed,
-                "training_data_start": get_mean_speed_training_data_start,
-                "date_boundaries": self._db_broker.get_mean_speed_date_boundaries
-            }
-        }
-        return training_functions_mapping[self._target]["loader"](
-            road_category_filter=[self._road_category],
-            trp_list_filter=trp_id_filter,
-            encoded_cyclical_features=True,
-            year=True,
-            is_covid_year=True,
-            is_mice=False,
-            zoned_dt_start=training_functions_mapping[self._target]["training_data_start"](),
-            zoned_dt_end=training_functions_mapping[self._target]["date_boundaries"](trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
-        ).assign(is_future=False).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).persist()
-
-
-    def get_future_records(self, forecasting_horizon: datetime.datetime) -> dd.DataFrame | None:
-        """
-        Generate records of the future to predict.
-
-        Parameters
-        ----------
-        forecasting_horizon : datetime
-            The target datetime which we want to predict data for and before.
-
-        Returns
-        -------
-        dd.DataFrame
-            A dask dataframe of empty records for future predictions.
-        """
-
-        attr = {GlobalDefinitions.VOLUME: np.nan} if self._target == GlobalDefinitions.VOLUME else {GlobalDefinitions.MEAN_SPEED: np.nan, "percentile_85": np.nan} #TODO ADDRESS THE FACT THAT WE CAN'T PREDICT percentile_85, SO WE HAVE TO REMOVE IT FROM HERE
-
-        last_available_data_dt = self._db_broker.get_volume_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"] if self._target == GlobalDefinitions.VOLUME else self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"]
-        rows_to_predict = ({
-                "trp_id": self._trp_id,
-                **attr,
-                "coverage": 100.0, #We'll assume it's 100 since we won't know the coverage until the measurements are actually made
-                "zoned_dt_iso": dt,
-                "day_cos": cos_encoder(dt.day, timeframe=31),
-                "day_sin": sin_encoder(dt.day, timeframe=31),
-                "hour_cos": cos_encoder(dt.hour, timeframe=24),
-                "hour_sin": sin_encoder(dt.hour, timeframe=24),
-                "month_cos": cos_encoder(dt.month, timeframe=12),
-                "month_sin": sin_encoder(dt.month, timeframe=12),
-                "year": dt.year,
-                "week_cos": cos_encoder(dt.isocalendar().week, timeframe=53),
-                "week_sin": sin_encoder(dt.isocalendar().week, timeframe=53),
-                "is_covid_year": False
-            } for dt in pd.date_range(start=last_available_data_dt, end=forecasting_horizon, freq="1h"))
-            # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
-
-        return dd.from_pandas(pd.DataFrame(list(rows_to_predict))).assign(is_future=True).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).persist()
-
-
-    @staticmethod
-    def fit_predictions(arr: np.ndarray, d: gamma = gamma) -> dd.DataFrame:
-        shape, loc, scale = d.fit(arr, floc=0)
-        x = np.linspace(min(arr), max(arr), num=len(arr))  # 100 points between min and max
-        return gamma.pdf(x, shape, loc=loc, scale=scale)
-
-
-
-
-    @staticmethod
-    def export_predictions(y_preds: dd.DataFrame) -> None:
-        #TODO EXPORT PARAMETERES TO JSON FOR DEEPER ANALYSES
-        return None
-
-
-
-class TFSReporter:
-    ...
 
 
 

@@ -1,13 +1,16 @@
 import math
+import datetime
+from datetime import timedelta
 import json
 from pathlib import Path
 import datetime
 from zoneinfo import ZoneInfo
 import asyncio
 import aiofiles
+import numpy as np
 import dask.dataframe as dd
 import pandas as pd
-from typing import Any, cast
+from typing import Any, Literal, cast
 from pydantic import BaseModel
 from pydantic.types import PositiveInt
 
@@ -24,7 +27,7 @@ from shapely.geometry import shape
 from shapely import wkt
 
 from definitions import GlobalDefinitions, ProjectTables
-from utils import ZScore, get_n_items_from_gen
+from utils import ZScore, cos_encoder, sin_encoder, check_target, get_n_items_from_gen
 
 
 pd.set_option("display.max_rows", None)
@@ -498,8 +501,129 @@ class MLPreprocessingPipeline:
 
 
 
+class MLPredictionPipeline:
+    def __init__(self,
+                 trp_id: str,
+                 road_category: str,
+                 target: str,
+                 db_broker: Any,
+                 loader: Any,
+                 preprocessing_pipeline: MLPreprocessingPipeline,
+                 ):
+        self._trp_id: str = trp_id
+        self._road_category: str = road_category
+        self._target: str = target
+        self._db_broker: Any = db_broker
+        self._loader: Any = loader
+        self._pipeline: MLPreprocessingPipeline = preprocessing_pipeline
+
+        check_target(target=self._target, errors=True)
 
 
+    def _get_training_records(self, training_mode: Literal[0, 1], cache_latest_dt_collection: bool = True) -> dd.DataFrame:
+        """
+        Parameters:
+            training_mode: the training mode we want to use.
+                0 - Stands for single-point training, so only the data from the TRP we want to predict future records for is used
+                1 - Stands for multipoint training, where data from all TRPs of the same road category as the one we want to predict future records for is used
+        """
+
+        def get_volume_training_data_start():
+            return (self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
+                    - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2))
+
+        def get_mean_speed_training_data_start():
+            return (self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
+                    - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2))
+
+        trp_id_filter = (self._trp_id,) if training_mode == 0 else None
+        training_functions_mapping = {
+            GlobalDefinitions.VOLUME: {
+                "loader": self._loader.get_volume,
+                "training_data_start": get_volume_training_data_start,
+                "date_boundaries": self._db_broker.get_volume_date_boundaries
+            },
+            GlobalDefinitions.MEAN_SPEED: {
+                "loader": self._loader.get_mean_speed,
+                "training_data_start": get_mean_speed_training_data_start,
+                "date_boundaries": self._db_broker.get_mean_speed_date_boundaries
+            }
+        }
+        return training_functions_mapping[self._target]["loader"](
+            road_category_filter=[self._road_category],
+            trp_list_filter=trp_id_filter,
+            encoded_cyclical_features=True,
+            year=True,
+            is_covid_year=True,
+            is_mice=False,
+            zoned_dt_start=training_functions_mapping[self._target]["training_data_start"](),
+            zoned_dt_end=training_functions_mapping[self._target]["date_boundaries"](trp_id_filter=trp_id_filter,enable_cache=cache_latest_dt_collection)["max"]
+        ).assign(is_future=False).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).persist()
+
+
+    def _generate_future_records(self, forecasting_horizon: datetime.datetime) -> dd.DataFrame | None:
+        """
+        Generate records of the future to predict.
+
+        Parameters
+        ----------
+        forecasting_horizon : datetime
+            The target datetime which we want to predict data for and before.
+
+        Returns
+        -------
+        dd.DataFrame
+            A dask dataframe of empty records for future predictions.
+        """
+
+        attr = {GlobalDefinitions.VOLUME: np.nan} if self._target == GlobalDefinitions.VOLUME else {GlobalDefinitions.MEAN_SPEED: np.nan, "percentile_85": np.nan}  # TODO ADDRESS THE FACT THAT WE CAN'T PREDICT percentile_85, SO WE HAVE TO REMOVE IT FROM HERE
+
+        last_available_data_dt = self._db_broker.get_volume_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"] if self._target == GlobalDefinitions.VOLUME else \
+        self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"]
+        rows_to_predict = ({
+            "trp_id": self._trp_id,
+            **attr,
+            "coverage": 100.0,
+            # We'll assume it's 100 since we won't know the coverage until the measurements are actually made
+            "zoned_dt_iso": dt,
+            "day_cos": cos_encoder(dt.day, timeframe=31),
+            "day_sin": sin_encoder(dt.day, timeframe=31),
+            "hour_cos": cos_encoder(dt.hour, timeframe=24),
+            "hour_sin": sin_encoder(dt.hour, timeframe=24),
+            "month_cos": cos_encoder(dt.month, timeframe=12),
+            "month_sin": sin_encoder(dt.month, timeframe=12),
+            "year": dt.year,
+            "week_cos": cos_encoder(dt.isocalendar().week, timeframe=53),
+            "week_sin": sin_encoder(dt.isocalendar().week, timeframe=53),
+            "is_covid_year": False
+        } for dt in pd.date_range(start=last_available_data_dt, end=forecasting_horizon, freq="1h"))
+        # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
+
+        return dd.from_pandas(pd.DataFrame(list(rows_to_predict))).assign(is_future=True).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).persist()
+
+
+
+    def get_future_records(self):
+        past_data = self._get_training_records(
+            training_mode=0,
+            cache_latest_dt_collection=True
+        )
+        future_records = self._generate_future_records(forecasting_horizon=self._ft.get_forecasting_horizon(target=self._target))
+
+        data = getattr(self._pipeline, f"preprocess_{self._target}")(data=dd.concat([past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
+        data = data[data["is_future"] != False].drop(columns=["is_future"]).persist()
+
+        tuning_set = data[data["is_future"] != True].drop(columns=["is_future"]).persist()
+
+
+    #, trp_tuning: bool = False
+    # trp_tuning defines if we want to train the already trained model on data exclusively from the TRP which we want to forecast data for to improve prediction accuracy
+
+    #X_train, y_train = split_by_target(
+    #    data=prediction_training_set,
+    #    target=target,
+    #    mode=1
+    #)
 
 
 

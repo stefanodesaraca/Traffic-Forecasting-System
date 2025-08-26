@@ -1,4 +1,7 @@
 from typing import Any, Literal, Generator, LiteralString, Sequence, Mapping
+import datetime
+from dateutil.relativedelta import relativedelta
+import asyncio
 from contextlib import contextmanager
 import psycopg
 from pydantic.types import PositiveInt
@@ -7,7 +10,7 @@ import asyncpg
 from exceptions import WrongSQLStatementError, MissingDataError
 from definitions import GlobalDefinitions, HubDBTables, ProjectTables, ProjectViews, RowFactories
 from dbmanager import AIODBManager, postgres_conn_async, postgres_conn
-from utils import to_pg_array, cached, cached_async
+from utils import check_target, to_pg_array, cached, cached_async
 
 
 class AIODBBroker:
@@ -85,6 +88,84 @@ class AIODBBroker:
                 if not name_as_key:
                     return {row['id']: row['name'] for row in (await conn.fetch(f'SELECT id, name FROM "{ProjectTables.RoadCategories.value}";'))}
                 return {row['name']: row['id'] for row in (await conn.fetch(f'SELECT id, name FROM "{ProjectTables.RoadCategories.value}";'))}
+
+
+    async def set_forecasting_horizon_async(self, forecasting_window_size: PositiveInt = GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE) -> None:
+        """
+        Parameters:
+            forecasting_window_size: in days, so hours-speaking, let x be the windows size, this will be x*24.
+                This parameter is needed since the predictions' confidence varies with how much in the future we want to predict, we'll set a limit on the number of days in future that the user may want to forecast
+                This limit is set by default as 14 days, but can be overridden with this parameter
+
+        Returns:
+            None
+        """
+        max_forecasting_window_size: int = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
+
+        print("V = Volume | MS = Mean Speed")
+        target = input("Target: ")
+        print("Maximum number of days to forecast: ", max_forecasting_window_size)
+
+        check_target(target, errors=True)
+        target = GlobalDefinitions.TARGET_DATA[target]
+
+        if target == GlobalDefinitions.VOLUME:
+            last_available_data_dt = (await self.get_volume_date_boundaries_async())["max"]
+        elif target == GlobalDefinitions.MEAN_SPEED:
+            last_available_data_dt = (await self.get_mean_speed_date_boundaries_async())["max"]
+        else:
+            raise ValueError("Wrong data option, try again")
+
+        if not last_available_data_dt:
+            raise Exception("End date not set. Run download or set it first")
+
+        print("Latest data available: ", last_available_data_dt)
+        print("Maximum settable date: ", last_available_data_dt + relativedelta(last_available_data_dt, days=GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE))
+
+        horizon = datetime.datetime.strptime(input("Insert forecasting horizon (YYYY-MM-DDTHH): ") + ":00:00" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE, GlobalDefinitions.DT_ISO_TZ_FORMAT)
+        # The month number must be zero-padded, for example: 01, 02, etc.
+
+        assert horizon > last_available_data_dt, "Forecasting target datetime is prior to the latest data available, so the data to be forecasted is already available"  # Checking if the imputed date isn't prior to the last one available. So basically we're checking if we already have the data that one would want to forecast
+        assert (horizon - last_available_data_dt).days <= max_forecasting_window_size, f"Number of days to forecast exceeds the limit: {max_forecasting_window_size}"  # Checking if the number of days to forecast is less or equal to the maximum number of days that can be forecasted
+        # The number of days to forecast
+        # Checking if the target datetime isn't ahead of the maximum number of days to forecast
+
+        await self.send_sql_async(f"""INSERT INTO "{ProjectTables.ForecastingSettings.value}" ("id", "config")
+                                                       VALUES (
+                                                           TRUE,
+                                                           jsonb_set(
+                                                                '{{}}'::jsonb,
+                                                                '{{{target}_forecasting_horizon}}',
+                                                                to_jsonb('{horizon}'::timestamptz::text),
+                                                                TRUE
+                                                            )
+                                                        )
+                                                         ON CONFLICT ("id") DO UPDATE
+                                                        SET "config" = jsonb_set(
+                                                            "{ProjectTables.ForecastingSettings.value}"."config",
+                                                            '{{{target}_forecasting_horizon}}',
+                                                            to_jsonb('{horizon}'::timestamptz::text),
+                                                            TRUE
+                                                        );""")
+        #The horizon datetime value is already in zoned datetime format
+        #The TRUE after to_jsonb(...) is needed to create the record in case it didn't exist before
+
+        return None
+
+
+    async def get_forecasting_horizon_async(self, target: str) -> datetime.datetime:
+        await asyncio.to_thread(check_target, target, errors=True)
+        return (await self.send_sql_async(f"""SELECT ("config" ->> '{target}_forecasting_horizon')::timestamptz AS horizon
+                                                               FROM "{ProjectTables.ForecastingSettings.value}"
+                                                               WHERE "id" = TRUE;"""))[0]["horizon"]
+
+
+    async def reset_forecasting_horizon_async(self, target: str) -> None:
+        await asyncio.to_thread(check_target, target, errors=True)
+        await self.send_sql_async(f"""UPDATE "{ProjectTables.ForecastingSettings.value}"
+                                                       SET "config" = jsonb_set("config", '{{{f"'{target}_forecasting_horizon'"}}}', 'null'::jsonb)
+                                                       WHERE "id" = TRUE;""")
+        return None
 
 
 
@@ -250,6 +331,16 @@ class DBBroker:
                             AND tm.road_category = '{road_category}';
                             """, conn=conn) as cur:
                 return cur.fetchall()
+
+
+    def get_forecasting_horizon(self, target: str) -> datetime.datetime | None:
+        check_target(target, errors=True)
+        return self.send_sql(
+            f"""SELECT ("config" ->> '{target}_forecasting_horizon')::timestamptz AS volume_horizon
+                FROM "{ProjectTables.ForecastingSettings.value}"
+                WHERE "id" = TRUE;""",
+            single=True).get(f"{target}_horizon", None)
+
 
 
 class AIODBManagerBroker:

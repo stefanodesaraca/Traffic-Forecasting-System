@@ -16,9 +16,9 @@ from downloader import start_client_async, volumes_to_db, fetch_trps, fetch_trps
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
 from pipelines import MeanSpeedIngestionPipeline, RoadGraphObjectsIngestionPipeline, MLPreprocessingPipeline
 from loaders import BatchStreamLoader
-from ml import TFSLearner, OnePointForecaster
+from ml import TFSLearner
 from road_network import *
-from utils import dask_cluster_client, ForecastingToolbox, check_target, split_by_target
+from utils import dask_cluster_client, check_target, split_by_target
 
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
 
@@ -145,23 +145,23 @@ async def mean_speeds_to_db(_: str) -> None:
 
 
 async def manage_forecasting_horizon(functionality: str) -> None:
-    ft = ForecastingToolbox(db_broker_async=await get_aiodb_broker())
+    db_broker_async = await get_aiodb_broker()
 
     if functionality == "3.1.1":
         print("-- Forecasting horizon setter --")
-        await ft.set_forecasting_horizon_async()
+        await db_broker_async.set_forecasting_horizon_async()
 
     elif functionality == "3.1.2":
         print("-- Forecasting horizon reader --")
         print("V: Volumes | MS: Mean Speed")
         target = await asyncio.to_thread(input, "Choice: ")
-        print("Target datetime: ", await ft.get_forecasting_horizon_async(target=target.upper()), "\n\n")
+        print("Target datetime: ", await db_broker_async.get_forecasting_horizon_async(target=target.upper()), "\n\n")
 
     elif functionality == "3.1.3":
         print("-- Forecasting horizon reset --")
         print("V: Volumes | MS: Mean Speed")
         target = await asyncio.to_thread(input, "Choice: ")
-        await ft.reset_forecasting_horizon_async(target=target.upper())
+        await db_broker_async.reset_forecasting_horizon_async(target=target.upper())
 
     return None
 
@@ -455,9 +455,7 @@ def manage_ml(functionality: str) -> None:
 
 def forecast(functionality: str) -> None:
     db_broker = get_db_broker()
-    loader = BatchStreamLoader(db_broker=db_broker)
     pipeline = MLPreprocessingPipeline()
-    ft = ForecastingToolbox(db_broker=db_broker)
 
     print("Enter target data to forecast: ")
     print("V: Volumes | MS: Mean Speed")
@@ -466,7 +464,7 @@ def forecast(functionality: str) -> None:
     check_target(target, errors=True)
     target = GlobalDefinitions.TARGET_DATA[target]
 
-    def one_point_forecast():
+    with dask_cluster_client(processes=False) as client:
         trps_with_data = db_broker.get_all_trps_metadata(**{f"has_{target}_filter": True}).keys()
         trp_ids = [d.get("id") for d in db_broker.get_trp_ids() if d.get("id") in trps_with_data]
         print("TRP IDs: ", trp_ids)
@@ -478,13 +476,6 @@ def forecast(functionality: str) -> None:
         trp_road_category = db_broker.get_trp_metadata(trp_id=trp_id)["road_category"]
         print("TRP road category: ", trp_road_category)
 
-        print({
-            m["name"]: {
-                "binary": pickle.loads(m["pickle_object"]),
-            }
-            for m in db_broker.get_trained_model_objects(target=target, road_category=trp_road_category)
-        }.items())
-
         for name, model in {m["name"]: pickle.loads(m["pickle_object"]) for m in db_broker.get_trained_model_objects(target=target, road_category=trp_road_category)}.items():  # Load model name and data (pickle object, the best parameters and so on)
 
             learner = TFSLearner(
@@ -494,42 +485,8 @@ def forecast(functionality: str) -> None:
                 client=client,
                 db_broker=db_broker
             )
-            forecaster = OnePointForecaster(
-                trp_id=trp_id,
-                road_category=trp_road_category,
-                target=target,
-                client=client,
-                db_broker=db_broker,
-                loader=loader,
-                forecasting_toolbox=ft
-            )
 
 
-            trp_past_data=forecaster.get_training_records(training_mode=0, cache_latest_dt_collection=True)
-
-            print("\nPASTDATA: ", trp_past_data.compute())
-
-            future_records=forecaster.get_future_records(forecasting_horizon=ft.get_forecasting_horizon(target=target))
-
-            print("\nFUTURE: ", future_records.compute())
-
-            data = getattr(pipeline, f"preprocess_{target}")(data=dd.concat([trp_past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
-
-            print("\nMERGED: ", dd.concat([trp_past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).compute())
-            print("\nPREPROCESSED: ", data.compute())
-
-            prediction_training_set = data[data["is_future"] != True].drop(columns=["is_future"]).persist()
-            print("\nPREPREDICTIONSET: ", prediction_training_set.compute())
-
-            data = data[data["is_future"] != False].drop(columns=["is_future"]).persist()
-
-            print("\nFEDTOTHEMODEL: ", data.compute())
-
-            X_train, y_train = split_by_target(
-                data=prediction_training_set,
-                target=target,
-                mode=1
-            )
 
             scaler = pipeline.scaler
             scaler.fit(trp_past_data[GlobalDefinitions.VOLUME_SCALED_FEATURES])
@@ -559,8 +516,6 @@ def forecast(functionality: str) -> None:
 
     if functionality == "3.3.1":
 
-        with dask_cluster_client(processes=False) as client:
-            one_point_forecast()
 
     return None
 
