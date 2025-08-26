@@ -46,6 +46,7 @@ class BatchStreamLoader:
                    road_category_filter: list[str] | None = None,
                    limit: PositiveInt | None = None,
                    split_cyclical_features: bool = False,
+                   year: bool = True,
                    encoded_cyclical_features: bool = False,
                    is_covid_year: bool = False,
                    is_mice: bool = False,
@@ -62,6 +63,7 @@ class BatchStreamLoader:
                 v.coverage AS coverage,
                 {"v.is_mice AS is_mice," if is_mice else ""}
                 v.zoned_dt_iso AS zoned_dt_iso
+                {",EXTRACT(YEAR FROM zoned_dt_iso) as year" if year else ""}
             {'''
                 ,
                 EXTRACT(DAY FROM zoned_dt_iso) AS day_of_month,
@@ -79,7 +81,7 @@ class BatchStreamLoader:
             
                 COS(2 * PI() * EXTRACT(MONTH FROM zoned_dt_iso) / 12) AS month_cos,
                 SIN(2 * PI() * EXTRACT(MONTH FROM zoned_dt_iso) / 12) AS month_sin,
-            
+                            
                 COS(2 * PI() * EXTRACT(WEEK FROM zoned_dt_iso) / 53) AS week_cos,
                 SIN(2 * PI() * EXTRACT(WEEK FROM zoned_dt_iso) / 53) AS week_sin'''
             if encoded_cyclical_features else ""}
@@ -111,6 +113,7 @@ class BatchStreamLoader:
                        road_category_filter: list[str] | None = None,
                        limit: PositiveInt | None = None,
                        split_cyclical_features: bool = False,
+                       year: bool = True,
                        encoded_cyclical_features: bool = False,
                        is_covid_year: bool = False,
                        is_mice: bool = False,
@@ -128,6 +131,7 @@ class BatchStreamLoader:
                  ms.coverage AS coverage,
                  {"ms.is_mice AS is_mice," if is_mice else ""}
                  ms.zoned_dt_iso AS zoned_dt_iso
+                {",EXTRACT(YEAR FROM zoned_dt_iso) as year" if year else ""}
             {'''
                 ,
                 EXTRACT(DAY FROM zoned_dt_iso) AS day_of_month,

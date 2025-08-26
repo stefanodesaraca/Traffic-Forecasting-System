@@ -513,9 +513,9 @@ def forecast(functionality: str) -> None:
 
             print("\nFUTURE: ", future_records.compute())
 
-            data = getattr(pipeline, f"preprocess_{target}")(data=dd.concat([trp_past_data, future_records], axis=0).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
+            data = getattr(pipeline, f"preprocess_{target}")(data=dd.concat([trp_past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
 
-            print("\nMERGED: ", dd.concat([trp_past_data, future_records], axis=0).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE))
+            print("\nMERGED: ", dd.concat([trp_past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).compute())
             print("\nPREPROCESSED: ", data.compute())
 
             prediction_training_set = data[data["is_future"] != True].drop(columns=["is_future"]).persist()
@@ -532,7 +532,7 @@ def forecast(functionality: str) -> None:
             )
 
             scaler = pipeline.scaler
-            scaler.fit(prediction_training_set[GlobalDefinitions.VOLUME_SCALED_FEATURES])
+            scaler.fit(trp_past_data[GlobalDefinitions.VOLUME_SCALED_FEATURES])
 
             X_predict, _ = split_by_target(
                 data=data,
@@ -555,7 +555,7 @@ def forecast(functionality: str) -> None:
             print("Adapted: ", forecaster.fit_predictions(y_pred))
             #NOTE ValueError: The function value at x=inf is NaN; solver cannot continue. -> VALUES ARE ALL THE SAME
 
-
+            print("STOP")
 
     if functionality == "3.3.1":
 

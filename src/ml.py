@@ -41,7 +41,7 @@ from definitions import GlobalDefinitions, ProjectTables, ProjectConstraints
 
 from brokers import DBBroker
 from loaders import BatchStreamLoader
-from utils import ForecastingToolbox, check_target
+from utils import ForecastingToolbox, check_target, sin_encoder, cos_encoder
 
 
 simplefilter(action="ignore", category=FutureWarning)
@@ -474,6 +474,7 @@ class OnePointForecaster:
             road_category_filter=[self._road_category],
             trp_list_filter=trp_id_filter,
             encoded_cyclical_features=True,
+            year=True,
             is_covid_year=True,
             is_mice=False,
             zoned_dt_start=training_functions_mapping[self._target]["training_data_start"](),
@@ -500,10 +501,19 @@ class OnePointForecaster:
 
         last_available_data_dt = self._db_broker.get_volume_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"] if self._target == GlobalDefinitions.VOLUME else self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"]
         rows_to_predict = ({
+                "trp_id": self._trp_id,
                 **attr,
                 "coverage": 100.0, #We'll assume it's 100 since we won't know the coverage until the measurements are actually made
                 "zoned_dt_iso": dt,
-                "trp_id": self._trp_id,
+                "day_cos": cos_encoder(dt.day, timeframe=31),
+                "day_sin": sin_encoder(dt.day, timeframe=31),
+                "hour_cos": cos_encoder(dt.hour, timeframe=24),
+                "hour_sin": sin_encoder(dt.hour, timeframe=24),
+                "month_cos": cos_encoder(dt.month, timeframe=12),
+                "month_sin": sin_encoder(dt.month, timeframe=12),
+                "year": dt.year,
+                "week_cos": cos_encoder(dt.isocalendar().week, timeframe=53),
+                "week_sin": sin_encoder(dt.isocalendar().week, timeframe=53),
                 "is_covid_year": False
             } for dt in pd.date_range(start=last_available_data_dt, end=forecasting_horizon, freq="1h"))
             # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data

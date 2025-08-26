@@ -145,6 +145,64 @@ def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
         return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
 
 
+def sin_encoder(data: dd.Series | dd.DataFrame | PositiveInt, timeframe: int) -> dd.Series | dd.DataFrame:
+    """
+    Apply sine transformation for cyclical encoding.
+
+    Parameters
+    ----------
+    data : dd.Series or dd.DataFrame
+        The data where to execute the transformation.
+    timeframe : int
+        A number of days indicating the timeframe for the cyclical transformation.
+
+    Returns
+    -------
+    dd.Series or dd.DataFrame
+        The sine-transformed data.
+
+    Notes
+    -----
+    The order of the function parameters has a specific reason. Since this function
+    will be used with Dask's map_partition() (which takes a function and its parameters
+    as input), it's important that the first parameter of sin_transformer is actually
+    the data where to execute the transformation itself by map_partition().
+
+    For more information about Dask's map_partition() function:
+    https://docs.dask.org/en/stable/generated/dask.dataframe.DataFrame.map_partitions.html
+    """
+    return np.sin(data * (2.0 * np.pi / timeframe))
+
+
+def cos_encoder(data: dd.Series | dd.DataFrame | PositiveInt, timeframe: int) -> dd.Series | dd.DataFrame:
+    """
+    Apply cosine transformation for cyclical encoding.
+
+    Parameters
+    ----------
+    data : dd.Series or dd.DataFrame
+        The data where to execute the transformation.
+    timeframe : int
+        A number of days indicating the timeframe for the cyclical transformation.
+
+    Returns
+    -------
+    dd.Series or dd.DataFrame
+        The cosine-transformed data.
+
+    Notes
+    -----
+    The order of the function parameters has a specific reason. Since this function
+    will be used with Dask's map_partition() (which takes a function and its parameters
+    as input), it's important that the first parameter of sin_transformer is actually
+    the data where to execute the transformation itself by map_partition().
+
+    For more information about Dask's map_partition() function:
+    https://docs.dask.org/en/stable/generated/dask.dataframe.DataFrame.map_partitions.html
+    """
+    return np.cos((data - 1) * (2.0 * np.pi / timeframe))
+
+
 def arctan2_decoder(sin_val: float, cos_val: float) -> int | float:  # TODO VERIFY IF IT'S ACTUALLY AN INT (IF SO REMOVE | float)
     """
     Decode cyclical features using arctan2 function.
