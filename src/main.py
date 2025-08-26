@@ -16,7 +16,7 @@ from downloader import start_client_async, volumes_to_db, fetch_trps, fetch_trps
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
 from pipelines import MeanSpeedIngestionPipeline, RoadGraphObjectsIngestionPipeline, MLPreprocessingPipeline
 from loaders import BatchStreamLoader
-from ml import TFSLearner
+from ml import TFS
 from road_network import *
 from utils import dask_cluster_client, check_target, split_by_target
 
@@ -241,7 +241,7 @@ def forecast_warmup(functionality: str) -> None:
         }.get(operation_type, None)
 
 
-    def ml_gridsearch(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: TFSLearner) -> None:
+    def ml_gridsearch(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: TFS) -> None:
 
         gridsearch_results = learner.gridsearch(X_train, y_train)
         learner.export_gridsearch_results(gridsearch_results)
@@ -252,7 +252,7 @@ def forecast_warmup(functionality: str) -> None:
         return None
 
 
-    def ml_training(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: TFSLearner) -> None:
+    def ml_training(X_train: dd.DataFrame, y_train: dd.DataFrame, learner: TFS) -> None:
         print(f"Fitting phase for model: {learner.model.name} started...")
         learner.model.fit(X_train, y_train)
         print("Fitting phase ended")
@@ -263,7 +263,7 @@ def forecast_warmup(functionality: str) -> None:
         return None
 
 
-    def ml_testing(X_test: dd.DataFrame, y_test: dd.DataFrame, learner: TFSLearner) -> None:
+    def ml_testing(X_test: dd.DataFrame, y_test: dd.DataFrame, learner: TFS) -> None:
         y_pred = learner.model.predict(X_test)
         learner.compute_fpe(y_true=y_test, y_pred=y_pred)
         return None
@@ -309,29 +309,29 @@ def forecast_warmup(functionality: str) -> None:
             for model, content in models.items():
                 #print(content)
                 if functionality_mapping[functionality]["type"] == "gridsearch":
-                    func(X_train, y_train, TFSLearner(
+                    func(X_train, y_train, TFS(
                             model=content["binary"](**content["params"]),
                             road_category=road_category,
                             target=target,
                             client=client,
                             db_broker=db_broker
                         )
-                    )
+                         )
                 elif functionality_mapping[functionality]["type"] == "training":
-                    func(X_test, y_test, TFSLearner(
+                    func(X_test, y_test, TFS(
                             model=content["binary"](**content["params"]),
                             target=target, #Needed for model export
                             road_category=road_category, #Needed for model export
                             db_broker=db_broker
                         )
-                    )
+                         )
                 elif functionality_mapping[functionality]["type"] == "testing":
-                    func(X_test, y_test, TFSLearner(
+                    func(X_test, y_test, TFS(
                             model=content["binary"],
                             target=target,
                             db_broker=db_broker
                         )
-                    )
+                         )
 
         return None
 
@@ -480,7 +480,7 @@ def forecast(functionality: str) -> None:
 
             for name, model in {m["name"]: pickle.loads(m["pickle_object"]) for m in db_broker.get_trained_model_objects(target=target, road_category=trp_road_category)}.items():  # Load model name and data (pickle object, the best parameters and so on)
 
-                learner = TFSLearner(
+                learner = TFS(
                     model=model,
                     road_category=trp_road_category,
                     target=target,
@@ -493,17 +493,7 @@ def forecast(functionality: str) -> None:
                 scaler = pipeline.scaler
                 #scaler.fit(trp_past_data[GlobalDefinitions.VOLUME_SCALED_FEATURES])
 
-                #X_predict, _ = split_by_target(
-                #    data=data,
-                #    target=target,
-                #    mode=1
-                #)
-
-
-
-                #learner.model.fit(X_train, y_train)
                 ## = learner.model.predict(X_predict)
-                #data[target] = dd.from_array(y_pred)
 
                 #print(f"**************** {name}'s Predictions ****************")
 

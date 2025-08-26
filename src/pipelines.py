@@ -27,7 +27,7 @@ from shapely.geometry import shape
 from shapely import wkt
 
 from definitions import GlobalDefinitions, ProjectTables
-from utils import ZScore, cos_encoder, sin_encoder, check_target, get_n_items_from_gen
+from utils import ZScore, cos_encoder, sin_encoder, check_target, split_by_target, get_n_items_from_gen
 
 
 pd.set_option("display.max_rows", None)
@@ -509,9 +509,11 @@ class MLPredictionPipeline:
                  db_broker: Any,
                  loader: Any,
                  preprocessing_pipeline: MLPreprocessingPipeline,
+                 model: Any
                  ):
         from brokers import DBBroker
         from loaders import BatchStreamLoader
+        from ml import ModelWrapper
 
         self._trp_id: str = trp_id
         self._road_category: str = road_category
@@ -519,6 +521,7 @@ class MLPredictionPipeline:
         self._db_broker: DBBroker = db_broker
         self._loader: BatchStreamLoader = loader
         self._pipeline: MLPreprocessingPipeline = preprocessing_pipeline
+        self._model: ModelWrapper = model
 
         check_target(target=self._target, errors=True)
 
@@ -605,29 +608,33 @@ class MLPredictionPipeline:
         return dd.from_pandas(pd.DataFrame(list(rows_to_predict))).assign(is_future=True).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).persist()
 
 
-
-    def get_future_records(self):
+    def _get_future_records(self):
         past_data = self._get_training_records(
             training_mode=0,
             cache_latest_dt_collection=True
         )
         future_records = self._generate_future_records(forecasting_horizon=self._db_broker.get_forecasting_horizon(target=self._target))
+        return getattr(self._pipeline, f"preprocess_{self._target}")(data=dd.concat([past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
 
-        data = getattr(self._pipeline, f"preprocess_{self._target}")(data=dd.concat([past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
+
+    def start(self, trp_tuning: bool = False) -> None:
+        # trp_tuning defines if we want to train the already trained model on data exclusively from the TRP which we want to forecast data for to improve prediction accuracy
+        data = self._get_future_records()
+        if trp_tuning:
+            X_tune, y_tune = split_by_target(
+                data=data[data["is_future"] != True].drop(columns=["is_future"]).persist(),
+                target=self._target,
+                mode=1
+            )
+            self._model.fit(X_tune, y_tune)
+
         data = data[data["is_future"] != False].drop(columns=["is_future"]).persist()
-
-        tuning_set = data[data["is_future"] != True].drop(columns=["is_future"]).persist()
-
-
-    #, trp_tuning: bool = False
-    # trp_tuning defines if we want to train the already trained model on data exclusively from the TRP which we want to forecast data for to improve prediction accuracy
-
-    #X_train, y_train = split_by_target(
-    #    data=prediction_training_set,
-    #    target=target,
-    #    mode=1
-    #)
-
+        X_predict, _ = split_by_target(
+            data=data,
+            target=self._target,
+            mode=1
+        )
+        data[self._target] = dd.from_array(self._model.predict(X_predict))
 
 
 

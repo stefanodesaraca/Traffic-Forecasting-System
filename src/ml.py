@@ -205,7 +205,7 @@ class ModelWrapper(BaseModel):
 
 
 
-class TFSLearner:
+class TFS:
     """
     Base class for models that learn to predict traffic volumes, average speed,
     or other traffic-related data using machine learning or statistical methods.
