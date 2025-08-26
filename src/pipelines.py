@@ -510,11 +510,14 @@ class MLPredictionPipeline:
                  loader: Any,
                  preprocessing_pipeline: MLPreprocessingPipeline,
                  ):
+        from brokers import DBBroker
+        from loaders import BatchStreamLoader
+
         self._trp_id: str = trp_id
         self._road_category: str = road_category
         self._target: str = target
-        self._db_broker: Any = db_broker
-        self._loader: Any = loader
+        self._db_broker: DBBroker = db_broker
+        self._loader: BatchStreamLoader = loader
         self._pipeline: MLPreprocessingPipeline = preprocessing_pipeline
 
         check_target(target=self._target, errors=True)
@@ -530,11 +533,11 @@ class MLPredictionPipeline:
 
         def get_volume_training_data_start():
             return (self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
-                    - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2))
+                    - timedelta(hours=((self._db_broker.get_forecasting_horizon(target=self._target) - self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2))
 
         def get_mean_speed_training_data_start():
             return (self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
-                    - timedelta(hours=((self._ft.get_forecasting_horizon(target=self._target) - self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2))
+                    - timedelta(hours=((self._db_broker.get_forecasting_horizon(target=self._target) - self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2))
 
         trp_id_filter = (self._trp_id,) if training_mode == 0 else None
         training_functions_mapping = {
@@ -557,7 +560,7 @@ class MLPredictionPipeline:
             is_covid_year=True,
             is_mice=False,
             zoned_dt_start=training_functions_mapping[self._target]["training_data_start"](),
-            zoned_dt_end=training_functions_mapping[self._target]["date_boundaries"](trp_id_filter=trp_id_filter,enable_cache=cache_latest_dt_collection)["max"]
+            zoned_dt_end=training_functions_mapping[self._target]["date_boundaries"](trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
         ).assign(is_future=False).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).persist()
 
 
@@ -608,7 +611,7 @@ class MLPredictionPipeline:
             training_mode=0,
             cache_latest_dt_collection=True
         )
-        future_records = self._generate_future_records(forecasting_horizon=self._ft.get_forecasting_horizon(target=self._target))
+        future_records = self._generate_future_records(forecasting_horizon=self._db_broker.get_forecasting_horizon(target=self._target))
 
         data = getattr(self._pipeline, f"preprocess_{self._target}")(data=dd.concat([past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
         data = data[data["is_future"] != False].drop(columns=["is_future"]).persist()

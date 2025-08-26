@@ -464,57 +464,54 @@ def forecast(functionality: str) -> None:
     check_target(target, errors=True)
     target = GlobalDefinitions.TARGET_DATA[target]
 
-    with dask_cluster_client(processes=False) as client:
-        trps_with_data = db_broker.get_all_trps_metadata(**{f"has_{target}_filter": True}).keys()
-        trp_ids = [d.get("id") for d in db_broker.get_trp_ids() if d.get("id") in trps_with_data]
-        print("TRP IDs: ", trp_ids)
-        trp_id = input("Insert TRP ID for forecasting: ")
-
-        if trp_id not in trp_ids:
-            raise TRPNotFoundError("TRP ID not in available TRP IDs list")
-
-        trp_road_category = db_broker.get_trp_metadata(trp_id=trp_id)["road_category"]
-        print("TRP road category: ", trp_road_category)
-
-        for name, model in {m["name"]: pickle.loads(m["pickle_object"]) for m in db_broker.get_trained_model_objects(target=target, road_category=trp_road_category)}.items():  # Load model name and data (pickle object, the best parameters and so on)
-
-            learner = TFSLearner(
-                model=model,
-                road_category=trp_road_category,
-                target=target,
-                client=client,
-                db_broker=db_broker
-            )
-
-
-
-            scaler = pipeline.scaler
-            scaler.fit(trp_past_data[GlobalDefinitions.VOLUME_SCALED_FEATURES])
-
-            X_predict, _ = split_by_target(
-                data=data,
-                target=target,
-                mode=1
-            )
-
-
-
-            learner.model.fit(X_train, y_train)
-            y_pred = learner.model.predict(X_predict)
-            data[target] = dd.from_array(y_pred)
-
-            print(f"**************** {name}'s Predictions ****************")
-
-            data[GlobalDefinitions.VOLUME_SCALED_FEATURES] = scaler.inverse_transform(X=data[GlobalDefinitions.VOLUME_SCALED_FEATURES])
-
-            print("Inversed: ", data.compute())
-
-            print("Adapted: ", forecaster.fit_predictions(y_pred))
-            #NOTE ValueError: The function value at x=inf is NaN; solver cannot continue. -> VALUES ARE ALL THE SAME
-
-            print("STOP")
-
     if functionality == "3.3.1":
+
+        with dask_cluster_client(processes=False) as client:
+            trps_with_data = db_broker.get_all_trps_metadata(**{f"has_{target}_filter": True}).keys()
+            trp_ids = [d.get("id") for d in db_broker.get_trp_ids() if d.get("id") in trps_with_data]
+            print("TRP IDs: ", trp_ids)
+            trp_id = input("Insert TRP ID for forecasting: ")
+
+            if trp_id not in trp_ids:
+                raise TRPNotFoundError("TRP ID not in available TRP IDs list")
+
+            trp_road_category = db_broker.get_trp_metadata(trp_id=trp_id)["road_category"]
+            print("TRP road category: ", trp_road_category)
+
+            for name, model in {m["name"]: pickle.loads(m["pickle_object"]) for m in db_broker.get_trained_model_objects(target=target, road_category=trp_road_category)}.items():  # Load model name and data (pickle object, the best parameters and so on)
+
+                learner = TFSLearner(
+                    model=model,
+                    road_category=trp_road_category,
+                    target=target,
+                    client=client,
+                    db_broker=db_broker
+                )
+
+
+
+                scaler = pipeline.scaler
+                #scaler.fit(trp_past_data[GlobalDefinitions.VOLUME_SCALED_FEATURES])
+
+                #X_predict, _ = split_by_target(
+                #    data=data,
+                #    target=target,
+                #    mode=1
+                #)
+
+
+
+                #learner.model.fit(X_train, y_train)
+                ## = learner.model.predict(X_predict)
+                #data[target] = dd.from_array(y_pred)
+
+                #print(f"**************** {name}'s Predictions ****************")
+
+                #data[GlobalDefinitions.VOLUME_SCALED_FEATURES] = scaler.inverse_transform(X=data[GlobalDefinitions.VOLUME_SCALED_FEATURES])
+
+                #print("Inversed: ", data.compute())
+
+
 
 
     return None

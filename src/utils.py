@@ -1,18 +1,15 @@
 from contextlib import contextmanager
 from itertools import islice
-import datetime
 from typing import Literal, Any, Generator
-import asyncio
 import numpy as np
 import pandas as pd
 import dask.dataframe as dd
-from dateutil.relativedelta import relativedelta
 from pydantic.types import PositiveInt
 from dask.distributed import Client, LocalCluster
 from functools import lru_cache, wraps
 
 from exceptions import TargetVariableNotFoundError, MissingDataError
-from definitions import GlobalDefinitions, ProjectTables
+from definitions import GlobalDefinitions
 
 pd.set_option("display.max_columns", None)
 
