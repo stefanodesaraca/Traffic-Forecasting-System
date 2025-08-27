@@ -439,7 +439,7 @@ class AIODBManager:
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadGraphNodes.value}" (
                             id SERIAL,
-                            node_id TEXT, -- corresponds to "id" in properties
+                            node_id TEXT UNIQUE, -- corresponds to "id" in properties
                             type TEXT NOT NULL DEFAULT 'Feature',
                             geom GEOMETRY(Point, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}) NOT NULL, -- store coordinates in WGS84
                             road_node_ids TEXT[],                -- array of strings
@@ -454,8 +454,8 @@ class AIODBManager:
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadGraphLinks.value}" (
-                            id SERIAL PRIMARY KEY,
-                            link_id TEXT,  -- properties.id
+                            id SERIAL,
+                            link_id TEXT UNIQUE,  -- properties.id
                             type TEXT NOT NULL DEFAULT 'Feature',
                             geom GEOMETRY,    -- supports any geometry type; use GEOMETRY(LineString, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}) if always lines
                             year_applies_to INTEGER,
@@ -491,40 +491,41 @@ class AIODBManager:
                             FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id),
                             FOREIGN KEY (start_traffic_node_id) REFERENCES "{ProjectTables.RoadGraphNodes.value}" (node_id),
                             FOREIGN KEY (end_traffic_node_id) REFERENCES "{ProjectTables.RoadGraphNodes.value}" (node_id),
-                            FOREIGN KEY (function_class) REFERENCES "{ProjectTables.FunctionClasses.value}" (id),                          
+                            FOREIGN KEY (function_class) REFERENCES "{ProjectTables.FunctionClasses.value}" (id),
+                            PRIMARY KEY (id, link_id)                          
                         );                        
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadLink_Municipalities.value}" (
-                            road_link_id TEXT NOT NULL,
+                            link_id TEXT NOT NULL,
                             municipality_id INTEGER NOT NULL,
-                            FOREIGN KEY (road_link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (id) ON DELETE CASCADE,
-                            FOREIGN KEY (municipality_id) REFERENCES "{ProjectTables.Municipalities.value}" (id) ON DELETE CASCADE,
-                            PRIMARY KEY (road_link_id, municipality_id)
+                            FOREIGN KEY (link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (link_id) ON DELETE CASCADE,
+                            FOREIGN KEY (municipality_id) REFERENCES "{ProjectTables.Municipalities.value}" (number) ON DELETE CASCADE,
+                            PRIMARY KEY (link_id, municipality_id)
                         
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadLink_Counties.value}" (
-                            road_link_id TEXT NOT NULL,
+                            link_id TEXT NOT NULL,
                             county_id INTEGER NOT NULL,
-                            FOREIGN KEY (road_link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (id) ON DELETE CASCADE,
-                            FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}" (id) ON DELETE CASCADE,
-                            PRIMARY KEY (road_link_id, county_id)
+                            FOREIGN KEY (link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (link_id) ON DELETE CASCADE,
+                            FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}" (number) ON DELETE CASCADE,
+                            PRIMARY KEY (link_id, county_id)
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadLink_TollStations.value}" (
-                            road_link_id TEXT NOT NULL,
+                            link_id TEXT NOT NULL,
                             toll_station_id INTEGER NOT NULL,
-                            FOREIGN KEY (road_link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (id) ON DELETE CASCADE,
+                            FOREIGN KEY (link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (link_id) ON DELETE CASCADE,
                             FOREIGN KEY (toll_station_id) REFERENCES "{ProjectTables.TollStations.value}" (id) ON DELETE CASCADE,
-                            PRIMARY KEY (road_link_id, toll_station_id)
+                            PRIMARY KEY (link_id, toll_station_id)
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" (
-                            road_link_id TEXT NOT NULL,
+                            link_id TEXT NOT NULL,
                             trp_id TEXT NOT NULL,
-                            FOREIGN KEY (road_link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (id) ON DELETE CASCADE,
+                            FOREIGN KEY (link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (link_id) ON DELETE CASCADE,
                             FOREIGN KEY (trp_id) REFERENCES "{ProjectTables.TrafficRegistrationPoints.value}" (id) ON DELETE CASCADE,
-                            PRIMARY KEY (road_link_id, trp_id)
+                            PRIMARY KEY (link_id, trp_id)
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadNetworks.value}" (
