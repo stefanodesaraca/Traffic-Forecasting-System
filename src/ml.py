@@ -228,7 +228,7 @@ class TFS:
     """
 
     def __init__(self, model: callable, target: str, db_broker: DBBroker, client: Client | None = None, road_category: str | None = None):
-        self._scoring_functions: dict[str, callable] = {
+        self._scoring_functions: dict[str, type[callable]] = {
             "r2": r2_score,
             "mean_squared_error": mean_squared_error,
             "root_mean_squared_error": root_mean_squared_error,
@@ -435,10 +435,3 @@ class TFS:
 
 
 
-
-
-
-
-
-
-# TODO CREATE THE A2BForecaster CLASS

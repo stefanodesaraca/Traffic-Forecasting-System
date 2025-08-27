@@ -298,8 +298,8 @@ def forecast_warmup(functionality: str) -> None:
                 target=target,
                 mode=0
             )
-            print(f"Shape of the merged data for road category {road_category}: ", X_train.shape[0].start() +
-                  X_test.shape[0].start() + y_train.shape[0].start() + y_test.shape[0].start())
+            print(f"Shape of the merged data for road category {road_category}: ",
+                  X_train.shape[0].compute() + X_test.shape[0].compute() + y_train.shape[0].compute() + y_test.shape[0].compute())
 
             for model, content in models.items():
                 #print(content)
@@ -469,9 +469,9 @@ def forecast(functionality: str) -> None:
 
                 print(f"**************** {name}'s Predictions ****************")
 
-                data = pipeline.start()
+                data = pipeline.start(trp_tuning=True) #TODO TO TRY WITH trp_tuning=True
 
-                print(data)
+                print(data.compute())
 
 
 

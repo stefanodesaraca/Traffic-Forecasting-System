@@ -641,7 +641,6 @@ class MLPredictionPipeline:
         )
         data[self._target] = dd.from_array(self._model.predict(X_predict))
         data[scaled_cols] = self._pipeline.scaler.inverse_transform(data[scaled_cols])
-        print(data.compute())
         return data
 
 

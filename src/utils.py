@@ -147,7 +147,7 @@ def split_by_target(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tup
     if mode == 1:
         return X.persist(), y.persist()
     elif mode == 0:
-        n_rows = data.shape[0].start()
+        n_rows = data.shape[0].compute()
         p_70 = int(n_rows * 0.70)
         return (dd.from_pandas(X.head(p_70)),
                 dd.from_pandas(X.tail(n_rows - p_70)),

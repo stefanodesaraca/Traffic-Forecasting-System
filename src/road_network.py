@@ -77,7 +77,7 @@ class RoadNetwork:
             "geometry_wkt": road["geometri"]["wkt"],  # Well-known-text geometry of the whole road
             "geometry_srid": road["geometri"]["srid"],
             # Spatial Reference System Identifier, identifies the EPSG code which represents the UTM projection used
-            "has_own_geometry": road["geometri"].get("egengeometri", None),
+            "has_own_geometry": road["geometri"].get("egengeometri"),
             # Indicates whether the geometry of road inherits from another object in the NVDB
 
             # Lokasjon (Location)
