@@ -311,7 +311,7 @@ def forecast_warmup(functionality: str) -> None:
                             client=client,
                             db_broker=db_broker
                         )
-                         )
+                    )
                 elif functionality_mapping[functionality]["type"] == "training":
                     func(X_test, y_test, TFS(
                             model=content["binary"](**content["params"]),
@@ -319,14 +319,14 @@ def forecast_warmup(functionality: str) -> None:
                             road_category=road_category, #Needed for model export
                             db_broker=db_broker
                         )
-                         )
+                    )
                 elif functionality_mapping[functionality]["type"] == "testing":
                     func(X_test, y_test, TFS(
                             model=content["binary"],
                             target=target,
                             db_broker=db_broker
                         )
-                         )
+                    )
 
         return None
 

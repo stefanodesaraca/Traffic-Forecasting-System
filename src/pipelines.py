@@ -1,4 +1,5 @@
 import math
+from itertools import pairwise
 import datetime
 from datetime import timedelta
 import json
@@ -471,7 +472,12 @@ class MLPreprocessingPipeline:
                 .reset_index(level=0, drop=True)  # Drop group index, align back
             )
             #IMPORTANT: we're grouping because in the dataframe there's data from multiple TRPs which have completely different values
-            data[f"coverage_{target}_lag_24h"] = data["coverage"] * data[f"{target}_lag_{lag}h"]
+            data[f"coverage_{target}_lag_{lag}h"] = data["coverage"] * data[f"{target}_lag_{lag}h"]
+
+        for lag_t1, lag_t2 in pairwise(lags):
+            data[f"{target}_delta_{lag_t1}h_{lag_t2}h"] = data[f"{target}_lag_{lag_t1}h"] - data[f"{target}_lag_{lag_t2}h"]
+            # Delta value between the first lag and the second one per cycle. Lags are taken pairwise from the lags list, if the number of lags is odd the last element won't be included. If the lags list has only one element no delta can be calculated, so the pairwise() function will just return an empty iterator
+            data[f"{target}_pct_change_{lag_t1}h_{lag_t2}h"] = (data[f"{target}_lag_{lag_t1}h"] - data[f"{target}_lag_{lag_t2}h"]) / data[f"{target}_lag_{lag_t2}h"] # Percentual change in the period between the first lag to the second
         return data.persist()
 
 
@@ -574,7 +580,7 @@ class MLPredictionPipeline:
             }
         }
         return training_functions_mapping[self._target]["loader"](
-            road_category_filter=[self._road_category],
+            road_category_filter=[self._road_category] if self._road_category else None,
             trp_list_filter=trp_id_filter,
             encoded_cyclical_features=True,
             year=True,
