@@ -222,56 +222,56 @@ class BatchStreamLoader:
                   df_partitions_size: PositiveInt = 100000) -> dd.DataFrame:
         return self._load_from_stream(self._db_broker.get_stream(sql=f"""
             SELECT 
-                "id",
-                "link_id",
-                "type",
+                rl.id,
+                rl.link_id,
+                rl.type,
                 ST_AsText("geom") AS geom,
-                "year_applies_to",
-                "candidate_ids",
-                "road_system_references",
-                "road_category",
-                "road_placements",
-                "functional_road_class",
-                "function_class",
-                "start_traffic_node_id",
-                "end_traffic_node_id",
-                "subsumed_traffic_node_ids",
-                "road_link_ids",
-                "road_node_ids",
-                "municipality_ids",
-                "county_ids",
-                "highest_speed_limit",
-                "lowest_speed_limit",
-                "max_lanes",
-                "min_lanes",
-                "has_only_public_transport_lanes",
-                "length",
-                "traffic_direction_wrt_metering_direction",
-                "is_norwegian_scenic_route",
-                "is_ferry_route",
-                "is_ramp",
-                "toll_station_ids",
-                "associated_trp_ids"
-                "traffic_volumes",
-                "urban_ratio",
-                "number_of_establishments",
-                "number_of_employees",
-                "number_of_inhabitants",
-                "has_anomalies",
-                "anomalies",
-                "raw_properties"
-            FROM "{ProjectTables.RoadGraphLinks.value}"
-            WHERE {f'''"link_id" = ANY(%s)'''
+                rl.year_applies_to,
+                rl.candidate_ids,
+                rl.road_system_references,
+                rl.road_category,
+                rl.road_placements,
+                rl.functional_road_class,
+                rl.function_class,
+                rl.start_traffic_node_id,
+                rl.end_traffic_node_id,
+                rl.subsumed_traffic_node_ids,
+                rl.road_link_ids,
+                rl.county_ids,
+                rl.highest_speed_limit,
+                rl.lowest_speed_limit,
+                rl.max_lanes,
+                rl.min_lanes,
+                rl.has_only_public_transport_lanes,
+                rl.length,
+                rl.traffic_direction_wrt_metering_direction,
+                rl.is_norwegian_scenic_route,
+                rl.is_ferry_route,
+                rl.is_ramp,
+                rl.traffic_volumes,
+                rl.urban_ratio,
+                rl.number_of_establishments,
+                rl.number_of_employees,
+                rl.number_of_inhabitants,
+                rl.has_anomalies,
+                rl.anomalies,
+                rl.raw_properties
+                {''',ARRAY_AGG(m.municipality_id) AS municipality_ids''' if municipality_ids_filter else ""}
+                {''',ARRAY_AGG(c.county_id) AS county_ids''' if county_ids_filter else ""}
+            FROM "{ProjectTables.RoadGraphLinks.value} rl" 
+            {f"LEFT JOIN {ProjectTables.RoadLink_Municipalities.value} m ON rl.link_id = m.link_id" if municipality_ids_filter else ""}
+            {f"LEFT JOIN {ProjectTables.RoadLink_Counties.value} c ON rl.link_id = c.link_id" if county_ids_filter else ""}
+            WHERE {f'''"rl.link_id" = ANY(%s)'''
                 if link_id_filter else "1=1"
             }
-            {f'''"road_category" = ANY(%s)'''
+            {f'''"rl.road_category" = ANY(%s)'''
                 if road_category_filter else "1=1"
             }
             AND {f'''"municipality_ids" && ANY(%s)'''
-                if node_ids_filter else "1=1"
+                if municipality_ids_filter else "1=1"
             }
             AND {f'''"county_ids" && ANY(%s)'''
-                if node_ids_filter else "1=1"
+                if county_ids_filter else "1=1"
             }
             AND {f'''"road_node_ids" && ANY(%s)'''
                 if node_ids_filter else "1=1"
@@ -282,6 +282,43 @@ class BatchStreamLoader:
             AND {f'"has_only_public_transport_lanes" = FALSE' 
                 if has_only_public_transport_lanes_filter is False else "1=1"
             }
+            {'''
+            GROUP BY
+                rl.id,
+                rl.link_id,
+                rl.type,
+                rl.geom,
+                rl.year_applies_to,
+                rl.candidate_ids,
+                rl.road_system_references,
+                rl.road_category,
+                rl.road_placements,
+                rl.functional_road_class,
+                rl.function_class,
+                rl.start_traffic_node_id,
+                rl.end_traffic_node_id,
+                rl.subsumed_traffic_node_ids,
+                rl.road_link_ids,
+                rl.county_ids,
+                rl.highest_speed_limit,
+                rl.lowest_speed_limit,
+                rl.max_lanes,
+                rl.min_lanes,
+                rl.has_only_public_transport_lanes,
+                rl.length,
+                rl.traffic_direction_wrt_metering_direction,
+                rl.is_norwegian_scenic_route,
+                rl.is_ferry_route,
+                rl.is_ramp,
+                rl.traffic_volumes,
+                rl.urban_ratio,
+                rl.number_of_establishments,
+                rl.number_of_employees,
+                rl.number_of_inhabitants,
+                rl.has_anomalies,
+                rl.anomalies,
+                rl.raw_properties
+            ''' if municipality_ids_filter or county_ids_filter else ""}
             {f"LIMIT {limit}" if limit else ""}
             ;
             """, filters=tuple(to_pg_array(f) for f in [

@@ -199,6 +199,18 @@ class RoadNetwork:
         return ...
 
 
+
+    def _compute_edge_weight(self, edge: Node, is_forecast: bool = False, forecasting_horizon: datetime.datetime | None = None) -> float | int:
+
+
+
+        #TODO FOR EVERY EDGE COMPUTE ITS WEIGHT WITH self._compute_edge_weight()
+        #TODO CREATE A compute_edges_weights THAT THE USER CAN CALL AND THUS COMPUTE THE WEIGHTS FOR THE WHOLE GRAPH. CALLING THE SAME METHOD SHOULD JUST UPDATE THE WEIGHTS SINCE edge["attr"] = ... JUST UPDATES THE ATTRIBUTE VALUE
+
+
+        return ...
+
+
     def get_data(self) -> dict[Any, Any]:
         return self.__dict__
 
@@ -215,17 +227,6 @@ class RoadNetwork:
                 for row in partition
             ) for partition in self._loader.get_links().partitions)
         return None
-
-
-    def _compute_edge_weight(self, edge: Node, is_forecast: bool = False, forecasting_horizon: datetime.datetime | None = None) -> float | int:
-
-
-
-        #TODO FOR EVERY EDGE COMPUTE ITS WEIGHT WITH self._compute_edge_weight()
-        #TODO CREATE A compute_edges_weights THAT THE USER CAN CALL AND THUS COMPUTE THE WEIGHTS FOR THE WHOLE GRAPH. CALLING THE SAME METHOD SHOULD JUST UPDATE THE WEIGHTS SINCE edge["attr"] = ... JUST UPDATES THE ATTRIBUTE VALUE
-
-
-        return ...
 
 
     def build(self, auto_load_nodes: bool = True, auto_load_links: bool = True, verbose: bool = True) -> None:
