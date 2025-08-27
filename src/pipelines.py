@@ -26,7 +26,7 @@ import geojson
 from shapely.geometry import shape
 from shapely import wkt
 
-from definitions import GlobalDefinitions, ProjectTables
+from definitions import GlobalDefinitions, ProjectTables, ProjectConstraints
 from utils import ZScore, cos_encoder, sin_encoder, check_target, split_by_target, get_n_items_from_gen
 
 
@@ -274,7 +274,7 @@ class MeanSpeedIngestionPipeline(IngestionPipelineMixin):
         await self._db_broker_async.send_sql_async(f"""
             INSERT INTO "{ProjectTables.MeanSpeed.value}" ({', '.join(f'"{f}"' for f in fields)})
             VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields) + 1))})
-            ON CONFLICT ON CONSTRAINT "unique_mean_speed_per_trp_and_time" DO NOTHING;
+            ON CONFLICT ON CONSTRAINT "{ProjectConstraints.UNIQUE_MEAN_SPEED_PER_TRP_AND_TIME.value}" DO NOTHING;
         """, many=True, many_values=list(self.data.itertuples(index=False, name=None)))
 
         print(f"""Ended TRP: {fp} cleaning""")
@@ -455,7 +455,23 @@ class MLPreprocessingPipeline:
     @staticmethod
     def _add_lag_features(data: dd.DataFrame, target: str, lags: list[PositiveInt]) -> dd.DataFrame:
         for lag in lags:
-            data[f"{target}_lag{lag}h"] = data[target].shift(lag)  # n hours shift
+            data[f"{target}_lag{lag}h"] = data.groupby("trp_id")[target].shift(lag)  # N hours shift
+            data[f"{target}_rolling_mean_{lag}h"] = (
+                data.groupby("trp_id")["volume"]
+                .shift(lag)  # exclude current hour
+                .rolling(window=lag, min_periods=1) # min_periods=1 ensures that the rolling statistic is computed even if fewer than *lag (value)* valid values exist.
+                .mean()
+                .reset_index(level=0, drop=True)  # Drop group index, align back
+            )
+            data[f"{target}_rolling_std_{lag}h"] = (
+                data.groupby("trp_id")[target]
+                .shift(lag)  # exclude current hour
+                .rolling(window=lag, min_periods=1)
+                .std()
+                .reset_index(level=0, drop=True)  # Drop group index, align back
+            )
+            #IMPORTANT: we're grouping because in the dataframe there's data from multiple TRPs which have completely different values
+            data[f"coverage_{target}_lag_24h"] = data["coverage"] * data[f"{target}_lag_{lag}h"]
         return data.persist()
 
 
@@ -485,6 +501,7 @@ class MLPreprocessingPipeline:
         data = self._add_lag_features(data=data, target=GlobalDefinitions.VOLUME, lags=lags)
         data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES)
         data = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_SCALED_FEATURES, scaler=MinMaxScaler)
+        data = data.sort_values(by=["trp_id", "zoned_dt_iso"], ascending=True).persist()
         return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
 
@@ -497,6 +514,7 @@ class MLPreprocessingPipeline:
         data = self._add_lag_features(data=data, target=GlobalDefinitions.MEAN_SPEED, lags=lags)
         data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES)
         data = self._scale_features(data=data, feats=GlobalDefinitions.MEAN_SPEED_SCALED_FEATURES, scaler=MinMaxScaler)
+        data = data.sort_values(by=["trp_id", "zoned_dt_iso"], ascending=True).persist()
         return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
 

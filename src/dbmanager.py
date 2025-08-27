@@ -424,15 +424,24 @@ class AIODBManager:
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.ForecastingSettings.value}" (
                             id BOOLEAN PRIMARY KEY CHECK (id = TRUE),
-                            config JSONB DEFAULT '{{"volume_forecasting_horizon": null, "mean_speed_forecasting_horizon": null}}'
+                            config JSONB DEFAULT '{{"{GlobalDefinitions.VOLUME}_forecasting_horizon": null, "{GlobalDefinitions.MEAN_SPEED}_forecasting_horizon": null}}'
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.TollStations.value}" (
+                            id   INTEGER PRIMARY KEY,
+                            name TEXT NOT NULL
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.FunctionClasses.value}" (
+                            id   TEXT PRIMARY KEY,
+                            name TEXT NOT NULL
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadGraphNodes.value}" (
-                            id SERIAL PRIMARY KEY,
+                            id SERIAL,
                             node_id TEXT, -- corresponds to "id" in properties
                             type TEXT NOT NULL DEFAULT 'Feature',
                             geom GEOMETRY(Point, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}) NOT NULL, -- store coordinates in WGS84
-                            connected_traffic_link_ids TEXT[],   -- array of strings
                             road_node_ids TEXT[],                -- array of strings
                             is_roundabout BOOLEAN,
                             number_of_incoming_links INTEGER,
@@ -440,7 +449,8 @@ class AIODBManager:
                             number_of_undirected_links INTEGER,
                             legal_turning_movements JSONB,       -- store array of objects
                             road_system_references TEXT[],       -- array of strings
-                            raw_properties JSONB                 -- store the entire properties object (for flexibility)
+                            raw_properties JSONB,                 -- store the entire properties object (for flexibility)
+                            PRIMARY KEY (id, node_id)
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadGraphLinks.value}" (
@@ -460,8 +470,6 @@ class AIODBManager:
                             subsumed_traffic_node_ids TEXT[],
                             road_link_ids TEXT[],
                             road_node_ids TEXT[],
-                            municipality_ids INTEGER[],
-                            county_ids INTEGER[],
                             highest_speed_limit INTEGER,
                             lowest_speed_limit INTEGER,
                             max_lanes INTEGER,
@@ -472,8 +480,6 @@ class AIODBManager:
                             is_norwegian_scenic_route BOOLEAN,
                             is_ferry_route BOOLEAN,
                             is_ramp BOOLEAN,
-                            toll_station_ids INTEGER[],
-                            associated_trp_ids TEXT[],
                             traffic_volumes JSONB,          -- array of traffic volume objects
                             urban_ratio DOUBLE PRECISION,
                             number_of_establishments INTEGER,
@@ -482,7 +488,43 @@ class AIODBManager:
                             has_anomalies BOOLEAN,
                             anomalies JSONB,                -- array of anomaly objects
                             raw_properties JSONB,            -- optional: store full original properties
-                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id)
+                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id),
+                            FOREIGN KEY (start_traffic_node_id) REFERENCES "{ProjectTables.RoadGraphNodes.value}" (node_id),
+                            FOREIGN KEY (end_traffic_node_id) REFERENCES "{ProjectTables.RoadGraphNodes.value}" (node_id),
+                            FOREIGN KEY (function_class) REFERENCES "{ProjectTables.FunctionClasses.value}" (id),                          
+                        );                        
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadLink_Municipalities.value}" (
+                            road_link_id TEXT NOT NULL,
+                            municipality_id INTEGER NOT NULL,
+                            FOREIGN KEY (road_link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (id) ON DELETE CASCADE,
+                            FOREIGN KEY (municipality_id) REFERENCES "{ProjectTables.Municipalities.value}" (id) ON DELETE CASCADE,
+                            PRIMARY KEY (road_link_id, municipality_id)
+                        
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadLink_Counties.value}" (
+                            road_link_id TEXT NOT NULL,
+                            county_id INTEGER NOT NULL,
+                            FOREIGN KEY (road_link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (id) ON DELETE CASCADE,
+                            FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}" (id) ON DELETE CASCADE,
+                            PRIMARY KEY (road_link_id, county_id)
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadLink_TollStations.value}" (
+                            road_link_id TEXT NOT NULL,
+                            toll_station_id INTEGER NOT NULL,
+                            FOREIGN KEY (road_link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (id) ON DELETE CASCADE,
+                            FOREIGN KEY (toll_station_id) REFERENCES "{ProjectTables.TollStations.value}" (id) ON DELETE CASCADE,
+                            PRIMARY KEY (road_link_id, toll_station_id)
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" (
+                            road_link_id TEXT NOT NULL,
+                            trp_id TEXT NOT NULL,
+                            FOREIGN KEY (road_link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (id) ON DELETE CASCADE,
+                            FOREIGN KEY (trp_id) REFERENCES "{ProjectTables.TrafficRegistrationPoints.value}" (id) ON DELETE CASCADE,
+                            PRIMARY KEY (road_link_id, trp_id)
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadNetworks.value}" (

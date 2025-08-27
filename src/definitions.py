@@ -103,7 +103,12 @@ class ProjectTables(Enum):
     RoadGraphNodes = "RoadGraphNodes"
     RoadGraphLinks = "RoadGraphLinks"
     RoadNetworks = "RoadNetworks"
-
+    TollStations = "TollStations"
+    FunctionClasses = "FunctionClasses"
+    RoadLink_Municipalities = "RoadLink_Municipalities"
+    RoadLink_Counties = "RoadLink_Counties"
+    RoadLink_TollStations = "RoadLink_TollStations"
+    RoadLink_TrafficRegistrationPoints = "RoadLink_TrafficRegistrationPoints"
 
 
 class ProjectConstraints(Enum):
