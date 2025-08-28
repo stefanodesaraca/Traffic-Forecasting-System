@@ -154,7 +154,7 @@ class AIODBManager:
             await conn.execute(
                 f"""
                 INSERT INTO "{ProjectTables.TrafficRegistrationPoints.value}" (
-                    "id", "name", "lat", "lon",
+                    "id", "name", "lat", "lon", "geom",
                     "road_reference_short_form", "road_category",
                     "road_link_sequence", "relative_position",
                     "county", "country_part_id", "country_part_name",
@@ -163,7 +163,7 @@ class AIODBManager:
                     "first_data", "first_data_with_quality_metrics"
                 )
                 VALUES (
-                    $1, $2, $3, $4,
+                    $1, $2, $3, $4, ST_SetSRID(ST_MakePoint($4, $3), {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}),
                     $5, $6,
                     $7, $8,
                     $9, $10, $11,
@@ -191,8 +191,8 @@ class AIODBManager:
                 trp["location"].get("county", {}).get("number"),
                 trp["location"].get("county", {}).get("geographicNumber"),
                 trp.get("trafficRegistrationType"),
-                datetime.strptime(trp.get("dataTimeSpan", {}).get("firstData"), GlobalDefinitions.DT_ISO_TZ_FORMAT),
-                datetime.strptime(trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics"), GlobalDefinitions.DT_ISO_TZ_FORMAT)
+                datetime.strptime(trp.get("dataTimeSpan", {}).get("firstData"), GlobalDefinitions.DT_ISO_TZ_FORMAT) if trp.get("dataTimeSpan", {}).get("firstData") else None,
+                datetime.strptime(trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics"), GlobalDefinitions.DT_ISO_TZ_FORMAT) if trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics") else None
             )
         return None
 
@@ -347,6 +347,7 @@ class AIODBManager:
                             name TEXT NOT NULL,
                             lat FLOAT NOT NULL,
                             lon FLOAT NOT NULL,
+                            geom GEOMETRY (Point, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL,
                             road_reference_short_form TEXT NOT NULL,
                             road_category TEXT NOT NULL,
                             road_link_sequence INTEGER NOT NULL,
