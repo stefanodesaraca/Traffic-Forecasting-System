@@ -263,10 +263,10 @@ class BatchStreamLoader:
             AND {f'''"rl.road_category" = ANY(%s)'''
                 if road_category_filter else "1=1"
             }
-            AND {f'''"municipality_ids" && ANY(%s)'''
+            AND {f'''"municipality_id" = ANY(%s)'''
                 if municipality_ids_filter else "1=1"
             }
-            AND {f'''"county_ids" && ANY(%s)'''
+            AND {f'''"county_id" = ANY(%s)'''
                 if county_ids_filter else "1=1"
             }
             AND {f'''"road_node_ids" && ANY(%s)'''
