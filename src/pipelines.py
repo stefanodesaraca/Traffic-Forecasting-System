@@ -315,7 +315,8 @@ class RoadGraphObjectsIngestionPipeline:
                 "raw_properties"
             ) VALUES (
                 $1, $2, ST_GeomFromText($3, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}), $4, $5, $6, $7, $8, $9, $10, $11
-            );
+            )
+            ON CONFLICT DO NOTHING;
         """
 
         batches = get_n_items_from_gen(gen=((
@@ -363,8 +364,6 @@ class RoadGraphObjectsIngestionPipeline:
                         "subsumed_traffic_node_ids",
                         "road_link_ids",
                         "road_node_ids",
-                        "municipality_ids",
-                        "county_ids",
                         "highest_speed_limit",
                         "lowest_speed_limit",
                         "max_lanes",
@@ -375,8 +374,6 @@ class RoadGraphObjectsIngestionPipeline:
                         "is_norwegian_scenic_route",
                         "is_ferry_route",
                         "is_ramp",
-                        "toll_station_ids",
-                        "associated_trp_ids",
                         "traffic_volumes",
                         "urban_ratio",
                         "number_of_establishments",
@@ -388,8 +385,9 @@ class RoadGraphObjectsIngestionPipeline:
                     ) VALUES (
                         $1, $2, ST_GeomFromText($3, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}), $4, $5, $6, $7, $8, $9, $10,
                         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-                        $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37
-                    );
+                        $24, $25, $26, $27, $28, $29, $30, $31, $32, $33
+                    )
+                    ON CONFLICT DO NOTHING;
                 """
 
         batches = get_n_items_from_gen(gen=((
@@ -408,8 +406,6 @@ class RoadGraphObjectsIngestionPipeline:
             feature.get("properties").get("subsumedTrafficNodeIds"),
             feature.get("properties").get("roadLinkIds"),
             feature.get("properties").get("roadNodeIds"),
-            feature.get("properties").get("municipalityIds"),
-            feature.get("properties").get("countyIds"),
             feature.get("properties").get("highestSpeedLimit"),
             feature.get("properties").get("lowestSpeedLimit"),
             feature.get("properties").get("maxLanes"),
@@ -420,8 +416,6 @@ class RoadGraphObjectsIngestionPipeline:
             feature.get("properties").get("isNorwegianScenicRoute"),
             feature.get("properties").get("isFerryRoute"),
             feature.get("properties").get("isRamp"),
-            feature.get("properties").get("tollStationIds"),
-            feature.get("properties").get("associatedTrpIds"),
             json.dumps(feature.get("properties").get("trafficVolumes", [])),
             feature.get("properties").get("urbanRatio"),
             feature.get("properties").get("numberOfEstablishments"),
