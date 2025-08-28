@@ -1,7 +1,9 @@
+import json
 import os
 import sys
 import time
 import pickle
+from pprint import pprint
 import asyncio
 import dask
 import dask.dataframe as dd
@@ -425,6 +427,26 @@ def manage_ml(functionality: str) -> None:
         return None
 
 
+    if functionality == ...:
+        db_broker = get_db_broker()
+
+        print("Models available: ")
+        pprint(db_broker.get_ml_models())
+
+        model_id = input("Enter the model ID: ")
+        target = input("Enter the target variable of the grid you want to update: ")
+        grid_fp = input("Enter grid filepath: ")
+
+        with open(grid_fp, "r", encoding="utf-8") as f:
+            grid = json.load(f)
+
+        db_broker.update_model_grid(
+            model_id=model_id,
+            target=target,
+            grid=grid
+        )
+
+
     return None
 
 
@@ -526,7 +548,8 @@ def main():
         "4.2": manage_road_network,
         "4.3": manage_road_network,
         "5.1": manage_ml,
-        "5.2": eda
+        "5.2": manage_ml,
+        "5.3": eda
     }
 
     while True:
@@ -564,9 +587,10 @@ def main():
     4.3 Graph analysis
 5. Other options
     5.1 Update best parameters for a model
-    5.2 EDA (Exploratory Data Analysis)
-    5.3 Erase all data about a project
-    5.4 Analyze pre-existing road network graph
+    5.2 Update model grid
+    5.3 EDA (Exploratory Data Analysis)
+    5.4 Erase all data about a project
+    5.5 Analyze pre-existing road network graph
 0. Exit""")
 
         asyncio.run(initialize())

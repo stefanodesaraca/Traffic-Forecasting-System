@@ -342,6 +342,21 @@ class DBBroker:
             single=True).get(f"{target}_horizon", None)
 
 
+    def get_ml_models(self) -> dict[str, Any]:
+        return self.send_sql(f"""
+            SELECT * FROM {ProjectTables.MLModels.value}
+        """)
+
+
+    def update_model_grid(self, model_id: str, target: str, grid: dict[str, Any]) -> None:
+        self.send_sql(f"""
+            UPDATE "{ProjectTables.MLModels.value}"
+            SET 
+                {f"{target}_grid = '{grid}'"}
+            WHERE id = '{model_id}';""")
+        return None
+
+
 
 class AIODBManagerBroker:
 

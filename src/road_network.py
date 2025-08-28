@@ -34,7 +34,7 @@ class RoadNetwork:
         self.network_id: str = network_id
         self.name: str = name
         self._backend: str = backend
-        self._network: nx.Graph | None = None
+        self._network: nx.DiGraph | None = None
 
         if network_binary:
             self._network = pickle.loads(network_binary) #To load pre-computed graphs
