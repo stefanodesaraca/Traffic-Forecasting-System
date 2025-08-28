@@ -23,7 +23,7 @@ from sklearn.ensemble import (
 )
 
 from exceptions import ProjectDBNotFoundError
-from definitions import GlobalDefinitions, HubDBTables, HUBDBConstraints, ProjectTables, ProjectConstraints, ProjectViews, RowFactories, AIODBManagerInternalConfig as AIODBMInternalConfig
+from definitions import GlobalDefinitions, HubDBTables, HUBDBConstraints, ProjectTables, ProjectConstraints, ProjectViews, FunctionClasses, RowFactories, AIODBManagerInternalConfig as AIODBMInternalConfig
 from downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
 
 
@@ -199,7 +199,7 @@ class AIODBManager:
     @staticmethod
     async def insert_models(conn: asyncpg.connection) -> None:
 
-        for model in (RandomForestRegressor, DecisionTreeRegressor, HistGradientBoostingRegressor):
+        for model in [RandomForestRegressor, DecisionTreeRegressor, HistGradientBoostingRegressor]:
             estimator_name = model.__name__
             async with aiofiles.open(GlobalDefinitions.MODEL_GRIDS_FILE, "r", encoding="utf-8") as gs:
                 data = json.loads(await gs.read())[estimator_name] ##estimator_name
@@ -239,6 +239,15 @@ class AIODBManager:
 
         return None
 
+    @staticmethod
+    async def insert_function_classes(conn: asyncpg.connection) -> None:
+        for function_class in FunctionClasses:
+            await conn.execute(f"""
+                INSER INTO {ProjectTables.FunctionClasses.value} ("id", "name")
+                VALUES ($1, $2);
+            """, function_class.name, function_class.value)
+        return None
+
 
     async def _setup_project(self, conn: asyncpg.connection) -> None:
         # -- Fetch or import necessary data to work with during program usage --
@@ -259,8 +268,7 @@ class AIODBManager:
                            "Enter json TRPs' data file path: ")
 
         print("Setting up necessary data...")
-        for fetch, insert, td, sd, fd, jed in zip(fetch_funcs, insert_funcs, try_desc, success_desc, fail_desc,
-                                                  json_enter_desc, strict=True):
+        for fetch, insert, td, sd, fd, jed in zip(fetch_funcs, insert_funcs, try_desc, success_desc, fail_desc, json_enter_desc, strict=True):
             print(td)
             data = await fetch(await start_client_async())
             if data:
@@ -271,6 +279,9 @@ class AIODBManager:
                 json_file = input(jed)
                 async with aiofiles.open(json_file, "r", encoding="utf-8") as a:
                     await insert(conn=conn, data=json.load(a))
+
+        await self.insert_models(conn=conn)
+        await self.insert_function_classes(conn=conn)
 
         return None
 
@@ -716,7 +727,6 @@ class AIODBManager:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=name, host=self._db_host) as conn:
             if auto_project_setup:
                 await self._setup_project(conn=conn)
-                await self.insert_models(conn=conn)
 
         return None
 

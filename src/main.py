@@ -504,6 +504,7 @@ async def setup_road_network() -> None:
     pipeline = RoadGraphObjectsIngestionPipeline(db_broker_async=await get_aiodb_broker())
     print("Setting up road network data...")
     await pipeline.ingest_nodes(fp="data/road_network/traffic-nodes-2024_2025-02-28.geojson")
+    print("Ci sono")
     await pipeline.ingest_links(fp="data/road_network/traffic_links_2024_2025-02-27.geojson")
     print("Road network data successfully ingested into the DB")
     return None
@@ -512,7 +513,7 @@ async def setup_road_network() -> None:
 def manage_road_network(functionality: str) -> None:
 
     if functionality == "4.1":
-        asyncio.run(setup_road_network())
+        asyncio.run(setup_road_network(), debug=True)
 
     elif functionality == "4.2":
         db_broker = get_db_broker()

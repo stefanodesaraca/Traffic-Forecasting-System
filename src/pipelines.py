@@ -430,7 +430,7 @@ class RoadGraphObjectsIngestionPipeline:
             async with semaphore:
                 return await self._db_broker_async.send_sql_async(sql=ing_query, many=True, many_values=batch)
 
-        await asyncio.gather(*(limited_ingest(batch) for batch in batches))
+        await asyncio.gather(*(asyncio.wait_for(limited_ingest(batch), timeout=30) for batch in batches)) #Setting a timer so if the tasks fail for whatever reason they won't hang forever
 
         return None
 

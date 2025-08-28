@@ -111,6 +111,7 @@ class ProjectTables(Enum):
     RoadLink_TrafficRegistrationPoints = "RoadLink_TrafficRegistrationPoints"
 
 
+
 class ProjectConstraints(Enum):
     UNIQUE_VOLUME_PER_TRP_AND_TIME = "unique_volume_per_trp_and_time"
     UNIQUE_MEAN_SPEED_PER_TRP_AND_TIME = "unique_mean_speed_per_trp_and_time"
@@ -121,6 +122,15 @@ class ProjectConstraints(Enum):
 class ProjectViews(Enum):
     TrafficRegistrationPointsMetadataView = "TrafficRegistrationPointsMetadataView"
     VolumeMeanSpeedDateRangesView = "VolumeMeanSpeedDateRangesView"
+
+
+
+class FunctionClasses(Enum):
+    A = "Nasjonale hovedveger"
+    B = "Regionale hovedveger"
+    C = "Lokale hovedveger"
+    D = "Lokale samleveger"
+    E = "Lokale adkomstveger"
 
 
 
