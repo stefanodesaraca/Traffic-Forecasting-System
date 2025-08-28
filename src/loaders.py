@@ -44,6 +44,7 @@ class BatchStreamLoader:
                    batch_size: PositiveInt = 50000,
                    trp_list_filter: list[str] | None = None,
                    road_category_filter: list[str] | None = None,
+                   county_ids_filter: list[str] | None = None,
                    limit: PositiveInt | None = None,
                    split_cyclical_features: bool = False,
                    year: bool = True,
@@ -98,12 +99,13 @@ class BatchStreamLoader:
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
             AND {f'''"zoned_dt_iso" >= '{str(zoned_dt_start)}'::timestamptz''' if zoned_dt_start else "1=1"}
             AND {f'''"zoned_dt_iso" <= '{str(zoned_dt_end)}'::timestamptz''' if zoned_dt_end else "1=1"}
+            AND {f"t.county_number = ANY(%s)" if county_ids_filter else "1=1"}
             {f'''
             ORDER BY "zoned_dt_iso" {"ASC" if sort_ascending else "DESC"}
             ''' if sort_by_date else ""
             }
             {f"LIMIT {limit}" if limit else ""}
-        """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
+        """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter, county_ids_filter] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
         # The ORDER BY (descending order) is necessary since in time series forecasting the order of the records is fundamental
 
 
@@ -111,6 +113,7 @@ class BatchStreamLoader:
                        batch_size: PositiveInt = 50000,
                        trp_list_filter: list[str] | None = None,
                        road_category_filter: list[str] | None = None,
+                       county_ids_filter: list[str] | None = None,
                        limit: PositiveInt | None = None,
                        split_cyclical_features: bool = False,
                        year: bool = True,
@@ -166,12 +169,13 @@ class BatchStreamLoader:
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
             AND {f'''"zoned_dt_iso" >= '{str(zoned_dt_start)}'::timestamptz''' if zoned_dt_start else "1=1"}
             AND {f'''"zoned_dt_iso" <= '{str(zoned_dt_end)}'::timestamptz''' if zoned_dt_end else "1=1"}
+            AND {f"t.county_number = ANY(%s)" if county_ids_filter else "1=1"}
             {f'''
             ORDER BY "zoned_dt_iso" {"ASC" if sort_ascending else "DESC"}''' 
             if sort_by_date else ""
             }            
             {f"LIMIT {limit}" if limit else ""}
-        """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
+        """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter, county_ids_filter] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
         # The ORDER BY (descending order) is necessary since in time series forecasting the order of the records is fundamental
 
 

@@ -441,7 +441,7 @@ class AIODBManager:
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.TollStations.value}" (
                             id   INTEGER PRIMARY KEY,
                             name TEXT NOT NULL,
-                            geom GEOMETRY (Point, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL, -- store coordinates in WGS84
+                            geom GEOMETRY (PointZ, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL, -- store coordinates in WGS84
                             FOREIGN KEY (municipality_id) REFERENCES "{ProjectTables.Municipalities.value}" (number),
                             FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}" (number)
                         );
@@ -471,7 +471,7 @@ class AIODBManager:
                             id SERIAL NOT NULL,
                             link_id TEXT UNIQUE,  -- properties.id
                             type TEXT NOT NULL DEFAULT 'Feature',
-                            geom GEOMETRY (LineString, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL -- store coordinates in WGS84
+                            geom GEOMETRY (LineString, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL, -- store coordinates in WGS84
                             year_applies_to INTEGER,
                             candidate_ids TEXT[],
                             road_system_references TEXT[],
