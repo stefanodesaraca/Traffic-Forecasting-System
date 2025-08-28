@@ -440,7 +440,10 @@ class AIODBManager:
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.TollStations.value}" (
                             id   INTEGER PRIMARY KEY,
-                            name TEXT NOT NULL
+                            name TEXT NOT NULL,
+                            geom GEOMETRY (Point, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL, -- store coordinates in WGS84
+                            FOREIGN KEY (municipality_id) REFERENCES "{ProjectTables.Municipalities.value}" (number),
+                            FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}" (number)
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.FunctionClasses.value}" (
@@ -452,7 +455,7 @@ class AIODBManager:
                             id SERIAL NOT NULL,
                             node_id TEXT UNIQUE, -- corresponds to "id" in properties
                             type TEXT NOT NULL DEFAULT 'Feature',
-                            geom GEOMETRY(Point, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}) NOT NULL, -- store coordinates in WGS84
+                            geom GEOMETRY (Point, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL, -- store coordinates in WGS84
                             road_node_ids TEXT[],                -- array of strings
                             is_roundabout BOOLEAN,
                             number_of_incoming_links INTEGER,
@@ -468,7 +471,7 @@ class AIODBManager:
                             id SERIAL NOT NULL,
                             link_id TEXT UNIQUE,  -- properties.id
                             type TEXT NOT NULL DEFAULT 'Feature',
-                            geom GEOMETRY,    -- supports any geometry type; use GEOMETRY(LineString, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}) if always lines
+                            geom GEOMETRY (LineString, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL -- store coordinates in WGS84
                             year_applies_to INTEGER,
                             candidate_ids TEXT[],
                             road_system_references TEXT[],

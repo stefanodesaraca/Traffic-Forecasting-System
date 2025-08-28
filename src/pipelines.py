@@ -296,6 +296,40 @@ class RoadGraphObjectsIngestionPipeline:
             return geojson.loads(await geo.read())
 
 
+    @staticmethod
+    async def _load_json_async(fp: str) -> dict[str, Any]:
+        async with aiofiles.open(fp, "r", encoding="utf-8") as j:
+            return json.loads(await j.read())
+
+
+    async def ingest_toll_stations(self, fp: str, batch_size: PositiveInt = 200, n_async_jobs: PositiveInt = 10) -> None:
+        semaphore = asyncio.Semaphore(n_async_jobs)
+        toll_stations = (await self._load_json_async(fp)).get("objekter", [])
+
+        tolls_ing_query = f"""
+            INSERT INTO "{ProjectTables.TollStations.value}" ("id", "name", "geometry")
+            VALUES ($1, $2, ST_Transform(
+                ST_GeomFromText($3, $4),
+                {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}
+            );
+        """ # Transforming the projection which the current geometry has into WGS84 to store it into the DB
+
+        batches = get_n_items_from_gen(gen=((
+            station.get("id"),
+            station.get("egenskaper")[18].get("navn"),
+            station.get("geometri").get("wkt"),
+            station.get("geometri").get("srid")
+        ) for station in toll_stations), n=batch_size)
+
+        async def limited_ingest(batch: list[tuple[Any]]) -> None:
+            async with semaphore:
+                return await self._db_broker_async.send_sql_async(sql=tolls_ing_query, many=True, many_values=batch)
+
+        await asyncio.gather(*(asyncio.wait_for(limited_ingest(batch), timeout=30) for batch in batches)) #Setting a timer so if the tasks fail for whatever reason they won't hang forever
+
+        return None
+
+
     async def ingest_nodes(self, fp: str | Path, batch_size: PositiveInt = 200, n_async_jobs: PositiveInt = 10) -> None:
         semaphore = asyncio.Semaphore(n_async_jobs)
 
@@ -314,7 +348,7 @@ class RoadGraphObjectsIngestionPipeline:
                 "road_system_references",
                 "raw_properties"
             ) VALUES (
-                $1, $2, ST_GeomFromText($3, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}), $4, $5, $6, $7, $8, $9, $10, $11
+                $1, $2, ST_GeomFromText($3, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}), $4, $5, $6, $7, $8, $9, $10, $11
             )
             ON CONFLICT DO NOTHING;
         """
@@ -383,7 +417,7 @@ class RoadGraphObjectsIngestionPipeline:
                         "anomalies",
                         "raw_properties"
                     ) VALUES (
-                        $1, $2, ST_GeomFromText($3, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}), $4, $5, $6, $7, $8, $9, $10,
+                        $1, $2, ST_GeomFromText($3, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}), $4, $5, $6, $7, $8, $9, $10,
                         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
                         $24, $25, $26, $27, $28, $29, $30, $31, $32, $33
                     )

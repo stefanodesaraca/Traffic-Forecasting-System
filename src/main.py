@@ -451,9 +451,6 @@ def manage_ml(functionality: str) -> None:
     return None
 
 
-
-
-
 def forecast(functionality: str) -> None:
     db_broker = get_db_broker()
 
@@ -504,6 +501,7 @@ def forecast(functionality: str) -> None:
 async def setup_road_network() -> None:
     pipeline = RoadGraphObjectsIngestionPipeline(db_broker_async=await get_aiodb_broker())
     print("Setting up road network data...")
+    await pipeline.ingest_toll_stations(fp="data/road_network/toll_stations.json")
     await pipeline.ingest_nodes(fp="data/road_network/traffic-nodes-2024_2025-02-28.geojson")
     await pipeline.ingest_links(fp="data/road_network/traffic_links_2024_2025-02-27.geojson")
     print("Road network data successfully ingested into the DB")
