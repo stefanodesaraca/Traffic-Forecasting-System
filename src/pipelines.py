@@ -317,7 +317,8 @@ class RoadGraphObjectsIngestionPipeline:
                 ST_GeomFromText($3, $4),
                 {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}
                 )
-            );
+            )
+            ON CONFLICT DO NOTHING;
         """ # Transforming the projection which the current geometry has into WGS84 to store it into the DB
 
         batches = get_n_items_from_gen(gen=((
