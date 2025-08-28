@@ -441,7 +441,7 @@ class AIODBManager:
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.TollStations.value}" (
                             id   INTEGER PRIMARY KEY,
-                            name TEXT NOT NULL,
+                            name TEXT,
                             geom GEOMETRY (PointZ, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL, -- store coordinates in WGS84
                             FOREIGN KEY (municipality_id) REFERENCES "{ProjectTables.Municipalities.value}" (number),
                             FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}" (number)

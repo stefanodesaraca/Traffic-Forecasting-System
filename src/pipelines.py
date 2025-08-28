@@ -302,21 +302,27 @@ class RoadGraphObjectsIngestionPipeline:
             return json.loads(await j.read())
 
 
+    @staticmethod
+    def _get_toll_station_property_by_id(properties_list: list[dict[str, Any]], target_id: int, target_property: str = "verdi") -> str | None:
+        return next((eg.get(target_property) for eg in properties_list if eg.get("id") == target_id), None)
+
+
     async def ingest_toll_stations(self, fp: str, batch_size: PositiveInt = 200, n_async_jobs: PositiveInt = 10) -> None:
         semaphore = asyncio.Semaphore(n_async_jobs)
         toll_stations = (await self._load_json_async(fp)).get("objekter", [])
 
         tolls_ing_query = f"""
-            INSERT INTO "{ProjectTables.TollStations.value}" ("id", "name", "geometry")
+            INSERT INTO "{ProjectTables.TollStations.value}" ("id", "name", "geom")
             VALUES ($1, $2, ST_Transform(
                 ST_GeomFromText($3, $4),
                 {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}
+                )
             );
         """ # Transforming the projection which the current geometry has into WGS84 to store it into the DB
 
         batches = get_n_items_from_gen(gen=((
             station.get("id"),
-            station.get("egenskaper")[18].get("navn"),
+            self._get_toll_station_property_by_id(properties_list=station.get("egenskaper"), target_id=1078, target_property="verdi"),
             station.get("geometri").get("wkt"),
             station.get("geometri").get("srid")
         ) for station in toll_stations), n=batch_size)
