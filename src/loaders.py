@@ -188,7 +188,6 @@ class BatchStreamLoader:
                 "node_id",
                 "type",
                 ST_AsText("geom") AS geom,
-                "connected_traffic_link_ids",
                 "road_node_ids",
                 "is_roundabout",
                 "number_of_incoming_links",

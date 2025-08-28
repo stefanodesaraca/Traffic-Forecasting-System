@@ -305,7 +305,6 @@ class RoadGraphObjectsIngestionPipeline:
                 "node_id",
                 "type",
                 "geom",
-                "connected_traffic_link_ids",
                 "road_node_ids",
                 "is_roundabout",
                 "number_of_incoming_links",
@@ -315,7 +314,7 @@ class RoadGraphObjectsIngestionPipeline:
                 "road_system_references",
                 "raw_properties"
             ) VALUES (
-                $1, $2, ST_GeomFromText($3, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}), $4, $5, $6, $7, $8, $9, $10, $11, $12
+                $1, $2, ST_GeomFromText($3, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}), $4, $5, $6, $7, $8, $9, $10, $11
             );
         """
 
@@ -323,7 +322,6 @@ class RoadGraphObjectsIngestionPipeline:
             feature.get("properties").get("id"),
             feature.get("type"),
             shape(feature.get("geometry")).wkt, # Convertion of the geometry to WKT for PostGIS compatibility (so that PostGIS can read the actual shape of the feature)
-            feature.get("properties").get("connectedTrafficLinkIds"),
             feature.get("properties").get("roadNodeIds"),
             feature.get("properties").get("isRoundabout"),
             feature.get("properties").get("numberOfIncomingLinks"),

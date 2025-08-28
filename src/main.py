@@ -15,7 +15,7 @@ from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
 from pipelines import MeanSpeedIngestionPipeline, RoadGraphObjectsIngestionPipeline, MLPreprocessingPipeline, MLPredictionPipeline
 from loaders import BatchStreamLoader
 from ml import TFS
-from road_network import *
+from road_network import RoadNetwork
 from utils import dask_cluster_client, check_target, split_by_target
 
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
@@ -427,7 +427,7 @@ def manage_ml(functionality: str) -> None:
         return None
 
 
-    if functionality == ...:
+    if functionality == "5.2":
         db_broker = get_db_broker()
 
         print("Models available: ")
@@ -509,16 +509,31 @@ async def setup_road_network() -> None:
     return None
 
 
-async def manage_road_network(functionality: str) -> None:
+def manage_road_network(functionality: str) -> None:
 
     if functionality == "4.1":
-        await setup_road_network()
+        asyncio.run(setup_road_network())
 
     elif functionality == "4.2":
+        db_broker = get_db_broker()
+        network = RoadNetwork(network_id="test", name="test", broker=db_broker, loader=BatchStreamLoader(db_broker=db_broker))
+        network.build()
+
+
         # TODO FILTER ONLY THE OSLO MUNICIPALITY!
         ...
 
     return None
+
+
+
+
+
+
+
+
+
+
 
 
 def main():

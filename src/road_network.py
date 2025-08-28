@@ -244,6 +244,9 @@ class RoadNetwork:
         if verbose:
             print("Road network graph created!")
 
+        print(self._network)
+        print(nx.draw(self._network, with_labels=True))
+
         return None
 
 
