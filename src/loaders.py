@@ -184,7 +184,6 @@ class BatchStreamLoader:
                   ) -> dd.DataFrame:
         return self._load_from_stream(self._db_broker.get_stream(sql=f"""
             SELECT 
-                "id",
                 "node_id",
                 "type",
                 ST_AsText("geom") AS geom,
@@ -221,7 +220,6 @@ class BatchStreamLoader:
                   df_partitions_size: PositiveInt = 100000) -> dd.DataFrame:
         return self._load_from_stream(self._db_broker.get_stream(sql=f"""
             SELECT 
-                rl.id,
                 rl.link_id,
                 rl.type,
                 ST_AsText("geom") AS geom,

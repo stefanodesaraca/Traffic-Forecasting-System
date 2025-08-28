@@ -449,7 +449,7 @@ class AIODBManager:
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadGraphNodes.value}" (
-                            id SERIAL,
+                            id SERIAL NOT NULL,
                             node_id TEXT UNIQUE, -- corresponds to "id" in properties
                             type TEXT NOT NULL DEFAULT 'Feature',
                             geom GEOMETRY(Point, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}) NOT NULL, -- store coordinates in WGS84
@@ -461,11 +461,11 @@ class AIODBManager:
                             legal_turning_movements JSONB,       -- store array of objects
                             road_system_references TEXT[],       -- array of strings
                             raw_properties JSONB,                 -- store the entire properties object (for flexibility)
-                            PRIMARY KEY (id, node_id)
+                            PRIMARY KEY (node_id)
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadGraphLinks.value}" (
-                            id SERIAL,
+                            id SERIAL NOT NULL,
                             link_id TEXT UNIQUE,  -- properties.id
                             type TEXT NOT NULL DEFAULT 'Feature',
                             geom GEOMETRY,    -- supports any geometry type; use GEOMETRY(LineString, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}) if always lines
@@ -503,7 +503,7 @@ class AIODBManager:
                             FOREIGN KEY (start_traffic_node_id) REFERENCES "{ProjectTables.RoadGraphNodes.value}" (node_id),
                             FOREIGN KEY (end_traffic_node_id) REFERENCES "{ProjectTables.RoadGraphNodes.value}" (node_id),
                             FOREIGN KEY (function_class) REFERENCES "{ProjectTables.FunctionClasses.value}" (id),
-                            PRIMARY KEY (id, link_id)                          
+                            PRIMARY KEY (link_id)                          
                         );                        
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadLink_Municipalities.value}" (
