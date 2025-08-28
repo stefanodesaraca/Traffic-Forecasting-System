@@ -435,28 +435,32 @@ class RoadGraphObjectsIngestionPipeline:
                         "link_id",
                         "municipality_id"
                     )
-                    VALUES ($1, $2);
+                    VALUES ($1, $2)
+                    ON CONFLICT DO NOTHING;
         """
         link_counties_ing_query = f"""
                     INSERT INTO "{ProjectTables.RoadLink_Counties.value}" (
                         "link_id",
                         "county_id"
                     )
-                    VALUES ($1, $2);
+                    VALUES ($1, $2)
+                    ON CONFLICT DO NOTHING;
         """
         link_toll_stations_ing_query = f"""
                     INSERT INTO "{ProjectTables.RoadLink_TollStations.value}" (
                         "link_id",
                         "toll_station_id"
                     )
-                    VALUES ($1, $2);
+                    VALUES ($1, $2)
+                    ON CONFLICT DO NOTHING;
         """
         link_trps_ing_query = f"""
                     INSERT INTO "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" (
                         "link_id",
                         "trp_id"
                     )
-                    VALUES ($1, $2);
+                    VALUES ($1, $2)
+                    ON CONFLICT DO NOTHING;
         """
 
         link_batches = get_n_items_from_gen(gen=((
