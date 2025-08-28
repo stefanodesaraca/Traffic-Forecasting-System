@@ -36,8 +36,10 @@ class RoadNetwork:
         self._backend: str = backend
         self._network: nx.DiGraph | None = None
 
-        if network_binary:
-            self._network = pickle.loads(network_binary) #To load pre-computed graphs
+        if not network_binary:
+            self._network = nx.DiGraph(**{"network_id": self.network_id, "name": self.name})
+        else:
+            self._network = pickle.loads(network_binary)  # To load pre-computed graphs
 
         if self._backend not in GlobalDefinitions.GRAPH_PROCESSING_BACKENDS:
             raise WrongGraphProcessingBackendError(f"{self._backend} is not a valid graph processing backend. Try one of: {', '.join(GlobalDefinitions.GRAPH_PROCESSING_BACKENDS)}")
@@ -224,7 +226,7 @@ class RoadNetwork:
         all(self._network.add_edges_from(
                 (row["start_traffic_node_id"], row["end_traffic_node_id"],
                  {k: v for k, v in row.to_dict().items() if k not in ["start_traffic_node_id", "end_traffic_node_id"]})
-                for row in partition
+                for _, row in partition.iterrows()
             ) for partition in self._loader.get_links().partitions)
         return None
 
