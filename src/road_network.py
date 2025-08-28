@@ -218,7 +218,7 @@ class RoadNetwork:
 
 
     def load_nodes(self) -> None:
-        all(self._network.add_nodes_from((row["id"], row.to_dict().pop("id")) for row in partition) for partition in self._loader.get_nodes().partitions)
+        all(self._network.add_nodes_from((row["id"], row.to_dict().pop("id")) for _, row in partition.iterrows()) for partition in self._loader.get_nodes().partitions)
         return None
 
 

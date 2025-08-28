@@ -236,7 +236,6 @@ class BatchStreamLoader:
                 rl.end_traffic_node_id,
                 rl.subsumed_traffic_node_ids,
                 rl.road_link_ids,
-                rl.county_ids,
                 rl.highest_speed_limit,
                 rl.lowest_speed_limit,
                 rl.max_lanes,
@@ -257,13 +256,13 @@ class BatchStreamLoader:
                 rl.raw_properties
                 {''',ARRAY_AGG(m.municipality_id) AS municipality_ids''' if municipality_ids_filter else ""}
                 {''',ARRAY_AGG(c.county_id) AS county_ids''' if county_ids_filter else ""}
-            FROM "{ProjectTables.RoadGraphLinks.value} rl" 
-            {f"LEFT JOIN {ProjectTables.RoadLink_Municipalities.value} m ON rl.link_id = m.link_id" if municipality_ids_filter else ""}
-            {f"LEFT JOIN {ProjectTables.RoadLink_Counties.value} c ON rl.link_id = c.link_id" if county_ids_filter else ""}
+            FROM "{ProjectTables.RoadGraphLinks.value}" rl 
+            {f'LEFT JOIN "{ProjectTables.RoadLink_Municipalities.value}" m ON rl.link_id = m.link_id' if municipality_ids_filter else ""}
+            {f'LEFT JOIN "{ProjectTables.RoadLink_Counties.value}" c ON rl.link_id = c.link_id' if county_ids_filter else ""}
             WHERE {f'''"rl.link_id" = ANY(%s)'''
                 if link_id_filter else "1=1"
             }
-            {f'''"rl.road_category" = ANY(%s)'''
+            AND {f'''"rl.road_category" = ANY(%s)'''
                 if road_category_filter else "1=1"
             }
             AND {f'''"municipality_ids" && ANY(%s)'''
@@ -298,7 +297,6 @@ class BatchStreamLoader:
                 rl.end_traffic_node_id,
                 rl.subsumed_traffic_node_ids,
                 rl.road_link_ids,
-                rl.county_ids,
                 rl.highest_speed_limit,
                 rl.lowest_speed_limit,
                 rl.max_lanes,
