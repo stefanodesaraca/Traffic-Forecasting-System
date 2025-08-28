@@ -454,22 +454,26 @@ class RoadGraphObjectsIngestionPipeline:
             json.dumps(feature.get("properties").get("anomalies", [])),
             json.dumps(feature)
         ) for feature in links), n=batch_size)
-        link_municipalities_matches = get_n_items_from_gen(gen=((
-            feature.get("properties").get("id"),
-            feature.get("properties").get("municipalityIds"),
-        ) for feature in links), n=batch_size)
-        link_counties_matches = get_n_items_from_gen(gen=((
-            feature.get("properties").get("id"),
-            feature.get("properties").get("countyIds")
-        ) for feature in links), n=batch_size)
-        link_toll_stations_matches = get_n_items_from_gen(gen=((
-            feature.get("properties").get("id"),
-            feature.get("properties").get("tollStationIds")
-        ) for feature in links), n=batch_size)
-        link_trps_matches = get_n_items_from_gen(gen=((
-            feature.get("properties").get("id"),
-            feature.get("properties").get("associatedTrpIds")
-        ) for feature in links), n=batch_size)
+        link_municipalities_matches = get_n_items_from_gen(gen=(
+            (feature.get("properties").get("id"), muni)
+            for feature in links
+            for muni in feature.get("properties").get("municipalityIds")
+        ), n=batch_size)
+        link_counties_matches = get_n_items_from_gen(gen=(
+            (feature.get("properties").get("id"), county)
+            for feature in links
+            for county in feature.get("properties").get("countyIds")
+        ), n=batch_size)
+        link_toll_stations_matches = get_n_items_from_gen(gen=(
+            (feature.get("properties").get("id"), station)
+            for feature in links
+            for station in feature.get("properties").get("tollStationIds")
+        ), n=batch_size)
+        link_trps_matches = get_n_items_from_gen(gen=(
+            (feature.get("properties").get("id"), station)
+            for feature in links
+            for station in feature.get("properties").get("associatedTrpIds")
+        ), n=batch_size)
 
         async def limited_ingest(query: str, batch: list[tuple[Any]]) -> None:
             async with semaphore:
