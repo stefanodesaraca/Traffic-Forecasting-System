@@ -243,6 +243,8 @@ class RoadNetwork:
                 print("Loading links...")
             self.load_links()
 
+        #TODO CHECK IF THE start_traffic_node_id AND end_traffic_node_id MATCH WITH legal_turning_movements IN RoadGraphNodes
+
         if verbose:
             print("Road network graph created!")
 

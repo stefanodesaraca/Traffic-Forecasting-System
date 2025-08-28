@@ -347,7 +347,7 @@ class RoadGraphObjectsIngestionPipeline:
         road_categories = await self._db_broker_async.get_road_categories_async(enable_cache=True, name_as_key=True)
 
         links = (await self._load_geojson_async(fp=fp)).get("features", [])
-        ing_query = f"""
+        links_ing_query = f"""
                     INSERT INTO "{ProjectTables.RoadGraphLinks.value}" (
                         "link_id",
                         "type",
@@ -390,7 +390,36 @@ class RoadGraphObjectsIngestionPipeline:
                     ON CONFLICT DO NOTHING;
                 """
 
-        batches = get_n_items_from_gen(gen=((
+        link_municipalities_ing_query = f"""
+                    INSERT INTO "{ProjectTables.RoadLink_Municipalities.value}" (
+                        "link_id",
+                        "municipality_id"
+                    )
+                    VALUES ($1, $2);
+        """
+        link_counties_ing_query = f"""
+                    INSERT INTO "{ProjectTables.RoadLink_Counties.value}" (
+                        "link_id",
+                        "county_id"
+                    )
+                    VALUES ($1, $2);
+        """
+        link_toll_stations_ing_query = f"""
+                    INSERT INTO "{ProjectTables.RoadLink_TollStations.value}" (
+                        "link_id",
+                        "toll_station_id"
+                    )
+                    VALUES ($1, $2);
+        """
+        link_trps_ing_query = f"""
+                    INSERT INTO "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" (
+                        "link_id",
+                        "trp_id"
+                    )
+                    VALUES ($1, $2);
+        """
+
+        link_batches = get_n_items_from_gen(gen=((
             feature.get("properties").get("id"),
             feature.get("type"),
             shape(feature.get("geometry")).wkt, # Convert geometry to WKT with shapely's shape() and then extracting the wkt
@@ -425,12 +454,33 @@ class RoadGraphObjectsIngestionPipeline:
             json.dumps(feature.get("properties").get("anomalies", [])),
             json.dumps(feature)
         ) for feature in links), n=batch_size)
+        link_municipalities_matches = get_n_items_from_gen(gen=((
+            feature.get("properties").get("id"),
+            feature.get("properties").get("municipalityIds"),
+        ) for feature in links), n=batch_size)
+        link_counties_matches = get_n_items_from_gen(gen=((
+            feature.get("properties").get("id"),
+            feature.get("properties").get("countyIds")
+        ) for feature in links), n=batch_size)
+        link_toll_stations_matches = get_n_items_from_gen(gen=((
+            feature.get("properties").get("id"),
+            feature.get("properties").get("tollStationIds")
+        ) for feature in links), n=batch_size)
+        link_trps_matches = get_n_items_from_gen(gen=((
+            feature.get("properties").get("id"),
+            feature.get("properties").get("associatedTrpIds")
+        ) for feature in links), n=batch_size)
 
         async def limited_ingest(batch: list[tuple[Any]]) -> None:
             async with semaphore:
-                return await self._db_broker_async.send_sql_async(sql=ing_query, many=True, many_values=batch)
+                return await self._db_broker_async.send_sql_async(sql=links_ing_query, many=True, many_values=batch)
 
-        await asyncio.gather(*(asyncio.wait_for(limited_ingest(batch), timeout=30) for batch in batches)) #Setting a timer so if the tasks fail for whatever reason they won't hang forever
+        await asyncio.gather(*(asyncio.wait_for(limited_ingest(batch), timeout=30) for batch in link_batches)) #Setting a timer so if the tasks fail for whatever reason they won't hang forever
+
+        await asyncio.gather(*(asyncio.wait_for(limited_ingest(batch), timeout=30) for batch in link_municipalities_matches))
+        await asyncio.gather(*(asyncio.wait_for(limited_ingest(batch), timeout=30) for batch in link_counties_matches))
+        await asyncio.gather(*(asyncio.wait_for(limited_ingest(batch), timeout=30) for batch in link_toll_stations_matches))
+        await asyncio.gather(*(asyncio.wait_for(limited_ingest(batch), timeout=30) for batch in link_trps_matches))
 
         return None
 
