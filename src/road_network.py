@@ -222,16 +222,16 @@ class RoadNetwork:
         return None
 
 
-    def load_links(self) -> None:
+    def load_links(self, county_ids_filter: list[str] | None = None) -> None:
         all(self._network.add_edges_from(
                 (row["start_traffic_node_id"], row["end_traffic_node_id"],
                  {k: v for k, v in row.to_dict().items() if k not in ["start_traffic_node_id", "end_traffic_node_id"]})
                 for _, row in partition.iterrows()
-            ) for partition in self._loader.get_links(county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID]).partitions)
+            ) for partition in self._loader.get_links(county_ids_filter=county_ids_filter).partitions)
         return None
 
 
-    def build(self, auto_load_nodes: bool = True, auto_load_links: bool = True, verbose: bool = True) -> None:
+    def build(self, auto_load_nodes: bool = True, auto_load_links: bool = True, county_ids_filter: list[str] | None = None, verbose: bool = True) -> None:
 
         if auto_load_nodes:
             if verbose:
@@ -241,9 +241,13 @@ class RoadNetwork:
         if auto_load_links:
             if verbose:
                 print("Loading links...")
-            self.load_links()
+            self.load_links(county_ids_filter=county_ids_filter)
 
-        #TODO CHECK IF THE start_traffic_node_id AND end_traffic_node_id MATCH WITH legal_turning_movements IN RoadGraphNodes
+
+        #Removing isolated nodes since they're unreachable
+        self._network.remove_nodes_from(list(nx.isolates(self._network)))
+        #This way we're also going to apply all filters if any have been set since if there isn't a link connecting a node to another that will be isolated
+        # NOTE WHEN WE'LL HAVE THE ABILITY TO FILTER DIRECTLY AT THE SOURCE OF THE NODES (WHEN WE'LL HAVE THE MUNICIPALITY AND COUNTY DATA ON THE NODES) WE'LL JUST NOT LOAD THE ONES OUTSIDE OF THE FILTERS CONDITIONS
 
         if verbose:
             print("Road network graph created!")

@@ -58,7 +58,6 @@ class GlobalDefinitions(BaseModel):
 
 
 
-
 class DBConfig(Enum):
     SUPERUSER = superuser
     SUPERUSER_PASSWORD = superuser_password
