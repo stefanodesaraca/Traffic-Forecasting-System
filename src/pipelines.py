@@ -471,16 +471,13 @@ class RoadGraphObjectsIngestionPipeline:
             feature.get("properties").get("associatedTrpIds")
         ) for feature in links), n=batch_size)
 
-        async def limited_ingest(batch: list[tuple[Any]]) -> None:
+        async def limited_ingest(query: str, batch: list[tuple[Any]]) -> None:
             async with semaphore:
-                return await self._db_broker_async.send_sql_async(sql=links_ing_query, many=True, many_values=batch)
+                return await self._db_broker_async.send_sql_async(sql=query, many=True, many_values=batch)
 
-        await asyncio.gather(*(asyncio.wait_for(limited_ingest(batch), timeout=30) for batch in link_batches)) #Setting a timer so if the tasks fail for whatever reason they won't hang forever
-
-        await asyncio.gather(*(asyncio.wait_for(limited_ingest(batch), timeout=30) for batch in link_municipalities_matches))
-        await asyncio.gather(*(asyncio.wait_for(limited_ingest(batch), timeout=30) for batch in link_counties_matches))
-        await asyncio.gather(*(asyncio.wait_for(limited_ingest(batch), timeout=30) for batch in link_toll_stations_matches))
-        await asyncio.gather(*(asyncio.wait_for(limited_ingest(batch), timeout=30) for batch in link_trps_matches))
+        for query, batches in zip([links_ing_query, link_municipalities_ing_query, link_counties_ing_query, link_toll_stations_ing_query, link_trps_ing_query],
+                                  [link_batches, link_municipalities_matches, link_counties_matches, link_toll_stations_matches, link_trps_matches]):
+            await asyncio.gather(*(asyncio.wait_for(limited_ingest(query, batch), timeout=30) for batch in batches)) #Setting a timer so if the tasks fail for whatever reason they won't hang forever
 
         return None
 

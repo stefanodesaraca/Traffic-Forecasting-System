@@ -227,7 +227,7 @@ class RoadNetwork:
                 (row["start_traffic_node_id"], row["end_traffic_node_id"],
                  {k: v for k, v in row.to_dict().items() if k not in ["start_traffic_node_id", "end_traffic_node_id"]})
                 for _, row in partition.iterrows()
-            ) for partition in self._loader.get_links().partitions)
+            ) for partition in self._loader.get_links(county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID]).partitions)
         return None
 
 

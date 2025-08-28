@@ -92,7 +92,8 @@ async def manage_global(functionality: str) -> None:
 async def manage_downloads(functionality: str) -> None:
     if functionality == "2.1":
         print("\nDownloading traffic registration points information for the active operation...")
-        await (await get_aiodbmanager_broker()).insert_trps(data=await fetch_trps(gql_client=await start_client_async()))
+        await (await get_aiodbmanager_broker()).insert_trps(data=await fetch_trps(
+            gql_client=await start_client_async()))
         print("Traffic registration points information downloaded successfully\n\n")
 
 

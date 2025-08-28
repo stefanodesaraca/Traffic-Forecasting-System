@@ -54,6 +54,9 @@ class GlobalDefinitions(BaseModel):
 
     DEFAULT_DASK_DF_PARTITION_SIZE: ClassVar[str] = "512MB"
 
+    OSLO_COUNTY_ID = "3"
+
+
 
 
 class DBConfig(Enum):
