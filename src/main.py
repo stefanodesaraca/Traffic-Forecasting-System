@@ -279,7 +279,8 @@ def forecast_warmup(functionality: str) -> None:
         }
 
         for road_category, trp_ids in db_broker.get_trp_ids_by_road_category(has_volumes=True if target == GlobalDefinitions.VOLUME else None,
-                                                                             has_mean_speed=True if target == GlobalDefinitions.MEAN_SPEED else None).items():
+                                                                             has_mean_speed=True if target == GlobalDefinitions.MEAN_SPEED else None,
+                                                                             county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID]).items():
 
             print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 
