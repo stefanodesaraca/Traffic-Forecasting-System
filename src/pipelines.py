@@ -14,6 +14,7 @@ import pandas as pd
 from typing import Any, Literal, cast
 from pydantic import BaseModel
 from pydantic.types import PositiveInt
+import utm
 
 from sklearn.linear_model import Lasso, GammaRegressor, QuantileRegressor
 from sklearn.tree import DecisionTreeClassifier
@@ -588,6 +589,20 @@ class MLPreprocessingPipeline:
         return data.persist()
 
 
+    @staticmethod
+    def _wgs84_to_utm(lat: float, lon: float) -> tuple[float, float]:
+        return utm.from_latlon(lat, lon) #https://github.com/Turbo87/utm
+
+
+    @staticmethod
+    def _add_utm_columns(df: pd.DataFrame) -> pd.DataFrame:
+        #Uses pandas because each partition of a Dask dataframe is actually a pandas dataframe
+        easting, northing, _, _ = zip(*df.apply(lambda r: utm.from_latlon(r.lat, r.lon), axis=1))
+        df["utm_easting"] = easting
+        df["utm_northing"] = northing
+        return df
+
+
     def preprocess_volume(self,
                           data: dd.DataFrame,
                           lags: list[PositiveInt],
@@ -596,9 +611,11 @@ class MLPreprocessingPipeline:
             data = ZScore(data, column=GlobalDefinitions.VOLUME)
         data = self._add_lag_features(data=data, target=GlobalDefinitions.VOLUME, lags=lags)
         data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
+
+        data = data.map_partitions(self._add_utm_columns) #Convert latitude and longitude into the appropriate UTM zone eastings and northings to maintain an accurate ratio when moving across the zone and not having distortions like in WGS84 coordinates where the closer to the poles the heavier distortions come into place
+
         data = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_TO_SCALE_FEATURES, scaler=MinMaxScaler)
-        data = data.sort_values(by=["trp_id", "zoned_dt_iso"], ascending=True).persist()
-        print(data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist())
+        data = data.sort_values(by=GlobalDefinitions.PREPROCESSING_SORTING_COLUMNS, ascending=True).persist()
         return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
 
@@ -610,8 +627,11 @@ class MLPreprocessingPipeline:
             data = ZScore(data, column=GlobalDefinitions.MEAN_SPEED)
         data = self._add_lag_features(data=data, target=GlobalDefinitions.MEAN_SPEED, lags=lags)
         data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
+
+        data = data.map_partitions(self._add_utm_columns) #Convert latitude and longitude into the appropriate UTM zone eastings and northings to maintain an accurate ratio when moving across the zone and not having distortions like in WGS84 coordinates where the closer to the poles the heavier distortions come into place
+
         data = self._scale_features(data=data, feats=GlobalDefinitions.MEAN_SPEED_TO_SCALE_FEATURES, scaler=MinMaxScaler)
-        data = data.sort_values(by=["trp_id", "zoned_dt_iso"], ascending=True).persist()
+        data = data.sort_values(by=GlobalDefinitions.PREPROCESSING_SORTING_COLUMNS, ascending=True).persist()
         return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
 

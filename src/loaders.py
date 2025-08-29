@@ -53,6 +53,8 @@ class BatchStreamLoader:
                    is_mice: bool = False,
                    zoned_dt_start: datetime.datetime | None = None,
                    zoned_dt_end: datetime.datetime | None = None,
+                   trp_lat: bool | None = False,
+                   trp_lon: bool | None = False,
                    sort_by_date: bool = True,
                    sort_ascending: bool = True,
                    df_partitions_size: PositiveInt = 100000
@@ -65,6 +67,8 @@ class BatchStreamLoader:
                 {"v.is_mice AS is_mice," if is_mice else ""}
                 v.zoned_dt_iso AS zoned_dt_iso
                 {",EXTRACT(YEAR FROM zoned_dt_iso) as year" if year else ""}
+                {f",t.lat" if trp_lat else ""}
+                {f",t.lon" if trp_lon else ""}
             {'''
                 ,
                 EXTRACT(DAY FROM zoned_dt_iso) AS day_of_month,
@@ -122,6 +126,8 @@ class BatchStreamLoader:
                        is_mice: bool = False,
                        zoned_dt_start: datetime.datetime | None = None,
                        zoned_dt_end: datetime.datetime | None = None,
+                       trp_lat: bool | None = False,
+                       trp_lon: bool | None = False,
                        sort_by_date: bool = True,
                        sort_ascending: bool = True,
                        df_partitions_size: PositiveInt = 100000
@@ -135,6 +141,8 @@ class BatchStreamLoader:
                  {"ms.is_mice AS is_mice," if is_mice else ""}
                  ms.zoned_dt_iso AS zoned_dt_iso
                 {",EXTRACT(YEAR FROM zoned_dt_iso) as year" if year else ""}
+                {f",t.lat" if trp_lat else ""}
+                {f",t.lon" if trp_lon else ""}
             {'''
                 ,
                 EXTRACT(DAY FROM zoned_dt_iso) AS day_of_month,

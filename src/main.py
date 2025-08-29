@@ -293,6 +293,8 @@ def forecast_warmup(functionality: str) -> None:
                         encoded_cyclical_features=True,
                         is_mice=False,
                         is_covid_year=True,
+                        trp_lat=True,
+                        trp_lon=True,
                         sort_by_date=True,
                         sort_ascending=True
                     ),

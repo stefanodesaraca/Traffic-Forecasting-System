@@ -47,7 +47,8 @@ class GlobalDefinitions(BaseModel):
     CUDF_BACKEND: ClassVar[str] = "cudf"
     GRAPH_PROCESSING_BACKENDS: ClassVar[list[str]] = [NETWORKX_BACKEND, CUDF_BACKEND]
 
-    NON_PREDICTORS: ClassVar[list[str]] = ["zoned_dt_iso"]
+    PREPROCESSING_SORTING_COLUMNS: ClassVar[list[str]] = ["trp_id"]
+    NON_PREDICTORS: ClassVar[list[str]] = ["trp_id", "lat", "lon", "zoned_dt_iso"]
     CATEGORICAL_FEATURES: ClassVar[list[str]] = ["trp_id"]
     VOLUME_TO_SCALE_FEATURES: ClassVar[list[str]] = [VOLUME, "coverage"]
     MEAN_SPEED_TO_SCALE_FEATURES: ClassVar[list[str]] = [MEAN_SPEED, "percentile_85", "coverage"]
