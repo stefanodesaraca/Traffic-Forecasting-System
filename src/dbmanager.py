@@ -243,8 +243,9 @@ class AIODBManager:
     async def insert_function_classes(conn: asyncpg.connection) -> None:
         for function_class in FunctionClasses:
             await conn.execute(f"""
-                INSER INTO {ProjectTables.FunctionClasses.value} ("id", "name")
-                VALUES ($1, $2);
+                INSERT INTO "{ProjectTables.FunctionClasses.value}" ("id", "name")
+                VALUES ($1, $2)
+                ON CONFLICT DO NOTHING;
             """, function_class.name, function_class.value)
         return None
 
@@ -440,15 +441,13 @@ class AIODBManager:
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.TollStations.value}" (
-                            id   INTEGER PRIMARY KEY,
+                            id INTEGER PRIMARY KEY,
                             name TEXT,
-                            geom GEOMETRY (PointZ, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL, -- store coordinates in WGS84
-                            FOREIGN KEY (municipality_id) REFERENCES "{ProjectTables.Municipalities.value}" (number),
-                            FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}" (number)
+                            geom GEOMETRY (PointZ, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL -- store coordinates in WGS84
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.FunctionClasses.value}" (
-                            id   TEXT PRIMARY KEY,
+                            id TEXT PRIMARY KEY,
                             name TEXT NOT NULL
                         );
                         

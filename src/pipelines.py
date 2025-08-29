@@ -537,6 +537,7 @@ class MLPreprocessingPipeline:
     def __init__(self):
         self._scaler: MinMaxScaler
 
+
     @property
     def scaler(self) -> MinMaxScaler | None:
         return self._scaler or None
@@ -546,11 +547,11 @@ class MLPreprocessingPipeline:
         for lag in lags:
             data[f"{target}_lag{lag}h"] = data.groupby("trp_id")[target].shift(lag)  # N hours shift
             data[f"{target}_rolling_mean_{lag}h"] = (
-                data.groupby("trp_id")["volume"]
-                .shift(lag)  # exclude current hour
+                data.groupby("trp_id")[target]
+                .shift(lag) # exclude current hour
                 .rolling(window=lag, min_periods=1) # min_periods=1 ensures that the rolling statistic is computed even if fewer than *lag (value)* valid values exist.
                 .mean()
-                .reset_index(level=0, drop=True)  # Drop group index, align back
+                .reset_index(level=0, drop=True) # Drop group index, align back
             )
             data[f"{target}_rolling_std_{lag}h"] = (
                 data.groupby("trp_id")[target]
@@ -593,8 +594,8 @@ class MLPreprocessingPipeline:
         if z_score:
             data = ZScore(data, column=GlobalDefinitions.VOLUME)
         data = self._add_lag_features(data=data, target=GlobalDefinitions.VOLUME, lags=lags)
-        data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES)
-        data = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_SCALED_FEATURES, scaler=MinMaxScaler)
+        data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
+        data = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_TO_SCALE_FEATURES, scaler=MinMaxScaler)
         data = data.sort_values(by=["trp_id", "zoned_dt_iso"], ascending=True).persist()
         return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
@@ -606,8 +607,8 @@ class MLPreprocessingPipeline:
         if z_score:
             data = ZScore(data, column=GlobalDefinitions.MEAN_SPEED)
         data = self._add_lag_features(data=data, target=GlobalDefinitions.MEAN_SPEED, lags=lags)
-        data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES)
-        data = self._scale_features(data=data, feats=GlobalDefinitions.MEAN_SPEED_SCALED_FEATURES, scaler=MinMaxScaler)
+        data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
+        data = self._scale_features(data=data, feats=GlobalDefinitions.MEAN_SPEED_TO_SCALE_FEATURES, scaler=MinMaxScaler)
         data = data.sort_values(by=["trp_id", "zoned_dt_iso"], ascending=True).persist()
         return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
@@ -721,21 +722,25 @@ class MLPredictionPipeline:
 
 
     def _get_future_records(self):
+        preprocessing_methods_mapping = {
+            GlobalDefinitions.VOLUME: self._pipeline.preprocess_volume,
+            GlobalDefinitions.MEAN_SPEED: self._pipeline.preprocess_mean_speed
+        }
         past_data = self._get_training_records(
             training_mode=0,
             cache_latest_dt_collection=True
         )
         future_records = self._generate_future_records(forecasting_horizon=self._db_broker.get_forecasting_horizon(target=self._target))
-        return getattr(self._pipeline, f"preprocess_{self._target}")(data=dd.concat([past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
+        return preprocessing_methods_mapping[self._target](data=dd.concat([past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
 
 
     def start(self, trp_tuning: bool = False) -> dd.DataFrame:
         # trp_tuning defines if we want to train the already trained model on data exclusively from the TRP which we want to forecast data for to improve prediction accuracy
         scaling_mapping = {
-            GlobalDefinitions.VOLUME: GlobalDefinitions.VOLUME_SCALED_FEATURES,
-            GlobalDefinitions.MEAN_SPEED: GlobalDefinitions.MEAN_SPEED_SCALED_FEATURES
+            GlobalDefinitions.VOLUME: GlobalDefinitions.VOLUME_TO_SCALE_FEATURES,
+            GlobalDefinitions.MEAN_SPEED: GlobalDefinitions.MEAN_SPEED_TO_SCALE_FEATURES
         }
-        scaled_cols = scaling_mapping[self._target]
+        cols_to_scale = scaling_mapping[self._target]
         data = self._get_future_records()
         if trp_tuning:
             X_tune, y_tune = split_by_target(
@@ -752,7 +757,7 @@ class MLPredictionPipeline:
             mode=1
         )
         data[self._target] = dd.from_array(self._model.predict(X_predict))
-        data[scaled_cols] = self._pipeline.scaler.inverse_transform(data[scaled_cols])
+        data[cols_to_scale] = self._pipeline.scaler.inverse_transform(data[cols_to_scale])
         return data
 
 
