@@ -1,3 +1,4 @@
+import json
 from typing import Any, Literal, Generator, LiteralString, Sequence, Mapping
 import datetime
 from dateutil.relativedelta import relativedelta
@@ -345,16 +346,16 @@ class DBBroker:
 
     def get_ml_models(self) -> dict[str, Any]:
         return self.send_sql(f"""
-            SELECT * FROM {ProjectTables.MLModels.value}
+            SELECT * FROM "{ProjectTables.MLModels.value}"
         """)
 
 
-    def update_model_grid(self, model_id: str, target: str, grid: dict[str, Any]) -> None:
+    def update_model_grid(self, model_id: str, target: str, grid: dict[str, any]) -> None:
         self.send_sql(f"""
             UPDATE "{ProjectTables.MLModels.value}"
-            SET 
-                {f"{target}_grid = '{grid}'"}
-            WHERE id = '{model_id}';""")
+            SET {target}_grid = %s
+            WHERE id = %s;
+        """, execute_args=[json.dumps(grid), model_id])
         return None
 
 

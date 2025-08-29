@@ -440,6 +440,7 @@ def manage_ml(functionality: str) -> None:
 
         model_id = input("Enter the model ID: ")
         target = input("Enter the target variable of the grid you want to update: ")
+        check_target(target=target, errors=True)
         grid_fp = input("Enter grid filepath: ")
 
         with open(grid_fp, "r", encoding="utf-8") as f:
