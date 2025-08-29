@@ -546,27 +546,28 @@ class MLPreprocessingPipeline:
     def _add_lag_features(data: dd.DataFrame, target: str, lags: list[PositiveInt]) -> dd.DataFrame:
         for lag in lags:
             data[f"{target}_lag{lag}h"] = data.groupby("trp_id")[target].shift(lag)  # N hours shift
-            data[f"{target}_rolling_mean_{lag}h"] = (
+            data[f"{target}_rolling_mean{lag}h"] = (
                 data.groupby("trp_id")[target]
                 .shift(lag) # exclude current hour
                 .rolling(window=lag, min_periods=1) # min_periods=1 ensures that the rolling statistic is computed even if fewer than *lag (value)* valid values exist.
                 .mean()
-                .reset_index(level=0, drop=True) # Drop group index, align back
+                .reset_index(drop=True) # Drop group index, align back
             )
-            data[f"{target}_rolling_std_{lag}h"] = (
+            data[f"{target}_rolling_std{lag}h"] = (
                 data.groupby("trp_id")[target]
                 .shift(lag)  # exclude current hour
                 .rolling(window=lag, min_periods=1)
                 .std()
-                .reset_index(level=0, drop=True)  # Drop group index, align back
+                .reset_index(drop=True)  # Drop group index, align back
             )
+            #print(data.columns)
+            #print(data.dtypes)
             #IMPORTANT: we're grouping because in the dataframe there's data from multiple TRPs which have completely different values
-            data[f"coverage_{target}_lag_{lag}h"] = data["coverage"] * data[f"{target}_lag_{lag}h"]
+            data[f"coverage_{target}_lag{lag}h"] = data["coverage"] * data[f"{target}_lag{lag}h"]
 
         for lag_t1, lag_t2 in pairwise(lags):
-            data[f"{target}_delta_{lag_t1}h_{lag_t2}h"] = data[f"{target}_lag_{lag_t1}h"] - data[f"{target}_lag_{lag_t2}h"]
+            data[f"{target}_delta_{lag_t1}h_{lag_t2}h"] = data[f"{target}_lag{lag_t1}h"] - data[f"{target}_lag{lag_t2}h"] #TODO IN THE FUTURE ADDRESS THE CASE WHERE THIS SUBTRACTION COULD BE ZERO
             # Delta value between the first lag and the second one per cycle. Lags are taken pairwise from the lags list, if the number of lags is odd the last element won't be included. If the lags list has only one element no delta can be calculated, so the pairwise() function will just return an empty iterator
-            data[f"{target}_pct_change_{lag_t1}h_{lag_t2}h"] = (data[f"{target}_lag_{lag_t1}h"] - data[f"{target}_lag_{lag_t2}h"]) / data[f"{target}_lag_{lag_t2}h"] # Percentual change in the period between the first lag to the second
         return data.persist()
 
 
@@ -597,6 +598,7 @@ class MLPreprocessingPipeline:
         data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
         data = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_TO_SCALE_FEATURES, scaler=MinMaxScaler)
         data = data.sort_values(by=["trp_id", "zoned_dt_iso"], ascending=True).persist()
+        print(data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist())
         return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
 
