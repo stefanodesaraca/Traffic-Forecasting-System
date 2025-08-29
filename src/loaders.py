@@ -67,8 +67,8 @@ class BatchStreamLoader:
                 {"v.is_mice AS is_mice," if is_mice else ""}
                 v.zoned_dt_iso AS zoned_dt_iso
                 {",EXTRACT(YEAR FROM zoned_dt_iso) as year" if year else ""}
-                {f",t.lat" if trp_lat else ""}
-                {f",t.lon" if trp_lon else ""}
+                {f",t.lat AS lat" if trp_lat else ""}
+                {f",t.lon AS lon" if trp_lon else ""}
             {'''
                 ,
                 EXTRACT(DAY FROM zoned_dt_iso) AS day_of_month,
@@ -141,8 +141,8 @@ class BatchStreamLoader:
                  {"ms.is_mice AS is_mice," if is_mice else ""}
                  ms.zoned_dt_iso AS zoned_dt_iso
                 {",EXTRACT(YEAR FROM zoned_dt_iso) as year" if year else ""}
-                {f",t.lat" if trp_lat else ""}
-                {f",t.lon" if trp_lon else ""}
+                {f",t.lat AS lat" if trp_lat else ""}
+                {f",t.lon AS lon" if trp_lon else ""}
             {'''
                 ,
                 EXTRACT(DAY FROM zoned_dt_iso) AS day_of_month,

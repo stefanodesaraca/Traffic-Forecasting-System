@@ -225,7 +225,7 @@ class DBBroker:
                 return cur.fetchall()
 
 
-    def get_trp_ids_by_road_category(self, has_volumes: bool | None = None, has_mean_speed: bool | None = None) -> dict[Any, ...]:
+    def get_trp_ids_by_road_category(self, has_volumes: bool | None = None, has_mean_speed: bool | None = None, county_number_filter: list[str] | None = None) -> dict[Any, ...]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with self.PostgresConnectionCursor(query=f"""SELECT json_object_agg("road_category", "ids") AS result
                                                          FROM (
@@ -233,9 +233,10 @@ class DBBroker:
                                                              FROM "{ProjectViews.TrafficRegistrationPointsMetadataView.value}"
                                                              WHERE {f"has_{GlobalDefinitions.VOLUME} = TRUE" if has_volumes else "1=1"}
                                                              AND {f"has_{GlobalDefinitions.MEAN_SPEED} = TRUE" if has_mean_speed else "1=1"}
+                                                             AND {f"county_number = ANY(%s)" if county_number_filter else "1=1"}
                                                              GROUP BY "road_category"
                                                          ) AS sub;
-                                                      """, conn=conn) as cur:
+                                                      """, conn=conn, params=tuple(to_pg_array(f) for f in [county_number_filter] if f)) as cur:
                 return cur.fetchone()["result"]
             #Output example:
             #{
