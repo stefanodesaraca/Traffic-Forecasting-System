@@ -387,6 +387,12 @@ class RoadGraphObjectsIngestionPipeline:
     async def ingest_links(self, fp: str | Path, batch_size: PositiveInt = 200, n_async_jobs: PositiveInt = 10) -> None:
         semaphore = asyncio.Semaphore(n_async_jobs)
         road_categories = await self._db_broker_async.get_road_categories_async(enable_cache=True, name_as_key=True)
+        valid_toll_station_ids = set(await self._db_broker_async.send_sql_async(
+            f'SELECT "id" FROM "{ProjectTables.TollStations.value}";'
+        ))
+        valid_trp_ids = set(await self._db_broker_async.get_trp_ids_async())
+        t_id = None
+        trp_id = None
 
         links = (await self._load_geojson_async(fp=fp)).get("features", [])
         links_ing_query = f"""
@@ -511,13 +517,13 @@ class RoadGraphObjectsIngestionPipeline:
             for county in feature.get("properties").get("countyIds")
         ), n=batch_size)
         link_toll_stations_matches = get_n_items_from_gen(gen=(
-            (feature.get("properties").get("id"), station)
-            for feature in links
+            (t_id := feature.get("properties").get("id"), station)
+            for feature in links if t_id in valid_toll_station_ids #One link has a non-existing toll station id associated with it
             for station in feature.get("properties").get("tollStationIds")
         ), n=batch_size)
         link_trps_matches = get_n_items_from_gen(gen=(
-            (feature.get("properties").get("id"), station)
-            for feature in links
+            (trp_id := feature.get("properties").get("id"), station)
+            for feature in links if trp_id in valid_trp_ids #One link has a non-existing TRP id associated with it
             for station in feature.get("properties").get("associatedTrpIds")
         ), n=batch_size)
 
