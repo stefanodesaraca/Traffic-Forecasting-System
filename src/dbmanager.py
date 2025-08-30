@@ -379,7 +379,7 @@ class AIODBManager:
                             first_data_with_quality_metrics TIMESTAMPTZ,
                             FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id),
                             FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}"(id),
-                            FOREIGN KEY (municipality) REFERENCES "{ProjectTables.Municipalities.value}"(id)
+                            FOREIGN KEY (municipality_id) REFERENCES "{ProjectTables.Municipalities.value}"(id)
                         );
 
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.Volume.value}" (
@@ -721,120 +721,58 @@ class AIODBManager:
                 """)
 
                 # Materialized Views
-                await conn.execute(f"""
-                -- TRP based aggregation to have a common base to work for all the materialized views next
-                WITH trp_base_agg AS (
-                    SELECT
-                        t.id AS trp_id,
-                        t.county_id,
-                        t.municipality_id,
-                        t.road_category,
-                        AVG(v.{GlobalDefinitions.VOLUME})::DOUBLE PRECISION AS trp_avg_{GlobalDefinitions.VOLUME},
-                        AVG(s.{GlobalDefinitions.MEAN_SPEED})::DOUBLE PRECISION AS trp_avg_{GlobalDefinitions.MEAN_SPEED}
-                    FROM "{ProjectTables.TrafficRegistrationPoints.value}" t
-                    LEFT JOIN "{ProjectTables.Volume.value}" v
-                        ON v.trp_id = t.id
-                       AND COALESCE(v.is_mice, FALSE) = FALSE -- Excluding all MICEd records since they arent' actually recorded data (they're synthetically generated)
-                       AND v.coverage >= 50 -- Removing values recorded where coverage wasn't above 50%
-                    LEFT JOIN "{ProjectTables.MeanSpeed.value}" s
-                        ON s.trp_id = t.id
-                       AND COALESCE(s.is_mice, FALSE) = FALSE -- Excluding all MICEd records since they arent' actually recorded data (they're synthetically generated)
-                       AND s.coverage >= 50
-                    GROUP BY t.id, t.county_id, t.municipality_id, t.road_category
-                ),
-                county_avg_agg AS (
+                for mv in [
+                    f"""
+                    CREATE MATERIALIZED VIEW IF NOT EXISTS {ProjectMaterializedViews.TrafficDataByCountyMView.value} AS
                     SELECT county_id,
                            AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_county,
                            AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_county
                     FROM trp_base_agg
                     GROUP BY county_id
-                ),
-                municipality_avg_agg AS (
+                    WITH NO DATA;
+                    """,
+                    f"""
+                    CREATE MATERIALIZED VIEW IF NOT EXISTS
+                    {ProjectMaterializedViews.TrafficDataByMunicipalityMView.value} AS
                     SELECT municipality_id,
-                           AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_municipality,
-                           AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality
+                    AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_municipality,
+                    AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality
                     FROM trp_base_agg
                     GROUP BY municipality_id
-                ),
-                road_category_avg_agg AS (
+                    WITH NO DATA;
+                    """,
+                    f"""
+                    CREATE MATERIALIZED VIEW IF NOT EXISTS {ProjectMaterializedViews.TrafficDataByRoadCategoryMView.value} AS
                     SELECT road_category,
-                           AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_road_category,
-                           AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category
+                    AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_road_category,
+                    AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category
                     FROM trp_base_agg
                     GROUP BY road_category
-                )
-                
-                CREATE MATERIALIZED VIEW IF NOT EXISTS {ProjectMaterializedViews.TrafficDataByCountyMView.value} AS
-                SELECT
-                    c.county_id,
-                    c.avg_{GlobalDefinitions.VOLUME}_by_county,
-                    c.avg_{GlobalDefinitions.MEAN_SPEED}_by_county,
-                    
-                    -- Weighted averages (county gets 25%, municipality 50%, road category 25%)
-                    (0.25 * c.avg_{GlobalDefinitions.VOLUME}_by_county
-                     + 0.50 * m.avg_{GlobalDefinitions.VOLUME}_by_municipality
-                     + 0.25 * r.avg_{GlobalDefinitions.VOLUME}_by_road_category
-                     ) AS weighted_{GlobalDefinitions.VOLUME}_avg,
-                     
-                    (0.25 * c.avg_{GlobalDefinitions.MEAN_SPEED}_by_county
-                     + 0.50 * m.avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality
-                     + 0.25 * r.avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category
-                     ) AS weighted_{GlobalDefinitions.MEAN_SPEED}_avg
-                FROM county_avg_agg c
-                GROUP BY c.county_id, c.avg_{GlobalDefinitions.VOLUME}_by_county, c.avg_{GlobalDefinitions.MEAN_SPEED}_by_county
-                WITH NO DATA;
-
-                CREATE MATERIALIZED VIEW IF NOT EXISTS {ProjectMaterializedViews.TrafficDataByMunicipalityMView.value} AS
-                SELECT
-                    m.municipality_id,
-                    m.avg_{GlobalDefinitions.VOLUME}_by_municipality,
-                    m.avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality,
-                    
-                    -- Weighted averages (county gets 25%, municipality 50%, road category 25%)
-                    (0.50 * m.avg_{GlobalDefinitions.VOLUME}_by_municipality
-                     + 0.25 * c.avg_{GlobalDefinitions.VOLUME}_by_county
-                     + 0.25 * r.avg_{GlobalDefinitions.VOLUME}_by_road_category
-                     ) AS weighted_{GlobalDefinitions.VOLUME}_avg,
-                     
-                    (0.50 * m.avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality
-                     + 0.25 * c.avg_{GlobalDefinitions.MEAN_SPEED}_by_county
-                     + 0.25 * r.avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category
-                     ) AS weighted_{GlobalDefinitions.MEAN_SPEED}_avg
-                FROM municipality_avg_agg m
-                GROUP BY m.municipality_id, m.avg_{GlobalDefinitions.VOLUME}_by_municipality, m.avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality
-                WITH NO DATA;
-                
-                CREATE MATERIALIZED VIEW IF NOT EXISTS {ProjectMaterializedViews.TrafficDataByRoadCategoryMView.value} AS
-                SELECT
-                    r.road_category,
-                    r.avg_{GlobalDefinitions.VOLUME}_by_road_category,
-                    r.avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category,
-                    
-                    -- Weighted averages (county gets 25%, municipality 50%, road category 25%)
-                    (0.25 * r.avg_{GlobalDefinitions.VOLUME}_by_road_category
-                     + 0.25 * c.avg_{GlobalDefinitions.VOLUME}_by_county
-                     + 0.50 * m.avg_{GlobalDefinitions.VOLUME}_by_municipality
-                     ) AS weighted_{GlobalDefinitions.VOLUME}_avg,
-                     
-                    (0.25 * r.avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category
-                     + 0.25 * c.avg_{GlobalDefinitions.MEAN_SPEED}_by_county
-                     + 0.50 * m.avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality
-                     ) AS weighted_{GlobalDefinitions.MEAN_SPEED}_avg
-                FROM road_category_avg_agg r
-                GROUP BY r.road_category, r.avg_{GlobalDefinitions.VOLUME}_by_road_category, r.avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category
-                WITH NO DATA;
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                """)
+                    WITH NO DATA;
+                    """
+                ]:
+                    await conn.execute(f"""
+                    -- TRP based aggregation to have a common base to work for all the materialized views next
+                    WITH trp_base_agg AS (
+                        SELECT
+                            t.id AS trp_id,
+                            t.county_id,
+                            t.municipality_id,
+                            t.road_category,
+                            AVG(v.{GlobalDefinitions.VOLUME})::DOUBLE PRECISION AS trp_avg_{GlobalDefinitions.VOLUME},
+                            AVG(s.{GlobalDefinitions.MEAN_SPEED})::DOUBLE PRECISION AS trp_avg_{GlobalDefinitions.MEAN_SPEED}
+                        FROM "{ProjectTables.TrafficRegistrationPoints.value}" t
+                        LEFT JOIN "{ProjectTables.Volume.value}" v
+                            ON v.trp_id = t.id
+                           AND COALESCE(v.is_mice, FALSE) = FALSE -- Excluding all MICEd records since they arent' actually recorded data (they're synthetically generated)
+                           AND v.coverage >= 50 -- Removing values recorded where coverage wasn't above 50%
+                        LEFT JOIN "{ProjectTables.MeanSpeed.value}" s
+                            ON s.trp_id = t.id
+                           AND COALESCE(s.is_mice, FALSE) = FALSE -- Excluding all MICEd records since they arent' actually recorded data (they're synthetically generated)
+                           AND s.coverage >= 50
+                        GROUP BY t.id, t.county_id, t.municipality_id, t.road_category
+                    ),
+                    """ + mv)
 
                 # Granting permission to access to all tables to the TFS user
                 await conn.execute(f"""
