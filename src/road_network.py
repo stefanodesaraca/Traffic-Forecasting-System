@@ -65,29 +65,56 @@ class RoadNetwork:
                     ON l.link_id = rlm.link_id
                 LEFT JOIN "{ProjectTables.RoadLink_Counties.value}" rlc
                     ON l.link_id = rlc.link_id
+                WHERE l.link_id = %s
+            ),
+            county_avg AS (
+                SELECT 
+                    l_agg.link_id, 
+                    AVG(c.avg_{GlobalDefinitions.VOLUME}_by_county) AS avg_{GlobalDefinitions.VOLUME},          
+                    AVG(c.avg_{GlobalDefinitions.MEAN_SPEED}_by_county) AS avg_{GlobalDefinitions.MEAN_SPEED}
+                FROM link_agg_data l_agg
+                JOIN "{ProjectMaterializedViews.TrafficDataByCountyMView.value}" c
+                  ON l_agg.county_id = c.county_id
+                GROUP BY l_agg.link_id
+            ),
+            municipality_avg AS (
+                SELECT 
+                    l_agg.link_id, 
+                    AVG(m.avg_{GlobalDefinitions.VOLUME}_by_municipality) AS avg_{GlobalDefinitions.VOLUME},
+                    AVG(m.avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality) AS avg_{GlobalDefinitions.MEAN_SPEED}
+                FROM link_agg_data l_agg
+                JOIN "{ProjectMaterializedViews.TrafficDataByMunicipalityMView.value}" m
+                  ON l_agg.municipality_id = m.municipality_id
+                GROUP BY l_agg.link_id
+            ),
+            road_category_avg AS (
+                SELECT 
+                    l_agg.link_id,
+                    AVG(r.avg_{GlobalDefinitions.VOLUME}_by_road_category) AS avg_{GlobalDefinitions.VOLUME},
+                    AVG(r.avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category) AS avg_{GlobalDefinitions.MEAN_SPEED}
+                FROM link_agg_data l_agg
+                JOIN "{ProjectMaterializedViews.TrafficDataByRoadCategoryMView.value}" r
+                  ON l_agg.road_category = r.road_category
+                GROUP BY l_agg.link_id
             )
             
-            SELECT 
+            SELECT
+                l_agg.link_id,
                 0.25 * county_avg.avg_{GlobalDefinitions.VOLUME} +
                 0.5  * municipality_avg.avg_{GlobalDefinitions.VOLUME} +
-                0.25 * road_category_avg.avg_{GlobalDefinitions.VOLUME} AS weighted_avg_{GlobalDefinitions.VOLUME}
-                
+                0.25 * road_category_avg.avg_{GlobalDefinitions.VOLUME} AS weighted_avg_{GlobalDefinitions.VOLUME},
                 0.25 * county_avg.avg_{GlobalDefinitions.MEAN_SPEED} +
                 0.5  * municipality_avg.avg_{GlobalDefinitions.MEAN_SPEED} +
                 0.25 * road_category_avg.avg_{GlobalDefinitions.MEAN_SPEED} AS weighted_avg_{GlobalDefinitions.MEAN_SPEED}
-                
-            FROM link_agg_data l_agg
-            LEFT JOIN "{ProjectMaterializedViews.TrafficDataByCountyMView.value}" county_avg
-                ON l_agg.county_id = county_avg.county_id
-            LEFT JOIN "{ProjectMaterializedViews.TrafficDataByMunicipalityMView.value}" municipality_avg
-                ON l_agg.municipality_id = municipality_avg.municipality_id
-            LEFT JOIN "{ProjectMaterializedViews.TrafficDataByRoadCategoryMView.value}" road_category_avg
-                ON l_agg.road_category = road_category_avg.road_category;
+            FROM (SELECT DISTINCT link_id FROM link_info) l_agg
+            LEFT JOIN county_avg ON l_agg.link_id = county_avg.link_id
+            LEFT JOIN municipality_avg ON l_agg.link_id = municipality_avg.link_id
+            LEFT JOIN road_category_avg ON l_agg.link_id = road_category_avg.link_id;
         """, execute_args=[link_id], single=True)
+        #Returning the average value of each target variable aggregated respectively by any counties, municipalities and road categories the link may belong to, this way we'll have a customized indicator of what are the "normal" (average) conditions on that road
 
 
-    @staticmethod
-    def _compute_edge_weight(edge_start: Node, edge_end: Node, attrs: dict) -> PositiveFloat | None:
+    def _compute_edge_weight(self, edge_start: Node, edge_end: Node, attrs: dict) -> PositiveFloat | None:
         length: PositiveFloat = attrs.get("length")
         road_category: str = attrs.get("road_category")
         min_lanes: PositiveInt = attrs.get("min_lanes")
@@ -96,9 +123,12 @@ class RoadNetwork:
         lowest_speed_limit: PositiveInt = attrs.get("lowest_speed_limit")
         is_ferry_route: bool = attrs.get("is_ferry_route")
 
+        neighborhood_radius = 3500 #Distance in meters from the link line, so the diameter of the whole buffer zone is neighborhood_radius * 2
+        neighborhood_trps = []
 
-
-
+        while len(neighborhood_trps) == 0:
+            neighborhood_trps = self._find_trps_within_link_buffer_zone(attrs["link_id"], buffer_zone_radius=neighborhood_radius)
+            neighborhood_radius += 1000
 
 
 
