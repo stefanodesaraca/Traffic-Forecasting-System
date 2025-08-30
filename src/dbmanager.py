@@ -174,7 +174,7 @@ class AIODBManager:
                     "road_reference_short_form", "road_category",
                     "road_link_sequence", "relative_position",
                     "country_part_id", "country_part_name",
-                    "county_id", "municipality", "geographic_number",
+                    "county_id", "municipality_id", "geographic_number",
                     "traffic_registration_type",
                     "first_data", "first_data_with_quality_metrics"
                 )
@@ -721,38 +721,38 @@ class AIODBManager:
                 """)
 
                 # Materialized Views
-                for mv in [
-                    f"""
-                    CREATE MATERIALIZED VIEW IF NOT EXISTS {ProjectMaterializedViews.TrafficDataByCountyMView.value} AS
-                    SELECT county_id,
-                           AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_county,
-                           AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_county
-                    FROM trp_base_agg
-                    GROUP BY county_id
-                    WITH NO DATA;
-                    """,
-                    f"""
-                    CREATE MATERIALIZED VIEW IF NOT EXISTS
-                    {ProjectMaterializedViews.TrafficDataByMunicipalityMView.value} AS
-                    SELECT municipality_id,
-                    AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_municipality,
-                    AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality
-                    FROM trp_base_agg
-                    GROUP BY municipality_id
-                    WITH NO DATA;
-                    """,
-                    f"""
-                    CREATE MATERIALIZED VIEW IF NOT EXISTS {ProjectMaterializedViews.TrafficDataByRoadCategoryMView.value} AS
-                    SELECT road_category,
-                    AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_road_category,
-                    AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category
-                    FROM trp_base_agg
-                    GROUP BY road_category
-                    WITH NO DATA;
-                    """
-                ]:
-                    await conn.execute(f"""
-                    -- TRP based aggregation to have a common base to work for all the materialized views next
+                for prefix, mv in zip(
+                    [
+                        f"CREATE MATERIALIZED VIEW IF NOT EXISTS {ProjectMaterializedViews.TrafficDataByCountyMView.value} AS",
+                        f"CREATE MATERIALIZED VIEW IF NOT EXISTS {ProjectMaterializedViews.TrafficDataByMunicipalityMView.value} AS",
+                        f"CREATE MATERIALIZED VIEW IF NOT EXISTS {ProjectMaterializedViews.TrafficDataByRoadCategoryMView.value} AS"
+                    ],
+                    [
+                        f"""
+                        SELECT county_id,
+                               AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_county,
+                               AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_county
+                        FROM trp_base_agg
+                        GROUP BY county_id
+                        """,
+                        f"""
+                        SELECT municipality_id,
+                        AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_municipality,
+                        AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality
+                        FROM trp_base_agg
+                        GROUP BY municipality_id
+                        """,
+                        f"""
+                        SELECT road_category,
+                        AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_road_category,
+                        AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category
+                        FROM trp_base_agg
+                        GROUP BY road_category
+                        """
+                    ]
+                ):
+                    await conn.execute(
+                    prefix + f"""
                     WITH trp_base_agg AS (
                         SELECT
                             t.id AS trp_id,
@@ -771,8 +771,8 @@ class AIODBManager:
                            AND COALESCE(s.is_mice, FALSE) = FALSE -- Excluding all MICEd records since they arent' actually recorded data (they're synthetically generated)
                            AND s.coverage >= 50
                         GROUP BY t.id, t.county_id, t.municipality_id, t.road_category
-                    ),
-                    """ + mv)
+                    )
+                    """ + mv + "WITH NO DATA;") # TRP based aggregation to have a common base to work for all the materialized views next
 
                 # Granting permission to access to all tables to the TFS user
                 await conn.execute(f"""
