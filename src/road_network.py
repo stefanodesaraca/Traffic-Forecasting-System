@@ -11,6 +11,7 @@ from tqdm import tqdm
 from scipy.spatial.distance import euclidean, cityblock  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
 from geopy.distance import geodesic # To calculate distance (in meters) between two sets of coordinates (lat-lon). Geopy distance docs: https://geopy.readthedocs.io/en/stable/#module-geopy.distance
 from shapely import Point, LineString
+import matplotlib.pyplot as plt
 
 from exceptions import WrongGraphProcessingBackendError
 from definitions import GlobalDefinitions
@@ -44,17 +45,6 @@ class RoadNetwork:
         if self._backend not in GlobalDefinitions.GRAPH_PROCESSING_BACKENDS:
             raise WrongGraphProcessingBackendError(f"{self._backend} is not a valid graph processing backend. Try one of: {', '.join(GlobalDefinitions.GRAPH_PROCESSING_BACKENDS)}")
         #TODO SET ENVIRONMENT VARIABLES FOR CUDF?
-
-
-    @property
-    def graph(self) -> nx.Graph:
-        """
-        Returns the network's graph object.
-
-        Returns:
-            The road network's networkx graph object
-        """
-        return self._network
 
 
     def _parse_road_network_json(self, fp: str) -> dict[str, Any]:
@@ -201,7 +191,6 @@ class RoadNetwork:
         return ...
 
 
-
     def _compute_edge_weight(self, edge: Node, is_forecast: bool = False, forecasting_horizon: datetime.datetime | None = None) -> float | int:
 
 
@@ -212,9 +201,6 @@ class RoadNetwork:
 
         return ...
 
-
-    def get_data(self) -> dict[Any, Any]:
-        return self.__dict__
 
 
     def load_nodes(self) -> None:
@@ -243,7 +229,6 @@ class RoadNetwork:
                 print("Loading links...")
             self.load_links(county_ids_filter=county_ids_filter)
 
-
         #Removing isolated nodes since they're unreachable
         self._network.remove_nodes_from((i for i in nx.isolates(self._network))) #Using a generator to avoid eccessive memory consumption
         #This way we're also going to apply all filters if any have been set since if there isn't a link connecting a node to another that will be isolated
@@ -253,7 +238,8 @@ class RoadNetwork:
             print("Road network graph created!")
 
         print(self._network)
-        print(nx.draw(self._network, with_labels=True))
+        nx.draw(self._network, with_labels=True)
+        plt.show()
 
         return None
 

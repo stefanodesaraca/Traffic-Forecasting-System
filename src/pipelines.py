@@ -315,9 +315,9 @@ class RoadGraphObjectsIngestionPipeline:
         tolls_ing_query = f"""
             INSERT INTO "{ProjectTables.TollStations.value}" ("id", "name", "geom")
             VALUES ($1, $2, ST_Transform(
-                ST_GeomFromText($3, $4),
-                {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}
-                )
+                    ST_Force2D(ST_GeomFromText($3, $4)),
+                    {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}
+                ) -- Removing the Z axis from the points which have that dimension as well
             )
             ON CONFLICT DO NOTHING;
         """ # Transforming the projection which the current geometry has into WGS84 to store it into the DB

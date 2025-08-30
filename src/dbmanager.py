@@ -443,7 +443,7 @@ class AIODBManager:
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.TollStations.value}" (
                             id INTEGER PRIMARY KEY,
                             name TEXT,
-                            geom GEOMETRY (PointZ, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL -- store coordinates in WGS84
+                            geom GEOMETRY (Point, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL -- store coordinates in WGS84
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.FunctionClasses.value}" (
