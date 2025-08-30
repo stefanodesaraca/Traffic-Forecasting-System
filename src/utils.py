@@ -224,17 +224,17 @@ def cached_async():
 
 
 def save_plot(plotFunction):
-    def save(name, plots, fp):
+    def save(plots, fp):
         if isinstance(plots, (plt.Figure, plt.Axes, sns.axisgrid.FacetGrid, sns.axisgrid.PairGrid, list)):
-            plt.savefig(f"{fp}{name}.png", dpi=300)
-            print(f"{name} exported correctly")
+            plt.savefig(fp, dpi=300)
+            print(f"{fp} exported correctly")
         elif isinstance(plots, plotly.graph_objs._figure.Figure):
-            plots.write_html(f"{fp}{name}.html")
-            print(f"{name} exported correctly")
+            plots.write_html(fp)
+            print(f"{fp} exported correctly")
         else:
             try:
-                plt.savefig(f"{fp}{name}.png", dpi=300)
-                print(f"{name} exported correctly")
+                plt.savefig(f"{fp}", dpi=300)
+                print(f"{fp} exported correctly")
             except Exception as e:
                 print(
                     f"\033[91mExporting the plots wasn't possible, the returned type is not included in the decorator function. Error: {e}\033[0m")
@@ -242,12 +242,12 @@ def save_plot(plotFunction):
 
     @wraps(plotFunction)
     def wrapper(*args, **kwargs):
-        names, plots, fp = plotFunction(*args, **kwargs)
-        if isinstance(names, list) and isinstance(plots, list):
-            for name, plot in zip(names, plots):
-                save(name, plot, fp)
+        plots, fp = plotFunction(*args, **kwargs)
+        if isinstance(plots, list):
+            for plot in plots:
+                save(plot, fp)
         else:
-            save(names, plots, fp)
+            save(plots, fp)
         return None
 
     return wrapper

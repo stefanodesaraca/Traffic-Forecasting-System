@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from pykrige import OrdinaryKriging
 
 from exceptions import WrongGraphProcessingBackendError
-from definitions import GlobalDefinitions, ProjectTables
+from definitions import GlobalDefinitions, ProjectTables, IconStyles
 from loaders import BatchStreamLoader
 from utils import save_plot
 
@@ -53,7 +53,7 @@ class RoadNetwork:
                 (row["start_traffic_node_id"], row["end_traffic_node_id"],
                  {k: v for k, v in row.to_dict().items() if k not in ["start_traffic_node_id", "end_traffic_node_id"]})
                 for _, row in partition.iterrows()
-            ) for partition in self._loader.get_links(county_ids_filter=county_ids_filter).partitions)
+            ) for partition in self._loader.get_links(county_ids_filter=county_ids_filter, has_trps=True).partitions)
         return None
 
 
@@ -161,9 +161,23 @@ class RoadNetwork:
 
 
     @save_plot
-    def save_graph_image(self, fp: str) -> None:
-        nx.draw(self._network, with_labels=True, node_size=1500, font_size=25, font_color="yellow", font_weight="bold")
-        return ...
+    def save_graph_image(self) -> tuple[plt, str]:
+        fig, ax = plt.subplots(figsize=(8, 6))
+        nx.draw(
+            self._network,
+            ax=ax,
+            with_labels=True,
+            node_size=1500,
+            font_size=25,
+            font_color="yellow",
+            font_weight="bold",
+            edge_color=[
+                IconStyles.TRP_LINK_STYLE.value.get("icon_color")
+                if self._network.nodes[node].get("has_trps") else "blue"
+                for node in self._network.nodes()
+            ]
+        )
+        return ..., f"{self._network['network_id']}.svg"
 
 
     def to_pickle(self) -> None:
