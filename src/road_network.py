@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from pykrige import OrdinaryKriging
 
 from exceptions import WrongGraphProcessingBackendError
-from definitions import GlobalDefinitions
+from definitions import GlobalDefinitions, ProjectTables
 from loaders import BatchStreamLoader
 from utils import save_plot
 
@@ -21,12 +21,12 @@ class RoadNetwork:
                  network_id: str,
                  name: str,
                  backend: str = "networkx",
-                 broker: Any | None = None,
+                 db_broker: Any | None = None,
                  loader: BatchStreamLoader | None = None,
                  network_binary: bytes | None = None
     ):
         self._loader: BatchStreamLoader = loader
-        self._broker: Any = broker #Synchronous DBBroker
+        self._db_broker: Any = db_broker #Synchronous DBBroker
         self.network_id: str = network_id
         self.name: str = name
         self._backend: str = backend
@@ -167,17 +167,18 @@ class RoadNetwork:
 
 
     def to_pickle(self) -> None:
-        nx.write_gpickle(self._network, 'graph.pkl')
+        with open(f'{self._network["network_id"]}.gpickle', 'wb') as fp:
+            pickle.dump(self._network, fp, pickle.HIGHEST_PROTOCOL)
         return None
 
 
-    def from_pickle(self) -> nx.DiGraph:
-        return nx.read_gpickle(self._network, 'graph.pkl')
-
-
     def to_db(self) -> None:
-        pickle.dumps(self._network)
-        ...
+        self._db_broker.send_sql(f"""
+            INSERT INTO "{ProjectTables.RoadNetworks.value}" ("name", "binary_obj")
+            VALUES (%s, %s)
+            ON CONFLICT DO UPDATE SET "binary_obj" = EXCLUDED.binary_obj;;
+        """, execute_args=[self._network["network_id"], pickle.dumps(self._network, pickle.HIGHEST_PROTOCOL)])
+        return None
 
 
     @staticmethod

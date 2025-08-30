@@ -536,7 +536,8 @@ def manage_road_network(functionality: str) -> None:
 
     elif functionality == "4.2":
         db_broker = get_db_broker()
-        network = RoadNetwork(network_id="test", name="test", broker=db_broker, loader=BatchStreamLoader(db_broker=db_broker))
+        network = RoadNetwork(network_id="test", name="test", db_broker=db_broker,
+                              loader=BatchStreamLoader(db_broker=db_broker))
         network.build(county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID])
 
 

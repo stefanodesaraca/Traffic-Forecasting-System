@@ -224,17 +224,17 @@ def cached_async():
 
 
 def save_plot(plotFunction):
-    def save(plotName, plots, filePath):
+    def save(name, plots, fp):
         if isinstance(plots, (plt.Figure, plt.Axes, sns.axisgrid.FacetGrid, sns.axisgrid.PairGrid, list)):
-            plt.savefig(f"{filePath}{plotName}.png", dpi=300)
-            print(f"{plotName} exported correctly")
+            plt.savefig(f"{fp}{name}.png", dpi=300)
+            print(f"{name} exported correctly")
         elif isinstance(plots, plotly.graph_objs._figure.Figure):
-            plots.write_html(f"{filePath}{plotName}.html")
-            print(f"{plotName} exported correctly")
+            plots.write_html(f"{fp}{name}.html")
+            print(f"{name} exported correctly")
         else:
             try:
-                plt.savefig(f"{filePath}{plotName}.png", dpi=300)
-                print(f"{plotName} exported correctly")
+                plt.savefig(f"{fp}{name}.png", dpi=300)
+                print(f"{name} exported correctly")
             except Exception as e:
                 print(
                     f"\033[91mExporting the plots wasn't possible, the returned type is not included in the decorator function. Error: {e}\033[0m")
