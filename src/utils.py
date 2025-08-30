@@ -8,6 +8,11 @@ from pydantic.types import PositiveInt
 from dask.distributed import Client, LocalCluster
 from functools import lru_cache, wraps
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+import plotly
+import plotly.express as px
+
 from exceptions import TargetVariableNotFoundError, MissingDataError
 from definitions import GlobalDefinitions
 
@@ -216,3 +221,33 @@ def cached_async():
                 return await func(*args, **kwargs)
         return wrapper
     return decorator
+
+
+def save_plot(plotFunction):
+    def save(plotName, plots, filePath):
+        if isinstance(plots, (plt.Figure, plt.Axes, sns.axisgrid.FacetGrid, sns.axisgrid.PairGrid, list)):
+            plt.savefig(f"{filePath}{plotName}.png", dpi=300)
+            print(f"{plotName} exported correctly")
+        elif isinstance(plots, plotly.graph_objs._figure.Figure):
+            plots.write_html(f"{filePath}{plotName}.html")
+            print(f"{plotName} exported correctly")
+        else:
+            try:
+                plt.savefig(f"{filePath}{plotName}.png", dpi=300)
+                print(f"{plotName} exported correctly")
+            except Exception as e:
+                print(
+                    f"\033[91mExporting the plots wasn't possible, the returned type is not included in the decorator function. Error: {e}\033[0m")
+        return None
+
+    @wraps(plotFunction)
+    def wrapper(*args, **kwargs):
+        names, plots, fp = plotFunction(*args, **kwargs)
+        if isinstance(names, list) and isinstance(plots, list):
+            for name, plot in zip(names, plots):
+                save(name, plot, fp)
+        else:
+            save(names, plots, fp)
+        return None
+
+    return wrapper

@@ -8,60 +8,19 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
 import statsmodels.api as sm
-import plotly
-import plotly.express as px
 import inspect
 from functools import wraps
 
 from definitions import GlobalDefinitions
+from utils import save_plot
 
 tab10 = sns.color_palette("tab10")
 
 
-def savePlots(plotFunction):
-    def checkPlots(plotNames, plots):
-        return bool(isinstance(plotNames, list) and isinstance(plots, list))
-
-    def checkPlotsTypeAndSave(plotName, plots, filePath):
-        if isinstance(plots, (plt.Figure, plt.Axes, sns.axisgrid.FacetGrid, sns.axisgrid.PairGrid, list)):
-            plt.savefig(f"{filePath}{plotName}.png", dpi=300)
-            print(f"{plotName} exported correctly")
-
-        elif isinstance(plots, plotly.graph_objs._figure.Figure):
-            plots.write_html(f"{filePath}{plotName}.html")
-            print(f"{plotName} exported correctly")
-
-        else:
-            try:
-                plt.savefig(f"{filePath}{plotName}.png", dpi=300)
-                print(f"{plotName} exported correctly")
-            except Exception as e:
-                print(f"\033[91mExporting the plots wasn't possible, the returned type is not included in the decorator function. Error: {e}\033[0m")
-
-        return None
-
-    @wraps(plotFunction)
-    def wrapper(*args, **kwargs):
-        plotsNames, generatedPlots, filePath = plotFunction(*args, **kwargs)
-        # print("File path: " + filePath)
-
-        if checkPlots(plotsNames, generatedPlots) is True:
-            for plotName, plot in zip(plotsNames, generatedPlots):
-                checkPlotsTypeAndSave(plotName, plot, filePath)
-
-        elif checkPlots(plotsNames, generatedPlots) is False:
-            # print("Saving Single Graph...")
-            checkPlotsTypeAndSave(plotsNames, generatedPlots, filePath)
-
-        else:
-            print(f"\033[91mExporting the plots wasn't possible, here's the data types obtained by the decorator: PlotNames: {type(plotsNames)}, Generated Plots (could be a list of plots): {type(generatedPlots)}, File Path: {type(filePath)}\033[0m")
-
-        return None
-
-    return wrapper
 
 
-@savePlots
+
+@save_plot
 def ShapiroWilkTest(targetFeatureName, data, shapiroWilkPlotsPath):
     plotName = targetFeatureName + inspect.currentframe().f_code.co_name
 
@@ -110,8 +69,8 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
     print("Traffic volume 99th percentile: ", np.percentile(volumes["volume"], 99))
     print("\n")
 
-    print("Inter-Quartile Range (IQR) for the whole distribution (all years): " , percentile_75 - percentile_25)
-    print("Quartile Deviation for the whole distribution (all years): " , percentile_75 - percentile_25)
+    print("Inter-Quartile Range (IQR) for the whole distribution (all years): ", percentile_75 - percentile_25)
+    print("Quartile Deviation for the whole distribution (all years): ", percentile_75 - percentile_25)
 
     print("\nPercentiles by year")
     print(volumes.groupby(volumes["year"], as_index=False)["volume"].quantile(0.25).rename(columns={"volume": "percentile_25"}), "\n")
@@ -141,7 +100,7 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
         print("\n")
 
     # Checking if the data distribution is normal
-    ShapiroWilkTest("volume", volumes["volume"], pmm.get(key="folder_paths.eda.traffic_shapiro_wilk_test.path"))
+    ShapiroWilkTest("volume", volumes["volume"], ...)
     plt.clf()
 
     print("\n\n")
@@ -158,15 +117,15 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
 
     volumes["date"] = pd.to_datetime([f"{y}-{m}-{d}" for y, m, d in zip(volumes["year"], volumes["month"], volumes["day"], strict=True)]) #TODO WE ALREADY HAVE THE "DATE" COLUMN RIGHT? WHY IS THIS STILL HERE. I'LL CHECK BETTER
 
-    @savePlots
+    @save_plot
     def volume_trend_grouped_by_years():
 
         plt.figure(figsize=(16, 9))
         for y in sorted(volumes["year"].unique()):
             year_data = volumes[volumes["year"] == y].groupby("date", as_index=False)["volume"].sum().sort_values(by="date", ascending=True)
             # print(year_data)
-            plt.plot(range(0, len(year_data)), "volume", data=year_data, marker="o")  # To make the plots overlap they must have the same exact data on the x axis.
-            # In this case for example they must have the same days number on the x-axis so that matplotlib know where to plot the data and thus, this can overlap too if if has the same x axis value
+            plt.plot(range(0, len(year_data)), "volume", data=year_data, marker="o")  # To make the plots overlap they must have the same exact data on the x-axis.
+            # In this case for example they must have the same days number on the x-axis so that matplotlib know where to plot the data and thus, this can overlap too if it has the same x-axis value
 
         plt.grid()
         plt.ylabel("Volume")
@@ -174,9 +133,9 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
         plt.title(f"Traffic volumes aggregated (sum) by day for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_volume_trend_grouped_by_years", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.VOLUME + ".path")
+        return f"{trp_id}_volume_trend_grouped_by_years", plt, ...
 
-    @savePlots
+    @save_plot
     def volume_trend_by_week():
 
         plt.figure(figsize=(16, 9))
@@ -192,9 +151,9 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
         plt.title(f"Traffic volumes aggregated (median) by week for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_volume_trend_by_hour_day", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.VOLUME + ".path")
+        return f"{trp_id}_volume_trend_by_hour_day", plt, ...
 
-    @savePlots
+    @save_plot
     def volumes_distribution_by_week_and_year():
 
         fig, axs = plt.subplots(len(volumes["year"].unique()), 1, figsize=(16, 9))
@@ -212,13 +171,13 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
 
         plt.subplots_adjust(hspace=0.5)
 
-        return f"{trp_id}_volumes_distribution_by_week_and_year", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.VOLUME + ".path")
+        return f"{trp_id}_volumes_distribution_by_week_and_year", plt, ...
 
-    @savePlots
+    @save_plot
     def correlation_heatmap():
         return (f"{trp_id}_volumes_corr_heatmap",
                 sns.heatmap(volumes.corr(numeric_only=True), annot=True, fmt=".2f").set_title(f"Traffic volumes - TRP: {trp_id} - Correlation heatmap"),
-                pmm.get(key="folder_paths.eda.plots.eda_plots." + GlobalDefinitions.VOLUME + ".path"))
+                ...)
 
     all((i(), plt.clf()) for i in (volume_trend_grouped_by_years, volume_trend_by_week, volumes_distribution_by_week_and_year, correlation_heatmap))
 
@@ -288,7 +247,7 @@ def analyze_mean_speed(speeds: pd.DataFrame) -> None:
         print("\n")
 
     # Checking if the data distribution is normal
-    swt_path = pmm.get(key="folder_paths.eda.traffic_shapiro_wilk_test.path")
+    swt_path = ...
     ShapiroWilkTest("mean_speed", speeds["mean_speed"], swt_path)
     plt.clf()
 
@@ -304,14 +263,14 @@ def analyze_mean_speed(speeds: pd.DataFrame) -> None:
     print("Average speeds - Correlations dataframe-wise (numerical variables only): ")
     print(speeds.corr(numeric_only=True), "\n")
 
-    @savePlots
+    @save_plot
     def speeds_trend_grouped_by_years():
 
         plt.figure(figsize=(16, 9))
         for y in sorted(speeds["year"].unique()):
             year_data = speeds[speeds["year"] == y].groupby("date", as_index=False)["mean_speed"].mean().sort_values(by="date", ascending=True)
             # print(year_data)
-            plt.plot(range(0, len(year_data)), "mean_speed", data=year_data, marker="o")  # To make the plots overlap they must have the same exact data on the x axis.
+            plt.plot(range(0, len(year_data)), "mean_speed", data=year_data, marker="o")  # To make the plots overlap they must have the same exact data on the x-axis.
 
         plt.grid()
         plt.ylabel("Average speed")
@@ -319,9 +278,9 @@ def analyze_mean_speed(speeds: pd.DataFrame) -> None:
         plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
         plt.title(f"Average speeds aggregated by day for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_avg_speeds_trend_grouped_by_years", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.MEAN_SPEED + ".path")
+        return f"{trp_id}_avg_speeds_trend_grouped_by_years", plt, ...
 
-    @savePlots
+    @save_plot
     def speeds_trend_by_week():
 
         plt.figure(figsize=(16, 9))
@@ -336,9 +295,9 @@ def analyze_mean_speed(speeds: pd.DataFrame) -> None:
         plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
         plt.title(f"Median of the average speeds by week for different years | TRP: {trp_id}")
 
-        return f"{trp_id}_avg_speed_trend_by_hour_day", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.MEAN_SPEED + ".path")
+        return f"{trp_id}_avg_speed_trend_by_hour_day", plt, ...
 
-    @savePlots
+    @save_plot
     def speeds_distribution_by_week_and_year():
 
         fig, axs = plt.subplots(len(speeds["year"].unique()), 1, figsize=(16, 9))
@@ -356,13 +315,13 @@ def analyze_mean_speed(speeds: pd.DataFrame) -> None:
 
         plt.subplots_adjust(hspace=0.5)
 
-        return f"{trp_id}_avg_speed_distribution_by_week_and_year", plt, pmm.get(key="folder_paths.eda.plots.subfolders." + GlobalDefinitions.MEAN_SPEED + ".path")
+        return f"{trp_id}_avg_speed_distribution_by_week_and_year", plt, ...
 
-    @savePlots
+    @save_plot
     def correlation_heatmap():
         return (f"{trp_id}_avg_speed_corr_heatmap",
                 sns.heatmap(speeds.corr(numeric_only=True), annot=True, fmt=".2f").set_title(f"Traffic volumes - TRP: {trp_id} - Correlation heatmap"),
-                pmm.get(key="folder_paths.eda.plots.eda_plots." + GlobalDefinitions.MEAN_SPEED + ".path"))
+                ...)
 
     all((i(), plt.clf()) for i in (speeds_trend_grouped_by_years, speeds_trend_by_week, speeds_distribution_by_week_and_year, correlation_heatmap))
 
@@ -398,7 +357,7 @@ def volume_multicollinearity_test(volumes: pd.DataFrame) -> None:
 
     print("----------------- Traffic volumes - VIFs -----------------")
 
-    pprint.pprint(volumes_vif)
+    pprint(volumes_vif)
     print()
 
     # ----------------- Condition index -----------------
@@ -438,7 +397,7 @@ def mean_speed_multicollinearity_test(speeds: pd.DataFrame) -> None:
 
     print("----------------- Average speeds - VIFs -----------------")
 
-    pprint.pprint(speeds_vif)
+    pprint(speeds_vif)
     print()
 
     # ----------------- Condition index -----------------
