@@ -23,8 +23,24 @@ from sklearn.ensemble import (
 )
 
 from exceptions import ProjectDBNotFoundError
-from definitions import GlobalDefinitions, HubDBTables, HUBDBConstraints, ProjectTables, ProjectConstraints, ProjectViews, FunctionClasses, RowFactories, AIODBManagerInternalConfig as AIODBMInternalConfig
-from downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
+from definitions import (
+    GlobalDefinitions,
+    HubDBTables,
+    HUBDBConstraints,
+    ProjectTables,
+    ProjectConstraints,
+    ProjectViews,
+    ProjectMaterializedViews,
+    FunctionClasses,
+    RowFactories,
+    AIODBManagerInternalConfig as AIODBMInternalConfig
+)
+from downloader import (
+    start_client_async,
+    fetch_areas,
+    fetch_road_categories,
+    fetch_trps
+)
 
 
 @asynccontextmanager
@@ -119,17 +135,17 @@ class AIODBManager:
             for county in part["counties"]:
                 # Insert county
                 await conn.execute(
-                    f"""INSERT INTO "{ProjectTables.Counties.value}" ("number", "name", "country_part_id") 
-                        VALUES ($1, $2, $3) ON CONFLICT ("number") DO NOTHING""",
+                    f"""INSERT INTO "{ProjectTables.Counties.value}" ("id", "name", "country_part_id") 
+                        VALUES ($1, $2, $3) ON CONFLICT ("id") DO NOTHING""",
                     county["number"], county["name"], part["id"]
                 )
 
                 # Insert municipalities for this county
                 for muni in county.get("municipalities", []):
                     await conn.execute(
-                        f"""INSERT INTO "{ProjectTables.Municipalities.value}" ("number", "name", "county_number", "country_part_id")
+                        f"""INSERT INTO "{ProjectTables.Municipalities.value}" ("id", "name", "county_id", "country_part_id")
                             VALUES ($1, $2, $3, $4)
-                            ON CONFLICT ("number") DO NOTHING""",
+                            ON CONFLICT ("id") DO NOTHING""",
                         muni["number"], muni["name"], county["number"], part["id"]
                     )
 
@@ -157,8 +173,8 @@ class AIODBManager:
                     "id", "name", "lat", "lon", "geom",
                     "road_reference_short_form", "road_category",
                     "road_link_sequence", "relative_position",
-                    "county", "country_part_id", "country_part_name",
-                    "county_number", "geographic_number",
+                    "country_part_id", "country_part_name",
+                    "county_id", "municipality", "geographic_number",
                     "traffic_registration_type",
                     "first_data", "first_data_with_quality_metrics"
                 )
@@ -166,8 +182,8 @@ class AIODBManager:
                     $1, $2, $3, $4, ST_SetSRID(ST_MakePoint($4, $3), {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}),
                     $5, $6,
                     $7, $8,
-                    $9, $10, $11,
-                    $12, $13,
+                    $9, $10,
+                    $11, $12, $13,
                     $14,
                     $15, $16
                 )
@@ -187,8 +203,8 @@ class AIODBManager:
                     .get("countryPart", {})
                     .get("id")
                 ),
-                trp["location"].get("county", {}).get("countryPart", {}).get("name"),
                 trp["location"].get("county", {}).get("number"),
+                trp["location"].get("municipality", {}).get("number"),
                 trp["location"].get("county", {}).get("geographicNumber"),
                 trp.get("trafficRegistrationType"),
                 datetime.strptime(trp.get("dataTimeSpan", {}).get("firstData"), GlobalDefinitions.DT_ISO_TZ_FORMAT) if trp.get("dataTimeSpan", {}).get("firstData") else None,
@@ -328,18 +344,18 @@ class AIODBManager:
                         );
 
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.Counties.value}" (
-                            number INTEGER PRIMARY KEY,
+                            id INTEGER PRIMARY KEY,
                             name TEXT NOT NULL,
                             country_part_id INTEGER NOT NULL,
                             FOREIGN KEY (country_part_id) REFERENCES "{ProjectTables.CountryParts.value}"(id)
                         );
 
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.Municipalities.value}" (
-                            number INTEGER PRIMARY KEY,
+                            id INTEGER PRIMARY KEY,
                             name TEXT NOT NULL,
-                            county_number INTEGER NOT NULL,
+                            county_id INTEGER NOT NULL,
                             country_part_id INTEGER NOT NULL,
-                            FOREIGN KEY (county_number) REFERENCES "{ProjectTables.Counties.value}"(number),
+                            FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}"(id),
                             FOREIGN KEY (country_part_id) REFERENCES "{ProjectTables.CountryParts.value}"(id)
                         );
 
@@ -353,15 +369,17 @@ class AIODBManager:
                             road_category TEXT NOT NULL,
                             road_link_sequence INTEGER NOT NULL,
                             relative_position FLOAT NOT NULL,
-                            county TEXT NOT NULL,
                             country_part_id INTEGER NOT NULL,
                             country_part_name TEXT NOT NULL,
-                            county_number INTEGER NOT NULL,
+                            county_id INTEGER NOT NULL,
+                            municipality_id INTEGER NOT NULL,
                             geographic_number INTEGER NOT NULL,
                             traffic_registration_type TEXT NOT NULL,
                             first_data TIMESTAMPTZ,
                             first_data_with_quality_metrics TIMESTAMPTZ,
-                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id)
+                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id),
+                            FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}"(id),
+                            FOREIGN KEY (municipality) REFERENCES "{ProjectTables.Municipalities.value}"(id)
                         );
 
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.Volume.value}" (
@@ -513,7 +531,7 @@ class AIODBManager:
                             link_id TEXT NOT NULL,
                             municipality_id INTEGER NOT NULL,
                             FOREIGN KEY (link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (link_id) ON DELETE CASCADE,
-                            FOREIGN KEY (municipality_id) REFERENCES "{ProjectTables.Municipalities.value}" (number) ON DELETE CASCADE,
+                            FOREIGN KEY (municipality_id) REFERENCES "{ProjectTables.Municipalities.value}" (id) ON DELETE CASCADE,
                             PRIMARY KEY (link_id, municipality_id)
                         
                         );
@@ -522,7 +540,7 @@ class AIODBManager:
                             link_id TEXT NOT NULL,
                             county_id INTEGER NOT NULL,
                             FOREIGN KEY (link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (link_id) ON DELETE CASCADE,
-                            FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}" (number) ON DELETE CASCADE,
+                            FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}" (id) ON DELETE CASCADE,
                             PRIMARY KEY (link_id, county_id)
                         );
                         
@@ -587,7 +605,7 @@ class AIODBManager:
                 SELECT
                     trp.id AS trp_id,
                     trp.road_category AS road_category,
-                    trp.county_number AS county_number,
+                    trp.county_id AS county_id,
                     COALESCE(v_agg.has_{GlobalDefinitions.VOLUME}, FALSE) AS has_{GlobalDefinitions.VOLUME}, -- If there weren't any rows for a specific TRP this would be NULL, instead we want FALSE
                     v_agg.{GlobalDefinitions.VOLUME}_start_date,
                     v_agg.{GlobalDefinitions.VOLUME}_end_date,
@@ -700,6 +718,122 @@ class AIODBManager:
                     ON m.id = r.model_id
 	            WHERE r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx
                 AND r.target = '{GlobalDefinitions.MEAN_SPEED}';
+                """)
+
+                # Materialized Views
+                await conn.execute(f"""
+                -- TRP based aggregation to have a common base to work for all the materialized views next
+                WITH trp_base_agg AS (
+                    SELECT
+                        t.id AS trp_id,
+                        t.county_id,
+                        t.municipality_id,
+                        t.road_category,
+                        AVG(v.{GlobalDefinitions.VOLUME})::DOUBLE PRECISION AS trp_avg_{GlobalDefinitions.VOLUME},
+                        AVG(s.{GlobalDefinitions.MEAN_SPEED})::DOUBLE PRECISION AS trp_avg_{GlobalDefinitions.MEAN_SPEED}
+                    FROM "{ProjectTables.TrafficRegistrationPoints.value}" t
+                    LEFT JOIN "{ProjectTables.Volume.value}" v
+                        ON v.trp_id = t.id
+                       AND COALESCE(v.is_mice, FALSE) = FALSE -- Excluding all MICEd records since they arent' actually recorded data (they're synthetically generated)
+                       AND v.coverage >= 50 -- Removing values recorded where coverage wasn't above 50%
+                    LEFT JOIN "{ProjectTables.MeanSpeed.value}" s
+                        ON s.trp_id = t.id
+                       AND COALESCE(s.is_mice, FALSE) = FALSE -- Excluding all MICEd records since they arent' actually recorded data (they're synthetically generated)
+                       AND s.coverage >= 50
+                    GROUP BY t.id, t.county_id, t.municipality_id, t.road_category
+                ),
+                county_avg_agg AS (
+                    SELECT county_id,
+                           AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_county,
+                           AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_county
+                    FROM trp_base_agg
+                    GROUP BY county_id
+                ),
+                municipality_avg_agg AS (
+                    SELECT municipality_id,
+                           AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_municipality,
+                           AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality
+                    FROM trp_base_agg
+                    GROUP BY municipality_id
+                ),
+                road_category_avg_agg AS (
+                    SELECT road_category,
+                           AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_road_category,
+                           AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category
+                    FROM trp_base_agg
+                    GROUP BY road_category
+                )
+                
+                CREATE MATERIALIZED VIEW IF NOT EXISTS {ProjectMaterializedViews.TrafficDataByCountyMView.value} AS
+                SELECT
+                    c.county_id,
+                    c.avg_{GlobalDefinitions.VOLUME}_by_county,
+                    c.avg_{GlobalDefinitions.MEAN_SPEED}_by_county,
+                    
+                    -- Weighted averages (county gets 25%, municipality 50%, road category 25%)
+                    (0.25 * c.avg_{GlobalDefinitions.VOLUME}_by_county
+                     + 0.50 * m.avg_{GlobalDefinitions.VOLUME}_by_municipality
+                     + 0.25 * r.avg_{GlobalDefinitions.VOLUME}_by_road_category
+                     ) AS weighted_{GlobalDefinitions.VOLUME}_avg,
+                     
+                    (0.25 * c.avg_{GlobalDefinitions.MEAN_SPEED}_by_county
+                     + 0.50 * m.avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality
+                     + 0.25 * r.avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category
+                     ) AS weighted_{GlobalDefinitions.MEAN_SPEED}_avg
+                FROM county_avg_agg c
+                GROUP BY c.county_id, c.avg_{GlobalDefinitions.VOLUME}_by_county, c.avg_{GlobalDefinitions.MEAN_SPEED}_by_county
+                WITH NO DATA;
+
+                CREATE MATERIALIZED VIEW IF NOT EXISTS {ProjectMaterializedViews.TrafficDataByMunicipalityMView.value} AS
+                SELECT
+                    m.municipality_id,
+                    m.avg_{GlobalDefinitions.VOLUME}_by_municipality,
+                    m.avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality,
+                    
+                    -- Weighted averages (county gets 25%, municipality 50%, road category 25%)
+                    (0.50 * m.avg_{GlobalDefinitions.VOLUME}_by_municipality
+                     + 0.25 * c.avg_{GlobalDefinitions.VOLUME}_by_county
+                     + 0.25 * r.avg_{GlobalDefinitions.VOLUME}_by_road_category
+                     ) AS weighted_{GlobalDefinitions.VOLUME}_avg,
+                     
+                    (0.50 * m.avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality
+                     + 0.25 * c.avg_{GlobalDefinitions.MEAN_SPEED}_by_county
+                     + 0.25 * r.avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category
+                     ) AS weighted_{GlobalDefinitions.MEAN_SPEED}_avg
+                FROM municipality_avg_agg m
+                GROUP BY m.municipality_id, m.avg_{GlobalDefinitions.VOLUME}_by_municipality, m.avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality
+                WITH NO DATA;
+                
+                CREATE MATERIALIZED VIEW IF NOT EXISTS {ProjectMaterializedViews.TrafficDataByRoadCategoryMView.value} AS
+                SELECT
+                    r.road_category,
+                    r.avg_{GlobalDefinitions.VOLUME}_by_road_category,
+                    r.avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category,
+                    
+                    -- Weighted averages (county gets 25%, municipality 50%, road category 25%)
+                    (0.25 * r.avg_{GlobalDefinitions.VOLUME}_by_road_category
+                     + 0.25 * c.avg_{GlobalDefinitions.VOLUME}_by_county
+                     + 0.50 * m.avg_{GlobalDefinitions.VOLUME}_by_municipality
+                     ) AS weighted_{GlobalDefinitions.VOLUME}_avg,
+                     
+                    (0.25 * r.avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category
+                     + 0.25 * c.avg_{GlobalDefinitions.MEAN_SPEED}_by_county
+                     + 0.50 * m.avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality
+                     ) AS weighted_{GlobalDefinitions.MEAN_SPEED}_avg
+                FROM road_category_avg_agg r
+                GROUP BY r.road_category, r.avg_{GlobalDefinitions.VOLUME}_by_road_category, r.avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category
+                WITH NO DATA;
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
                 """)
 
                 # Granting permission to access to all tables to the TFS user

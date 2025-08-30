@@ -129,6 +129,13 @@ class ProjectViews(Enum):
 
 
 
+class ProjectMaterializedViews(Enum):
+    TrafficDataByCountyMView = "TrafficDataByCountyMView"
+    TrafficDataByMunicipalityMView = "TrafficDataByMunicipalityMView"
+    TrafficDataByRoadCategoryMView = "TrafficDataByRoadCategoryMView"
+
+
+
 class FunctionClasses(Enum):
     A = "Nasjonale hovedveger"
     B = "Regionale hovedveger"
@@ -156,20 +163,6 @@ class FoliumMapTiles(Enum):
     ESRI_SATELLITE = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" #TODO TO FILL THIS UP WITH z, y, x
     #https://gis.stackexchange.com/questions/290861/python-folium-package-for-satellite-map
     #https://python-visualization.github.io/folium/latest/user_guide/raster_layers/tiles.html
-
-
-
-class TrafficClassesColorMapping(Enum): #Import as TrafficClasses
-    LOW = "#108863"
-    LOW_AVERAGE = "	#789741"
-    AVERAGE = "#e0a71f"
-    AVERAGE_HIGH = "#f49d1f"
-    HIGH = "#a91d1d"
-
-#Colors taken from:
-# https://www.color-hex.com/color-palette/1064006
-# https://www.color-hex.com/color-palette/1063978
-# https://www.color-hex.com/color-palette/1064022
 
 
 
@@ -205,3 +198,23 @@ class IconStyles(Enum):
 class Icons(Enum):
     SOURCE_NODE: CircleMarker
     DESTINATION_NODE: Icon
+
+
+
+class TrafficClassesColorMapping(Enum): #Import as TrafficClasses
+    LOW = "#108863"
+    LOW_AVERAGE = "	#789741"
+    AVERAGE = "#e0a71f"
+    AVERAGE_HIGH = "#f49d1f"
+    HIGH = "#a91d1d"
+
+    #Colors taken from:
+    # https://www.color-hex.com/color-palette/1064006
+    # https://www.color-hex.com/color-palette/1063978
+    # https://www.color-hex.com/color-palette/1064022
+
+
+
+class TrafficClassesIntervals(Enum):
+    LOW_HIGH = 3
+    INTERMEDIATE = 1.5

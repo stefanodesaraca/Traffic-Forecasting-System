@@ -234,7 +234,7 @@ class DBBroker:
                                                              FROM "{ProjectViews.TrafficRegistrationPointsMetadataView.value}"
                                                              WHERE {f"has_{GlobalDefinitions.VOLUME} = TRUE" if has_volumes else "1=1"}
                                                              AND {f"has_{GlobalDefinitions.MEAN_SPEED} = TRUE" if has_mean_speed else "1=1"}
-                                                             AND {f"county_number = ANY(%s)" if county_ids_filter else "1=1"}
+                                                             AND {f"county_id = ANY(%s)" if county_ids_filter else "1=1"}
                                                              GROUP BY "road_category"
                                                          ) AS sub;
                                                       """, conn=conn, params=tuple(to_pg_array(f) for f in [county_ids_filter] if f)) as cur:

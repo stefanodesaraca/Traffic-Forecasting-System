@@ -2,7 +2,8 @@ import json
 import pickle
 import networkx as nx
 from typing import Any, Iterator, Literal, Hashable
-from scipy.spatial.distance import euclidean, cityblock  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
+from pydantic.types import PositiveFloat, PositiveInt
+from scipy.spatial.distance import cityblock, minkowski  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
 from geopy.distance import geodesic # To calculate distance (in meters) between two sets of coordinates (lat-lon). Geopy distance docs: https://geopy.readthedocs.io/en/stable/#module-geopy.distance
 import matplotlib.pyplot as plt
 from pykrige import OrdinaryKriging
@@ -13,6 +14,7 @@ from loaders import BatchStreamLoader
 from utils import save_plot
 
 Node = Hashable  # Any object usable as a node
+Edge = Hashable  # Any object usable as an edge
 
 
 class RoadNetwork:
@@ -37,9 +39,50 @@ class RoadNetwork:
         else:
             self._network = pickle.loads(network_binary)  # To load pre-computed graphs
 
-        if self._backend not in GlobalDefinitions.GRAPH_PROCESSING_BACKENDS:
-            raise WrongGraphProcessingBackendError(f"{self._backend} is not a valid graph processing backend. Try one of: {', '.join(GlobalDefinitions.GRAPH_PROCESSING_BACKENDS)}")
-        #TODO SET ENVIRONMENT VARIABLES FOR CUDF?
+
+    def _find_trps_within_link_buffer_zone(self, link_id: str, buffer_zone_radius: PositiveInt = 3500) -> list:
+        return self._db_broker.send_sql(f"""
+                SELECT rgl_b.*
+                FROM {ProjectTables.RoadGraphLinks} rgl_a
+                JOIN {ProjectTables.RoadGraphLinks} rgl_b
+                  ON rgl_a.link_id = %s
+                  AND rgl_a.link_id <> rgl_b.link_id
+                WHERE ST_DWithin(rgl_a.geom::geography, rgl_b.geom::geography, %s);
+            """, execute_args=[link_id, buffer_zone_radius])
+
+
+    @staticmethod
+    def _compute_edge_weight(edge_start: Node, edge_end: Node, attrs: dict) -> PositiveFloat | None:
+        length: PositiveFloat = attrs.get("length")
+        road_category: str = attrs.get("road_category")
+        min_lanes: PositiveInt = attrs.get("min_lanes")
+        max_lanes: PositiveInt = attrs.get("max_lanes")
+        highest_speed_limit: PositiveInt = attrs.get("highest_speed_limit")
+        lowest_speed_limit: PositiveInt = attrs.get("lowest_speed_limit")
+        is_ferry_route: bool = attrs.get("is_ferry_route")
+
+
+
+
+
+
+
+
+
+
+
+
+
+        #TODO DEPENDING ON THE ROAD CATEGORY THE AVERAGE VALUE WE'RE GOING TO TAKE INTO CONSIDERATION FOR THE AVERAGE SPEED OF THE ROAD CATEGORY WILL BE CUSTOMIZED BASED ON THE COUNTY AND THE MUNICIPALITY OF THE LINK
+        #TODO WE'LL FIRST CREATE A COUNTY AVERAGE AND MUNICIPALITY AVERAGE (MULTIPLE MUNICIPALITY AVERAGES IF THE LINK BELONGS TO MULTIPLE MUNICIPALITIES) AND THEN GIVE MORE WEIGHT TO THE MUNICIPALITY ONES, BUT KEEPING STILL THE COUNTY AVERAGE
+
+
+
+
+
+        return ...
+
+
 
 
 
@@ -82,6 +125,46 @@ class RoadNetwork:
         plt.show()
 
         return None
+
+
+    def find_route(self,
+                   source: str,
+                   destination: str,
+                   avoid_only_public_transport_lanes: bool | None = None,
+                   avoid_toll_stations: bool | None = None,
+                   avoid_ferry_routes: bool | None = None
+    ) -> list[tuple[str, str]]:
+
+        # ---------- STEP 1 ----------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        #TODO THE FORECASTED TRAVEL TIME WILL BE TOTAL LENGTH IN METERS OF THE WHOLE LINESTRING DIVIDED BY 85% OF THE MAX SPEED LIMIT + 30s * (85% OF THE TOTAL NUMBER OF NODES THAT THE USER WILL PASS THROUGH, SINCE EACH ONE IS AN INTERSECTION AND PROBABLY 85% HAVE A TRAFFIC LIGHT)
+
+        #TODO TRY TO GET AT LEAST 2 TRPS
+        # IF NONE ARE FOUND REPEAT THE RESEARCH, BUT INCREASE THE RADIUS BY 1500m
+
+        return ...
+
+
+
 
 
     def degree_centrality(self) -> dict:
@@ -128,7 +211,7 @@ class RoadNetwork:
         Returns:
             A list of vertices, each linked by an arch
         """
-        return nx.astar_path(G=self._network, source=source, target=target, heuristic={"manhattan": cityblock, "euclidean": euclidean}[heuristic], weight=weight)
+        return nx.astar_path(G=self._network, source=source, target=target, heuristic={"manhattan": cityblock, "minkowski": minkowski}[heuristic], weight=weight)
 
 
     def get_dijkstra_path(self, source: str, target: str, weight: str) -> list[str]:
@@ -160,26 +243,6 @@ class RoadNetwork:
         return filter(lambda v: self._network[v]["has_trps"] == True, path)
 
 
-    @save_plot
-    def save_graph_image(self) -> tuple[plt, str]:
-        fig, ax = plt.subplots(figsize=(8, 6))
-        nx.draw(
-            self._network,
-            ax=ax,
-            with_labels=True,
-            node_size=1500,
-            font_size=25,
-            font_color="yellow",
-            font_weight="bold",
-            edge_color=[
-                IconStyles.TRP_LINK_STYLE.value.get("icon_color")
-                if self._network.nodes[node].get("has_trps") else "blue"
-                for node in self._network.nodes()
-            ]
-        )
-        return ..., f"{self._network['network_id']}.svg"
-
-
     def to_pickle(self) -> None:
         with open(f'{self._network["network_id"]}.gpickle', 'wb') as fp:
             pickle.dump(self._network, fp, pickle.HIGHEST_PROTOCOL)
@@ -195,11 +258,24 @@ class RoadNetwork:
         return None
 
 
-    @staticmethod
-    def from_db(fp: bytes) -> None:
-        return pickle.loads(fp)
-
-
+    @save_plot
+    def save_graph_svg(self) -> tuple[plt, str]:
+        fig, ax = plt.subplots(figsize=(8, 6))
+        nx.draw(
+            self._network,
+            ax=ax,
+            with_labels=True,
+            node_size=1500,
+            font_size=25,
+            font_color="yellow",
+            font_weight="bold",
+            edge_color=[
+                IconStyles.TRP_LINK_STYLE.value.get("icon_color")
+                if self._network.nodes[node].get("has_trps") else "blue"
+                for node in self._network.nodes()
+            ]
+        )
+        return fig, f"{self._network['network_id']}.svg"
 
 
 
