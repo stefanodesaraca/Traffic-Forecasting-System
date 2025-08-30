@@ -387,12 +387,10 @@ class RoadGraphObjectsIngestionPipeline:
     async def ingest_links(self, fp: str | Path, batch_size: PositiveInt = 200, n_async_jobs: PositiveInt = 10) -> None:
         semaphore = asyncio.Semaphore(n_async_jobs)
         road_categories = await self._db_broker_async.get_road_categories_async(enable_cache=True, name_as_key=True)
-        valid_toll_station_ids = set(await self._db_broker_async.send_sql_async(
+        valid_toll_station_ids = list(r["id"] for r in (await self._db_broker_async.send_sql_async(
             f'SELECT "id" FROM "{ProjectTables.TollStations.value}";'
-        ))
-        valid_trp_ids = set(await self._db_broker_async.get_trp_ids_async())
-        t_id = None
-        trp_id = None
+        )))
+        valid_trp_ids = list(r["id"] for r in (await self._db_broker_async.get_trp_ids_async()))
 
         links = (await self._load_geojson_async(fp=fp)).get("features", [])
         links_ing_query = f"""
@@ -459,16 +457,14 @@ class RoadGraphObjectsIngestionPipeline:
                         "link_id",
                         "toll_station_id"
                     )
-                    VALUES ($1, $2)
-                    ON CONFLICT DO NOTHING;
+                    VALUES ($1, $2);
         """
         link_trps_ing_query = f"""
                     INSERT INTO "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" (
                         "link_id",
                         "trp_id"
                     )
-                    VALUES ($1, $2)
-                    ON CONFLICT DO NOTHING;
+                    VALUES ($1, $2);
         """
 
         link_batches = get_n_items_from_gen(gen=((
@@ -517,14 +513,16 @@ class RoadGraphObjectsIngestionPipeline:
             for county in feature.get("properties").get("countyIds")
         ), n=batch_size)
         link_toll_stations_matches = get_n_items_from_gen(gen=(
-            (t_id := feature.get("properties").get("id"), station)
-            for feature in links if t_id in valid_toll_station_ids #One link has a non-existing toll station id associated with it
+            (feature.get("properties").get("id"), station)
+            for feature in links
             for station in feature.get("properties").get("tollStationIds")
+            if station in valid_toll_station_ids
         ), n=batch_size)
         link_trps_matches = get_n_items_from_gen(gen=(
-            (trp_id := feature.get("properties").get("id"), station)
-            for feature in links if trp_id in valid_trp_ids #One link has a non-existing TRP id associated with it
+            (feature.get("properties").get("id"), station)
+            for feature in links
             for station in feature.get("properties").get("associatedTrpIds")
+            if station in valid_trp_ids
         ), n=batch_size)
 
         async def limited_ingest(query: str, batch: list[tuple[Any]]) -> None:
@@ -533,7 +531,7 @@ class RoadGraphObjectsIngestionPipeline:
 
         for query, batches in zip([links_ing_query, link_municipalities_ing_query, link_counties_ing_query, link_toll_stations_ing_query, link_trps_ing_query],
                                   [link_batches, link_municipalities_matches, link_counties_matches, link_toll_stations_matches, link_trps_matches]):
-            await asyncio.gather(*(asyncio.wait_for(limited_ingest(query, batch), timeout=30) for batch in batches)) #Setting a timer so if the tasks fail for whatever reason they won't hang forever
+            await asyncio.gather(*(asyncio.wait_for(limited_ingest(query, batch), timeout=30) for batch in batches), return_exceptions=True) #Setting a timer so if the tasks fail for whatever reason they won't hang forever
 
         return None
 
