@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from pykrige import OrdinaryKriging
 
 from exceptions import WrongGraphProcessingBackendError
-from definitions import GlobalDefinitions, ProjectTables, IconStyles
+from definitions import GlobalDefinitions, ProjectTables, ProjectMaterializedViews, IconStyles
 from loaders import BatchStreamLoader
 from utils import save_plot
 
@@ -49,6 +49,41 @@ class RoadNetwork:
                   AND rgl_a.link_id <> rgl_b.link_id
                 WHERE ST_DWithin(rgl_a.geom::geography, rgl_b.geom::geography, %s);
             """, execute_args=[link_id, buffer_zone_radius])
+
+
+    def _find_link_aggregated_traffic_data(self, link_id: str, county_avg_weight: PositiveFloat = 0.25, municipality_avg_weight: PositiveFloat = 0.5, road_category_avg_weight: PositiveFloat = 0.25) -> dict[str, PositiveFloat | PositiveInt]:
+        if sum([county_avg_weight, municipality_avg_weight, road_category_avg_weight]) > 1:
+            raise ValueError("Weights sum must be at most 1")
+        return self._db_broker.send_sql(f"""
+            WITH link_agg_data AS (
+                SELECT l.link_id,
+                       rlm.municipality_id,
+                       rlc.county_id,
+                       l.road_category
+                FROM "{ProjectTables.RoadGraphLinks.value}" l
+                LEFT JOIN "{ProjectTables.RoadLink_Municipalities.value}" rlm
+                    ON l.link_id = rlm.link_id
+                LEFT JOIN "{ProjectTables.RoadLink_Counties.value}" rlc
+                    ON l.link_id = rlc.link_id
+            )
+            
+            SELECT 
+                0.25 * county_avg.avg_{GlobalDefinitions.VOLUME} +
+                0.5  * municipality_avg.avg_{GlobalDefinitions.VOLUME} +
+                0.25 * road_category_avg.avg_{GlobalDefinitions.VOLUME} AS weighted_avg_{GlobalDefinitions.VOLUME}
+                
+                0.25 * county_avg.avg_{GlobalDefinitions.MEAN_SPEED} +
+                0.5  * municipality_avg.avg_{GlobalDefinitions.MEAN_SPEED} +
+                0.25 * road_category_avg.avg_{GlobalDefinitions.MEAN_SPEED} AS weighted_avg_{GlobalDefinitions.MEAN_SPEED}
+                
+            FROM link_agg_data l_agg
+            LEFT JOIN "{ProjectMaterializedViews.TrafficDataByCountyMView.value}" county_avg
+                ON l_agg.county_id = county_avg.county_id
+            LEFT JOIN "{ProjectMaterializedViews.TrafficDataByMunicipalityMView.value}" municipality_avg
+                ON l_agg.municipality_id = municipality_avg.municipality_id
+            LEFT JOIN "{ProjectMaterializedViews.TrafficDataByRoadCategoryMView.value}" road_category_avg
+                ON l_agg.road_category = road_category_avg.road_category;
+        """, execute_args=[link_id], single=True)
 
 
     @staticmethod

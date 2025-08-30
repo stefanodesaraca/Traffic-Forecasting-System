@@ -191,7 +191,7 @@ class DBBroker:
             pass
 
 
-    def send_sql(self, sql: str, single: bool = False, many: bool = False, many_values: list[tuple[Any, ...]] | None = None, row_factory: Literal["tuple_row", "dict_row"] = "dict_row", execute_args: list[Any] | None = None) -> Any:
+    def send_sql(self, sql: str, single: bool = False, many: bool = False, many_values: list[tuple[Any, ...]] | None = None, row_factory: Literal["tuple_row", "dict_row"] = "dict_row", execute_args: list[Any] | dict[str, Any] | None = None) -> Any:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host, row_factory=row_factory) as conn:
             with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
                 if any(sql.lstrip().startswith(prefix) for prefix in ["SELECT", "select"]):
