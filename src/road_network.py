@@ -1,21 +1,16 @@
-import os
 import json
 import pickle
-from pydantic.types import PositiveFloat, PositiveInt
-import geopandas as gpd
-import geojson
 import networkx as nx
-import datetime
 from typing import Any, Iterator, Literal, Hashable
-from tqdm import tqdm
 from scipy.spatial.distance import euclidean, cityblock  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
 from geopy.distance import geodesic # To calculate distance (in meters) between two sets of coordinates (lat-lon). Geopy distance docs: https://geopy.readthedocs.io/en/stable/#module-geopy.distance
-from shapely import Point, LineString
 import matplotlib.pyplot as plt
+from pykrige import OrdinaryKriging
 
 from exceptions import WrongGraphProcessingBackendError
 from definitions import GlobalDefinitions
 from loaders import BatchStreamLoader
+from utils import save_plot
 
 Node = Hashable  # Any object usable as a node
 
@@ -165,7 +160,7 @@ class RoadNetwork:
         return filter(lambda v: self._network[v]["has_trps"] == True, path)
 
 
-    #@saveplot()
+    @save_plot
     def save_graph_image(self, fp: str) -> None:
         nx.draw(self._network, with_labels=True, node_size=1500, font_size=25, font_color="yellow", font_weight="bold")
         return ...
@@ -186,7 +181,7 @@ class RoadNetwork:
 
 
     @staticmethod
-    def from_db(fp: str) -> None:
+    def from_db(fp: bytes) -> None:
         return pickle.loads(fp)
 
 
