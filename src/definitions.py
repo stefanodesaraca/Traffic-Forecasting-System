@@ -201,20 +201,16 @@ class Icons(Enum):
 
 
 
-class TrafficClassesColorMapping(Enum): #Import as TrafficClasses
-    LOW = "#108863"
-    LOW_AVERAGE = "	#789741"
-    AVERAGE = "#e0a71f"
-    AVERAGE_HIGH = "#f49d1f"
-    HIGH = "#a91d1d"
+class LevelsOfServiceColorMapping(Enum): #Import as TrafficClasses
+    A = "#108863"
+    B = "#789741"
+    C = "#e0a71f"
+    D = "#f49d1f"
+    E = "#a91d1d"
+    F = "#470C00"
+    #https://transportgeography.org/contents/methods/transport-technical-economic-performance-indicators/levels-of-service-road-transportation/
 
     #Colors taken from:
     # https://www.color-hex.com/color-palette/1064006
     # https://www.color-hex.com/color-palette/1063978
     # https://www.color-hex.com/color-palette/1064022
-
-
-
-class TrafficClassesIntervals(Enum):
-    LOW_HIGH = 3
-    INTERMEDIATE = 1.5
