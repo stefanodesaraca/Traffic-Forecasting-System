@@ -197,11 +197,15 @@ class AIODBManager:
                 trp["location"].get("roadReference", {}).get("roadCategory", {}).get("id"),
                 trp["location"].get("roadLinkSequence", {}).get("roadLinkSequenceId"),
                 trp["location"].get("roadLinkSequence", {}).get("relativePosition"),
-                trp["location"].get("county", {}).get("name"),
                 (
                     trp["location"].get("county", {})
                     .get("countryPart", {})
                     .get("id")
+                ),
+                (
+                    trp["location"].get("county", {})
+                    .get("countryPart", {})
+                    .get("name")
                 ),
                 trp["location"].get("county", {}).get("number"),
                 trp["location"].get("municipality", {}).get("number"),
@@ -233,8 +237,8 @@ class AIODBManager:
                 estimator_name,
                 model._estimator_type, #estimator_type
                 json.dumps(data["base_parameters"]),
-                json.dumps(data[f"{GlobalDefinitions.VOLUME}_grid"]), #volume_grid
-                json.dumps(data[f"{GlobalDefinitions.MEAN_SPEED}_grid"]) #mean_speed_grid
+                json.dumps(data[f"{GlobalDefinitions.VOLUME}"]), #volume grid
+                json.dumps(data[f"{GlobalDefinitions.MEAN_SPEED}"]) #mean_speed grid
             )
 
             joblib_bytes = io.BytesIO()  # Serializing model into a joblib object directly in memory through the BytesIO class
@@ -723,9 +727,9 @@ class AIODBManager:
                 # Materialized Views
                 for prefix, mv in zip(
                     [
-                        f"CREATE MATERIALIZED VIEW IF NOT EXISTS {ProjectMaterializedViews.TrafficDataByCountyMView.value} AS",
-                        f"CREATE MATERIALIZED VIEW IF NOT EXISTS {ProjectMaterializedViews.TrafficDataByMunicipalityMView.value} AS",
-                        f"CREATE MATERIALIZED VIEW IF NOT EXISTS {ProjectMaterializedViews.TrafficDataByRoadCategoryMView.value} AS"
+                        f'''CREATE MATERIALIZED VIEW IF NOT EXISTS "{ProjectMaterializedViews.TrafficDataByCountyMView.value}" AS''',
+                        f'''CREATE MATERIALIZED VIEW IF NOT EXISTS "{ProjectMaterializedViews.TrafficDataByMunicipalityMView.value}" AS''',
+                        f'''CREATE MATERIALIZED VIEW IF NOT EXISTS "{ProjectMaterializedViews.TrafficDataByRoadCategoryMView.value}" AS'''
                     ],
                     [
                         f"""

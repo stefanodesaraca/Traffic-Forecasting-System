@@ -103,8 +103,8 @@ async def manage_downloads(functionality: str) -> None:
 
 
     elif functionality == "2.3":
-        time_start = await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE
-        time_end = await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE
+        time_start = await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.00" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE
+        time_end = await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.00" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE
         print("Downloading traffic volumes data for every registration point for the current project...")
         await volumes_to_db(
             db_broker_async=await get_aiodb_broker(),
@@ -121,8 +121,8 @@ async def manage_downloads(functionality: str) -> None:
         await volumes_to_db(
             db_broker_async=await get_aiodb_broker(),
             trp_ids=trp_ids,
-            time_start=await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE,
-            time_end=await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE,
+            time_start=await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.00" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE,
+            time_end=await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.00" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE,
             max_retries=5
         )
         print(f"Downloading traffic volumes data for TRPs: {list(trp_ids)}...")
