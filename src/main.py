@@ -452,6 +452,22 @@ def manage_ml(functionality: str) -> None:
             grid=grid
         )
 
+    if functionality == "5.3":
+        db_broker = get_db_broker()
+
+        grids_fp = input("Enter grids filepath: ")
+
+        with open(grids_fp, "r", encoding="utf-8") as f:
+            grids = json.load(f)
+
+        for model_id, target_grids in grids.items():
+            for target, grid in target_grids.items():
+                if target != "base_parameters":
+                    db_broker.update_model_grid(
+                        model_id=model_id,
+                        target=target,
+                        grid=grid
+                    )
 
     return None
 
@@ -568,7 +584,8 @@ def main():
         "4.3": manage_road_network,
         "5.1": manage_ml,
         "5.2": manage_ml,
-        "5.3": eda
+        "5.3": manage_ml,
+        "5.4": eda
     }
 
     while True:
@@ -607,9 +624,10 @@ def main():
 5. Other options
     5.1 Update best parameters for a model
     5.2 Update model grid
-    5.3 EDA (Exploratory Data Analysis)
-    5.4 Erase all data about a project
-    5.5 Analyze pre-existing road network graph
+    5.3 Update multiple model grids
+    5.4 EDA (Exploratory Data Analysis)
+    5.5 Erase all data about a project
+    5.6 Analyze pre-existing road network graph
 0. Exit""")
 
         asyncio.run(initialize())
