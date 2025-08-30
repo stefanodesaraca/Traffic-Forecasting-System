@@ -6,6 +6,7 @@ from enum import Enum
 from pydantic import BaseModel
 from pydantic.types import PositiveInt
 from psycopg.rows import tuple_row, dict_row
+from folium import CircleMarker, Icon
 
 from dbsecrets import superuser, superuser_password
 
@@ -148,3 +149,59 @@ class RowFactories(BaseModel):
     }
 
 
+
+class FoliumMapTiles(Enum):
+    CARTO_DB_POSITRON = "Cartodb Positron"
+    OPEN_STREET_MAPS = "OpenStreetMaps"
+    ESRI_SATELLITE = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" #TODO TO FILL THIS UP WITH z, y, x
+    #https://gis.stackexchange.com/questions/290861/python-folium-package-for-satellite-map
+    #https://python-visualization.github.io/folium/latest/user_guide/raster_layers/tiles.html
+
+
+
+class TrafficClassesColorMapping(Enum): #Import as TrafficClasses
+    LOW = "#108863"
+    LOW_AVERAGE = "	#789741"
+    AVERAGE = "#e0a71f"
+    AVERAGE_HIGH = "#f49d1f"
+    HIGH = "#a91d1d"
+
+#Colors taken from:
+# https://www.color-hex.com/color-palette/1064006
+# https://www.color-hex.com/color-palette/1063978
+# https://www.color-hex.com/color-palette/1064022
+
+
+
+class IconStyles(Enum):
+    SOURCE_NODE_STYLE = {
+        "icon_color": "#4a90e2",
+        "icon": "glyphicon-home"
+    }
+    DESTINATION_NODE_STYLE = {
+        "icon_color": "#c75146",
+        "icon": "glyphicon-flag"
+    }
+    TRP_LINK_STYLE = {
+        "icon_color": "#E7F527",
+        "icon": "glyphicon-modal-window"
+    }
+    TOLL_STATION_LINK_STYLE = {
+        "icon_color": "#F4550B",
+        "icon": "glyphicon-euro"
+    }
+    PUBLIC_TRANSPORT_ONLY_LINK_STYLE = {
+        "icon_color": "#F40B5D",
+        "icon": "glyphicon-asterisk"
+    }
+    #Icons taken from: https://getbootstrap.com/docs/3.3/components/
+    #Colors taken from:
+    # https://www.color-hex.com/color-palette/1063914
+    # https://www.color-hex.com/color-palette/1063917
+    # https://htmlcolorcodes.com/
+
+
+
+class Icons(Enum):
+    SOURCE_NODE: CircleMarker
+    DESTINATION_NODE: Icon

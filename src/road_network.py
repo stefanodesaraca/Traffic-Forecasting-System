@@ -230,7 +230,7 @@ class RoadNetwork:
             self.load_links(county_ids_filter=county_ids_filter)
 
         #Removing isolated nodes since they're unreachable
-        self._network.remove_nodes_from((i for i in nx.isolates(self._network))) #Using a generator to avoid eccessive memory consumption
+        self._network.remove_nodes_from(list(i for i in nx.isolates(self._network))) #Using a generator to avoid eccessive memory consumption
         #This way we're also going to apply all filters if any have been set since if there isn't a link connecting a node to another that will be isolated
         # NOTE WHEN WE'LL HAVE THE ABILITY TO FILTER DIRECTLY AT THE SOURCE OF THE NODES (WHEN WE'LL HAVE THE MUNICIPALITY AND COUNTY DATA ON THE NODES) WE'LL JUST NOT LOAD THE ONES OUTSIDE OF THE FILTERS CONDITIONS
 
