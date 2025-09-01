@@ -223,9 +223,6 @@ class RoadNetwork:
                 has_ferry_routes=has_ferry_routes,
             )
 
-        #Removing isolated nodes since they're unreachable
-        self._network.remove_nodes_from(list(i for i in nx.isolates(self._network)))
-        #This way we're also going to apply all filters if any have been set since if there isn't a link connecting a node to another that will be isolated
         # NOTE WHEN WE'LL HAVE THE ABILITY TO FILTER DIRECTLY AT THE SOURCE OF THE NODES (WHEN WE'LL HAVE THE MUNICIPALITY AND COUNTY DATA ON THE NODES) WE'LL JUST NOT LOAD THE ONES OUTSIDE OF THE FILTERS CONDITIONS
 
         if verbose:
@@ -246,8 +243,6 @@ class RoadNetwork:
                    has_ferry_routes: bool | None = None
     ) -> list[tuple[str, str]]:
 
-        heuristics = {"manhattan": cityblock, "minkowski": minkowski}
-
         has_only_public_transport_lanes_edges = None
         has_toll_stations_edges = None
         has_ferry_routes_edges = None
@@ -259,24 +254,30 @@ class RoadNetwork:
         if has_ferry_routes:
             self._network.remove_edges_from(has_ferry_routes_edges := [(u, v) for u, v, attrs in self._network.edges(data=True) if attrs['has_ferry_routes'] < 3])
 
+        #Removing isolated nodes since they're unreachable
+        self._network.remove_nodes_from(unreachable := list(i for i in nx.isolates(self._network)))
+        #This way we're also going to apply all filters if any have been set since if there isn't a link connecting a node to another that will be isolated
+
 
         # ---------- STEP 1 ----------
 
-        sp = nx.astar_path(G=self._network, source=source, target=destination, heuristic=heuristic, weight=weight) #TODO IF THE cityblock OR minkowski FUNCTIONS DON'T WORK BECAUSE THE WEIGHT THEY RECEIVE IS ACTUALLY THE ATTRS DICT THEN CREATE A WRPPER FUNCTION WHICH JUST RETURNS THE DISTANCE AND ACCEPTS THE ATTRS DICT AS WELL, BUT DOESN'T INSERT THAT WITHING THE DISTANCE CALCULATION FUNCTION
+        sp = nx.astar_path(G=self._network, source=source, target=destination, heuristic=minkowski, weight="length") #TODO IF THE cityblock OR minkowski FUNCTIONS DON'T WORK BECAUSE THE WEIGHT THEY RECEIVE IS ACTUALLY THE ATTRS DICT THEN CREATE A WRPPER FUNCTION WHICH JUST RETURNS THE DISTANCE AND ACCEPTS THE ATTRS DICT AS WELL, BUT DOESN'T INSERT THAT WITHING THE DISTANCE CALCULATION FUNCTION
 
 
-
-
-
+        print(sp)
 
 
 
 
 
         # Adding removed nodes back into the graph to avoid needing to re-build the whole graph again
+        self._network.add_nodes_from(unreachable)
+
+        # Adding removed edges back into the graph to avoid needing to re-build the whole graph again
         self._network.add_edges_from(has_only_public_transport_lanes_edges)
         self._network.add_edges_from(has_toll_stations_edges)
         self._network.add_edges_from(has_ferry_routes_edges)
+
         #TODO THE FORECASTED TRAVEL TIME WILL BE TOTAL LENGTH IN METERS OF THE WHOLE LINESTRING DIVIDED BY 85% OF THE MAX SPEED LIMIT + 30s * (85% OF THE TOTAL NUMBER OF NODES THAT THE USER WILL PASS THROUGH, SINCE EACH ONE IS AN INTERSECTION AND PROBABLY 85% HAVE A TRAFFIC LIGHT)
 
         #TODO TRY TO GET AT LEAST 2 TRPS
