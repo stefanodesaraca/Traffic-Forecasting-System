@@ -14,6 +14,11 @@ from utils import save_plot
 Node = Hashable  # Any object usable as a node
 
 
+from pprint import pprint
+
+
+
+
 class RoadNetwork:
 
     def __init__(self,
@@ -36,6 +41,10 @@ class RoadNetwork:
         else:
             self._network = pickle.loads(network_binary)  # To load pre-computed graphs
 
+
+    @staticmethod
+    def _get_minkowski_dist(u: tuple[Any, ...], v: tuple[Any, ...], G: nx.DiGraph):
+        return minkowski(G.nodes[u], G.nodes[v], p=1.0 if G.nodes[u]["road_category"] in GlobalDefinitions.HIGH_SPEED_ROAD_CATEGORIES else 2.0)
 
 
     @staticmethod
@@ -171,9 +180,6 @@ class RoadNetwork:
         return ...
 
 
-
-
-
     def load_nodes(self) -> None:
         all(self._network.add_nodes_from((row.to_dict().pop("node_id"), row) for _, row in partition.iterrows()) for partition in self._loader.get_nodes().partitions)
         return None
@@ -229,8 +235,7 @@ class RoadNetwork:
             print("Road network graph created!")
 
         print(self._network)
-        nx.draw(self._network, with_labels=True)
-        plt.show()
+        print(list(self._network.edges(data=True))[0])
 
         return None
 
@@ -261,7 +266,7 @@ class RoadNetwork:
 
         # ---------- STEP 1 ----------
 
-        sp = nx.astar_path(G=self._network, source=source, target=destination, heuristic=minkowski, weight="length") #TODO IF THE cityblock OR minkowski FUNCTIONS DON'T WORK BECAUSE THE WEIGHT THEY RECEIVE IS ACTUALLY THE ATTRS DICT THEN CREATE A WRPPER FUNCTION WHICH JUST RETURNS THE DISTANCE AND ACCEPTS THE ATTRS DICT AS WELL, BUT DOESN'T INSERT THAT WITHING THE DISTANCE CALCULATION FUNCTION
+        sp = nx.astar_path(G=self._network, source=source, target=destination, heuristic=lambda u, v: self._get_minkowski_dist(u, v, self._network), weight="length") #TODO IF THE cityblock OR minkowski FUNCTIONS DON'T WORK BECAUSE THE WEIGHT THEY RECEIVE IS ACTUALLY THE ATTRS DICT THEN CREATE A WRPPER FUNCTION WHICH JUST RETURNS THE DISTANCE AND ACCEPTS THE ATTRS DICT AS WELL, BUT DOESN'T INSERT THAT WITHING THE DISTANCE CALCULATION FUNCTION
 
 
         print(sp)

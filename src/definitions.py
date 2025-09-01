@@ -20,6 +20,7 @@ class GlobalDefinitions(BaseModel):
     MEAN_SPEED_INGESTION_FIELDS: ClassVar[list[str]] = ["trp_id", "mean_speed", "percentile_85", "coverage", "is_mice", "zoned_dt_iso"]
     TARGET_DATA: ClassVar[dict[str, str]] = {"V": "volume", "MS": "mean_speed"}
     ROAD_CATEGORIES: ClassVar[list[str]] = ["E", "R", "F", "K", "P"]
+    HIGH_SPEED_ROAD_CATEGORIES: ClassVar[list[str]] = ["E", "R"]
     DEFAULT_MAX_FORECASTING_WINDOW_SIZE: ClassVar[PositiveInt] = 14
 
     HAS_VOLUME_CHECK: ClassVar[str] = "has_volume"

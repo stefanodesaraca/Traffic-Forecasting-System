@@ -265,19 +265,17 @@ class BatchStreamLoader:
                 rl.number_of_inhabitants,
                 rl.has_anomalies,
                 rl.anomalies,
-                rl.raw_properties
-                {f''',SELECT EXISTS (
+                rl.raw_properties,
+                (SELECT EXISTS (
                         SELECT 1
                         FROM "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}"
                         WHERE link_id = rl.link_id
-                    ) AS has_trps
-                ''' if has_trps else ""}
-                {f''',SELECT EXISTS (
+                    )) AS has_trps,
+                (SELECT EXISTS (
                         SELECT 1
                         FROM "{ProjectTables.RoadLink_TollStations.value}"
                         WHERE link_id = rl.link_id
-                    ) AS has_toll_stations
-                ''' if has_toll_stations else ""}
+                    )) AS has_toll_stations
                 {''',ARRAY_AGG(m.municipality_id) AS municipality_ids''' if municipality_ids_filter else ""}
                 {''',ARRAY_AGG(c.county_id) AS county_ids''' if county_ids_filter else ""}
             FROM "{ProjectTables.RoadGraphLinks.value}" rl 
@@ -306,7 +304,14 @@ class BatchStreamLoader:
             AND {f'"has_only_public_transport_lanes" = FALSE' 
                 if has_only_public_transport_lanes_filter is False else "1=1"
             }
-            AND {f'''is_ferry_route = FALSE''' if has_ferry_routes else "1=1"
+            AND {f'''is_ferry_route = FALSE''' 
+                if has_ferry_routes else "1=1"
+            }
+            AND {f'''has_trps = TRUE''' 
+                if has_trps else "1=1"
+            }
+            AND {f'''has_toll_stations = TRUE''' 
+                if has_toll_stations else "1=1"
             }
             {f'''
             GROUP BY
@@ -342,11 +347,9 @@ class BatchStreamLoader:
                 rl.number_of_inhabitants,
                 rl.has_anomalies,
                 rl.anomalies,
-                rl.raw_properties
-                {',municipality_ids' if municipality_ids_filter else ""}
-                {',county_ids' if county_ids_filter else ""}
-                {",has_trps" if has_trps else ""}
-                {",has_toll_stations" if has_toll_stations else ""}
+                rl.raw_properties,
+                has_trps,
+                has_toll_stations
             ''' if municipality_ids_filter or county_ids_filter else ""}
             {f"LIMIT {limit}" if limit else ""}
             ;
