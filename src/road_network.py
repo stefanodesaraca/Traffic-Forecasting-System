@@ -5,6 +5,9 @@ from typing import Any, Iterator, Literal, Hashable
 from pydantic.types import PositiveFloat, PositiveInt
 from scipy.spatial.distance import cityblock, minkowski  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
 import matplotlib.pyplot as plt
+from shapely import wkt
+from shapely.geometry import Point
+import utm
 from pykrige import OrdinaryKriging
 
 from definitions import GlobalDefinitions, ProjectTables, ProjectMaterializedViews, IconStyles
@@ -41,10 +44,20 @@ class RoadNetwork:
         else:
             self._network = pickle.loads(network_binary)  # To load pre-computed graphs
 
-
     @staticmethod
     def _get_minkowski_dist(u: tuple[Any, ...], v: tuple[Any, ...], G: nx.DiGraph):
-        return minkowski(G.nodes[u], G.nodes[v], p=1.0 if G.edges[u, v]["road_category"] in GlobalDefinitions.HIGH_SPEED_ROAD_CATEGORIES else 2.0)
+        # Parsing WKT geometry into shapely Point
+        u_geom = G.nodes[u]["geom"]
+        v_geom = G.nodes[v]["geom"]
+
+        u_point = wkt.loads(u_geom) if isinstance(u_geom, str) else u_geom
+        v_point = wkt.loads(v_geom) if isinstance(v_geom, str) else v_geom
+
+        # Converting lat/lon to UTM
+        u_easting, u_northing, _, _ = utm.from_latlon(u_point.y, u_point.x)
+        v_easting, v_northing, _, _ = utm.from_latlon(v_point.y, v_point.x)
+
+        return minkowski([u_easting, u_northing], [v_easting, v_northing], p=2.0) #TODO 1.0 if G.edges[u, v]["road_category"] in GlobalDefinitions.HIGH_SPEED_ROAD_CATEGORIES else
 
 
     @staticmethod
@@ -234,7 +247,6 @@ class RoadNetwork:
             print("Road network graph created!")
 
         print(self._network)
-        print(list(self._network.edges(data=True))[0])
 
         return None
 
