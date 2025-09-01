@@ -44,7 +44,7 @@ class RoadNetwork:
 
     @staticmethod
     def _get_minkowski_dist(u: tuple[Any, ...], v: tuple[Any, ...], G: nx.DiGraph):
-        return minkowski(G.nodes[u], G.nodes[v], p=1.0 if G.nodes[u]["road_category"] in GlobalDefinitions.HIGH_SPEED_ROAD_CATEGORIES else 2.0)
+        return minkowski(G.nodes[u], G.nodes[v], p=1.0 if G.edges[u, v]["road_category"] in GlobalDefinitions.HIGH_SPEED_ROAD_CATEGORIES else 2.0)
 
 
     @staticmethod

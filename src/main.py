@@ -539,7 +539,7 @@ def manage_road_network(functionality: str) -> None:
         network = RoadNetwork(network_id="test", name="test", db_broker=db_broker,
                               loader=BatchStreamLoader(db_broker=db_broker))
         network.build(county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID])
-        network.find_route(source="R2312135", destination="2312233")
+        network.find_route(source="633614", destination="633286")
 
 
         # TODO FILTER ONLY THE OSLO MUNICIPALITY!
