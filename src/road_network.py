@@ -290,9 +290,12 @@ class RoadNetwork:
         self._network.add_nodes_from(unreachable)
 
         # Adding removed edges back into the graph to avoid needing to re-build the whole graph again
-        self._network.add_edges_from(has_only_public_transport_lanes_edges)
-        self._network.add_edges_from(has_toll_stations_edges)
-        self._network.add_edges_from(has_ferry_routes_edges)
+        if has_only_public_transport_lanes:
+            self._network.add_edges_from(has_only_public_transport_lanes_edges)
+        if has_toll_stations:
+            self._network.add_edges_from(has_toll_stations_edges)
+        if has_ferry_routes:
+            self._network.add_edges_from(has_ferry_routes_edges)
 
         #TODO THE FORECASTED TRAVEL TIME WILL BE TOTAL LENGTH IN METERS OF THE WHOLE LINESTRING DIVIDED BY 85% OF THE MAX SPEED LIMIT + 30s * (85% OF THE TOTAL NUMBER OF NODES THAT THE USER WILL PASS THROUGH, SINCE EACH ONE IS AN INTERSECTION AND PROBABLY 85% HAVE A TRAFFIC LIGHT)
 
