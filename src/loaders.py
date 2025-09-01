@@ -281,8 +281,8 @@ class BatchStreamLoader:
             FROM "{ProjectTables.RoadGraphLinks.value}" rl 
             {f'LEFT JOIN "{ProjectTables.RoadLink_Municipalities.value}" m ON rl.link_id = m.link_id' if municipality_ids_filter else ""}
             {f'LEFT JOIN "{ProjectTables.RoadLink_Counties.value}" c ON rl.link_id = c.link_id' if county_ids_filter else ""}
-            {f'LEFT JOIN "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" t ON rl.link_id = t.link_id' if has_trps else ""}
-            {f'LEFT JOIN "{ProjectTables.RoadLink_TollStations.value}" to ON rl.link_id = to.link_id' if has_toll_stations else ""}
+            LEFT JOIN "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" t ON rl.link_id = t.link_id
+            LEFT JOIN "{ProjectTables.RoadLink_TollStations.value}" ts ON rl.link_id = ts.link_id
             WHERE {f'''"rl.link_id" = ANY(%s)'''
                 if link_id_filter else "1=1"
             }
@@ -307,10 +307,18 @@ class BatchStreamLoader:
             AND {f'''is_ferry_route = FALSE''' 
                 if has_ferry_routes else "1=1"
             }
-            AND {f'''has_trps = TRUE''' 
+            AND {f'''(SELECT EXISTS (
+                        SELECT 1
+                        FROM "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}"
+                        WHERE link_id = rl.link_id
+                    )) = TRUE''' 
                 if has_trps else "1=1"
             }
-            AND {f'''has_toll_stations = TRUE''' 
+            AND {f'''(SELECT EXISTS (
+                        SELECT 1
+                        FROM "{ProjectTables.RoadLink_TollStations.value}"
+                        WHERE link_id = rl.link_id
+                    )) = TRUE''' 
                 if has_toll_stations else "1=1"
             }
             {f'''

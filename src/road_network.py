@@ -198,8 +198,7 @@ class RoadNetwork:
                     county_ids_filter=county_ids_filter,
                     has_only_public_transport_lanes_filter=has_only_public_transport_lanes,
                     has_toll_stations=has_toll_stations,
-                    has_ferry_routes=has_ferry_routes,
-                    has_trps=True
+                    has_ferry_routes=has_ferry_routes
                 ).partitions
             )
             return None
