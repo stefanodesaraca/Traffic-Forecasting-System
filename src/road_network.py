@@ -4,17 +4,14 @@ import networkx as nx
 from typing import Any, Iterator, Literal, Hashable
 from pydantic.types import PositiveFloat, PositiveInt
 from scipy.spatial.distance import cityblock, minkowski  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
-from geopy.distance import geodesic # To calculate distance (in meters) between two sets of coordinates (lat-lon). Geopy distance docs: https://geopy.readthedocs.io/en/stable/#module-geopy.distance
 import matplotlib.pyplot as plt
 from pykrige import OrdinaryKriging
 
-from exceptions import WrongGraphProcessingBackendError
 from definitions import GlobalDefinitions, ProjectTables, ProjectMaterializedViews, IconStyles
 from loaders import BatchStreamLoader
 from utils import save_plot
 
 Node = Hashable  # Any object usable as a node
-Edge = Hashable  # Any object usable as an edge
 
 
 class RoadNetwork:
@@ -40,11 +37,37 @@ class RoadNetwork:
             self._network = pickle.loads(network_binary)  # To load pre-computed graphs
 
 
+
+    @staticmethod
+    def _get_trait_length_by_road_category(links: list[callable]) -> dict[str, float]:
+        lengths = {}
+        for link in links:
+            lengths[link["road_category"]] += link["length"]
+        return lengths
+
+
+    @staticmethod
+    def _get_trait_main_road_category(grouped_trait: dict[str, float]) -> str:
+        return max(grouped_trait, key=grouped_trait.get)
+
+
+    @staticmethod
+    def _get_road_category_proportions(grouped_trait: dict[str, float]) -> dict[str, dict[str, float]]:
+        total = sum(grouped_trait.values())
+        stats = {}
+        for category, length in grouped_trait.items():
+            stats[category] = {
+                "length": length,
+                "percentage": (length / total) * 100
+            }
+        return stats
+
+
     def _find_trps_within_link_buffer_zone(self, link_id: str, buffer_zone_radius: PositiveInt = 3500) -> list:
         return self._db_broker.send_sql(f"""
                 SELECT rgl_b.*
-                FROM {ProjectTables.RoadGraphLinks} rgl_a
-                JOIN {ProjectTables.RoadGraphLinks} rgl_b
+                FROM "{ProjectTables.RoadGraphLinks}" rgl_a
+                JOIN "{ProjectTables.RoadGraphLinks}" rgl_b
                   ON rgl_a.link_id = %s
                   AND rgl_a.link_id <> rgl_b.link_id
                 WHERE ST_DWithin(rgl_a.geom::geography, rgl_b.geom::geography, %s);
@@ -52,8 +75,8 @@ class RoadNetwork:
 
 
     def _find_link_aggregated_traffic_data(self, link_id: str, county_avg_weight: PositiveFloat = 0.25, municipality_avg_weight: PositiveFloat = 0.5, road_category_avg_weight: PositiveFloat = 0.25) -> dict[str, PositiveFloat | PositiveInt]:
-        if sum([county_avg_weight, municipality_avg_weight, road_category_avg_weight]) > 1:
-            raise ValueError("Weights sum must be at most 1")
+        if not sum([county_avg_weight, municipality_avg_weight, road_category_avg_weight]) == 1:
+            raise ValueError("Weights sum must be exactly 1")
         return self._db_broker.send_sql(f"""
             WITH link_agg_data AS (
                 SELECT l.link_id,
@@ -156,16 +179,34 @@ class RoadNetwork:
         return None
 
 
-    def load_links(self, county_ids_filter: list[str] | None = None) -> None:
-        all(self._network.add_edges_from(
-                (row["start_traffic_node_id"], row["end_traffic_node_id"],
-                 {k: v for k, v in row.to_dict().items() if k not in ["start_traffic_node_id", "end_traffic_node_id"]})
-                for _, row in partition.iterrows()
-            ) for partition in self._loader.get_links(county_ids_filter=county_ids_filter, has_trps=True).partitions)
-        return None
+    def load_links(self,
+                   county_ids_filter: list[str] | None = None,
+                   has_only_public_transport_lanes: bool | None = None,
+                   has_toll_stations: bool | None = None,
+                   has_ferry_routes: bool | None = None) -> None:
+            all(self._network.add_edges_from(
+                    (row["start_traffic_node_id"], row["end_traffic_node_id"],
+                     {k: v for k, v in row.to_dict().items() if k not in ["start_traffic_node_id", "end_traffic_node_id"]})
+                    for _, row in partition.iterrows()
+                ) for partition in self._loader.get_links(
+                    county_ids_filter=county_ids_filter,
+                    has_only_public_transport_lanes_filter=has_only_public_transport_lanes,
+                    has_toll_stations=has_toll_stations,
+                    has_ferry_routes=has_ferry_routes,
+                    has_trps=True
+                ).partitions
+            )
+            return None
 
 
-    def build(self, auto_load_nodes: bool = True, auto_load_links: bool = True, county_ids_filter: list[str] | None = None, verbose: bool = True) -> None:
+    def build(self,
+              auto_load_nodes: bool = True,
+              auto_load_links: bool = True,
+              county_ids_filter: list[str] | None = None,
+              has_only_public_transport_lanes: bool | None = None,
+              has_toll_stations: bool | None = None,
+              has_ferry_routes: bool | None = None,
+              verbose: bool = True) -> None:
 
         if auto_load_nodes:
             if verbose:
@@ -175,10 +216,15 @@ class RoadNetwork:
         if auto_load_links:
             if verbose:
                 print("Loading links...")
-            self.load_links(county_ids_filter=county_ids_filter)
+            self.load_links(
+                county_ids_filter=county_ids_filter,
+                has_only_public_transport_lanes=has_only_public_transport_lanes,
+                has_toll_stations=has_toll_stations,
+                has_ferry_routes=has_ferry_routes,
+            )
 
         #Removing isolated nodes since they're unreachable
-        self._network.remove_nodes_from(list(i for i in nx.isolates(self._network))) #Using a generator to avoid eccessive memory consumption
+        self._network.remove_nodes_from(list(i for i in nx.isolates(self._network)))
         #This way we're also going to apply all filters if any have been set since if there isn't a link connecting a node to another that will be isolated
         # NOTE WHEN WE'LL HAVE THE ABILITY TO FILTER DIRECTLY AT THE SOURCE OF THE NODES (WHEN WE'LL HAVE THE MUNICIPALITY AND COUNTY DATA ON THE NODES) WE'LL JUST NOT LOAD THE ONES OUTSIDE OF THE FILTERS CONDITIONS
 
@@ -195,13 +241,28 @@ class RoadNetwork:
     def find_route(self,
                    source: str,
                    destination: str,
-                   avoid_only_public_transport_lanes: bool | None = None,
-                   avoid_toll_stations: bool | None = None,
-                   avoid_ferry_routes: bool | None = None
+                   has_only_public_transport_lanes: bool | None = None,
+                   has_toll_stations: bool | None = None,
+                   has_ferry_routes: bool | None = None
     ) -> list[tuple[str, str]]:
+
+        heuristics = {"manhattan": cityblock, "minkowski": minkowski}
+
+        has_only_public_transport_lanes_edges = None
+        has_toll_stations_edges = None
+        has_ferry_routes_edges = None
+
+        if has_only_public_transport_lanes:
+            self._network.remove_edges_from(has_only_public_transport_lanes_edges := [(u, v) for u, v, attrs in self._network.edges(data=True) if attrs['has_only_public_transport_lanes'] < 3])
+        if has_toll_stations:
+            self._network.remove_edges_from(has_toll_stations_edges := [(u, v) for u, v, attrs in self._network.edges(data=True) if attrs['has_toll_stations'] < 3])
+        if has_ferry_routes:
+            self._network.remove_edges_from(has_ferry_routes_edges := [(u, v) for u, v, attrs in self._network.edges(data=True) if attrs['has_ferry_routes'] < 3])
+
 
         # ---------- STEP 1 ----------
 
+        sp = nx.astar_path(G=self._network, source=source, target=destination, heuristic=heuristic, weight=weight) #TODO IF THE cityblock OR minkowski FUNCTIONS DON'T WORK BECAUSE THE WEIGHT THEY RECEIVE IS ACTUALLY THE ATTRS DICT THEN CREATE A WRPPER FUNCTION WHICH JUST RETURNS THE DISTANCE AND ACCEPTS THE ATTRS DICT AS WELL, BUT DOESN'T INSERT THAT WITHING THE DISTANCE CALCULATION FUNCTION
 
 
 
@@ -212,15 +273,10 @@ class RoadNetwork:
 
 
 
-
-
-
-
-
-
-
-
-
+        # Adding removed nodes back into the graph to avoid needing to re-build the whole graph again
+        self._network.add_edges_from(has_only_public_transport_lanes_edges)
+        self._network.add_edges_from(has_toll_stations_edges)
+        self._network.add_edges_from(has_ferry_routes_edges)
         #TODO THE FORECASTED TRAVEL TIME WILL BE TOTAL LENGTH IN METERS OF THE WHOLE LINESTRING DIVIDED BY 85% OF THE MAX SPEED LIMIT + 30s * (85% OF THE TOTAL NUMBER OF NODES THAT THE USER WILL PASS THROUGH, SINCE EACH ONE IS AN INTERSECTION AND PROBABLY 85% HAVE A TRAFFIC LIGHT)
 
         #TODO TRY TO GET AT LEAST 2 TRPS
@@ -261,51 +317,6 @@ class RoadNetwork:
         Returns the eigenvector centrality for each node
         """
         return nx.load_centrality(self._network)
-
-
-    def get_astar_path(self, source: str, target: str, weight: str, heuristic: Literal["manhattan", "euclidean"]) -> list[str]:
-        """
-        Returns the shortest path calculated with the  algorithm.
-
-        Parameters:
-            source: the source vertex ID as a string
-            target: the target vertex ID as a string
-            weight: the attribute to consider as weight for the arches of the graph
-            heuristic: the heuristic to use during the computation of the shortest path. Can be either "manhattan" or "Euclidean"
-
-        Returns:
-            A list of vertices, each linked by an arch
-        """
-        return nx.astar_path(G=self._network, source=source, target=target, heuristic={"manhattan": cityblock, "minkowski": minkowski}[heuristic], weight=weight)
-
-
-    def get_dijkstra_path(self, source: str, target: str, weight: str) -> list[str]:
-        """
-        Returns the shortest path calculated with the  algorithm.
-
-        Parameters:
-            source: the source vertex ID as a string
-            target: the target vertex ID as a string
-            weight: the attribute to consider as weight for the arches of the graph
-
-        Returns:
-            A list of vertices, each linked by an arch
-        """
-        return nx.dijkstra_path(G=self._network, source=source, target=target, weight=weight)
-
-
-    def find_trps_on_path(self, path: list[str]) -> Iterator[str]:
-        """
-        Finds all TRPs present along a path by checking each node.
-
-        Parameters:
-            path: a list of strings, each one representing a specific vertex on the path.
-
-        Returns:
-            A filter object which contains only the vertices which actually have a TRP associated with them.
-        """
-
-        return filter(lambda v: self._network[v]["has_trps"] == True, path)
 
 
     def to_pickle(self) -> None:

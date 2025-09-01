@@ -228,6 +228,8 @@ class BatchStreamLoader:
                   link_ids_filter: list[str] | None = None,
                   has_only_public_transport_lanes_filter: bool | None = None,
                   has_trps: bool | None = None,
+                  has_toll_stations: bool | None = None,
+                  has_ferry_routes: bool | None = None,
                   limit: PositiveInt | None = None,
                   df_partitions_size: PositiveInt = 100000) -> dd.DataFrame:
         return self._load_from_stream(self._db_broker.get_stream(sql=f"""
@@ -270,12 +272,19 @@ class BatchStreamLoader:
                         WHERE link_id = rl.link_id
                     ) AS has_trps
                 ''' if has_trps else ""}
+                {f''',SELECT EXISTS (
+                        SELECT 1
+                        FROM "{ProjectTables.RoadLink_TollStations.value}"
+                        WHERE link_id = rl.link_id
+                    ) AS has_toll_stations
+                ''' if has_toll_stations else ""}
                 {''',ARRAY_AGG(m.municipality_id) AS municipality_ids''' if municipality_ids_filter else ""}
                 {''',ARRAY_AGG(c.county_id) AS county_ids''' if county_ids_filter else ""}
             FROM "{ProjectTables.RoadGraphLinks.value}" rl 
             {f'LEFT JOIN "{ProjectTables.RoadLink_Municipalities.value}" m ON rl.link_id = m.link_id' if municipality_ids_filter else ""}
             {f'LEFT JOIN "{ProjectTables.RoadLink_Counties.value}" c ON rl.link_id = c.link_id' if county_ids_filter else ""}
             {f'LEFT JOIN "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" t ON rl.link_id = t.link_id' if has_trps else ""}
+            {f'LEFT JOIN "{ProjectTables.RoadLink_TollStations.value}" to ON rl.link_id = to.link_id' if has_toll_stations else ""}
             WHERE {f'''"rl.link_id" = ANY(%s)'''
                 if link_id_filter else "1=1"
             }
@@ -296,6 +305,8 @@ class BatchStreamLoader:
             }
             AND {f'"has_only_public_transport_lanes" = FALSE' 
                 if has_only_public_transport_lanes_filter is False else "1=1"
+            }
+            AND {f'''is_ferry_route = FALSE''' if has_ferry_routes else "1=1"
             }
             {f'''
             GROUP BY
@@ -335,6 +346,7 @@ class BatchStreamLoader:
                 {',municipality_ids' if municipality_ids_filter else ""}
                 {',county_ids' if county_ids_filter else ""}
                 {",has_trps" if has_trps else ""}
+                {",has_toll_stations" if has_toll_stations else ""}
             ''' if municipality_ids_filter or county_ids_filter else ""}
             {f"LIMIT {limit}" if limit else ""}
             ;
