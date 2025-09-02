@@ -34,7 +34,7 @@ async-lru == 2.0.5
 sphinx
 sphinx-rtd-theme
 polars
-aiohttp == 3.12.13
+aiohttp == 3.12.15
 sktime
 pytorch
 pytorch-forecasting

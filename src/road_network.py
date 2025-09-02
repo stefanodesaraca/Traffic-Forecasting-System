@@ -83,77 +83,88 @@ class RoadNetwork:
         return stats
 
 
-    def _find_trps_within_link_buffer_zone(self, link_id: str, buffer_zone_radius: PositiveInt = 3500) -> list:
+    def _find_neighbor_trps(self, link_id: str, buffer_zone_radius: PositiveInt = 3500) -> list[dict[str, Any]]:
         return self._db_broker.send_sql(f"""
-                SELECT rgl_b.*
-                FROM "{ProjectTables.RoadGraphLinks}" rgl_a
-                JOIN "{ProjectTables.RoadGraphLinks}" rgl_b
+            WITH neighbors AS (
+                SELECT rgl_b.link_id AS neighbor_link_id
+                FROM "{ProjectTables.RoadGraphLinks.value}" rgl_a
+                JOIN "{ProjectTables.RoadGraphLinks.value}" rgl_b
                   ON rgl_a.link_id = %s
-                  AND rgl_a.link_id <> rgl_b.link_id
-                WHERE ST_DWithin(rgl_a.geom::geography, rgl_b.geom::geography, %s);
-            """, execute_args=[link_id, buffer_zone_radius]) #TODO THIS RETURN ONLY THE NEIGHBOR LINKS, CHECK IF THEY HAVE TRPS
-
-
-    def _find_link_aggregated_traffic_data(self, link_id: str, county_avg_weight: PositiveFloat = 0.25, municipality_avg_weight: PositiveFloat = 0.5, road_category_avg_weight: PositiveFloat = 0.25) -> dict[str, PositiveFloat | PositiveInt]:
-        if not sum([county_avg_weight, municipality_avg_weight, road_category_avg_weight]) == 1:
-            raise ValueError("Weights sum must be exactly 1")
-        return self._db_broker.send_sql(f"""
-            WITH link_agg_data AS (
-                SELECT l.link_id,
-                       rlm.municipality_id,
-                       rlc.county_id,
-                       l.road_category
-                FROM "{ProjectTables.RoadGraphLinks.value}" l
-                LEFT JOIN "{ProjectTables.RoadLink_Municipalities.value}" rlm
-                    ON l.link_id = rlm.link_id
-                LEFT JOIN "{ProjectTables.RoadLink_Counties.value}" rlc
-                    ON l.link_id = rlc.link_id
-                WHERE l.link_id = %s
-            ),
-            county_avg AS (
-                SELECT 
-                    l_agg.link_id, 
-                    AVG(c.avg_{GlobalDefinitions.VOLUME}_by_county) AS avg_{GlobalDefinitions.VOLUME},          
-                    AVG(c.avg_{GlobalDefinitions.MEAN_SPEED}_by_county) AS avg_{GlobalDefinitions.MEAN_SPEED}
-                FROM link_agg_data l_agg
-                JOIN "{ProjectMaterializedViews.TrafficDataByCountyMView.value}" c
-                  ON l_agg.county_id = c.county_id
-                GROUP BY l_agg.link_id
-            ),
-            municipality_avg AS (
-                SELECT 
-                    l_agg.link_id, 
-                    AVG(m.avg_{GlobalDefinitions.VOLUME}_by_municipality) AS avg_{GlobalDefinitions.VOLUME},
-                    AVG(m.avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality) AS avg_{GlobalDefinitions.MEAN_SPEED}
-                FROM link_agg_data l_agg
-                JOIN "{ProjectMaterializedViews.TrafficDataByMunicipalityMView.value}" m
-                  ON l_agg.municipality_id = m.municipality_id
-                GROUP BY l_agg.link_id
-            ),
-            road_category_avg AS (
-                SELECT 
-                    l_agg.link_id,
-                    AVG(r.avg_{GlobalDefinitions.VOLUME}_by_road_category) AS avg_{GlobalDefinitions.VOLUME},
-                    AVG(r.avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category) AS avg_{GlobalDefinitions.MEAN_SPEED}
-                FROM link_agg_data l_agg
-                JOIN "{ProjectMaterializedViews.TrafficDataByRoadCategoryMView.value}" r
-                  ON l_agg.road_category = r.road_category
-                GROUP BY l_agg.link_id
+                 AND rgl_a.link_id <> rgl_b.link_id
+                WHERE ST_DWithin(rgl_a.geom::geography, rgl_b.geom::geography, %s)
             )
-            
-            SELECT
-                l_agg.link_id,
-                0.25 * county_avg.avg_{GlobalDefinitions.VOLUME} +
-                0.5  * municipality_avg.avg_{GlobalDefinitions.VOLUME} +
-                0.25 * road_category_avg.avg_{GlobalDefinitions.VOLUME} AS weighted_avg_{GlobalDefinitions.VOLUME},
-                0.25 * county_avg.avg_{GlobalDefinitions.MEAN_SPEED} +
-                0.5  * municipality_avg.avg_{GlobalDefinitions.MEAN_SPEED} +
-                0.25 * road_category_avg.avg_{GlobalDefinitions.MEAN_SPEED} AS weighted_avg_{GlobalDefinitions.MEAN_SPEED}
-            FROM (SELECT DISTINCT link_id FROM link_info) l_agg
-            LEFT JOIN county_avg ON l_agg.link_id = county_avg.link_id
-            LEFT JOIN municipality_avg ON l_agg.link_id = municipality_avg.link_id
-            LEFT JOIN road_category_avg ON l_agg.link_id = road_category_avg.link_id;
-        """, execute_args=[link_id], single=True)
+            SELECT 
+                n.neighbor_link_id,
+                trp.*
+            FROM neighbors n
+            JOIN "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" rl_t
+              ON n.neighbor_link_id = rl_t.link_id
+            JOIN "{ProjectTables.TrafficRegistrationPoints.value}" trp
+              ON rl_t.trp_id = trp.trp_id;
+        """, execute_args=[link_id, buffer_zone_radius])
+
+
+    def _find_link_aggregated_traffic_data(
+            self, link_id: str,
+            county_avg_weight: PositiveFloat = 0.25,
+            municipality_avg_weight: PositiveFloat = 0.5,
+            road_category_avg_weight: PositiveFloat = 0.25
+    ) -> dict[str, PositiveFloat | PositiveInt]:
+        if round(county_avg_weight + municipality_avg_weight + road_category_avg_weight, 6) != 1.0:
+            raise ValueError("Weights sum must be exactly 1")
+        return self._db_broker.send_sql(
+            f"""
+                WITH link_agg_data AS (
+                    SELECT l.link_id, rlm.municipality_id, rlc.county_id, l.road_category
+                    FROM "{ProjectTables.RoadGraphLinks.value}" l
+                    LEFT JOIN "{ProjectTables.RoadLink_Municipalities.value}" rlm ON l.link_id = rlm.link_id
+                    LEFT JOIN "{ProjectTables.RoadLink_Counties.value}" rlc ON l.link_id = rlc.link_id
+                    WHERE l.link_id = %s
+                ),
+                county_avg AS (
+                    SELECT l_agg.link_id,
+                           AVG(c.avg_{GlobalDefinitions.VOLUME}_by_county) AS avg_{GlobalDefinitions.VOLUME},
+                           AVG(c.avg_{GlobalDefinitions.MEAN_SPEED}_by_county) AS avg_{GlobalDefinitions.MEAN_SPEED}
+                    FROM link_agg_data l_agg
+                    JOIN "{ProjectMaterializedViews.TrafficDataByCountyMView.value}" c ON l_agg.county_id = c.county_id
+                    GROUP BY l_agg.link_id
+                ),
+                municipality_avg AS (
+                    SELECT l_agg.link_id,
+                           AVG(m.avg_{GlobalDefinitions.VOLUME}_by_municipality) AS avg_{GlobalDefinitions.VOLUME},
+                           AVG(m.avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality) AS avg_{GlobalDefinitions.MEAN_SPEED}
+                    FROM link_agg_data l_agg
+                    JOIN "{ProjectMaterializedViews.TrafficDataByMunicipalityMView.value}" m ON l_agg.municipality_id = m.municipality_id
+                    GROUP BY l_agg.link_id
+                ),
+                road_category_avg AS (
+                    SELECT l_agg.link_id,
+                           AVG(r.avg_{GlobalDefinitions.VOLUME}_by_road_category) AS avg_{GlobalDefinitions.VOLUME},
+                           AVG(r.avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category) AS avg_{GlobalDefinitions.MEAN_SPEED}
+                    FROM link_agg_data l_agg
+                    JOIN "{ProjectMaterializedViews.TrafficDataByRoadCategoryMView.value}" r ON l_agg.road_category = r.road_category
+                    GROUP BY l_agg.link_id
+                )
+                SELECT
+                    l_agg.link_id,
+                    %s * county_avg.avg_{GlobalDefinitions.VOLUME} +
+                    %s * municipality_avg.avg_{GlobalDefinitions.VOLUME} +
+                    %s * road_category_avg.avg_{GlobalDefinitions.VOLUME} AS weighted_avg_{GlobalDefinitions.VOLUME},
+                    %s * county_avg.avg_{GlobalDefinitions.MEAN_SPEED} +
+                    %s * municipality_avg.avg_{GlobalDefinitions.MEAN_SPEED} +
+                    %s * road_category_avg.avg_{GlobalDefinitions.MEAN_SPEED} AS weighted_avg_{GlobalDefinitions.MEAN_SPEED}
+                FROM link_agg_data l_agg
+                LEFT JOIN county_avg ON l_agg.link_id = county_avg.link_id
+                LEFT JOIN municipality_avg ON l_agg.link_id = municipality_avg.link_id
+                LEFT JOIN road_category_avg ON l_agg.link_id = road_category_avg.link_id;
+            """,
+            execute_args=[
+                link_id,
+                county_avg_weight, municipality_avg_weight, road_category_avg_weight,
+                county_avg_weight, municipality_avg_weight, road_category_avg_weight,
+            ],
+            single=True
+        )
         #Returning the average value of each target variable aggregated respectively by any counties, municipalities and road categories the link may belong to, this way we'll have a customized indicator of what are the "normal" (average) conditions on that road
 
 
@@ -177,7 +188,7 @@ class RoadNetwork:
         neighborhood_trps = []
 
         while len(neighborhood_trps) == 0:
-            neighborhood_trps = self._find_trps_within_link_buffer_zone(attrs["link_id"], buffer_zone_radius=neighborhood_radius)
+            neighborhood_trps = self._find_neighbor_trps(attrs["link_id"], buffer_zone_radius=neighborhood_radius)
             neighborhood_radius += 1000
 
 
@@ -290,24 +301,34 @@ class RoadNetwork:
 
         # ---------- STEP 2 ----------
 
-        trps = []
         buffer_radius = 3500
-        while len(trps) < 5:
-            trps = [(e[2]["link_id"], self._find_trps_within_link_buffer_zone(e[2]["link_id"], buffer_zone_radius=buffer_radius)) for e in sp_edges]
-            #TODO self._find_trps_within_link_buffer_zone(e[2]["link_id"] WILL BE A DICT, WHERE THE TRP IS THE KEY AND ITS DATA IS THE VALUE
+        trps_per_edge = {
+            e[2]["link_id"]: self._find_neighbor_trps(e[2]["link_id"], buffer_zone_radius=buffer_radius)
+            for e in sp_edges
+        }
+        while sum(len(v) for v in trps_per_edge.values()) < 5:
             buffer_radius += 1500
-
+            trps_per_edge = {
+                e[2]["link_id"]: self._find_neighbor_trps(e[2]["link_id"], buffer_zone_radius=buffer_radius)
+                for e in sp_edges
+            }
 
         # ---------- STEP 3 ----------
 
-        y_preds_volume = [
-            self._get_trp_predictions(trp_id=trp_id, target=GlobalDefinitions.VOLUME, road_category=data["road_category"])
-            for trp_id, data in trps
-        ]
-        y_preds_mean_speed = [
-            self._get_trp_predictions(trp_id=trp_id, target=GlobalDefinitions.VOLUME, road_category=data["road_category"])
-            for trp_id, data in trps
-        ]
+        y_preds = {
+            trp["trp_id"]: {
+                GlobalDefinitions.VOLUME: self._get_trp_predictions(trp_id=trp["trp_id"], target=GlobalDefinitions.VOLUME, road_category=trp["road_category"]), # Generator of dataframes
+                GlobalDefinitions.MEAN_SPEED: self._get_trp_predictions(trp_id=trp["trp_id"], target=GlobalDefinitions.MEAN_SPEED, road_category=trp["road_category"]) # Generator of dataframes
+            }
+            for trps in trps_per_edge.values()
+            for trp in trps
+        }
+
+
+
+
+
+
 
 
         #TODO EXTRACT PREDICTED VALUES ONLY HERE AND THEN INTERPOLATE
