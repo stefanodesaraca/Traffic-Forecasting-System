@@ -356,25 +356,20 @@ class RoadNetwork:
             } for link_id, trps in trps_per_edge.items()
         }
 
+        for l, data in neighbor_trp_preds.items():
+            neighbor_trp_preds[l][f"link_traffic_{GlobalDefinitions.VOLUME}_classes"] = self._get_increments(n=neighbor_trp_preds[l]["link_traffic_averages"][f"weighted_{GlobalDefinitions.VOLUME}_avg"]*2, k=len(TrafficClasses))
+            neighbor_trp_preds[l][f"link_traffic_{GlobalDefinitions.MEAN_SPEED}_classes"] = self._get_increments(n=neighbor_trp_preds[l]["link_traffic_averages"][f"weighted_{GlobalDefinitions.MEAN_SPEED}_avg"]*2, k=len(TrafficClasses))
 
-        links_context = {
-            l: {
-                f"trp_context_{GlobalDefinitions.VOLUME}_median": np.median([df[GlobalDefinitions.VOLUME].mean() for df in data["preds"]]),
-                f"trp_context_{GlobalDefinitions.MEAN_SPEED}_median": np.median([df[GlobalDefinitions.MEAN_SPEED].mean() for df in data["preds"]]),
-            } for l, data in neighbor_trp_preds.items()
-        }
+
+        #TODO INTERPOLATE HERE, GET INTERPOLATED VALUE AND CHECK TO WHICH CLASS IT BELONGS TO
+        # USE self._closest()
+
+
+
 
 
         # ---------- STEP 4 ----------
 
-        for trp, p in neighbor_trp_preds.items():
-            link_traffic_class = self._closest(numbers=self._get_increments(n=link_volume_mean, k=len(TrafficClasses)), k=link_volume_mean)
-
-            if link_agg_traffic_data[f"weighted_avg_{GlobalDefinitions.VOLUME}"] > link_volume_mean:
-                ...
-
-            if link_agg_traffic_data[f"weighted_avg_{GlobalDefinitions.MEAN_SPEED}"] > link_traffic_class:
-                ...
 
 
 
