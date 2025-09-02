@@ -1,18 +1,18 @@
 import json
 import pickle
 import networkx as nx
-from typing import Any, Iterator, Literal, Hashable
+from typing import Any, Generator
 from pydantic.types import PositiveFloat, PositiveInt
 from scipy.spatial.distance import cityblock, minkowski  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
 import matplotlib.pyplot as plt
 from shapely import wkt
-from shapely.geometry import Point
+import dask.dataframe as dd
 import utm
 from pykrige import OrdinaryKriging
 
 from definitions import GlobalDefinitions, ProjectTables, ProjectMaterializedViews, IconStyles
 from loaders import BatchStreamLoader
-from pipelines import MLPredictionPipeline
+from pipelines import MLPreprocessingPipeline, MLPredictionPipeline
 from utils import save_plot
 
 
@@ -91,7 +91,7 @@ class RoadNetwork:
                   ON rgl_a.link_id = %s
                   AND rgl_a.link_id <> rgl_b.link_id
                 WHERE ST_DWithin(rgl_a.geom::geography, rgl_b.geom::geography, %s);
-            """, execute_args=[link_id, buffer_zone_radius])
+            """, execute_args=[link_id, buffer_zone_radius]) #TODO THIS RETURN ONLY THE NEIGHBOR LINKS, CHECK IF THEY HAVE TRPS
 
 
     def _find_link_aggregated_traffic_data(self, link_id: str, county_avg_weight: PositiveFloat = 0.25, municipality_avg_weight: PositiveFloat = 0.5, road_category_avg_weight: PositiveFloat = 0.25) -> dict[str, PositiveFloat | PositiveInt]:
@@ -155,6 +155,13 @@ class RoadNetwork:
             LEFT JOIN road_category_avg ON l_agg.link_id = road_category_avg.link_id;
         """, execute_args=[link_id], single=True)
         #Returning the average value of each target variable aggregated respectively by any counties, municipalities and road categories the link may belong to, this way we'll have a customized indicator of what are the "normal" (average) conditions on that road
+
+
+    def _get_trp_predictions(self, trp_id: str, target: str, road_category: str) -> Generator[dd.DataFrame, None, None]:
+        return (
+            MLPredictionPipeline(trp_id=trp_id, target=target, road_category=road_category, model=model, preprocessing_pipeline=MLPreprocessingPipeline(), loader=self._loader, db_broker=self._db_broker).start()
+            for model in self._db_broker.get_trained_model_objects(target=target, road_category=road_category)
+         )
 
 
     def _compute_edge_weight(self, edge_start: callable, edge_end: callable, attrs: dict) -> PositiveFloat | None:
@@ -275,15 +282,35 @@ class RoadNetwork:
 
         # ---------- STEP 1 ----------
 
-        sp = nx.astar_path(G=self._network, source=source, target=destination, heuristic=lambda u, v: self._get_minkowski_dist(u, v, self._network), weight="length") #TODO IF THE cityblock OR minkowski FUNCTIONS DON'T WORK BECAUSE THE WEIGHT THEY RECEIVE IS ACTUALLY THE ATTRS DICT THEN CREATE A WRPPER FUNCTION WHICH JUST RETURNS THE DISTANCE AND ACCEPTS THE ATTRS DICT AS WELL, BUT DOESN'T INSERT THAT WITHING THE DISTANCE CALCULATION FUNCTION
-
+        sp = nx.astar_path(G=self._network, source=source, target=destination, heuristic=lambda u, v: self._get_minkowski_dist(u, v, self._network), weight="length")
         print(sp)
 
+        sp_edges = [(u, v, self._network.get_edge_data(u, v)) for u, v in zip(sp, sp[1:])] #TODO TEST IF THIS WORKS WITH A GENERATOR AS WELL CALLING THE find_route() METHOD TWICE IN THE SAME RUNTIME
 
 
+        # ---------- STEP 2 ----------
+
+        trps = []
+        buffer_radius = 3500
+        while len(trps) < 5:
+            trps = [(e[2]["link_id"], self._find_trps_within_link_buffer_zone(e[2]["link_id"], buffer_zone_radius=buffer_radius)) for e in sp_edges]
+            #TODO self._find_trps_within_link_buffer_zone(e[2]["link_id"] WILL BE A DICT, WHERE THE TRP IS THE KEY AND ITS DATA IS THE VALUE
+            buffer_radius += 1500
 
 
+        # ---------- STEP 3 ----------
 
+        y_preds_volume = [
+            self._get_trp_predictions(trp_id=trp_id, target=GlobalDefinitions.VOLUME, road_category=data["road_category"])
+            for trp_id, data in trps
+        ]
+        y_preds_mean_speed = [
+            self._get_trp_predictions(trp_id=trp_id, target=GlobalDefinitions.VOLUME, road_category=data["road_category"])
+            for trp_id, data in trps
+        ]
+
+
+        #TODO EXTRACT PREDICTED VALUES ONLY HERE AND THEN INTERPOLATE
 
 
 
