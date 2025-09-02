@@ -4,7 +4,7 @@ import numpy as np
 import networkx as nx
 from typing import Any, Generator
 from pydantic.types import PositiveFloat, PositiveInt
-from scipy.spatial.distance import minkowski  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
+from scipy.spatial.distance import minkowski
 import matplotlib.pyplot as plt
 from shapely import wkt
 import dask.dataframe as dd
@@ -337,29 +337,43 @@ class RoadNetwork:
 
         # ---------- STEP 3 ----------
 
-        y_preds = {
-            trp["trp_id"]: {
-                f"{GlobalDefinitions.VOLUME}_traffic_class": self._get_trp_predictions(trp_id=trp["trp_id"], target=GlobalDefinitions.VOLUME, road_category=trp["road_category"]), # Generator of dataframes
-                f"{GlobalDefinitions.MEAN_SPEED}_traffic_class": self._get_trp_predictions(trp_id=trp["trp_id"], target=GlobalDefinitions.MEAN_SPEED, road_category=trp["road_category"]), # Generator of dataframes
-                "trp_data": trp,
-                "link_id": link_id
-            }
-            for link_id, trps in trps_per_edge.items()
-            for trp in trps
+        neighbor_trp_preds = {
+            link_id: {
+                "link_traffic_averages": self._get_link_aggregated_traffic_data(link_id=link_id),
+                "preds": {
+                    trp["trp_id"]: {
+                    # Generator of dataframes
+                    f"{GlobalDefinitions.VOLUME}_preds": self._get_trp_predictions(trp_id=trp["trp_id"],
+                                                                                   target=GlobalDefinitions.VOLUME,
+                                                                                   road_category=trp["road_category"]),
+                    # Generator of dataframes
+                    f"{GlobalDefinitions.MEAN_SPEED}_preds": self._get_trp_predictions(trp_id=trp["trp_id"],
+                                                                                       target=GlobalDefinitions.MEAN_SPEED,
+                                                                                       road_category=trp["road_category"]) or None,
+                    "trp_data": trp,
+                    } for trp in trps
+                }
+            } for link_id, trps in trps_per_edge.items()
         }
+
+
+        links_context = {
+            l: {
+                f"trp_context_{GlobalDefinitions.VOLUME}_median": np.median([df[GlobalDefinitions.VOLUME].mean() for df in data["preds"]]),
+                f"trp_context_{GlobalDefinitions.MEAN_SPEED}_median": np.median([df[GlobalDefinitions.MEAN_SPEED].mean() for df in data["preds"]]),
+            } for l, data in neighbor_trp_preds.items()
+        }
+
 
         # ---------- STEP 4 ----------
 
-        for trp, p in y_preds.items():
-            link_agg_traffic_data = self._get_link_aggregated_traffic_data(link_id=p["link_id"])
-            vm = np.mean(p[GlobalDefinitions.VOLUME])
-            msm = np.mean(p[GlobalDefinitions.MEAN_SPEED])
-            link_traffic_class = self._closest(numbers=self._get_increments(n=vm, k=len(TrafficClasses)), k=vm)
+        for trp, p in neighbor_trp_preds.items():
+            link_traffic_class = self._closest(numbers=self._get_increments(n=link_volume_mean, k=len(TrafficClasses)), k=link_volume_mean)
 
-            if link_agg_traffic_data[f"weighted_avg_{GlobalDefinitions.VOLUME}"] > vm:
+            if link_agg_traffic_data[f"weighted_avg_{GlobalDefinitions.VOLUME}"] > link_volume_mean:
                 ...
 
-            if link_agg_traffic_data[f"weighted_avg_{GlobalDefinitions.MEAN_SPEED}"] > msm:
+            if link_agg_traffic_data[f"weighted_avg_{GlobalDefinitions.MEAN_SPEED}"] > link_traffic_class:
                 ...
 
 
