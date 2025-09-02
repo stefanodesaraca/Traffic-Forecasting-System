@@ -1,16 +1,17 @@
 import json
 import pickle
+import numpy as np
 import networkx as nx
 from typing import Any, Generator
 from pydantic.types import PositiveFloat, PositiveInt
-from scipy.spatial.distance import cityblock, minkowski  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
+from scipy.spatial.distance import minkowski  # Scipy's cityblock distance is the Manhattan distance. Scipy distance docs: https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance
 import matplotlib.pyplot as plt
 from shapely import wkt
 import dask.dataframe as dd
 import utm
 from pykrige import OrdinaryKriging
 
-from definitions import GlobalDefinitions, ProjectTables, ProjectMaterializedViews, IconStyles
+from definitions import GlobalDefinitions, ProjectTables, ProjectMaterializedViews, TrafficClasses, IconStyles
 from loaders import BatchStreamLoader
 from pipelines import MLPreprocessingPipeline, MLPredictionPipeline
 from utils import save_plot
@@ -83,7 +84,16 @@ class RoadNetwork:
         return stats
 
 
-    def _find_neighbor_trps(self, link_id: str, buffer_zone_radius: PositiveInt = 3500) -> list[dict[str, Any]]:
+    def _get_neighbor_links(self, link_id: str, buffer_zone_radius: PositiveInt) -> dict[str, Any]:
+        return self._db_broker.send_sql(
+            f""" SELECT rgl_b.* FROM "{ProjectTables.RoadGraphLinks}" rgl_a 
+            JOIN "{ProjectTables.RoadGraphLinks}" rgl_b ON rgl_a.link_id = %s 
+            AND rgl_a.link_id <> rgl_b.link_id 
+            WHERE ST_DWithin(rgl_a.geom::geography, rgl_b.geom::geography, %s);""",
+            execute_args=[link_id, buffer_zone_radius])
+
+
+    def _get_neighbor_trps(self, link_id: str, buffer_zone_radius: PositiveInt = 3500) -> list[dict[str, Any]]:
         return self._db_broker.send_sql(f"""
             WITH neighbors AS (
                 SELECT rgl_b.link_id AS neighbor_link_id
@@ -104,7 +114,7 @@ class RoadNetwork:
         """, execute_args=[link_id, buffer_zone_radius])
 
 
-    def _find_link_aggregated_traffic_data(
+    def _get_link_aggregated_traffic_data(
             self, link_id: str,
             county_avg_weight: PositiveFloat = 0.25,
             municipality_avg_weight: PositiveFloat = 0.5,
@@ -175,6 +185,17 @@ class RoadNetwork:
          )
 
 
+    @staticmethod
+    def _get_increments(n: int | float, k: PositiveInt) -> list[int | float]:
+        step = n // k
+        return [step * i for i in range(1, k + 1)]
+
+
+    @staticmethod
+    def _closest(numbers: list[int | float], k: int | float):
+        return min(numbers, key=lambda n: abs(n - k))
+
+
     def _compute_edge_weight(self, edge_start: callable, edge_end: callable, attrs: dict) -> PositiveFloat | None:
         length: PositiveFloat = attrs.get("length")
         road_category: str = attrs.get("road_category")
@@ -188,7 +209,7 @@ class RoadNetwork:
         neighborhood_trps = []
 
         while len(neighborhood_trps) == 0:
-            neighborhood_trps = self._find_neighbor_trps(attrs["link_id"], buffer_zone_radius=neighborhood_radius)
+            neighborhood_trps = self._get_neighbor_trps(attrs["link_id"], buffer_zone_radius=neighborhood_radius)
             neighborhood_radius += 1000
 
 
@@ -303,35 +324,47 @@ class RoadNetwork:
 
         buffer_radius = 3500
         trps_per_edge = {
-            e[2]["link_id"]: self._find_neighbor_trps(e[2]["link_id"], buffer_zone_radius=buffer_radius)
+            e[2]["link_id"]: self._get_neighbor_trps(e[2]["link_id"], buffer_zone_radius=buffer_radius)
             for e in sp_edges
         }
         while sum(len(v) for v in trps_per_edge.values()) < 5:
             buffer_radius += 1500
             trps_per_edge = {
-                e[2]["link_id"]: self._find_neighbor_trps(e[2]["link_id"], buffer_zone_radius=buffer_radius)
+                e[2]["link_id"]: self._get_neighbor_trps(e[2]["link_id"], buffer_zone_radius=buffer_radius)
                 for e in sp_edges
             }
+
 
         # ---------- STEP 3 ----------
 
         y_preds = {
             trp["trp_id"]: {
-                GlobalDefinitions.VOLUME: self._get_trp_predictions(trp_id=trp["trp_id"], target=GlobalDefinitions.VOLUME, road_category=trp["road_category"]), # Generator of dataframes
-                GlobalDefinitions.MEAN_SPEED: self._get_trp_predictions(trp_id=trp["trp_id"], target=GlobalDefinitions.MEAN_SPEED, road_category=trp["road_category"]) # Generator of dataframes
+                f"{GlobalDefinitions.VOLUME}_traffic_class": self._get_trp_predictions(trp_id=trp["trp_id"], target=GlobalDefinitions.VOLUME, road_category=trp["road_category"]), # Generator of dataframes
+                f"{GlobalDefinitions.MEAN_SPEED}_traffic_class": self._get_trp_predictions(trp_id=trp["trp_id"], target=GlobalDefinitions.MEAN_SPEED, road_category=trp["road_category"]), # Generator of dataframes
+                "trp_data": trp,
+                "link_id": link_id
             }
-            for trps in trps_per_edge.values()
+            for link_id, trps in trps_per_edge.items()
             for trp in trps
         }
 
+        # ---------- STEP 4 ----------
+
+        for trp, p in y_preds.items():
+            link_agg_traffic_data = self._get_link_aggregated_traffic_data(link_id=p["link_id"])
+            vm = np.mean(p[GlobalDefinitions.VOLUME])
+            msm = np.mean(p[GlobalDefinitions.MEAN_SPEED])
+            link_traffic_class = self._closest(numbers=self._get_increments(n=vm, k=len(TrafficClasses)), k=vm)
+
+            if link_agg_traffic_data[f"weighted_avg_{GlobalDefinitions.VOLUME}"] > vm:
+                ...
+
+            if link_agg_traffic_data[f"weighted_avg_{GlobalDefinitions.MEAN_SPEED}"] > msm:
+                ...
 
 
 
-
-
-
-
-        #TODO EXTRACT PREDICTED VALUES ONLY HERE AND THEN INTERPOLATE
+        #TODO INTERPOLATE HERE FOR EACH LINK IN A NEW LINE BUFFER, LIKE MAX(10000, link["length"], EXPAND THE BUFFER GRADUALLY AND
 
 
 
