@@ -12,12 +12,9 @@ from pykrige import OrdinaryKriging
 
 from definitions import GlobalDefinitions, ProjectTables, ProjectMaterializedViews, IconStyles
 from loaders import BatchStreamLoader
+from pipelines import MLPredictionPipeline
 from utils import save_plot
 
-Node = Hashable  # Any object usable as a node
-
-
-from pprint import pprint
 
 
 
@@ -37,12 +34,13 @@ class RoadNetwork:
         self.network_id: str = network_id
         self.name: str = name
         self._backend: str = backend
-        self._network: nx.DiGraph | None = None
+        self._network: nx.DiGraph | None = None #TODO CORRECTLY DEFINE ROAD DIRECTIONS, BUT WITH AN UNDIRECTED GRAPH EVERYTHING WORKS CORRECTLY
 
         if not network_binary:
             self._network = nx.DiGraph(**{"network_id": self.network_id, "name": self.name})
         else:
             self._network = pickle.loads(network_binary)  # To load pre-computed graphs
+
 
     @staticmethod
     def _get_minkowski_dist(u: tuple[Any, ...], v: tuple[Any, ...], G: nx.DiGraph):
@@ -159,7 +157,7 @@ class RoadNetwork:
         #Returning the average value of each target variable aggregated respectively by any counties, municipalities and road categories the link may belong to, this way we'll have a customized indicator of what are the "normal" (average) conditions on that road
 
 
-    def _compute_edge_weight(self, edge_start: Node, edge_end: Node, attrs: dict) -> PositiveFloat | None:
+    def _compute_edge_weight(self, edge_start: callable, edge_end: callable, attrs: dict) -> PositiveFloat | None:
         length: PositiveFloat = attrs.get("length")
         road_category: str = attrs.get("road_category")
         min_lanes: PositiveInt = attrs.get("min_lanes")
@@ -279,8 +277,13 @@ class RoadNetwork:
 
         sp = nx.astar_path(G=self._network, source=source, target=destination, heuristic=lambda u, v: self._get_minkowski_dist(u, v, self._network), weight="length") #TODO IF THE cityblock OR minkowski FUNCTIONS DON'T WORK BECAUSE THE WEIGHT THEY RECEIVE IS ACTUALLY THE ATTRS DICT THEN CREATE A WRPPER FUNCTION WHICH JUST RETURNS THE DISTANCE AND ACCEPTS THE ATTRS DICT AS WELL, BUT DOESN'T INSERT THAT WITHING THE DISTANCE CALCULATION FUNCTION
 
-
         print(sp)
+
+
+
+
+
+
 
 
 
@@ -356,7 +359,7 @@ class RoadNetwork:
 
     @save_plot
     def save_graph_svg(self) -> tuple[plt, str]:
-        fig, ax = plt.subplots(figsize=(8, 6))
+        fig, ax = plt.subplots(figsize=(16, 9))
         nx.draw(
             self._network,
             ax=ax,
@@ -368,7 +371,7 @@ class RoadNetwork:
             edge_color=[
                 IconStyles.TRP_LINK_STYLE.value.get("icon_color")
                 if self._network.nodes[node].get("has_trps") else "blue"
-                for node in self._network.nodes()
+                for node in self._network.nodes
             ]
         )
         return fig, f"{self._network['network_id']}.svg"

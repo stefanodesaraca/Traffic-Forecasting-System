@@ -649,7 +649,7 @@ class MLPredictionPipeline:
                  loader: Any,
                  preprocessing_pipeline: MLPreprocessingPipeline,
                  model: Any
-                 ):
+    ):
         from brokers import DBBroker
         from loaders import BatchStreamLoader
         from ml import ModelWrapper

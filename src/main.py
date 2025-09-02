@@ -542,11 +542,16 @@ def manage_road_network(functionality: str) -> None:
             db_broker=db_broker,
             loader=BatchStreamLoader(db_broker=db_broker)
         )
-        network.build(county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID])
-        network.find_route(source="636379", destination="635079")
+        network.build() #county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID]
+        network.find_route(source="456663", destination="211623") #NOTE SECURE PATHS: (636379 - 635079), (629849, 629667), (R605677, 646497) | WITHOUT MUNICIPALITY FILTER (889404, 3151378), (456663 - 211623)
+        #network.save_graph_svg()
 
 
-        # TODO FILTER ONLY THE OSLO MUNICIPALITY!
+
+
+
+
+
         ...
 
     return None
