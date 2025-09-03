@@ -407,7 +407,8 @@ class RoadNetwork:
         trps_per_edge = self._get_trps_per_edge(edges=sp_edges, trp_research_buffer_radius=trp_research_buffer_radius)
 
         trps_along_sp: set[dict[str, Any]] = set(*chain(trps_per_edge.values())) # A set of dictionary where each dict is a TRP with its metadata (id, road_category, etc.)
-        link_agg_data = ((link_id, self._get_link_aggregated_traffic_data(link_id=link_id)) for link_id in trps_per_edge.keys())
+        link_agg_data = dict((link_id, self._get_link_aggregated_traffic_data(link_id=link_id)) for link_id in trps_per_edge.keys()) # Converting link_agg_data to dict for fast lookup
+        # Simply using the dict() function on a list of tuples
 
 
         # ---------- STEP 3 ----------
@@ -424,37 +425,36 @@ class RoadNetwork:
 
         # ---------- STEP 4 ----------
 
-        line_predictions = pd.DataFrame((
-                (x, y, edge_data["link_id"])
-                 for u, v in sp_edges
-                 for edge_data, geom in
-                 [(self._network.get_edge_data(u, v), wkt.loads(self._network.get_edge_data(u, v)["geom"]))]
-                 for x, y in geom.coords
-            ),
-            columns=["lon", "lat", "link_id"]
-        ) # Creating the structure of the dataframe where we'll concatenate ordinary kriging results
+        for target in targets:
+            line_predictions = pd.DataFrame((
+                    (x, y, edge_data["link_id"])
+                     for u, v in sp_edges
+                     for edge_data, geom in
+                     [(self._network.get_edge_data(u, v), wkt.loads(self._network.get_edge_data(u, v)["geom"]))]
+                     for x, y in geom.coords
+                ),
+                columns=["lon", "lat", "link_id"]
+            ) # Creating the structure of the dataframe where we'll concatenate ordinary kriging results
 
-        #TODO FOR VOLUME ONLY
-        ok = self._get_ordinary_kriging(
-            trps_along_sp_preds=trps_along_sp_preds,
-            time_range=time_range,
-            target=GlobalDefinitions.VOLUME,
-            verbose=True)
+            #TODO FOR VOLUME ONLY
+            ok = self._get_ordinary_kriging(
+                trps_along_sp_preds=trps_along_sp_preds,
+                time_range=time_range,
+                target=target,
+                verbose=True
+            )
 
-        z_interpolated_vals, kriging_variance= self._ok_interpolate(ordinary_kriging_obj=ok,
-                                                                    x_coords=line_predictions["lon"].values,
-                                                                    y_coords=line_predictions["lat"].values,
-                                                                    style="points")  # Kriging variance is sometimes called "ss" (sigma squared)
+            z_interpolated_vals, kriging_variance= self._ok_interpolate(ordinary_kriging_obj=ok,
+                                                                        x_coords=line_predictions["lon"].values,
+                                                                        y_coords=line_predictions["lat"].values,
+                                                                        style="points")  # Kriging variance is sometimes called "ss" (sigma squared)
 
-        #TODO FOR VOLUME ONLY
-        line_predictions[f"{GlobalDefinitions.VOLUME}_interpolated_value"] = z_interpolated_vals
-        line_predictions[f"{GlobalDefinitions.VOLUME}_variance"] = kriging_variance
+            #TODO FOR VOLUME ONLY
+            line_predictions[f"{target}_interpolated_value"] = z_interpolated_vals
+            line_predictions[f"{target}_variance"] = kriging_variance
 
 
         # ---------- STEP 5 ----------
-
-        # Converting link_agg_data to dict for fast lookup
-        link_agg_data = dict(link_agg_data) # Simply using the dict() function on a list of tuples
 
 
         #TODO FOR VOLUME ONLY
