@@ -105,7 +105,10 @@ class RoadNetwork:
                 WHERE ST_DWithin(rgl_a.geom::geography, rgl_b.geom::geography, %s)
             )
             SELECT 
-                trp.*
+                trp.id,
+                trp.road_category
+                trp.lat
+                trp.lon
             FROM neighbors n
             JOIN "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" rl_t
               ON n.neighbor_link_id = rl_t.link_id
@@ -341,69 +344,50 @@ class RoadNetwork:
 
         link_agg_data = ((link_id, self._get_link_aggregated_traffic_data(link_id=link_id)) for link_id in trps_per_edge.keys())
 
-        neighbor_trp_preds = {
-            trp: {
-                # Generator of dataframes
+        trps_along_sp_preds = {
+            trp["trp_id"]: {
                 f"{GlobalDefinitions.VOLUME}_preds": self._get_trp_predictions(trp_id=trp["trp_id"],
                                                                                target=GlobalDefinitions.VOLUME,
                                                                                road_category=trp["road_category"])[[GlobalDefinitions.VOLUME, "zoned_dt_iso"]],
-                # Generator of dataframes
                 f"{GlobalDefinitions.MEAN_SPEED}_preds": self._get_trp_predictions(trp_id=trp["trp_id"],
                                                                                    target=GlobalDefinitions.MEAN_SPEED,
                                                                                    road_category=trp["road_category"])[[GlobalDefinitions.MEAN_SPEED, "zoned_dt_iso"]],
                 **trp,
-            } for trp in trps_along_sp
+            }
+            for trp in trps_along_sp
         }
-
-
-
-
-
         #TODO IF TRP PREDICTIONS ARE IN THE RADIUS OF ANOTHER TRP, JUST REUSE THEM AND DO NOT EXECUTE ML PREDICTIONS AGAIN
-        }
-
-        for link_id, data in neighbor_trp_preds.items():
-            neighbor_trp_preds[link_id][f"link_traffic_{GlobalDefinitions.VOLUME}_classes"] = self._get_increments(n=neighbor_trp_preds[link_id]["link_traffic_averages"][f"weighted_{GlobalDefinitions.VOLUME}_avg"] * 2, k=len(TrafficClasses))
-            neighbor_trp_preds[link_id][f"link_traffic_{GlobalDefinitions.MEAN_SPEED}_classes"] = self._get_increments(n=neighbor_trp_preds[link_id]["link_traffic_averages"][f"weighted_{GlobalDefinitions.MEAN_SPEED}_avg"] * 2, k=len(TrafficClasses))
 
 
         # ---------- STEP 4 ----------
 
-        p = {
-            "index": {
-                v: dt for v, dt in trp
+        lons = [trp_data["lon"] for trp_data in trps_along_sp_preds.values()]
+        lats = [trp_data["lat"] for trp_data in trps_along_sp_preds.values()]
+
+        #Creating the ordinary kriging grid
+        grid_lat_lim = np.linspace(min(lons)-0.35, max(lons)+0.35, 100)
+        grid_lon_lim = np.linspace(min(lats)-0.10, max(lats)+0.10, 100)
+
+        volumes = dd.from_dict({
+            idx: {
+                "volume": row[GlobalDefinitions.VOLUME],
+                "zoned_dt_iso": row["zoned_dt_iso"],
+                "lat": trp_data.get("lat"),
+                "lon": trp_data.get("lon"),
             }
-            for trp in link
-
-        }
-
-
-
-        latitudes = [
-            trp.get("lat")
-            for link in neighbor_trp_preds.values()
-            for trp in link.get("preds").values()
-        ]
-        longitudes = [
-            trp.get("lon")
-            for link in neighbor_trp_preds.values()
-            for trp in link.get("preds").values()
-        ]
-        volume_preds = [
-            trp.get(f"{GlobalDefinitions.VOLUME}_preds")
-            for link in neighbor_trp_preds.values()
-            for trp in link.get("preds").values()
-        ]
+            for trp_data in trps_along_sp_preds.values()
+            for idx, row in enumerate(trp_data[f"{GlobalDefinitions.VOLUME}_preds"].itertuples(index=False), start=0)
+        })
 
 
         volume_oks = [
             OrdinaryKriging(
-                latitudes,
-                longitudes,
+                x=longitudes,
+                y=latitudes,
 
                 variogram_model="spherical",
                 coordinates_type="geographical",
-                enable_plotting=True
+                enable_plotting=False
             )
         ]
 
@@ -415,10 +399,31 @@ class RoadNetwork:
 
 
 
-        #TODO INTERPOLATE HERE, GET INTERPOLATED VALUE AND CHECK TO WHICH CLASS IT BELONGS TO
-        # USE self._closest()
 
-        #TODO INTERPOLATE HERE FOR EACH LINK IN A NEW LINE BUFFER, LIKE MAX(10000, link["length"], EXPAND THE BUFFER GRADUALLY IF MORE THAN 40% OF THE ROAD IS MORE THAN AVERAGE ON VOLUME AND MEAN SPEED
+
+
+        #TODO CREATE INTERPOLATION CHARTS FOR OSLO, BERGEN, TRONDHEIM, BODO, TROMSO, STAVANGER, ALTA, ETC. BY EXECUTING FORECASTS FOR EACH TRP IN THOSE CITIES (BY USING MUNICIPALITY ID)
+
+
+
+
+
+
+
+
+
+
+        #TODO DETERMINE CLASSES AFTER ORDINARY KRIGIN BY INTERROGATING THE KRIGING RESULTS FOR A CERTAIN AMOUNT OF COORDINATES OF THE WHOLE SHORTEST PATH (OR A CERTAIN AMOUNT OF EACH LINK) AND DETERMINE IF THEY ARE ABOVE OR UNDER AVERAGE TRAFFIC
+        #TODO TO CHECK TO WHICH CLASS IT BELONGS TO, USE self._closest()
+        for link_id, data in trps_along_sp_preds.items():
+            trps_along_sp_preds[link_id][f"link_traffic_{GlobalDefinitions.VOLUME}_classes"] = self._get_increments(n=trps_along_sp_preds[link_id]["link_traffic_averages"][f"weighted_{GlobalDefinitions.VOLUME}_avg"] * 2, k=len(TrafficClasses))
+            trps_along_sp_preds[link_id][f"link_traffic_{GlobalDefinitions.MEAN_SPEED}_classes"] = self._get_increments(n=trps_along_sp_preds[link_id]["link_traffic_averages"][f"weighted_{GlobalDefinitions.MEAN_SPEED}_avg"] * 2, k=len(TrafficClasses))
+
+
+
+
+
+
 
 
 
