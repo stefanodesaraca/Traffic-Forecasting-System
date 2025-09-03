@@ -399,24 +399,32 @@ class RoadNetwork:
                 style=style,
                 xpoints=x_coords,
                 ypoints=y_coords
-            )
+            ) #TODO FOR THE FUTURE: FIND A WAY TO REUSE THE OrdinaryKriging OBJECT AND JUST USE TH execute() METHOD
 
-        path_line_x_points, path_line_y_points = zip(*chain(wkt.loads(self._network.get_edge_data(u, v).get("geom")).coords for u, v in sp_edges)) # Where x = longitude and y = latitude
 
+        line_volume_predictions = pd.DataFrame([
+                (x, y, edge_data["link_id"])
+                 for u, v in sp_edges
+                 for edge_data, geom in
+                 [(self._network.get_edge_data(u, v), wkt.loads(self._network.get_edge_data(u, v)["geom"]))]
+                 for x, y in geom.coords
+            ],
+            columns=["lon", "lat", "link_id"]
+        )
+
+        #TODO FOR VOLUME ONLY
         z_interpolated_vals, kriging_variance = get_ordinary_kriging(
             target=GlobalDefinitions.VOLUME,
-            x_coords=path_line_x_points,
-            y_coords=path_line_y_points,
+            x_coords=line_volume_predictions["lon"].values,
+            y_coords=line_volume_predictions["lat"].values,
             style="points",
             verbose=True
         ) # Kriging variance is sometimes called "ss" (sigma squared)
 
-        pd.DataFrame({
-            "lon": path_line_x_points,
-            "lat": path_line_y_points,
-            "interpolated_value": z_interpolated_vals,
-            "variance": kriging_variance
-        })
+        line_volume_predictions["interpolated_value"] = z_interpolated_vals
+        line_volume_predictions["variance"] = kriging_variance
+
+
 
 
 
