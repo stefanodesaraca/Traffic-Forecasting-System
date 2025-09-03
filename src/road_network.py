@@ -1,9 +1,10 @@
+import datetime
 import json
 import pickle
 from itertools import chain
 import numpy as np
 import networkx as nx
-from typing import Any, Generator, Mapping
+from typing import Any, Generator, Literal
 from pydantic.types import PositiveFloat, PositiveInt
 from scipy.spatial.distance import minkowski
 import matplotlib.pyplot as plt
@@ -296,10 +297,14 @@ class RoadNetwork:
     def find_route(self,
                    source: str,
                    destination: str,
+                   time_range: list[datetime.datetime], # Can also be 1 datetime only. Must be zoned
                    has_only_public_transport_lanes: bool | None = None,
                    has_toll_stations: bool | None = None,
-                   has_ferry_routes: bool | None = None
+                   has_ferry_routes: bool | None = None,
     ) -> list[tuple[str, str]]:
+
+        if not all([d.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT) for d in time_range]):
+            raise ValueError(f"All time range values must be in {GlobalDefinitions.DT_ISO_TZ_FORMAT} format")
 
         has_only_public_transport_lanes_edges = None
         has_toll_stations_edges = None
@@ -356,13 +361,15 @@ class RoadNetwork:
             }
             for trp in trps_along_sp
         }
-        #TODO IF TRP PREDICTIONS ARE IN THE RADIUS OF ANOTHER TRP, JUST REUSE THEM AND DO NOT EXECUTE ML PREDICTIONS AGAIN
 
 
         # ---------- STEP 4 ----------
 
         lons = [trp_data["lon"] for trp_data in trps_along_sp_preds.values()]
         lats = [trp_data["lat"] for trp_data in trps_along_sp_preds.values()]
+
+        ok_gridx_points = np.linspace(min(lons)-0.35, max(lons)+0.35, 100) #TODO THESE WILL BE USED TO CREATE AN KRIGING INTERPOLATIONS GRID TO MERGE WITH A FOLIUM MAP ABOVE A CITY GEOMETRY
+        ok_gridy_points = np.linspace(min(lats)-0.10, max(lats)+0.10, 100)
 
         def get_ok_structured_data(target: str):
             return dd.from_dict({
@@ -374,9 +381,12 @@ class RoadNetwork:
                 }
                 for trp_data in trps_along_sp_preds.values()
                 for idx, row in enumerate(trp_data[f"{target}_preds"].itertuples(index=False), start=0)
+                if row["zoned_dt_iso"] in time_range # This way we'll execute ordinary kriging only the strictly necessary number of times
             })
 
-        def get_ordinary_kriging(target: str, verbose: bool = False):
+        def get_ordinary_kriging(target: str, x_coords: list[float], y_coords: list[float], ok_style: Literal["grid", "points"], verbose: bool = False):
+            if not len(x_coords) == len(y_coords):
+                raise ValueError("There must be exactly the same number of pairs of coordinates")
             ok_df = get_ok_structured_data(target=GlobalDefinitions.target)
             return OrdinaryKriging(
                 x=ok_df["lon"].values,
@@ -387,15 +397,25 @@ class RoadNetwork:
                 verbose=verbose,
                 enable_plotting=True
             ).execute(
-                style="grid",
-                xpoints=np.linspace(min(lats)-0.10, max(lats)+0.10, 100),
-                ypoints=np.linspace(min(lons)-0.35, max(lons)+0.35, 100)
+                style=ok_style,
+                xpoints=x_coords,
+                ypoints=y_coords
             )
 
 
 
 
-        #TODO THE GRIDS IN EXECUTE WILL HAVE TO MATCH THE PATH LINE BUFFER RADIUS
+
+
+
+
+
+
+
+
+        #TODO USE POINTS TO CALCULATE KRIGING ON THE LINESTRING THAT DEFINES THE SHORTEST PATH BY FEEDING THE Xs AN Ys AS THE LINESTRING POINTS
+        #TODO ADD AS A LAYER THE TRPS WHICH WERE USE FOR ORDINARY KRIGING ON A SPECIFIC PATH
+
         #NOTE EXECUTE OrdinaryKriging FOR ANY OF THE HOURLY FORECASTED DATA SO WE CAN SHOW THE DIFFERENCE IN TRAFFIC BETWEEN HOURS ALONG THE SHORTEST PATH
 
 
