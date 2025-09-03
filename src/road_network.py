@@ -361,7 +361,7 @@ class RoadNetwork:
                                                                                road_category=trp["road_category"])[[GlobalDefinitions.VOLUME, "zoned_dt_iso"]],
                 f"{GlobalDefinitions.MEAN_SPEED}_preds": self._get_trp_predictions(trp_id=trp["trp_id"],
                                                                                    target=GlobalDefinitions.MEAN_SPEED,
-                                                                                   road_category=trp["road_category"])[[GlobalDefinitions.MEAN_SPEED, "zoned_dt_iso"]],
+                                                                                   road_category=trp["road_category"])[[GlobalDefinitions.MEAN_SPEED, "zoned_dt_iso"]], #TODO DON'T USE MEAN SPEED IF use_mean_speed = False
                 **trp,
             } for trp in trps_along_sp
         }
@@ -402,13 +402,13 @@ class RoadNetwork:
             ) #TODO FOR THE FUTURE: FIND A WAY TO REUSE THE OrdinaryKriging OBJECT AND JUST USE TH execute() METHOD
 
 
-        line_volume_predictions = pd.DataFrame([
+        line_volume_predictions = pd.DataFrame((
                 (x, y, edge_data["link_id"])
                  for u, v in sp_edges
                  for edge_data, geom in
                  [(self._network.get_edge_data(u, v), wkt.loads(self._network.get_edge_data(u, v)["geom"]))]
                  for x, y in geom.coords
-            ],
+            ),
             columns=["lon", "lat", "link_id"]
         )
 
@@ -421,15 +421,63 @@ class RoadNetwork:
             verbose=True
         ) # Kriging variance is sometimes called "ss" (sigma squared)
 
-        line_volume_predictions["interpolated_value"] = z_interpolated_vals
-        line_volume_predictions["variance"] = kriging_variance
-
-
-
-
+        #TODO FOR VOLUME ONLY
+        line_volume_predictions[f"{GlobalDefinitions.VOLUME}_interpolated_value"] = z_interpolated_vals
+        line_volume_predictions[f"{GlobalDefinitions.VOLUME}_variance"] = kriging_variance
 
 
         # ---------- STEP 5 ----------
+
+        # Converting link_agg_data to dict for fast lookup
+        link_agg_data = dict(link_agg_data) # Simply using the dict() function on a list of tuples
+
+
+        #TODO FOR VOLUME ONLY
+        line_volume_predictions[f"link_avg_{GlobalDefinitions.VOLUME}"] = line_volume_predictions["link_id"].map(lambda link_id: link_agg_data[link_id][f"weighted_avg_{GlobalDefinitions.VOLUME}"])
+
+        #TODO FOR VOLUME ONLY
+        # Difference (point prediction - link-level avg)
+        line_volume_predictions[f"{GlobalDefinitions.VOLUME}_diff_from_avg"] = line_volume_predictions[f"{GlobalDefinitions.VOLUME}_interpolated_value"] - line_volume_predictions[f"link_avg_{GlobalDefinitions.VOLUME}"]
+
+        #TODO FOR VOLUME ONLY
+        # Merge STD computation into the dataframe
+        line_volume_predictions = line_volume_predictions.merge((
+            line_volume_predictions
+            .groupby("link_id")[f"{GlobalDefinitions.VOLUME}_diff_from_avg"]
+            .std()
+            .rename(f"{GlobalDefinitions.VOLUME}_diff_std")
+        ), on="link_id", how="left")
+
+        #TODO FOR VOLUME ONLY
+        pct_diff = (line_volume_predictions[f"{GlobalDefinitions.VOLUME}_interpolated_value"] - line_volume_predictions[f"link_avg_{GlobalDefinitions.VOLUME}"]) / line_volume_predictions[f"link_avg_{GlobalDefinitions.VOLUME}"] * 100
+        line_volume_predictions[f"{GlobalDefinitions.VOLUME}_traffic_class"] = np.select(
+            [
+                pct_diff < -25, # LOW
+                (pct_diff >= -25) & (pct_diff < -15), # LOW_AVERAGE
+                (pct_diff >= -15) & (pct_diff <= 15), # AVERAGE
+                (pct_diff > 15) & (pct_diff <= 25), # HIGH_AVERAGE
+                (pct_diff > 25) & (pct_diff <= 50), # HIGH
+                pct_diff > 50 # STOP_AND_GO
+            ],
+            [
+                TrafficClasses.LOW.name,
+                TrafficClasses.LOW_AVERAGE.name,
+                TrafficClasses.AVERAGE.name,
+                TrafficClasses.HIGH_AVERAGE.name,
+                TrafficClasses.HIGH.name,
+                TrafficClasses.STOP_AND_GO.name
+            ],
+            default=TrafficClasses.LOW.name
+        ) # Each traffic class represents a percentage difference from the mean, example: if the forecasted value distance from the mean is within 15-25% more than the mean then average_high elif 25-50% more high, elif 50-100% stop and go
+
+
+        high_traffic_links_perc = line_volume_predictions[f"{GlobalDefinitions.VOLUME}_traffic_class"].isin([TrafficClasses.HIGH_AVERAGE.name, TrafficClasses.HIGH.name]).mean() * 100
+        # Getting only the fraction of rows where the mask value is True, so it is already a division on the total of rows
+        # It's just a shortcut for mask = *row_value* isin(...) -> mask.sum() / len(mask)
+
+        if high_traffic_links_perc > 50:
+            ... #TODO START PREDICTIONS AGAIN AND USE THEM COMBINED WITH OTHER DATA FROM THE LINK
+
 
 
 
@@ -437,32 +485,7 @@ class RoadNetwork:
 
         #TODO ADD AS A LAYER THE TRPS WHICH WERE USE FOR ORDINARY KRIGING ON A SPECIFIC PATH
 
-        #NOTE EXECUTE OrdinaryKriging FOR ANY OF THE HOURLY FORECASTED DATA SO WE CAN SHOW THE DIFFERENCE IN TRAFFIC BETWEEN HOURS ALONG THE SHORTEST PATH
-
-
-
-
-
-
-
-
         #TODO CREATE INTERPOLATION CHARTS FOR OSLO, BERGEN, TRONDHEIM, BODO, TROMSO, STAVANGER, ALTA, ETC. BY EXECUTING FORECASTS FOR EACH TRP IN THOSE CITIES (BY USING MUNICIPALITY ID)
-
-
-
-
-
-
-
-
-
-
-        #TODO DETERMINE CLASSES AFTER ORDINARY KRIGING BY INTERROGATING THE KRIGING RESULTS FOR A CERTAIN AMOUNT OF COORDINATES OF THE WHOLE SHORTEST PATH (OR A CERTAIN AMOUNT OF EACH LINK) AND DETERMINE IF THEY ARE ABOVE OR UNDER AVERAGE TRAFFIC
-        #TODO TO CHECK TO WHICH CLASS IT BELONGS TO, USE self._closest()
-        for link_id, data in trps_along_sp_preds.items():
-            trps_along_sp_preds[link_id][f"link_traffic_{GlobalDefinitions.VOLUME}_classes"] = self._get_increments(n=trps_along_sp_preds[link_id]["link_traffic_averages"][f"weighted_{GlobalDefinitions.VOLUME}_avg"] * 2, k=len(TrafficClasses))
-            trps_along_sp_preds[link_id][f"link_traffic_{GlobalDefinitions.MEAN_SPEED}_classes"] = self._get_increments(n=trps_along_sp_preds[link_id]["link_traffic_averages"][f"weighted_{GlobalDefinitions.MEAN_SPEED}_avg"] * 2, k=len(TrafficClasses))
-
 
 
 

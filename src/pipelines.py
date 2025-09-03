@@ -725,7 +725,7 @@ class MLPredictionPipeline:
 
         last_available_data_dt = self._db_broker.get_volume_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"] if self._target == GlobalDefinitions.VOLUME else \
         self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"]
-        rows_to_predict = ({
+        rows_to_predict = pd.DataFrame({
             "trp_id": self._trp_id,
             **attr,
             "coverage": 100.0,
@@ -744,7 +744,7 @@ class MLPredictionPipeline:
         } for dt in pd.date_range(start=last_available_data_dt, end=forecasting_horizon, freq="1h"))
         # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
-        return dd.from_pandas(pd.DataFrame(list(rows_to_predict))).assign(is_future=True).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).persist()
+        return dd.from_pandas(rows_to_predict).assign(is_future=True).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).persist()
 
 
     def _get_future_records(self):
