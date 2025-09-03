@@ -364,36 +364,39 @@ class RoadNetwork:
         lons = [trp_data["lon"] for trp_data in trps_along_sp_preds.values()]
         lats = [trp_data["lat"] for trp_data in trps_along_sp_preds.values()]
 
-        #Creating the ordinary kriging grid
-        grid_lat_lim = np.linspace(min(lons)-0.35, max(lons)+0.35, 100)
-        grid_lon_lim = np.linspace(min(lats)-0.10, max(lats)+0.10, 100)
+        def get_ok_structured_data(target: str):
+            return dd.from_dict({
+                idx: {
+                    f"{target}": row[target],
+                    "zoned_dt_iso": row["zoned_dt_iso"],
+                    "lon": trp_data.get("lon"),
+                    "lat": trp_data.get("lat"),
+                }
+                for trp_data in trps_along_sp_preds.values()
+                for idx, row in enumerate(trp_data[f"{target}_preds"].itertuples(index=False), start=0)
+            })
 
-        volumes = dd.from_dict({
-            idx: {
-                "volume": row[GlobalDefinitions.VOLUME],
-                "zoned_dt_iso": row["zoned_dt_iso"],
-                "lat": trp_data.get("lat"),
-                "lon": trp_data.get("lon"),
-            }
-            for trp_data in trps_along_sp_preds.values()
-            for idx, row in enumerate(trp_data[f"{GlobalDefinitions.VOLUME}_preds"].itertuples(index=False), start=0)
-        })
-
-
-        volume_oks = [
-            OrdinaryKriging(
-                x=longitudes,
-                y=latitudes,
-
+        def get_ordinary_kriging(target: str, verbose: bool = False):
+            ok_df = get_ok_structured_data(target=GlobalDefinitions.target)
+            return OrdinaryKriging(
+                x=ok_df["lon"].values,
+                y=ok_df["lat"].values,
+                z=ok_df[target].values,
                 variogram_model="spherical",
                 coordinates_type="geographical",
-                enable_plotting=False
+                verbose=verbose,
+                enable_plotting=True
+            ).execute(
+                style="grid",
+                xpoints=np.linspace(min(lats)-0.10, max(lats)+0.10, 100),
+                ypoints=np.linspace(min(lons)-0.35, max(lons)+0.35, 100)
             )
-        ]
+
+
 
 
         #TODO THE GRIDS IN EXECUTE WILL HAVE TO MATCH THE PATH LINE BUFFER RADIUS
-        #NOTE EXECUTING OrdinaryKriging FOR EVERY HOURLY FORECASTED DATA WE HAVE SO TO SHOW THE DIFFERENCE IN TRAFFIC BETWEEN HOURS ALONG THE SHORTEST PATH
+        #NOTE EXECUTE OrdinaryKriging FOR ANY OF THE HOURLY FORECASTED DATA SO WE CAN SHOW THE DIFFERENCE IN TRAFFIC BETWEEN HOURS ALONG THE SHORTEST PATH
 
 
 
@@ -413,7 +416,7 @@ class RoadNetwork:
 
 
 
-        #TODO DETERMINE CLASSES AFTER ORDINARY KRIGIN BY INTERROGATING THE KRIGING RESULTS FOR A CERTAIN AMOUNT OF COORDINATES OF THE WHOLE SHORTEST PATH (OR A CERTAIN AMOUNT OF EACH LINK) AND DETERMINE IF THEY ARE ABOVE OR UNDER AVERAGE TRAFFIC
+        #TODO DETERMINE CLASSES AFTER ORDINARY KRIGING BY INTERROGATING THE KRIGING RESULTS FOR A CERTAIN AMOUNT OF COORDINATES OF THE WHOLE SHORTEST PATH (OR A CERTAIN AMOUNT OF EACH LINK) AND DETERMINE IF THEY ARE ABOVE OR UNDER AVERAGE TRAFFIC
         #TODO TO CHECK TO WHICH CLASS IT BELONGS TO, USE self._closest()
         for link_id, data in trps_along_sp_preds.items():
             trps_along_sp_preds[link_id][f"link_traffic_{GlobalDefinitions.VOLUME}_classes"] = self._get_increments(n=trps_along_sp_preds[link_id]["link_traffic_averages"][f"weighted_{GlobalDefinitions.VOLUME}_avg"] * 2, k=len(TrafficClasses))
