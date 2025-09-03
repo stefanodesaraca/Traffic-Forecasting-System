@@ -1,17 +1,18 @@
 import datetime
-import json
 import pickle
 from itertools import chain
-import numpy as np
-import networkx as nx
 from typing import Any, Generator, Literal
-from pydantic.types import PositiveFloat, PositiveInt
 from scipy.spatial.distance import minkowski
-import matplotlib.pyplot as plt
 from shapely import wkt
+from pydantic.types import PositiveFloat, PositiveInt
+import networkx as nx
+import numpy as np
+import pandas as pd
 import dask.dataframe as dd
 import utm
 from pykrige.ok import OrdinaryKriging
+import matplotlib.pyplot as plt
+
 
 from definitions import GlobalDefinitions, ProjectTables, ProjectMaterializedViews, TrafficClasses, IconStyles
 from loaders import BatchStreamLoader
@@ -364,15 +365,10 @@ class RoadNetwork:
                 **trp,
             } for trp in trps_along_sp
         }
+        #TODO STORE THIS SEPARATELY TO RE-USE THEM FOR FUTURE SLIGHTLY DIFFERENT SHORTEST PATH WHICH HAVE THE SAME TRPS IN COMMON WITH THE PREVIOUS SHORTEST PATHS
 
 
         # ---------- STEP 4 ----------
-
-        lons = [trp_data["lon"] for trp_data in trps_along_sp_preds.values()]
-        lats = [trp_data["lat"] for trp_data in trps_along_sp_preds.values()]
-
-        ok_gridx_points = np.linspace(min(lons)-0.35, max(lons)+0.35, 100) #TODO THESE WILL BE USED TO CREATE AN KRIGING INTERPOLATIONS GRID TO MERGE WITH A FOLIUM MAP ABOVE A CITY GEOMETRY
-        ok_gridy_points = np.linspace(min(lats)-0.10, max(lats)+0.10, 100)
 
         def get_ok_structured_data(target: str):
             return dd.from_dict({
@@ -387,7 +383,7 @@ class RoadNetwork:
                 if row["zoned_dt_iso"] in time_range # This way we'll execute ordinary kriging only the strictly necessary number of times
             })
 
-        def get_ordinary_kriging(target: str, x_coords: list[float], y_coords: list[float], ok_style: Literal["grid", "points"], verbose: bool = False):
+        def get_ordinary_kriging(target: str, x_coords: list[float], y_coords: list[float], style: Literal["grid", "points"], verbose: bool = False):
             if not len(x_coords) == len(y_coords):
                 raise ValueError("There must be exactly the same number of pairs of coordinates")
             ok_df = get_ok_structured_data(target=GlobalDefinitions.target)
@@ -400,18 +396,27 @@ class RoadNetwork:
                 verbose=verbose,
                 enable_plotting=True
             ).execute(
-                style=ok_style,
+                style=style,
                 xpoints=x_coords,
                 ypoints=y_coords
             )
 
+        path_line_x_points, path_line_y_points = zip(*chain(wkt.loads(self._network.get_edge_data(u, v).get("geom")).coords for u, v in sp_edges)) # Where x = longitude and y = latitude
 
-        path_line_geometry = list(chain(self._network.get_edge_data(u, v).get("geom") for u, v in sp_edges))
+        z_interpolated_vals, kriging_variance = get_ordinary_kriging(
+            target=GlobalDefinitions.VOLUME,
+            x_coords=path_line_x_points,
+            y_coords=path_line_y_points,
+            style="points",
+            verbose=True
+        ) # Kriging variance is sometimes called "ss" (sigma squared)
 
-
-
-
-
+        pd.DataFrame({
+            "lon": path_line_x_points,
+            "lat": path_line_y_points,
+            "interpolated_value": z_interpolated_vals,
+            "variance": kriging_variance
+        })
 
 
 
@@ -422,14 +427,6 @@ class RoadNetwork:
 
 
 
-
-
-
-
-
-
-
-        #TODO USE POINTS TO CALCULATE KRIGING ON THE LINESTRING THAT DEFINES THE SHORTEST PATH BY FEEDING THE Xs AN Ys AS THE LINESTRING POINTS
         #TODO ADD AS A LAYER THE TRPS WHICH WERE USE FOR ORDINARY KRIGING ON A SPECIFIC PATH
 
         #NOTE EXECUTE OrdinaryKriging FOR ANY OF THE HOURLY FORECASTED DATA SO WE CAN SHOW THE DIFFERENCE IN TRAFFIC BETWEEN HOURS ALONG THE SHORTEST PATH
