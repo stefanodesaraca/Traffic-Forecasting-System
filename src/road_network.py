@@ -298,13 +298,19 @@ class RoadNetwork:
                    source: str,
                    destination: str,
                    time_range: list[datetime.datetime], # Can also be 1 datetime only. Must be zoned
+                   use_volume: bool | None = True,
+                   use_mean_speed: bool | None = None,
                    has_only_public_transport_lanes: bool | None = None,
                    has_toll_stations: bool | None = None,
                    has_ferry_routes: bool | None = None,
+                   trp_research_buffer_radius: PositiveInt = 3500
     ) -> list[tuple[str, str]]:
 
         if not all([d.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT) for d in time_range]):
             raise ValueError(f"All time range values must be in {GlobalDefinitions.DT_ISO_TZ_FORMAT} format")
+
+        if not any([use_volume, use_mean_speed]):
+            raise ValueError(f"At least one of use_{GlobalDefinitions.VOLUME} or use_{GlobalDefinitions.MEAN_SPEED} must be set to True")
 
         has_only_public_transport_lanes_edges = None
         has_toll_stations_edges = None
@@ -333,21 +339,19 @@ class RoadNetwork:
 
         # ---------- STEP 2 ----------
 
-        buffer_radius = 3500
         trps_per_edge = {}
         while True:
             for e in sp_edges:
-                trps_per_edge[e[2]["link_id"]] = self._get_neighbor_trps(e[2]["link_id"], buffer_radius)
+                trps_per_edge[e[2]["link_id"]] = self._get_neighbor_trps(e[2]["link_id"], trp_research_buffer_radius)
             if sum(len(v) for v in trps_per_edge) >= min(3, len(sp) // 3):
                 break
-            buffer_radius += 2000
+            trp_research_buffer_radius += 2000
 
         trps_along_sp: set[dict[str, Any]] = set(*chain(trps_per_edge.values())) # A set of dictionary where each dict is a TRP with its metadata (id, road_category, etc.)
+        link_agg_data = ((link_id, self._get_link_aggregated_traffic_data(link_id=link_id)) for link_id in trps_per_edge.keys())
 
 
         # ---------- STEP 3 ----------
-
-        link_agg_data = ((link_id, self._get_link_aggregated_traffic_data(link_id=link_id)) for link_id in trps_per_edge.keys())
 
         trps_along_sp_preds = {
             trp["trp_id"]: {
@@ -358,8 +362,7 @@ class RoadNetwork:
                                                                                    target=GlobalDefinitions.MEAN_SPEED,
                                                                                    road_category=trp["road_category"])[[GlobalDefinitions.MEAN_SPEED, "zoned_dt_iso"]],
                 **trp,
-            }
-            for trp in trps_along_sp
+            } for trp in trps_along_sp
         }
 
 
@@ -401,6 +404,19 @@ class RoadNetwork:
                 xpoints=x_coords,
                 ypoints=y_coords
             )
+
+
+        path_line_geometry = list(chain(self._network.get_edge_data(u, v).get("geom") for u, v in sp_edges))
+
+
+
+
+
+
+
+
+
+        # ---------- STEP 5 ----------
 
 
 
