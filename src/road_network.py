@@ -313,6 +313,45 @@ class RoadNetwork:
             trp_research_buffer_radius += 2000
 
 
+    @staticmethod
+    def _get_ok_structured_data(trps_along_sp_preds: dict[str, dict[str, dd.DataFrame]], time_range: list[datetime.datetime], target: str):
+        return dd.from_dict({
+            idx: {
+                f"{target}": row[target],
+                "zoned_dt_iso": row["zoned_dt_iso"],
+                "lon": trp_data.get("lon"),
+                "lat": trp_data.get("lat"),
+            }
+            for trp_data in trps_along_sp_preds.values()
+            for idx, row in enumerate(trp_data[f"{target}_preds"].itertuples(index=False), start=0)
+            if row["zoned_dt_iso"] in time_range # This way we'll execute ordinary kriging only the strictly necessary number of times
+        })
+
+
+    def _get_ordinary_kriging(self, trps_along_sp_preds: dict[str, dict[str, dd.DataFrame]], time_range: list[datetime.datetime], target: str, verbose: bool = False):
+        ok_df = self._get_ok_structured_data(trps_along_sp_preds=trps_along_sp_preds, time_range=time_range, target=GlobalDefinitions.target)
+        return OrdinaryKriging(
+            x=ok_df["lon"].values,
+            y=ok_df["lat"].values,
+            z=ok_df[target].values,
+            variogram_model="spherical",
+            coordinates_type="geographical",
+            verbose=verbose,
+            enable_plotting=True
+        )
+
+
+    @staticmethod
+    def _ok_interpolate(ordinary_kriging_obj: OrdinaryKriging, x_coords: list[float], y_coords: list[float], style: Literal["grid", "points"]) -> Any:
+        if not len(x_coords) == len(y_coords):
+            raise ValueError("There must be exactly the same number of pairs of coordinates")
+        return ordinary_kriging_obj.execute(
+            style=style,
+            xpoints=x_coords,
+            ypoints=y_coords
+        )
+
+
 
     def find_route(self,
                    source: str,
@@ -331,6 +370,12 @@ class RoadNetwork:
 
         if not any([use_volume, use_mean_speed]):
             raise ValueError(f"At least one of use_{GlobalDefinitions.VOLUME} or use_{GlobalDefinitions.MEAN_SPEED} must be set to True")
+
+        targets = []
+        if use_volume:
+            targets.append(GlobalDefinitions.VOLUME)
+        if use_mean_speed:
+            targets.append(GlobalDefinitions.MEAN_SPEED)
 
         has_only_public_transport_lanes_edges = None
         has_toll_stations_edges = None
@@ -367,12 +412,6 @@ class RoadNetwork:
 
         # ---------- STEP 3 ----------
 
-        targets = []
-        if use_volume:
-            targets.append(GlobalDefinitions.VOLUME)
-        if use_mean_speed:
-            targets.append(GlobalDefinitions.MEAN_SPEED)
-
         trps_along_sp_preds = {
             trp["trp_id"]: {
                 **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["trp_id"], target=target, road_category=trp["road_category"], lags=[24, 36, 48, 60, 72])[[target, "zoned_dt_iso"]]
@@ -385,39 +424,7 @@ class RoadNetwork:
 
         # ---------- STEP 4 ----------
 
-        def get_ok_structured_data(target: str):
-            return dd.from_dict({
-                idx: {
-                    f"{target}": row[target],
-                    "zoned_dt_iso": row["zoned_dt_iso"],
-                    "lon": trp_data.get("lon"),
-                    "lat": trp_data.get("lat"),
-                }
-                for trp_data in trps_along_sp_preds.values()
-                for idx, row in enumerate(trp_data[f"{target}_preds"].itertuples(index=False), start=0)
-                if row["zoned_dt_iso"] in time_range # This way we'll execute ordinary kriging only the strictly necessary number of times
-            })
-
-        def get_ordinary_kriging(target: str, x_coords: list[float], y_coords: list[float], style: Literal["grid", "points"], verbose: bool = False):
-            if not len(x_coords) == len(y_coords):
-                raise ValueError("There must be exactly the same number of pairs of coordinates")
-            ok_df = get_ok_structured_data(target=GlobalDefinitions.target)
-            return OrdinaryKriging(
-                x=ok_df["lon"].values,
-                y=ok_df["lat"].values,
-                z=ok_df[target].values,
-                variogram_model="spherical",
-                coordinates_type="geographical",
-                verbose=verbose,
-                enable_plotting=True
-            ).execute(
-                style=style,
-                xpoints=x_coords,
-                ypoints=y_coords
-            ) #TODO FOR THE FUTURE: FIND A WAY TO REUSE THE OrdinaryKriging OBJECT AND JUST USE TH execute() METHOD
-
-
-        line_volume_predictions = pd.DataFrame((
+        line_predictions = pd.DataFrame((
                 (x, y, edge_data["link_id"])
                  for u, v in sp_edges
                  for edge_data, geom in
@@ -425,20 +432,23 @@ class RoadNetwork:
                  for x, y in geom.coords
             ),
             columns=["lon", "lat", "link_id"]
-        )
+        ) # Creating the structure of the dataframe where we'll concatenate ordinary kriging results
 
         #TODO FOR VOLUME ONLY
-        z_interpolated_vals, kriging_variance = get_ordinary_kriging(
+        ok = self._get_ordinary_kriging(
+            trps_along_sp_preds=trps_along_sp_preds,
+            time_range=time_range,
             target=GlobalDefinitions.VOLUME,
-            x_coords=line_volume_predictions["lon"].values,
-            y_coords=line_volume_predictions["lat"].values,
-            style="points",
-            verbose=True
-        ) # Kriging variance is sometimes called "ss" (sigma squared)
+            verbose=True)
+
+        z_interpolated_vals, kriging_variance= self._ok_interpolate(ordinary_kriging_obj=ok,
+                                                                    x_coords=line_predictions["lon"].values,
+                                                                    y_coords=line_predictions["lat"].values,
+                                                                    style="points")  # Kriging variance is sometimes called "ss" (sigma squared)
 
         #TODO FOR VOLUME ONLY
-        line_volume_predictions[f"{GlobalDefinitions.VOLUME}_interpolated_value"] = z_interpolated_vals
-        line_volume_predictions[f"{GlobalDefinitions.VOLUME}_variance"] = kriging_variance
+        line_predictions[f"{GlobalDefinitions.VOLUME}_interpolated_value"] = z_interpolated_vals
+        line_predictions[f"{GlobalDefinitions.VOLUME}_variance"] = kriging_variance
 
 
         # ---------- STEP 5 ----------
@@ -448,24 +458,24 @@ class RoadNetwork:
 
 
         #TODO FOR VOLUME ONLY
-        line_volume_predictions[f"link_avg_{GlobalDefinitions.VOLUME}"] = line_volume_predictions["link_id"].map(lambda link_id: link_agg_data[link_id][f"weighted_avg_{GlobalDefinitions.VOLUME}"])
+        line_predictions[f"link_avg_{GlobalDefinitions.VOLUME}"] = line_predictions["link_id"].map(lambda link_id: link_agg_data[link_id][f"weighted_avg_{GlobalDefinitions.VOLUME}"])
 
         #TODO FOR VOLUME ONLY
         # Difference (point prediction - link-level avg)
-        line_volume_predictions[f"{GlobalDefinitions.VOLUME}_diff_from_avg"] = line_volume_predictions[f"{GlobalDefinitions.VOLUME}_interpolated_value"] - line_volume_predictions[f"link_avg_{GlobalDefinitions.VOLUME}"]
+        line_predictions[f"{GlobalDefinitions.VOLUME}_diff_from_avg"] = line_predictions[f"{GlobalDefinitions.VOLUME}_interpolated_value"] - line_predictions[f"link_avg_{GlobalDefinitions.VOLUME}"]
 
         #TODO FOR VOLUME ONLY
         # Merge STD computation into the dataframe
-        line_volume_predictions = line_volume_predictions.merge((
-            line_volume_predictions
+        line_predictions = line_predictions.merge((
+            line_predictions
             .groupby("link_id")[f"{GlobalDefinitions.VOLUME}_diff_from_avg"]
             .std()
             .rename(f"{GlobalDefinitions.VOLUME}_diff_std")
         ), on="link_id", how="left")
 
         #TODO FOR VOLUME ONLY
-        pct_diff = (line_volume_predictions[f"{GlobalDefinitions.VOLUME}_interpolated_value"] - line_volume_predictions[f"link_avg_{GlobalDefinitions.VOLUME}"]) / line_volume_predictions[f"link_avg_{GlobalDefinitions.VOLUME}"] * 100
-        line_volume_predictions[f"{GlobalDefinitions.VOLUME}_traffic_class"] = np.select(
+        pct_diff = (line_predictions[f"{GlobalDefinitions.VOLUME}_interpolated_value"] - line_predictions[f"link_avg_{GlobalDefinitions.VOLUME}"]) / line_predictions[f"link_avg_{GlobalDefinitions.VOLUME}"] * 100
+        line_predictions[f"{GlobalDefinitions.VOLUME}_traffic_class"] = np.select(
             [
                 pct_diff < -25, # LOW
                 (pct_diff >= -25) & (pct_diff < -15), # LOW_AVERAGE
@@ -486,7 +496,7 @@ class RoadNetwork:
         ) # Each traffic class represents a percentage difference from the mean, example: if the forecasted value distance from the mean is within 15-25% more than the mean then average_high elif 25-50% more high, elif 50-100% stop and go
 
 
-        high_traffic_links_perc = line_volume_predictions[f"{GlobalDefinitions.VOLUME}_traffic_class"].isin([TrafficClasses.HIGH_AVERAGE.name, TrafficClasses.HIGH.name]).mean() * 100
+        high_traffic_links_perc = line_predictions[f"{GlobalDefinitions.VOLUME}_traffic_class"].isin([TrafficClasses.HIGH_AVERAGE.name, TrafficClasses.HIGH.name]).mean() * 100
         # Getting only the fraction of rows where the mask value is True, so it is already a division on the total of rows
         # It's just a shortcut for mask = *row_value* isin(...) -> mask.sum() / len(mask)
 
