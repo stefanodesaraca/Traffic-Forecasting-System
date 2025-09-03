@@ -1,7 +1,7 @@
 import datetime
 import pickle
 from itertools import chain
-from typing import Any, Generator, Literal
+from typing import Any, Generator, Literal, Mapping
 from scipy.spatial.distance import minkowski
 from shapely import wkt
 from pydantic.types import PositiveFloat, PositiveInt
@@ -183,13 +183,13 @@ class RoadNetwork:
         #Returning the average value of each target variable aggregated respectively by any counties, municipalities and road categories the link may belong to, this way we'll have a customized indicator of what are the "normal" (average) conditions on that road
 
 
-    def _get_trp_predictions(self, trp_id: str, target: str, road_category: str) -> Generator[dd.DataFrame, None, None] | dd.DataFrame:
+    def _get_trp_predictions(self, trp_id: str, target: str, road_category: str, lags: list[PositiveInt]) -> Generator[dd.DataFrame, None, None] | dd.DataFrame:
         #return (
         #    MLPredictionPipeline(trp_id=trp_id, target=target, road_category=road_category, model=model, preprocessing_pipeline=MLPreprocessingPipeline(), loader=self._loader, db_broker=self._db_broker).start()
         #    for model in self._db_broker.get_trained_model_objects(target=target, road_category=road_category)
         #)
         models = {m["name"]: pickle.loads(m["pickle_object"]) for m in self._db_broker.get_trained_model_objects(target=target, road_category=road_category)}
-        return MLPredictionPipeline(trp_id=trp_id, target=target, road_category=road_category, model=models["HistGradientBoostingRegressor"], preprocessing_pipeline=MLPreprocessingPipeline(), loader=self._loader, db_broker=self._db_broker).start()
+        return MLPredictionPipeline(trp_id=trp_id, target=target, road_category=road_category, model=models["HistGradientBoostingRegressor"], preprocessing_pipeline=MLPreprocessingPipeline(), loader=self._loader, db_broker=self._db_broker).start(lags=lags)
 
 
     @staticmethod
@@ -295,6 +295,25 @@ class RoadNetwork:
         return None
 
 
+    def _get_shortest_path(self, source: str, destination: str, heuristic: callable, weight: callable) -> list[str]:
+        return nx.astar_path(G=self._network, source=source, target=destination, heuristic=heuristic, weight=weight)
+
+
+    def _get_path_edges(self, p: list[str]) -> list[tuple[str, str, Mapping[str, Any]]]:
+        return [(u, v, self._network.get_edge_data(u, v)) for u, v in zip(p, p[1:])] #TODO TEST IF THIS WORKS WITH A GENERATOR AS WELL CALLING THE find_route() METHOD TWICE IN THE SAME RUNTIME
+
+
+    def _get_trps_per_edge(self, edges: list[tuple[str, str, Mapping[str, Any]]], trp_research_buffer_radius: PositiveInt) -> dict[str, list[dict[str, Any]]]:
+        trps_per_edge = {}
+        while True:
+            for e in edges:
+                trps_per_edge[e[2]["link_id"]] = self._get_neighbor_trps(e[2]["link_id"], trp_research_buffer_radius)
+            if sum(len(v) for v in trps_per_edge) >= min(3, len(edges) // 3):
+                return trps_per_edge
+            trp_research_buffer_radius += 2000
+
+
+
     def find_route(self,
                    source: str,
                    destination: str,
@@ -331,22 +350,16 @@ class RoadNetwork:
 
         # ---------- STEP 1 ----------
 
-        sp = nx.astar_path(G=self._network, source=source, target=destination, heuristic=lambda u, v: self._get_minkowski_dist(u, v, self._network), weight="length")
-        sp_edges = [(u, v, self._network.get_edge_data(u, v)) for u, v in zip(sp, sp[1:])] #TODO TEST IF THIS WORKS WITH A GENERATOR AS WELL CALLING THE find_route() METHOD TWICE IN THE SAME RUNTIME
-
+        sp = self._get_shortest_path(source=source, destination=destination, heuristic=lambda u, v: self._get_minkowski_dist(u, v, self._network), weight="length")
         print(sp)
+
+        sp_edges = self._get_path_edges(sp)
         print(sp_edges)
 
 
         # ---------- STEP 2 ----------
 
-        trps_per_edge = {}
-        while True:
-            for e in sp_edges:
-                trps_per_edge[e[2]["link_id"]] = self._get_neighbor_trps(e[2]["link_id"], trp_research_buffer_radius)
-            if sum(len(v) for v in trps_per_edge) >= min(3, len(sp) // 3):
-                break
-            trp_research_buffer_radius += 2000
+        trps_per_edge = self._get_trps_per_edge(edges=sp_edges, trp_research_buffer_radius=trp_research_buffer_radius)
 
         trps_along_sp: set[dict[str, Any]] = set(*chain(trps_per_edge.values())) # A set of dictionary where each dict is a TRP with its metadata (id, road_category, etc.)
         link_agg_data = ((link_id, self._get_link_aggregated_traffic_data(link_id=link_id)) for link_id in trps_per_edge.keys())
@@ -354,14 +367,16 @@ class RoadNetwork:
 
         # ---------- STEP 3 ----------
 
+        targets = []
+        if use_volume:
+            targets.append(GlobalDefinitions.VOLUME)
+        if use_mean_speed:
+            targets.append(GlobalDefinitions.MEAN_SPEED)
+
         trps_along_sp_preds = {
             trp["trp_id"]: {
-                f"{GlobalDefinitions.VOLUME}_preds": self._get_trp_predictions(trp_id=trp["trp_id"],
-                                                                               target=GlobalDefinitions.VOLUME,
-                                                                               road_category=trp["road_category"])[[GlobalDefinitions.VOLUME, "zoned_dt_iso"]],
-                f"{GlobalDefinitions.MEAN_SPEED}_preds": self._get_trp_predictions(trp_id=trp["trp_id"],
-                                                                                   target=GlobalDefinitions.MEAN_SPEED,
-                                                                                   road_category=trp["road_category"])[[GlobalDefinitions.MEAN_SPEED, "zoned_dt_iso"]], #TODO DON'T USE MEAN SPEED IF use_mean_speed = False
+                **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["trp_id"], target=target, road_category=trp["road_category"], lags=[24, 36, 48, 60, 72])[[target, "zoned_dt_iso"]]
+                    for target in targets},
                 **trp,
             } for trp in trps_along_sp
         }

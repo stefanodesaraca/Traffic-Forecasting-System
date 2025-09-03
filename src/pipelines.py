@@ -747,7 +747,7 @@ class MLPredictionPipeline:
         return dd.from_pandas(rows_to_predict).assign(is_future=True).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).persist()
 
 
-    def _get_future_records(self):
+    def _get_future_records(self, lags: list[PositiveInt]):
         preprocessing_methods_mapping = {
             GlobalDefinitions.VOLUME: self._pipeline.preprocess_volume,
             GlobalDefinitions.MEAN_SPEED: self._pipeline.preprocess_mean_speed
@@ -757,17 +757,17 @@ class MLPredictionPipeline:
             cache_latest_dt_collection=True
         )
         future_records = self._generate_future_records(forecasting_horizon=self._db_broker.get_forecasting_horizon(target=self._target))
-        return preprocessing_methods_mapping[self._target](data=dd.concat([past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
+        return preprocessing_methods_mapping[self._target](data=dd.concat([past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=lags, z_score=False)
 
 
-    def start(self, trp_tuning: bool = False) -> dd.DataFrame:
+    def start(self, lags: list[PositiveInt], trp_tuning: bool = False) -> dd.DataFrame:
         # trp_tuning defines if we want to train the already trained model on data exclusively from the TRP which we want to forecast data for to improve prediction accuracy
         scaling_mapping = {
             GlobalDefinitions.VOLUME: GlobalDefinitions.VOLUME_TO_SCALE_FEATURES,
             GlobalDefinitions.MEAN_SPEED: GlobalDefinitions.MEAN_SPEED_TO_SCALE_FEATURES
         }
         cols_to_scale = scaling_mapping[self._target]
-        data = self._get_future_records()
+        data = self._get_future_records(lags=lags)
         if trp_tuning:
             X_tune, y_tune = split_by_target(
                 data=data[data["is_future"] != True].drop(columns=["is_future"]).persist(),
