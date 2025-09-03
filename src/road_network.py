@@ -1,15 +1,16 @@
 import json
 import pickle
+from itertools import chain
 import numpy as np
 import networkx as nx
-from typing import Any, Generator
+from typing import Any, Generator, Mapping
 from pydantic.types import PositiveFloat, PositiveInt
 from scipy.spatial.distance import minkowski
 import matplotlib.pyplot as plt
 from shapely import wkt
 import dask.dataframe as dd
 import utm
-from pykrige import OrdinaryKriging
+from pykrige.ok import OrdinaryKriging
 
 from definitions import GlobalDefinitions, ProjectTables, ProjectMaterializedViews, TrafficClasses, IconStyles
 from loaders import BatchStreamLoader
@@ -104,7 +105,6 @@ class RoadNetwork:
                 WHERE ST_DWithin(rgl_a.geom::geography, rgl_b.geom::geography, %s)
             )
             SELECT 
-                n.neighbor_link_id,
                 trp.*
             FROM neighbors n
             JOIN "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" rl_t
@@ -178,11 +178,13 @@ class RoadNetwork:
         #Returning the average value of each target variable aggregated respectively by any counties, municipalities and road categories the link may belong to, this way we'll have a customized indicator of what are the "normal" (average) conditions on that road
 
 
-    def _get_trp_predictions(self, trp_id: str, target: str, road_category: str) -> Generator[dd.DataFrame, None, None]:
-        return (
-            MLPredictionPipeline(trp_id=trp_id, target=target, road_category=road_category, model=model, preprocessing_pipeline=MLPreprocessingPipeline(), loader=self._loader, db_broker=self._db_broker).start()
-            for model in self._db_broker.get_trained_model_objects(target=target, road_category=road_category)
-         )
+    def _get_trp_predictions(self, trp_id: str, target: str, road_category: str) -> Generator[dd.DataFrame, None, None] | dd.DataFrame:
+        #return (
+        #    MLPredictionPipeline(trp_id=trp_id, target=target, road_category=road_category, model=model, preprocessing_pipeline=MLPreprocessingPipeline(), loader=self._loader, db_broker=self._db_broker).start()
+        #    for model in self._db_broker.get_trained_model_objects(target=target, road_category=road_category)
+        #)
+        models = {m["name"]: pickle.loads(m["pickle_object"]) for m in self._db_broker.get_trained_model_objects(target=target, road_category=road_category)}
+        return MLPredictionPipeline(trp_id=trp_id, target=target, road_category=road_category, model=models["HistGradientBoostingRegressor"], preprocessing_pipeline=MLPreprocessingPipeline(), loader=self._loader, db_broker=self._db_broker).start()
 
 
     @staticmethod
@@ -315,65 +317,108 @@ class RoadNetwork:
         # ---------- STEP 1 ----------
 
         sp = nx.astar_path(G=self._network, source=source, target=destination, heuristic=lambda u, v: self._get_minkowski_dist(u, v, self._network), weight="length")
-        print(sp)
-
         sp_edges = [(u, v, self._network.get_edge_data(u, v)) for u, v in zip(sp, sp[1:])] #TODO TEST IF THIS WORKS WITH A GENERATOR AS WELL CALLING THE find_route() METHOD TWICE IN THE SAME RUNTIME
+
+        print(sp)
+        print(sp_edges)
 
 
         # ---------- STEP 2 ----------
 
         buffer_radius = 3500
-        trps_per_edge = {
-            e[2]["link_id"]: self._get_neighbor_trps(e[2]["link_id"], buffer_zone_radius=buffer_radius)
-            for e in sp_edges
-        }
-        while sum(len(v) for v in trps_per_edge.values()) < 5:
-            buffer_radius += 1500
-            trps_per_edge = {
-                e[2]["link_id"]: self._get_neighbor_trps(e[2]["link_id"], buffer_zone_radius=buffer_radius)
-                for e in sp_edges
-            }
+        trps_per_edge = {}
+        while True:
+            for e in sp_edges:
+                trps_per_edge[e[2]["link_id"]] = self._get_neighbor_trps(e[2]["link_id"], buffer_radius)
+            if sum(len(v) for v in trps_per_edge) >= min(3, len(sp) // 3):
+                break
+            buffer_radius += 2000
+
+        trps_along_sp: set[dict[str, Any]] = set(*chain(trps_per_edge.values())) # A set of dictionary where each dict is a TRP with its metadata (id, road_category, etc.)
 
 
         # ---------- STEP 3 ----------
 
+        link_agg_data = ((link_id, self._get_link_aggregated_traffic_data(link_id=link_id)) for link_id in trps_per_edge.keys())
+
         neighbor_trp_preds = {
-            link_id: {
-                "link_traffic_averages": self._get_link_aggregated_traffic_data(link_id=link_id),
-                "preds": {
-                    trp["trp_id"]: {
-                    # Generator of dataframes
-                    f"{GlobalDefinitions.VOLUME}_preds": self._get_trp_predictions(trp_id=trp["trp_id"],
-                                                                                   target=GlobalDefinitions.VOLUME,
-                                                                                   road_category=trp["road_category"]),
-                    # Generator of dataframes
-                    f"{GlobalDefinitions.MEAN_SPEED}_preds": self._get_trp_predictions(trp_id=trp["trp_id"],
-                                                                                       target=GlobalDefinitions.MEAN_SPEED,
-                                                                                       road_category=trp["road_category"]) or None,
-                    "trp_data": trp,
-                    } for trp in trps
-                }
-            } for link_id, trps in trps_per_edge.items()
+            trp: {
+                # Generator of dataframes
+                f"{GlobalDefinitions.VOLUME}_preds": self._get_trp_predictions(trp_id=trp["trp_id"],
+                                                                               target=GlobalDefinitions.VOLUME,
+                                                                               road_category=trp["road_category"])[[GlobalDefinitions.VOLUME, "zoned_dt_iso"]],
+                # Generator of dataframes
+                f"{GlobalDefinitions.MEAN_SPEED}_preds": self._get_trp_predictions(trp_id=trp["trp_id"],
+                                                                                   target=GlobalDefinitions.MEAN_SPEED,
+                                                                                   road_category=trp["road_category"])[[GlobalDefinitions.MEAN_SPEED, "zoned_dt_iso"]],
+                **trp,
+            } for trp in trps_along_sp
         }
 
-        for l, data in neighbor_trp_preds.items():
-            neighbor_trp_preds[l][f"link_traffic_{GlobalDefinitions.VOLUME}_classes"] = self._get_increments(n=neighbor_trp_preds[l]["link_traffic_averages"][f"weighted_{GlobalDefinitions.VOLUME}_avg"]*2, k=len(TrafficClasses))
-            neighbor_trp_preds[l][f"link_traffic_{GlobalDefinitions.MEAN_SPEED}_classes"] = self._get_increments(n=neighbor_trp_preds[l]["link_traffic_averages"][f"weighted_{GlobalDefinitions.MEAN_SPEED}_avg"]*2, k=len(TrafficClasses))
+
+
+
+
+        #TODO IF TRP PREDICTIONS ARE IN THE RADIUS OF ANOTHER TRP, JUST REUSE THEM AND DO NOT EXECUTE ML PREDICTIONS AGAIN
+        }
+
+        for link_id, data in neighbor_trp_preds.items():
+            neighbor_trp_preds[link_id][f"link_traffic_{GlobalDefinitions.VOLUME}_classes"] = self._get_increments(n=neighbor_trp_preds[link_id]["link_traffic_averages"][f"weighted_{GlobalDefinitions.VOLUME}_avg"] * 2, k=len(TrafficClasses))
+            neighbor_trp_preds[link_id][f"link_traffic_{GlobalDefinitions.MEAN_SPEED}_classes"] = self._get_increments(n=neighbor_trp_preds[link_id]["link_traffic_averages"][f"weighted_{GlobalDefinitions.MEAN_SPEED}_avg"] * 2, k=len(TrafficClasses))
+
+
+        # ---------- STEP 4 ----------
+
+        p = {
+            "index": {
+                v: dt for v, dt in trp
+            }
+            for trp in link
+
+        }
+
+
+
+        latitudes = [
+            trp.get("lat")
+            for link in neighbor_trp_preds.values()
+            for trp in link.get("preds").values()
+        ]
+        longitudes = [
+            trp.get("lon")
+            for link in neighbor_trp_preds.values()
+            for trp in link.get("preds").values()
+        ]
+        volume_preds = [
+            trp.get(f"{GlobalDefinitions.VOLUME}_preds")
+            for link in neighbor_trp_preds.values()
+            for trp in link.get("preds").values()
+        ]
+
+
+        volume_oks = [
+            OrdinaryKriging(
+                latitudes,
+                longitudes,
+
+                variogram_model="spherical",
+                coordinates_type="geographical",
+                enable_plotting=True
+            )
+        ]
+
+
+        #TODO THE GRIDS IN EXECUTE WILL HAVE TO MATCH THE PATH LINE BUFFER RADIUS
+        #NOTE EXECUTING OrdinaryKriging FOR EVERY HOURLY FORECASTED DATA WE HAVE SO TO SHOW THE DIFFERENCE IN TRAFFIC BETWEEN HOURS ALONG THE SHORTEST PATH
+
+
+
 
 
         #TODO INTERPOLATE HERE, GET INTERPOLATED VALUE AND CHECK TO WHICH CLASS IT BELONGS TO
         # USE self._closest()
 
-
-
-
-
-        # ---------- STEP 4 ----------
-
-
-
-
-        #TODO INTERPOLATE HERE FOR EACH LINK IN A NEW LINE BUFFER, LIKE MAX(10000, link["length"], EXPAND THE BUFFER GRADUALLY AND
+        #TODO INTERPOLATE HERE FOR EACH LINK IN A NEW LINE BUFFER, LIKE MAX(10000, link["length"], EXPAND THE BUFFER GRADUALLY IF MORE THAN 40% OF THE ROAD IS MORE THAN AVERAGE ON VOLUME AND MEAN SPEED
 
 
 

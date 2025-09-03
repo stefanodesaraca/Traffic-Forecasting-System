@@ -7,6 +7,8 @@ from pydantic import BaseModel
 from pydantic.types import PositiveInt
 from psycopg.rows import tuple_row, dict_row
 from folium import CircleMarker, Icon
+from matplotlib.colors import LinearSegmentedColormap
+
 
 from dbsecrets import superuser, superuser_password
 
@@ -209,6 +211,8 @@ class TrafficClasses(Enum): #Import as TrafficClasses
     HIGH_AVERAGE = "#f49d1f"
     HIGH = "#a91d1d"
     STOP_AND_GO = "#470C00"
+
+    CMAP = LinearSegmentedColormap.from_list("TrafficClassesCMAP", [LOW, LOW_AVERAGE, AVERAGE, HIGH_AVERAGE, HIGH, STOP_AND_GO], N=256)
 
     #Colors taken from:
     # https://www.color-hex.com/color-palette/1064006
