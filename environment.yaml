@@ -46,6 +46,6 @@ dependencies:
   - hypothesis
   - pip:
       - clean-text
-      - dateutil
+      - python-dateutil
       - async-lru==2.0.5
 

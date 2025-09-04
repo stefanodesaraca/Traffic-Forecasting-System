@@ -21,20 +21,33 @@ pd.set_option("display.max_columns", None)
 
 
 @contextmanager
-def dask_cluster_client(processes=False):
+def dask_cluster_client(scheduler_address: str | None = None, direct_to_workers: bool = True, processes: bool = False):
     """
     - Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
     - Check localhost:8787 to watch real-time processing
     - By default, the number of workers is obtained by dask using the standard os.cpu_count()
     - More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
     """
-    cluster = LocalCluster(processes=processes)
-    client = Client(cluster)
+    from dask.distributed import shuffle
+    shuffle.p2p_barrier_timeout = 120  # increase from 30s to 2 minutes
+
+    cluster = None
+    if scheduler_address:
+        client = Client(address=scheduler_address + ":8786",
+                        timeout="60s",
+                        direct_to_workers=direct_to_workers)
+        print(client.scheduler_info())  # shows scheduler & workers
+        print(client.run(lambda: __import__('sys').executable))  # shows python executable on each worker
+        print(client.run(lambda: __import__('socket').gethostname()))  # confirm hosts
+    else:
+        cluster = LocalCluster(processes=processes)
+        client = Client(cluster)
     try:
         yield client
     finally:
         client.close()
-        cluster.close()
+        if not scheduler_address:
+            cluster.close()
 
 
 def check_target(target: str, errors: bool = False) -> bool:

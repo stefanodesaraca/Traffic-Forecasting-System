@@ -614,7 +614,7 @@ class MLPreprocessingPipeline:
         if z_score:
             data = ZScore(data, column=GlobalDefinitions.VOLUME)
         data = self._add_lag_features(data=data, target=GlobalDefinitions.VOLUME, lags=lags)
-        data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
+        #data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
 
         data = data.map_partitions(self._add_utm_columns) #Convert latitude and longitude into the appropriate UTM zone eastings and northings to maintain an accurate ratio when moving across the zone and not having distortions like in WGS84 coordinates where the closer to the poles the heavier distortions come into place
 

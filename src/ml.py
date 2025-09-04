@@ -31,7 +31,7 @@ from sklearn.metrics import (
 )
 
 from sktime.base import BaseEstimator as SktimeBaseEstimator
-from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastingBaseModel
+#from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastingBaseModel
 
 from exceptions import ModelNotSetError, ScoringNotFoundError
 from definitions import GlobalDefinitions, ProjectTables, ProjectConstraints
@@ -190,14 +190,12 @@ class ModelWrapper(BaseModel):
 
         Notes
         -----
-        Currently supports ScikitLearnBaseEstimator. PyTorchForecastingBaseModel
+        Currently supports ScikitLearnBaseEstimator
         and SktimeBaseEstimator support is still to be implemented.
         """
         if isinstance(self.model_obj, (RandomForestRegressor, DecisionTreeRegressor, HistGradientBoostingRegressor)):
             with joblib.parallel_backend("dask"):
                 return self.model_obj.predict(X.compute()) # type: ignore[attr-defined] # <- WARNING: this comment is used to avoid seeing a useless warning since the model will indeed have a predict method, but the scikit-learn BaseEstimator class doesn't
-        elif isinstance(self.model_obj, PyTorchForecastingBaseModel):
-            return ... #NOTE STILL TO IMPLEMENT
         elif isinstance(self.model_obj, SktimeBaseEstimator):
             return ... #NOTE STILL TO IMPLEMENT
         else:

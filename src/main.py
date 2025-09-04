@@ -8,6 +8,7 @@ import asyncio
 import dask
 import dask.dataframe as dd
 
+from proj_secrets import scheduler_addr
 from exceptions import TRPNotFoundError
 from definitions import GlobalDefinitions, DBConfig, ProjectTables
 from downloader import start_client_async, volumes_to_db, fetch_trps, fetch_trps_from_ids
@@ -338,7 +339,7 @@ def forecast_warmup(functionality: str) -> None:
         return None
 
 
-    with dask_cluster_client(processes=False) as client:
+    with dask_cluster_client(scheduler_address=scheduler_addr, processes=False) as client:
 
         functionality_mapping = {
             "3.2.1": {
@@ -484,7 +485,7 @@ def forecast(functionality: str) -> None:
 
     if functionality == "3.3.1":
 
-        with dask_cluster_client(processes=False) as client:
+        with dask_cluster_client(scheduler_addr=scheduler_addr, processes=False) as client:
             trps_with_data = db_broker.get_all_trps_metadata(**{f"has_{target}_filter": True}).keys()
             trp_ids = [d.get("id") for d in db_broker.get_trp_ids() if d.get("id") in trps_with_data]
             print("TRP IDs: ", trp_ids)
