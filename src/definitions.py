@@ -10,7 +10,7 @@ from folium import CircleMarker, Icon
 from matplotlib.colors import LinearSegmentedColormap
 
 
-from dbsecrets import superuser, superuser_password
+from proj_secrets import superuser, superuser_password
 
 
 class GlobalDefinitions(BaseModel):

@@ -314,7 +314,7 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _get_ok_structured_data(trps_along_sp_preds: dict[str, dict[str, dd.DataFrame]], time_range: list[datetime.datetime], target: str):
+    def _get_ok_structured_data(trps_along_path_preds: dict[str, dict[str, dd.DataFrame]], time_range: list[datetime.datetime], target: str):
         return dd.from_dict({
             idx: {
                 f"{target}": row[target],
@@ -322,14 +322,15 @@ class RoadNetwork:
                 "lon": trp_data.get("lon"),
                 "lat": trp_data.get("lat"),
             }
-            for trp_data in trps_along_sp_preds.values()
+            for trp_data in trps_along_path_preds.values()
             for idx, row in enumerate(trp_data[f"{target}_preds"].itertuples(index=False), start=0)
             if row["zoned_dt_iso"] in time_range # This way we'll execute ordinary kriging only the strictly necessary number of times
         })
 
 
-    def _get_ordinary_kriging(self, trps_along_sp_preds: dict[str, dict[str, dd.DataFrame]], time_range: list[datetime.datetime], target: str, verbose: bool = False):
-        ok_df = self._get_ok_structured_data(trps_along_sp_preds=trps_along_sp_preds, time_range=time_range, target=GlobalDefinitions.target)
+    def _get_ordinary_kriging(self, trps_along_path_preds: dict[str, dict[str, dd.DataFrame]], time_range: list[datetime.datetime], target: str, verbose: bool = False):
+        ok_df = self._get_ok_structured_data(trps_along_path_preds=trps_along_path_preds, time_range=time_range,
+                                             target=GlobalDefinitions.target)
         return OrdinaryKriging(
             x=ok_df["lon"].values,
             y=ok_df["lat"].values,
@@ -436,13 +437,8 @@ class RoadNetwork:
                 columns=["lon", "lat", "link_id"]
             ) # Creating the structure of the dataframe where we'll concatenate ordinary kriging results
 
-            #TODO FOR VOLUME ONLY
-            ok = self._get_ordinary_kriging(
-                trps_along_sp_preds=trps_along_sp_preds,
-                time_range=time_range,
-                target=target,
-                verbose=True
-            )
+            ok = self._get_ordinary_kriging(trps_along_path_preds=trps_along_sp_preds, time_range=time_range,
+                                            target=target, verbose=True)
 
             z_interpolated_vals, kriging_variance= self._ok_interpolate(ordinary_kriging_obj=ok,
                                                                         x_coords=line_predictions["lon"].values,

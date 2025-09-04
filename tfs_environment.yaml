@@ -1,0 +1,51 @@
+name: tfs
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11.9
+  - numpy
+  - pandas
+  - matplotlib
+  - seaborn
+  - scikit-learn=1.6.1
+  - scipy
+  - statsmodels
+  - dask=2025.3.0
+  - dask-ml=2025.1.0
+  - networkx=3.4.2
+  - pydantic=2.10.3
+  - geojson
+  - geopandas
+  - fiona
+  - pyogrio
+  - tqdm
+  - joblib
+  - geopy
+  - pyproj
+  - folium
+  - scikit-lego=0.9.1
+  - shapely
+  - utm
+  - pykrige
+  - polars
+  - pip
+  - asyncpg
+  - psycopg
+  - plotly
+  - gql==3.5.2
+  - aiofiles
+  - aiohttp==3.12.15
+  - sphinx
+  - sphinx-rtd-theme
+  - sktime
+  - pytorch
+  - pytorch-forecasting
+  - unidecode
+  - pytest
+  - hypothesis
+  - pip:
+      - clean-text
+      - dateutil
+      - async-lru==2.0.5
+
