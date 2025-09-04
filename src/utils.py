@@ -1,11 +1,12 @@
-import datetime
+import shutil
 from contextlib import contextmanager
 from itertools import islice
 from typing import Literal, Any, Generator
 import numpy as np
 import pandas as pd
-import dask.dataframe as dd
 from pydantic.types import PositiveInt
+import dask
+import dask.dataframe as dd
 from dask.distributed import Client, LocalCluster
 from functools import lru_cache, wraps
 
@@ -21,7 +22,7 @@ pd.set_option("display.max_columns", None)
 
 
 @contextmanager
-def dask_cluster_client(scheduler_address: str | None = None, direct_to_workers: bool = True, processes: bool = False):
+def dask_cluster_client(scheduler_address: str | None = None, direct_to_workers: bool = False, processes: bool = False):
     """
     - Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
     - Check localhost:8787 to watch real-time processing
@@ -36,6 +37,12 @@ def dask_cluster_client(scheduler_address: str | None = None, direct_to_workers:
         client = Client(address=scheduler_address + ":8786",
                         timeout="60s",
                         direct_to_workers=direct_to_workers)
+        # Creating a zip of the entire src/ folder
+        shutil.make_archive("src", "zip", "src")
+        # Upload the whole archive to workers
+        client.upload_file("src.zip")
+        dask.config.set({"dataframe.shuffle.method": "tasks"})
+
         print(client.scheduler_info())  # shows scheduler & workers
         print(client.run(lambda: __import__('sys').executable))  # shows python executable on each worker
         print(client.run(lambda: __import__('socket').gethostname()))  # confirm hosts
