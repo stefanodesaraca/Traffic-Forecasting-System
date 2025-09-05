@@ -548,7 +548,7 @@ class MLPreprocessingPipeline:
         return self._scaler or None
 
     @staticmethod
-    def _add_lag_features(data: dd.DataFrame, target: str, lags: list[PositiveInt]) -> dd.DataFrame:
+    def _add_lag_features(data: pd.DataFrame, target: str, lags: list[PositiveInt]) -> dd.DataFrame:
         for lag in lags:
             data[f"{target}_lag{lag}h"] = data.groupby("trp_id")[target].shift(lag)  # N hours shift
             data[f"{target}_rolling_mean{lag}h"] = (
@@ -573,7 +573,7 @@ class MLPreprocessingPipeline:
         for lag_t1, lag_t2 in pairwise(lags):
             data[f"{target}_delta_{lag_t1}h_{lag_t2}h"] = data[f"{target}_lag{lag_t1}h"] - data[f"{target}_lag{lag_t2}h"] #TODO IN THE FUTURE ADDRESS THE CASE WHERE THIS SUBTRACTION COULD BE ZERO
             # Delta value between the first lag and the second one per cycle. Lags are taken pairwise from the lags list, if the number of lags is odd the last element won't be included. If the lags list has only one element no delta can be calculated, so the pairwise() function will just return an empty iterator
-        return data.persist()
+        return data
 
 
     def _scale_features(self, data: dd.DataFrame, feats: list[str], scaler: MinMaxScaler | type[callable] = MinMaxScaler) -> dd.DataFrame:
@@ -613,10 +613,11 @@ class MLPreprocessingPipeline:
                           z_score: bool = False) -> dd.DataFrame:
         if z_score:
             data = ZScore(data, column=GlobalDefinitions.VOLUME)
+
         data = self._add_lag_features(data=data, target=GlobalDefinitions.VOLUME, lags=lags)
         #data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
 
-        data = data.map_partitions(self._add_utm_columns) #Convert latitude and longitude into the appropriate UTM zone eastings and northings to maintain an accurate ratio when moving across the zone and not having distortions like in WGS84 coordinates where the closer to the poles the heavier distortions come into place
+        data = data.map_partitions(self._add_utm_columns).persist() #Convert latitude and longitude into the appropriate UTM zone eastings and northings to maintain an accurate ratio when moving across the zone and not having distortions like in WGS84 coordinates where the closer to the poles the heavier distortions come into place
 
         data = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_TO_SCALE_FEATURES, scaler=MinMaxScaler)
         data = data.sort_values(by=GlobalDefinitions.PREPROCESSING_SORTING_COLUMNS, ascending=True).persist()
@@ -630,7 +631,7 @@ class MLPreprocessingPipeline:
         if z_score:
             data = ZScore(data, column=GlobalDefinitions.MEAN_SPEED)
         data = self._add_lag_features(data=data, target=GlobalDefinitions.MEAN_SPEED, lags=lags)
-        data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
+        #data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
 
         data = data.map_partitions(self._add_utm_columns) #Convert latitude and longitude into the appropriate UTM zone eastings and northings to maintain an accurate ratio when moving across the zone and not having distortions like in WGS84 coordinates where the closer to the poles the heavier distortions come into place
 
