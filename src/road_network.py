@@ -45,6 +45,9 @@ class RoadNetwork:
         else:
             self._network = pickle.loads(network_binary)  # To load pre-computed graphs
 
+        self.trps_along_sp: set[dict[str, Any]] | None = None
+        self.trps_along_sp_preds: dict[str, Any] | None = None
+
 
     @staticmethod
     def _get_minkowski_dist(u: tuple[Any, ...], v: tuple[Any, ...], G: nx.DiGraph):
@@ -329,8 +332,7 @@ class RoadNetwork:
 
 
     def _get_ordinary_kriging(self, trps_along_path_preds: dict[str, dict[str, dd.DataFrame]], time_range: list[datetime.datetime], target: str, verbose: bool = False):
-        ok_df = self._get_ok_structured_data(trps_along_path_preds=trps_along_path_preds, time_range=time_range,
-                                             target=GlobalDefinitions.target)
+        ok_df = self._get_ok_structured_data(trps_along_path_preds=trps_along_path_preds, time_range=time_range, target=GlobalDefinitions.target)
         return OrdinaryKriging(
             x=ok_df["lon"].values,
             y=ok_df["lat"].values,
@@ -407,19 +409,19 @@ class RoadNetwork:
 
         trps_per_edge = self._get_trps_per_edge(edges=sp_edges, trp_research_buffer_radius=trp_research_buffer_radius)
 
-        trps_along_sp: set[dict[str, Any]] = set(*chain(trps_per_edge.values())) # A set of dictionary where each dict is a TRP with its metadata (id, road_category, etc.)
+        self.trps_along_sp = set(*chain(trps_per_edge.values())) # A set of dictionary where each dict is a TRP with its metadata (id, road_category, etc.)
         link_agg_data = dict((link_id, self._get_link_aggregated_traffic_data(link_id=link_id)) for link_id in trps_per_edge.keys()) # Converting link_agg_data to dict for fast lookup
         # Simply using the dict() function on a list of tuples
 
 
         # ---------- STEP 3 ----------
 
-        trps_along_sp_preds = {
+        self.trps_along_sp_preds = {
             trp["trp_id"]: {
                 **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["trp_id"], target=target, road_category=trp["road_category"], lags=[24, 36, 48, 60, 72])[[target, "zoned_dt_iso"]]
                     for target in targets},
                 **trp,
-            } for trp in trps_along_sp
+            } for trp in self.trps_along_sp
         }
         #TODO STORE THIS SEPARATELY TO RE-USE THEM FOR FUTURE SLIGHTLY DIFFERENT SHORTEST PATH WHICH HAVE THE SAME TRPS IN COMMON WITH THE PREVIOUS SHORTEST PATHS
 
@@ -437,8 +439,7 @@ class RoadNetwork:
                 columns=["lon", "lat", "link_id"]
             ) # Creating the structure of the dataframe where we'll concatenate ordinary kriging results
 
-            ok = self._get_ordinary_kriging(trps_along_path_preds=trps_along_sp_preds, time_range=time_range,
-                                            target=target, verbose=True)
+            ok = self._get_ordinary_kriging(trps_along_path_preds=self.trps_along_sp_preds, time_range=time_range, target=target, verbose=True)
 
             z_interpolated_vals, kriging_variance= self._ok_interpolate(ordinary_kriging_obj=ok,
                                                                         x_coords=line_predictions["lon"].values,

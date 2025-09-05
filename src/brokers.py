@@ -262,14 +262,14 @@ class DBBroker:
     @cached()
     def get_mean_speed_date_boundaries(self, trp_id_filter: list[str] | None = None) -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with self.PostgresConnectionCursor(f"""
+            with self.PostgresConnectionCursor(query=f"""
                     SELECT
                         MIN(zoned_dt_iso) AS {GlobalDefinitions.MEAN_SPEED}_start_date,
                         MAX(zoned_dt_iso) AS {GlobalDefinitions.MEAN_SPEED}_end_date
                     FROM "{ProjectTables.MeanSpeed.value}"
-                    {f"WHERE m.trp_id = '{trp_id_filter}'" if trp_id_filter else ""}
+                    {f"WHERE trp_id = ANY(%s)" if trp_id_filter else ""}
                     ;
-                    """, conn=conn, params=tuple(to_pg_array(f) for f in [list(trp_id_filter)])) as cur:
+                    """, conn=conn, params=tuple(to_pg_array(f) for f in [trp_id_filter])) as cur:
                 result = cur.fetchone()
                 return {"min": result[f"{GlobalDefinitions.MEAN_SPEED}_start_date"], "max": result[f"{GlobalDefinitions.MEAN_SPEED}_end_date"]} #Respectively: min and max
 
