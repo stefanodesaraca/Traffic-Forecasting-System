@@ -41,4 +41,4 @@ pytorch-forecasting
 shapely
 utm
 pykrige == 1.7.2
-dask-xgboost
+xgboost == 3.0.3

@@ -44,7 +44,7 @@ dependencies:
   - unidecode
   - pytest
   - hypothesis
-  - dask-xgboost
+  - xgboost == 3.0.3
   - pip:
       - clean-text
       - python-dateutil
