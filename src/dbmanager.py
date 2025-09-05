@@ -18,7 +18,8 @@ from pydantic.types import PositiveInt
 
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import (
-    HistGradientBoostingRegressor,
+    RandomForestRegressor,
+    HistGradientBoostingRegressor
 )
 
 from exceptions import ProjectDBNotFoundError
@@ -218,7 +219,7 @@ class AIODBManager:
     @staticmethod
     async def insert_models(conn: asyncpg.connection) -> None:
 
-        for model in [DecisionTreeRegressor, HistGradientBoostingRegressor]:
+        for model in [RandomForestRegressor, DecisionTreeRegressor, HistGradientBoostingRegressor]:
             estimator_name = model.__name__
             async with aiofiles.open(GlobalDefinitions.MODEL_GRIDS_FILE, "r", encoding="utf-8") as gs:
                 data = json.loads(await gs.read())[estimator_name] ##estimator_name

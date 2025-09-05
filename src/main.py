@@ -310,8 +310,7 @@ def forecast_warmup(functionality: str) -> None:
                   X_train.shape[0].compute() + X_test.shape[0].compute() + y_train.shape[0].compute() + y_test.shape[0].compute())
 
             for model, content in models.items():
-                #print(content)
-                if functionality_mapping[functionality]["type"] == "gridsearch":
+                if functionality_mapping[functionality]["type"] == "gridsearch" and model == "RandomForestRegressor":
                     func(X_train, y_train, TFS(
                             model=content["binary"](**content["params"]),
                             road_category=road_category,
@@ -453,6 +452,7 @@ def manage_ml(functionality: str) -> None:
             grid=grid
         )
 
+
     if functionality == "5.3":
         db_broker = get_db_broker()
 
@@ -469,6 +469,15 @@ def manage_ml(functionality: str) -> None:
                         target=target,
                         grid=grid
                     )
+
+
+    if functionality == "5.4":
+
+        async def insert_models_into_db():
+            broker = await get_aiodbmanager_broker()
+            await broker.insert_models()
+
+        asyncio.run(insert_models_into_db())
 
     return None
 
@@ -597,7 +606,8 @@ def main():
         "5.1": manage_ml,
         "5.2": manage_ml,
         "5.3": manage_ml,
-        "5.4": eda
+        "5.4": manage_ml,
+        "5.5": eda
     }
 
     while True:
@@ -637,9 +647,10 @@ def main():
     5.1 Update best parameters for a model
     5.2 Update model grid
     5.3 Update multiple model grids
-    5.4 EDA (Exploratory Data Analysis)
-    5.5 Erase all data about a project
-    5.6 Analyze pre-existing road network graph
+    5.4 Insert models into project DB
+    5.5 EDA (Exploratory Data Analysis)
+    5.6 Erase all data about a project
+    5.7 Analyze pre-existing road network graph
 0. Exit""")
 
         asyncio.run(initialize())
