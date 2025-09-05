@@ -16,10 +16,11 @@ from cleantext import clean
 from pydantic import with_config
 from pydantic.types import PositiveInt
 
+from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import (
+    RandomForestRegressor,
     HistGradientBoostingRegressor,
 )
-from xgboost.dask import DaskXGBRegressor
 
 from exceptions import ProjectDBNotFoundError
 from definitions import (
@@ -216,9 +217,9 @@ class AIODBManager:
         return None
 
     @staticmethod
-    async def insert_models(conn: asyncpg.connection, *models: list[callable]) -> None:
-        #TODO ADD VALIDATION HERE TO ENSURE THEY'RE ACTUALLY ML MODELS
-        for model in [DaskXGBRegressor, HistGradientBoostingRegressor, *models]:
+    async def insert_models(conn: asyncpg.connection) -> None:
+
+        for model in [RandomForestRegressor, DecisionTreeRegressor, HistGradientBoostingRegressor]:
             estimator_name = model.__name__
             async with aiofiles.open(GlobalDefinitions.MODEL_GRIDS_FILE, "r", encoding="utf-8") as gs:
                 data = json.loads(await gs.read())[estimator_name] ##estimator_name

@@ -435,12 +435,6 @@ class AIODBManagerBroker:
             """)
 
 
-    async def insert_models(self) -> None:
-        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=(await self.get_current_project()).get("name", None), host=self._db_host) as conn:
-            await (await self._get_db_manager_async()).insert_models(conn=conn)
-        return None
-
-
     async def insert_trps(self, data: dict[str, Any]) -> None:
         async with postgres_conn_async(self._tfs_user, password=self._tfs_password, dbname=(await self.get_current_project()).get("name", None), host=self._db_host) as conn:
             await (await self._get_db_manager_async()).insert_trps(conn=conn, data=data)
