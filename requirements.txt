@@ -1,12 +1,12 @@
 python == 3.11.9
 asyncpg
 psycopg
-numpy
+numpy == 2.2.6
 pandas
-matplotlib
+matplotlib == 3.10.6
 seaborn
-scikit-learn == 1.6.1
-dask == 2025.3.0
+scikit-learn == 1.7.1
+dask == 2025.7.0
 dask-ml == 2025.1.0
 plotly
 networkx == 3.4.2
@@ -40,4 +40,5 @@ pytorch
 pytorch-forecasting
 shapely
 utm
-pykrige
+pykrige == 1.7.2
+xgboost == 3.0.3
