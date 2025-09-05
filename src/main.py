@@ -310,7 +310,7 @@ def forecast_warmup(functionality: str) -> None:
                   X_train.shape[0].compute() + X_test.shape[0].compute() + y_train.shape[0].compute() + y_test.shape[0].compute())
 
             for model, content in models.items():
-                if functionality_mapping[functionality]["type"] == "gridsearch" and model == "RandomForestRegressor":
+                if functionality_mapping[functionality]["type"] == "gridsearch" and model == "DecisionTreeRegressor":
                     func(X_train, y_train, TFS(
                             model=content["binary"](**content["params"]),
                             road_category=road_category,
