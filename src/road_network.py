@@ -46,7 +46,7 @@ class RoadNetwork:
             self._network = pickle.loads(network_binary)  # To load pre-computed graphs
 
         self.trps_along_sp: set[dict[str, Any]] | None = None
-        self.trps_along_sp_preds: dict[str, Any] | None = None
+        self.trps_along_sp_preds: dict[str, Any] | None = {}
 
 
     @staticmethod
@@ -416,14 +416,14 @@ class RoadNetwork:
 
         # ---------- STEP 3 ----------
 
-        self.trps_along_sp_preds = {
+        self.trps_along_sp_preds.update(**{
             trp["trp_id"]: {
                 **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["trp_id"], target=target, road_category=trp["road_category"], lags=[24, 36, 48, 60, 72])[[target, "zoned_dt_iso"]]
                     for target in targets},
                 **trp,
-            } for trp in self.trps_along_sp
-        }
-        #TODO STORE THIS SEPARATELY TO RE-USE THEM FOR FUTURE SLIGHTLY DIFFERENT SHORTEST PATH WHICH HAVE THE SAME TRPS IN COMMON WITH THE PREVIOUS SHORTEST PATHS
+            } for trp in self.trps_along_sp.difference(set(self.trps_along_sp_preds.keys())) # All TRPs that are along the shortest path, but not in the ones for which we already computed the predictions
+        })
+        # Re-use them for future slightly different shortest path which have the same trps in common with the previous shortest paths
 
 
         # ---------- STEP 4 ----------
