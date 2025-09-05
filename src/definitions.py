@@ -51,7 +51,7 @@ class GlobalDefinitions(BaseModel):
     CUDF_BACKEND: ClassVar[str] = "cudf"
     GRAPH_PROCESSING_BACKENDS: ClassVar[list[str]] = [NETWORKX_BACKEND, CUDF_BACKEND]
 
-    PREPROCESSING_SORTING_COLUMNS: ClassVar[list[str]] = ["trp_id"]
+    PREPROCESSING_SORTING_COLUMNS: ClassVar[list[str]] = ["zoned_dt_iso"] #Sorting by zoned_dt_iso since the trp_id will be removed at the end of the preprocessing phase and this lets us use the TimeSeriesSplit CV splitting method correctly
     NON_PREDICTORS: ClassVar[list[str]] = ["trp_id", "lat", "lon", "zoned_dt_iso"]
     CATEGORICAL_FEATURES: ClassVar[list[str]] = ["trp_id"]
     VOLUME_TO_SCALE_FEATURES: ClassVar[list[str]] = [VOLUME, "coverage"]
