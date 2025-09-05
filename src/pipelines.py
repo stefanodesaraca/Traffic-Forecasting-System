@@ -618,7 +618,7 @@ class MLPreprocessingPipeline:
         data = self._add_lag_features(data=data, target=GlobalDefinitions.VOLUME, lags=lags)
         #data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
 
-        data = data.map_partitions(self._add_utm_columns).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE) #Convert latitude and longitude into the appropriate UTM zone eastings and northings to maintain an accurate ratio when moving across the zone and not having distortions like in WGS84 coordinates where the closer to the poles the heavier distortions come into place
+        data = data.map_partitions(self._add_utm_columns) #Convert latitude and longitude into the appropriate UTM zone eastings and northings to maintain an accurate ratio when moving across the zone and not having distortions like in WGS84 coordinates where the closer to the poles the heavier distortions come into place
 
         data = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_TO_SCALE_FEATURES, scaler=MinMaxScaler)
         data = data.sort_values(by=GlobalDefinitions.PREPROCESSING_SORTING_COLUMNS, ascending=True)
@@ -634,7 +634,7 @@ class MLPreprocessingPipeline:
         data = self._add_lag_features(data=data, target=GlobalDefinitions.MEAN_SPEED, lags=lags)
         #data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
 
-        data = data.map_partitions(self._add_utm_columns).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE) #Convert latitude and longitude into the appropriate UTM zone eastings and northings to maintain an accurate ratio when moving across the zone and not having distortions like in WGS84 coordinates where the closer to the poles the heavier distortions come into place
+        data = data.map_partitions(self._add_utm_columns) #Convert latitude and longitude into the appropriate UTM zone eastings and northings to maintain an accurate ratio when moving across the zone and not having distortions like in WGS84 coordinates where the closer to the poles the heavier distortions come into place
 
         data = self._scale_features(data=data, feats=GlobalDefinitions.MEAN_SPEED_TO_SCALE_FEATURES, scaler=MinMaxScaler)
         data = data.sort_values(by=GlobalDefinitions.PREPROCESSING_SORTING_COLUMNS, ascending=True)
