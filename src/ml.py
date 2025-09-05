@@ -307,7 +307,8 @@ class TFS:
             return_train_score=True,
             n_jobs=-1, #NOTE JUST TEMPORARELY -1, BEFORE IT WAS: GlobalDefinitions.ML_CPUS
             scheduler=self._client,
-            cv=TimeSeriesSplit(n_splits=5)  # A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
+            cv=TimeSeriesSplit(n_splits=5),  # A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
+            error_score="raise"  # <-- show full error instead of returning nan
         )  # The models_gridsearch_parameters is obtained from the tfs_models file
 
         with joblib.parallel_backend("dask"):
