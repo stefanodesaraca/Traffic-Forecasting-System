@@ -289,7 +289,7 @@ def forecast_warmup(functionality: str) -> None:
                 data=functionality_mapping[functionality]["preprocessing_pipeline"](
                     data=functionality_mapping[functionality]["loading_method"](
                         batch_size=50000,
-                        #county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID],
+                        county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID],
                         trp_list_filter=trp_ids,
                         road_category_filter=[road_category],
                         encoded_cyclical_features=True,
