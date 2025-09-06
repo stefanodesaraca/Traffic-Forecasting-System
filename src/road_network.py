@@ -14,7 +14,7 @@ from pykrige.ok import OrdinaryKriging
 import matplotlib.pyplot as plt
 
 
-from definitions import GlobalDefinitions, ProjectTables, ProjectMaterializedViews, TrafficClasses, IconStyles
+from definitions import GlobalDefinitions, ProjectTables, ProjectMaterializedViews, TrafficClasses, IconStyles, RoadCategoryTraitLengthWeightMultipliers
 from loaders import BatchStreamLoader
 from pipelines import MLPreprocessingPipeline, MLPredictionPipeline
 from utils import save_plot
@@ -264,7 +264,7 @@ class RoadNetwork:
         return None
 
 
-    def _get_shortest_path(self, source: str, destination: str, heuristic: callable, weight: str | callable) -> list[str]:
+    def _get_shortest_path(self, source: str, destination: str, heuristic: callable, weight: str | type[callable]) -> list[str]:
         return nx.astar_path(G=self._network, source=source, target=destination, heuristic=heuristic, weight=weight)
 
 
@@ -321,40 +321,41 @@ class RoadNetwork:
         )
 
 
-
-    def _get_advanced_weight(self, edge_start: callable, edge_end: callable, attrs: dict) -> PositiveFloat | None:
+    @staticmethod
+    def _get_advanced_weighting(edge_start: str, edge_end: str, attrs: dict) -> PositiveFloat | None:
         length: PositiveFloat = attrs.get("length")
         road_category: str = attrs.get("road_category")
         min_lanes: PositiveInt = attrs.get("min_lanes")
         max_lanes: PositiveInt = attrs.get("max_lanes")
         highest_speed_limit: PositiveInt = attrs.get("highest_speed_limit")
         lowest_speed_limit: PositiveInt = attrs.get("lowest_speed_limit")
-        is_ferry_route: bool = attrs.get("is_ferry_route")
 
-        neighborhood_radius = 3500 #Distance in meters from the link line, so the diameter of the whole buffer zone is neighborhood_radius * 2
-        neighborhood_trps = []
+        travel_time_factor = (
+            ((length / (((highest_speed_limit / 100) * 85) / 3.6)) * 60) *
+            RoadCategoryTraitLengthWeightMultipliers[road_category].value
+        ) * 0.35
+        # Base travel time adjusted by road category and speed
 
-        while len(neighborhood_trps) == 0:
-            neighborhood_trps = self._get_neighbor_trps(attrs["link_id"], buffer_zone_radius=neighborhood_radius)
-            neighborhood_radius += 1000
+        lane_factor = (
+            # Contribution from minimum and maximum lanes
+            min_lanes * 0.10 +
+            max_lanes * 0.10
+        )
+        # Higher flow roads have a smaller multiplier that indicates particularly good conditions to travel as opposed to municipality-roads where multiple factors could influence the travel time, like: road maintenance, heavy tourist vehicles that block the road or that go slower, etc.
+        speed_factor = (
+            # Contribution of the highest speed limit
+            ((highest_speed_limit / 100) * 85) * 0.20 +
+            highest_speed_limit * 0.20
+        )
+        lowest_speed_contribution = lowest_speed_limit * 0.05
+        # Contribution of the lowest speed limit
 
-
-
-
-
-
-
-
-
-        #TODO DEPENDING ON THE ROAD CATEGORY THE AVERAGE VALUE WE'RE GOING TO TAKE INTO CONSIDERATION FOR THE AVERAGE SPEED OF THE ROAD CATEGORY WILL BE CUSTOMIZED BASED ON THE COUNTY AND THE MUNICIPALITY OF THE LINK
-        #TODO WE'LL FIRST CREATE A COUNTY AVERAGE AND MUNICIPALITY AVERAGE (MULTIPLE MUNICIPALITY AVERAGES IF THE LINK BELONGS TO MULTIPLE MUNICIPALITIES) AND THEN GIVE MORE WEIGHT TO THE MUNICIPALITY ONES, BUT KEEPING STILL THE COUNTY AVERAGE
-
-
-
-
-
-        return ...
-
+        return (
+                travel_time_factor +
+                lane_factor +
+                speed_factor +
+                lowest_speed_contribution
+        )
 
     def find_route(self,
                    source: str,
@@ -401,7 +402,7 @@ class RoadNetwork:
         paths = {}
 
 
-        for _ in range(5):
+        for p in range(5):
 
             # ---------- STEP 1 ----------
 
@@ -492,18 +493,24 @@ class RoadNetwork:
                     default=TrafficClasses.LOW.name
                 ) # Each traffic class represents a percentage difference from the mean, example: if the forecasted value distance from the mean is within 15-25% more than the mean then average_high elif 25-50% more high, elif 50-100% stop and go
 
-                high_traffic_links_perc = line_predictions[f"{target}_traffic_class"].isin([TrafficClasses.HIGH_AVERAGE.name, TrafficClasses.HIGH.name]).mean() * 100 # Calculating the percentage of the total path which has a traffic level above HIGH_AVERAGE
+                high_traffic_perc = line_predictions[f"{target}_traffic_class"].isin([TrafficClasses.HIGH_AVERAGE.name, TrafficClasses.HIGH.name]).mean() * 100 # Calculating the percentage of the total path which has a traffic level above HIGH_AVERAGE
                 # Getting only the fraction of rows where the mask value is True, so it is already a division on the total of rows
                 # It's just a shortcut for mask = *row_value* isin(...) -> mask.sum() / len(mask)
 
-                if high_traffic_links_perc > 50:
+                if high_traffic_perc > 50:
+                    trp_research_buffer_radius += 2000
+
                     weight = ...
 
-
-
-                    #TODO START PREDICTIONS AGAIN AND USE THEM COMBINED WITH OTHER DATA FROM THE LINK
+                    #TODO ADD THE PATH TO paths
 
                 else:
+                    paths.update({
+                        str(p): {
+                            "path": sp,
+                            "high_traffic_perc": high_traffic_perc
+                        }
+                    })
                     break
 
 

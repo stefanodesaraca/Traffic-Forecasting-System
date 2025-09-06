@@ -218,3 +218,12 @@ class TrafficClasses(Enum): #Import as TrafficClasses
     # https://www.color-hex.com/color-palette/1064006
     # https://www.color-hex.com/color-palette/1063978
     # https://www.color-hex.com/color-palette/1064022
+
+
+
+class RoadCategoryTraitLengthWeightMultipliers(Enum):
+    E = 0.5
+    R = 0.7
+    F = 1.3
+    K = 1.5
+    P = 2.0
