@@ -350,12 +350,13 @@ class RoadNetwork:
         lowest_speed_contribution = lowest_speed_limit * 0.05
         # Contribution of the lowest speed limit
 
-        return (
+        return abs(
                 travel_time_factor +
                 lane_factor +
                 speed_factor +
                 lowest_speed_contribution
-        )
+        ) #Can't return a potentially negative weight
+
 
     def find_route(self,
                    source: str,
@@ -397,16 +398,15 @@ class RoadNetwork:
         #This way we're also going to apply all filters if any have been set since if there isn't a link connecting a node to another that will be isolated
 
         heuristic = lambda u, v: self._get_minkowski_dist(u, v, self._network)
-        weight = "length"
-
         paths = {}
+        removed_edges = {} #For each path we'll keep the edges removed when searching alternative paths
 
 
         for p in range(5):
 
             # ---------- STEP 1 ----------
 
-            sp = self._get_shortest_path(source=source, destination=destination, heuristic=heuristic, weight=weight)
+            sp = self._get_shortest_path(source=source, destination=destination, heuristic=heuristic, weight=self._get_advanced_weighting)
             print(sp)
             sp_edges = self._get_path_edges(sp)
             print(sp_edges)
@@ -498,17 +498,21 @@ class RoadNetwork:
                 # It's just a shortcut for mask = *row_value* isin(...) -> mask.sum() / len(mask)
 
                 if high_traffic_perc > 50:
-                    trp_research_buffer_radius += 2000
+                    trp_research_buffer_radius += 2000 #Incrementing the TRP research buffer radius
 
-                    weight = ...
+                    sp_edges_weight = [(u, v, self._network[u][v]["weight"]) for u, v in sp_edges]
 
-                    #TODO ADD THE PATH TO paths
+                    # Sort by weight (descending) and pick the top-n heaviest nodes to remove them
+                    n = max(1, len(sp_edges))  # Maximum number of heaviest edges to remove
+                    removed_edges[str(p)] = [(u, v) for u, v, w in sorted(sp_edges_weight, key=lambda x: x[2], reverse=True)[:n]]
+                    self._network.remove_edges_from(removed_edges[str(p)])
 
                 else:
                     paths.update({
                         str(p): {
                             "path": sp,
-                            "high_traffic_perc": high_traffic_perc
+                            "high_traffic_perc": high_traffic_perc,
+                            "trp_research_buffer_radius": trp_research_buffer_radius
                         }
                     })
                     break
@@ -528,8 +532,8 @@ class RoadNetwork:
 
 
 
-
-
+        for re in removed_edges.values():
+            self._network.add_edges_from(re)
 
         # Adding removed nodes back into the graph to avoid needing to re-build the whole graph again
         self._network.add_nodes_from(unreachable)
