@@ -497,6 +497,15 @@ class RoadNetwork:
                 # Getting only the fraction of rows where the mask value is True, so it is already a division on the total of rows
                 # It's just a shortcut for mask = *row_value* isin(...) -> mask.sum() / len(mask)
 
+                paths.update({
+                    str(p): {
+                        "path": sp,
+                        "forecasted_travel_time": ...,
+                        "high_traffic_perc": high_traffic_perc,
+                        "trp_research_buffer_radius": trp_research_buffer_radius
+                    }
+                })
+
                 if high_traffic_perc > 50:
                     trp_research_buffer_radius += 2000 #Incrementing the TRP research buffer radius
 
@@ -508,13 +517,6 @@ class RoadNetwork:
                     self._network.remove_edges_from(removed_edges[str(p)])
 
                 else:
-                    paths.update({
-                        str(p): {
-                            "path": sp,
-                            "high_traffic_perc": high_traffic_perc,
-                            "trp_research_buffer_radius": trp_research_buffer_radius
-                        }
-                    })
                     break
 
 
@@ -548,10 +550,13 @@ class RoadNetwork:
 
         #TODO THE FORECASTED TRAVEL TIME WILL BE TOTAL LENGTH IN METERS OF THE WHOLE LINESTRING DIVIDED BY 85% OF THE MAX SPEED LIMIT + 30s * (85% OF THE TOTAL NUMBER OF NODES THAT THE USER WILL PASS THROUGH, SINCE EACH ONE IS AN INTERSECTION AND PROBABLY 85% HAVE A TRAFFIC LIGHT)
 
-        #TODO TRY TO GET AT LEAST 2 TRPS
-        # IF NONE ARE FOUND REPEAT THE RESEARCH, BUT INCREASE THE RADIUS BY 1500m
-
-        return ...
+        return dict(
+            sorted(
+                paths.items(),
+                key=lambda item: item[1]["high_traffic_perc"],
+                reverse=False  # Since we want ascending order having the paths with the lower high traffic percentages first
+            )
+        )
 
 
 
