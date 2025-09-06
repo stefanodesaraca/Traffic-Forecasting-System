@@ -497,10 +497,14 @@ class RoadNetwork:
                 # Getting only the fraction of rows where the mask value is True, so it is already a division on the total of rows
                 # It's just a shortcut for mask = *row_value* isin(...) -> mask.sum() / len(mask)
 
+                total_sp_length = sum([self._network.edges[e]["length"] for e in sp])
+                average_highest_speed_limit = np.mean([self._network.edges[e]["highest_speed_limit"] for e in sp])
+
                 paths.update({
                     str(p): {
                         "path": sp,
-                        "forecasted_travel_time": ...,
+                        "forecasted_travel_time": ((total_sp_length / (((average_highest_speed_limit / 100) * 90) / 3.6)) * 60) + ((len(sp) * 0.25) * 0.30),
+                        #Considering that on average 25% of the road nodes (especially in urban areas) have traffic lights we'll count each one as 30s of wait time in the worst case scenario (all reds)
                         "high_traffic_perc": high_traffic_perc,
                         "trp_research_buffer_radius": trp_research_buffer_radius
                     }
