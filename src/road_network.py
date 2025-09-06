@@ -206,40 +206,6 @@ class RoadNetwork:
         return min(numbers, key=lambda n: abs(n - k))
 
 
-    def _compute_edge_weight(self, edge_start: callable, edge_end: callable, attrs: dict) -> PositiveFloat | None:
-        length: PositiveFloat = attrs.get("length")
-        road_category: str = attrs.get("road_category")
-        min_lanes: PositiveInt = attrs.get("min_lanes")
-        max_lanes: PositiveInt = attrs.get("max_lanes")
-        highest_speed_limit: PositiveInt = attrs.get("highest_speed_limit")
-        lowest_speed_limit: PositiveInt = attrs.get("lowest_speed_limit")
-        is_ferry_route: bool = attrs.get("is_ferry_route")
-
-        neighborhood_radius = 3500 #Distance in meters from the link line, so the diameter of the whole buffer zone is neighborhood_radius * 2
-        neighborhood_trps = []
-
-        while len(neighborhood_trps) == 0:
-            neighborhood_trps = self._get_neighbor_trps(attrs["link_id"], buffer_zone_radius=neighborhood_radius)
-            neighborhood_radius += 1000
-
-
-
-
-
-
-
-
-
-        #TODO DEPENDING ON THE ROAD CATEGORY THE AVERAGE VALUE WE'RE GOING TO TAKE INTO CONSIDERATION FOR THE AVERAGE SPEED OF THE ROAD CATEGORY WILL BE CUSTOMIZED BASED ON THE COUNTY AND THE MUNICIPALITY OF THE LINK
-        #TODO WE'LL FIRST CREATE A COUNTY AVERAGE AND MUNICIPALITY AVERAGE (MULTIPLE MUNICIPALITY AVERAGES IF THE LINK BELONGS TO MULTIPLE MUNICIPALITIES) AND THEN GIVE MORE WEIGHT TO THE MUNICIPALITY ONES, BUT KEEPING STILL THE COUNTY AVERAGE
-
-
-
-
-
-        return ...
-
-
     def load_nodes(self) -> None:
         all(self._network.add_nodes_from((row.to_dict().pop("node_id"), row) for _, row in partition.iterrows()) for partition in self._loader.get_nodes().partitions)
         return None
@@ -298,7 +264,7 @@ class RoadNetwork:
         return None
 
 
-    def _get_shortest_path(self, source: str, destination: str, heuristic: callable, weight: callable) -> list[str]:
+    def _get_shortest_path(self, source: str, destination: str, heuristic: callable, weight: str | callable) -> list[str]:
         return nx.astar_path(G=self._network, source=source, target=destination, heuristic=heuristic, weight=weight)
 
 
@@ -356,6 +322,40 @@ class RoadNetwork:
 
 
 
+    def _get_advanced_weight(self, edge_start: callable, edge_end: callable, attrs: dict) -> PositiveFloat | None:
+        length: PositiveFloat = attrs.get("length")
+        road_category: str = attrs.get("road_category")
+        min_lanes: PositiveInt = attrs.get("min_lanes")
+        max_lanes: PositiveInt = attrs.get("max_lanes")
+        highest_speed_limit: PositiveInt = attrs.get("highest_speed_limit")
+        lowest_speed_limit: PositiveInt = attrs.get("lowest_speed_limit")
+        is_ferry_route: bool = attrs.get("is_ferry_route")
+
+        neighborhood_radius = 3500 #Distance in meters from the link line, so the diameter of the whole buffer zone is neighborhood_radius * 2
+        neighborhood_trps = []
+
+        while len(neighborhood_trps) == 0:
+            neighborhood_trps = self._get_neighbor_trps(attrs["link_id"], buffer_zone_radius=neighborhood_radius)
+            neighborhood_radius += 1000
+
+
+
+
+
+
+
+
+
+        #TODO DEPENDING ON THE ROAD CATEGORY THE AVERAGE VALUE WE'RE GOING TO TAKE INTO CONSIDERATION FOR THE AVERAGE SPEED OF THE ROAD CATEGORY WILL BE CUSTOMIZED BASED ON THE COUNTY AND THE MUNICIPALITY OF THE LINK
+        #TODO WE'LL FIRST CREATE A COUNTY AVERAGE AND MUNICIPALITY AVERAGE (MULTIPLE MUNICIPALITY AVERAGES IF THE LINK BELONGS TO MULTIPLE MUNICIPALITIES) AND THEN GIVE MORE WEIGHT TO THE MUNICIPALITY ONES, BUT KEEPING STILL THE COUNTY AVERAGE
+
+
+
+
+
+        return ...
+
+
     def find_route(self,
                    source: str,
                    destination: str,
@@ -395,103 +395,116 @@ class RoadNetwork:
         self._network.remove_nodes_from(unreachable := list(i for i in nx.isolates(self._network)))
         #This way we're also going to apply all filters if any have been set since if there isn't a link connecting a node to another that will be isolated
 
+        heuristic = lambda u, v: self._get_minkowski_dist(u, v, self._network)
+        weight = "length"
 
-        # ---------- STEP 1 ----------
-
-        sp = self._get_shortest_path(source=source, destination=destination, heuristic=lambda u, v: self._get_minkowski_dist(u, v, self._network), weight="length")
-        print(sp)
-
-        sp_edges = self._get_path_edges(sp)
-        print(sp_edges)
+        paths = {}
 
 
-        # ---------- STEP 2 ----------
+        for _ in range(5):
 
-        trps_per_edge = self._get_trps_per_edge(edges=sp_edges, trp_research_buffer_radius=trp_research_buffer_radius)
+            # ---------- STEP 1 ----------
 
-        self.trps_along_sp = set(*chain(trps_per_edge.values())) # A set of dictionary where each dict is a TRP with its metadata (id, road_category, etc.)
-        link_agg_data = dict((link_id, self._get_link_aggregated_traffic_data(link_id=link_id)) for link_id in trps_per_edge.keys()) # Converting link_agg_data to dict for fast lookup
-        # Simply using the dict() function on a list of tuples
-
-
-        # ---------- STEP 3 ----------
-
-        self.trps_along_sp_preds.update(**{
-            trp["trp_id"]: {
-                **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["trp_id"], target=target, road_category=trp["road_category"], lags=[24, 36, 48, 60, 72])[[target, "zoned_dt_iso"]]
-                    for target in targets},
-                **trp,
-            } for trp in self.trps_along_sp.difference(set(self.trps_along_sp_preds.keys())) # All TRPs that are along the shortest path, but not in the ones for which we already computed the predictions
-        })
-        # Re-use them for future slightly different shortest path which have the same trps in common with the previous shortest paths
+            sp = self._get_shortest_path(source=source, destination=destination, heuristic=heuristic, weight=weight)
+            print(sp)
+            sp_edges = self._get_path_edges(sp)
+            print(sp_edges)
 
 
-        # ---------- STEP 4 ----------
+            # ---------- STEP 2 ----------
 
-        for target in targets:
-            line_predictions = pd.DataFrame((
-                    (x, y, edge_data["link_id"])
-                     for u, v in sp_edges
-                     for edge_data, geom in
-                     [(self._network.get_edge_data(u, v), wkt.loads(self._network.get_edge_data(u, v)["geom"]))]
-                     for x, y in geom.coords
-                ),
-                columns=["lon", "lat", "link_id"]
-            ) # Creating the structure of the dataframe where we'll concatenate ordinary kriging results
-
-            ok = self._get_ordinary_kriging(trps_along_path_preds=self.trps_along_sp_preds, time_range=time_range, target=target, verbose=True)
-
-            z_interpolated_vals, kriging_variance= self._ok_interpolate(ordinary_kriging_obj=ok,
-                                                                        x_coords=line_predictions["lon"].values,
-                                                                        y_coords=line_predictions["lat"].values,
-                                                                        style="points")  # Kriging variance is sometimes called "ss" (sigma squared)
-
-            line_predictions[f"{target}_interpolated_value"] = z_interpolated_vals
-            line_predictions[f"{target}_variance"] = kriging_variance
+            trps_per_edge = self._get_trps_per_edge(edges=sp_edges, trp_research_buffer_radius=trp_research_buffer_radius)
+            self.trps_along_sp = set(*chain(trps_per_edge.values())) # A set of dictionary where each dict is a TRP with its metadata (id, road_category, etc.)
 
 
-        # ---------- STEP 5 ----------
+            # ---------- STEP 3 ----------
 
-            line_predictions[f"link_avg_{target}"] = line_predictions["link_id"].map(lambda link_id: link_agg_data[link_id][f"weighted_avg_{target}"])
+            self.trps_along_sp_preds.update(**{
+                trp["trp_id"]: {
+                    **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["trp_id"], target=target, road_category=trp["road_category"], lags=[24, 36, 48, 60, 72])[[target, "zoned_dt_iso"]]
+                        for target in targets},
+                    **trp,
+                } for trp in self.trps_along_sp.difference(set(self.trps_along_sp_preds.keys())) # All TRPs that are along the shortest path, but not in the ones for which we already computed the predictions
+            })
+            # Re-use them for future slightly different shortest path which have the same trps in common with the previous shortest paths
+            #TODO IMPLEMENT MULTIPROCESSING AND ADD TO self.trps_along_sp_preds THE PREDICTIONS FOR ALL TRPs FOR WHICH THEY WERE COMPUTED ALL AT ONCE
 
-            # Difference (point prediction - link-level avg)
-            line_predictions[f"{target}_diff_from_avg"] = line_predictions[f"{target}_interpolated_value"] - line_predictions[f"link_avg_{target}"]
+            # ---------- STEP 4 ----------
 
-            # Merge STD computation into the dataframe
-            line_predictions = line_predictions.merge((
-                line_predictions
-                .groupby("link_id")[f"{target}_diff_from_avg"]
-                .std()
-                .rename(f"{target}_diff_std")
-            ), on="link_id", how="left")
+            for target in targets:
+                line_predictions = pd.DataFrame((
+                        (x, y, edge_data["link_id"])
+                         for u, v in sp_edges
+                         for edge_data, geom in
+                         [(self._network.get_edge_data(u, v), wkt.loads(self._network.get_edge_data(u, v)["geom"]))]
+                         for x, y in geom.coords
+                    ),
+                    columns=["lon", "lat", "link_id"]
+                ) # Creating the structure of the dataframe where we'll concatenate ordinary kriging results
 
-            pct_diff = (line_predictions[f"{target}_interpolated_value"] - line_predictions[f"link_avg_{target}"]) / line_predictions[f"link_avg_{target}"] * 100
-            line_predictions[f"{target}_traffic_class"] = np.select(
-                [
-                    pct_diff < -25, # LOW
-                    (pct_diff >= -25) & (pct_diff < -15), # LOW_AVERAGE
-                    (pct_diff >= -15) & (pct_diff <= 15), # AVERAGE
-                    (pct_diff > 15) & (pct_diff <= 25), # HIGH_AVERAGE
-                    (pct_diff > 25) & (pct_diff <= 50), # HIGH
-                    pct_diff > 50 # STOP_AND_GO
-                ],
-                [
-                    TrafficClasses.LOW.name,
-                    TrafficClasses.LOW_AVERAGE.name,
-                    TrafficClasses.AVERAGE.name,
-                    TrafficClasses.HIGH_AVERAGE.name,
-                    TrafficClasses.HIGH.name,
-                    TrafficClasses.STOP_AND_GO.name
-                ],
-                default=TrafficClasses.LOW.name
-            ) # Each traffic class represents a percentage difference from the mean, example: if the forecasted value distance from the mean is within 15-25% more than the mean then average_high elif 25-50% more high, elif 50-100% stop and go
+                ok = self._get_ordinary_kriging(trps_along_path_preds=self.trps_along_sp_preds, time_range=time_range, target=target, verbose=True)
 
-            high_traffic_links_perc = line_predictions[f"{target}_traffic_class"].isin([TrafficClasses.HIGH_AVERAGE.name, TrafficClasses.HIGH.name]).mean() * 100 # Calculating the percentage of the total path which has a traffic level above HIGH_AVERAGE
-            # Getting only the fraction of rows where the mask value is True, so it is already a division on the total of rows
-            # It's just a shortcut for mask = *row_value* isin(...) -> mask.sum() / len(mask)
+                z_interpolated_vals, kriging_variance= self._ok_interpolate(ordinary_kriging_obj=ok,
+                                                                            x_coords=line_predictions["lon"].values,
+                                                                            y_coords=line_predictions["lat"].values,
+                                                                            style="points")  # Kriging variance is sometimes called "ss" (sigma squared)
 
-            if high_traffic_links_perc > 50:
-                ... #TODO START PREDICTIONS AGAIN AND USE THEM COMBINED WITH OTHER DATA FROM THE LINK
+                line_predictions[f"{target}_interpolated_value"] = z_interpolated_vals
+                line_predictions[f"{target}_variance"] = kriging_variance
+
+
+            # ---------- STEP 5 ----------
+
+                link_agg_data = dict((link_id, self._get_link_aggregated_traffic_data(link_id=link_id)) for link_id in trps_per_edge.keys())  # Converting link_agg_data to dict for fast lookup
+                # Simply using the dict() function on a list of tuples
+
+                line_predictions[f"link_avg_{target}"] = line_predictions["link_id"].map(lambda link_id: link_agg_data[link_id][f"weighted_avg_{target}"])
+
+                # Difference (point prediction - link-level avg)
+                line_predictions[f"{target}_diff_from_avg"] = line_predictions[f"{target}_interpolated_value"] - line_predictions[f"link_avg_{target}"]
+
+                # Merge STD computation into the dataframe
+                line_predictions = line_predictions.merge((
+                    line_predictions
+                    .groupby("link_id")[f"{target}_diff_from_avg"]
+                    .std()
+                    .rename(f"{target}_diff_std")
+                ), on="link_id", how="left")
+
+                pct_diff = (line_predictions[f"{target}_interpolated_value"] - line_predictions[f"link_avg_{target}"]) / line_predictions[f"link_avg_{target}"] * 100
+                line_predictions[f"{target}_traffic_class"] = np.select(
+                    [
+                        pct_diff < -25, # LOW
+                        (pct_diff >= -25) & (pct_diff < -15), # LOW_AVERAGE
+                        (pct_diff >= -15) & (pct_diff <= 15), # AVERAGE
+                        (pct_diff > 15) & (pct_diff <= 25), # HIGH_AVERAGE
+                        (pct_diff > 25) & (pct_diff <= 50), # HIGH
+                        pct_diff > 50 # STOP_AND_GO
+                    ],
+                    [
+                        TrafficClasses.LOW.name,
+                        TrafficClasses.LOW_AVERAGE.name,
+                        TrafficClasses.AVERAGE.name,
+                        TrafficClasses.HIGH_AVERAGE.name,
+                        TrafficClasses.HIGH.name,
+                        TrafficClasses.STOP_AND_GO.name
+                    ],
+                    default=TrafficClasses.LOW.name
+                ) # Each traffic class represents a percentage difference from the mean, example: if the forecasted value distance from the mean is within 15-25% more than the mean then average_high elif 25-50% more high, elif 50-100% stop and go
+
+                high_traffic_links_perc = line_predictions[f"{target}_traffic_class"].isin([TrafficClasses.HIGH_AVERAGE.name, TrafficClasses.HIGH.name]).mean() * 100 # Calculating the percentage of the total path which has a traffic level above HIGH_AVERAGE
+                # Getting only the fraction of rows where the mask value is True, so it is already a division on the total of rows
+                # It's just a shortcut for mask = *row_value* isin(...) -> mask.sum() / len(mask)
+
+                if high_traffic_links_perc > 50:
+                    weight = ...
+
+
+
+                    #TODO START PREDICTIONS AGAIN AND USE THEM COMBINED WITH OTHER DATA FROM THE LINK
+
+                else:
+                    break
 
 
 
