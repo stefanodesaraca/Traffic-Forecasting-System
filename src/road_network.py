@@ -481,8 +481,8 @@ class RoadNetwork:
             paths.update({
                 str(p): {
                     "path": sp,
-                    "path_edges": sp_edges,
-                    "trps_per_edge": trps_per_edge,
+                    "path_edges": sp_edges, #Has edges latitude and longitudes too
+                    "trps_per_edge": trps_per_edge, #Has TRPs latitude and longitudes too
                     "forecasted_travel_time": ((total_sp_length / (
                                 ((average_highest_speed_limit / 100) * 90) / 3.6)) * 60) + ((len(sp) * 0.25) * 0.30), # In minutes
                     # Considering that on average 25% of the road nodes (especially in urban areas) have traffic lights we'll count each one as 30s of wait time in the worst case scenario (all reds)
@@ -492,13 +492,13 @@ class RoadNetwork:
             })
 
             line_predictions = pd.DataFrame((
-                    (x, y, edge_data["link_id"])
+                    (x, y, (u, v), edge_data["link_id"])
                     for u, v in sp_edges
                     for edge_data, geom in
                     [(self._network.get_edge_data(u, v), wkt.loads(self._network.get_edge_data(u, v)["geom"]))]
                     for x, y in geom.coords
                 ),
-                columns=["lon", "lat", "link_id"]
+                columns=["lon", "lat", "edge", "link_id"]
             )  # Creating the structure of the dataframe where we'll concatenate ordinary kriging results
 
             link_agg_data = dict((link_id, self._get_link_aggregated_traffic_data(link_id=link_id)) for link_id in trps_per_edge.keys())  # Converting link_agg_data to dict for fast lookup
@@ -561,7 +561,7 @@ class RoadNetwork:
                 paths[str(p)].update(**{
                     f"{target}_ordinary_kriging_interpolated_values": z_interpolated_vals,
                     f"{target}_ordinary_kriging_variogram_plot": variogram_plot,
-                    f"{target}_high_traffic_perc": high_traffic_perc
+                    f"{target}_high_traffic_perc": high_traffic_perc,
                 })
 
 
@@ -579,6 +579,10 @@ class RoadNetwork:
 
             else:
                 continue
+
+
+            paths[str(p)].update({"line_predictions": line_predictions})
+
 
         for re in removed_edges.values():
             self._network.add_edges_from(re)
@@ -604,12 +608,12 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _create_map(lat_init: float, lon_init: float, zoom: PositiveInt = 8, tiles: str = FoliumMapTiles.OPEN_STREET_MAPS) -> folium.Map:
+    def _create_map(lat_init: float, lon_init: float, zoom: PositiveInt = 8, tiles: str = FoliumMapTiles.OPEN_STREET_MAPS.value) -> folium.Map:
         return folium.Map(location=[lat_init, lon_init], tiles=tiles, zoom_start=zoom)
 
 
     @staticmethod
-    def _add_marker(folium_obj: folium.Map | folium.FeatureGroup, marker_lat: float, marker_lon: float, tooltip: str, popup: str, icon: folium.Icon | None = None, circle: bool = False, radius: float | None = None) -> None:
+    def _add_marker(folium_obj: folium.Map | folium.FeatureGroup, marker_lat: float, marker_lon: float, tooltip: str | None = None, popup: str | None = None, icon: folium.Icon | None = None, circle: bool = False, radius: float | None = None) -> None:
         if not circle:
             folium.Marker(location=[marker_lat, marker_lon], tooltip=tooltip, popup=popup, icon=icon).add_to(folium_obj)
         else:
@@ -618,8 +622,8 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _add_line(folium_obj: folium.Map | folium.FeatureGroup, locations: list[float], color: str, weight: float, smooth_factor: float, tooltip: str | None = None, popup: str | None = None) -> None:
-        folium.PolyLine(locations=locations, color=color, weight=weight, smooth_factor=smooth_factor).add_to(folium_obj)
+    def _add_line(folium_obj: folium.Map | folium.FeatureGroup, locations: list[float], color: str, weight: float, smooth_factor: float | None = None, tooltip: str | None = None, popup: str | None = None) -> None:
+        folium.PolyLine(locations=locations, color=color, weight=weight, smooth_factor=smooth_factor, tooltip=tooltip, popup=popup).add_to(folium_obj)
         return None
     # https://python-visualization.github.io/folium/latest/user_guide/vector_layers/polyline.html
 
@@ -632,14 +636,62 @@ class RoadNetwork:
         return None
 
 
-    def draw_route(self, route: dict[str, Any]) -> None:
+    @staticmethod
+    def _route_maps_assembler(map_obj: folium.Map, routes: list[folium.FeatureGroup]) -> list[folium.FeatureGroup]:
+
+        #TODO ADD routes OBJECTS TO THE MAP THAT GETS IMPUTED AS ARGUMENT AND RETURN THE COMBINED MAP OBJECT
+
+        return ...
+
+
+
+
+
+    def draw_route(self,
+                   route: dict[str, Any],
+                   map_loc_start: list[float] | None = None,
+                   tiles: str | FoliumMapTiles = FoliumMapTiles.OPEN_STREET_MAPS.value,
+                   zoom_start: PositiveInt | None = None,
+                   export: bool | None = None,
+                   fp: str | Path | None = None) -> None:
+
+        path_start_node = next(iter(route["path"]))
+        path_end_node = route["path"][-1]
+
+        if map_loc_start is None:
+            map_loc_start = [path_start_node["lat"], path_start_node["lon"]]
+
+        route_map = self._create_map(lat_init=map_loc_start[0], lon_init=map_loc_start[1], zoom=zoom_start or 8, tiles=tiles or FoliumMapTiles.OPEN_STREET_MAPS.value)
+
+        # Layers
+        steps_layer = folium.FeatureGroup("steps")
+        edges_layer = folium.FeatureGroup("edges")
+
+        # Adding source node
+        self._add_marker(folium_obj=steps_layer, marker_lat=map_loc_start[0], marker_lon=map_loc_start[1], tooltip=..., popup=..., circle=True)
+        # Adding destination node
+        self._add_marker(folium_obj=steps_layer, marker_lat=path_end_node["lat"], marker_lon=path_end_node["lon"], tooltip=..., popup=..., circle=True)
+
+        for edge in route["line_predictions"].iterrows():
+            self._add_line(folium_obj=edges_layer, locations=[edge["lat"], edge["lon"]], color=TrafficClasses[edge["traffic_class"]].value, weight=10)
+
+
+
+
+
+
         #TODO ADD AS A LAYER THE TRPS WHICH WERE USE FOR ORDINARY KRIGING ON A SPECIFIC PATH
+
+        return None
+
+
+
+    @staticmethod
+    def draw_routes(routes: dict[str, dict[str, Any]], export: bool | None = None, fp: str | Path | None = None) -> None:
+
         ...
 
-
-
-    def draw_routes(self, routes: dict[str, dict[str, Any]]) -> None:
-        ...
+        return None
 
 
 
