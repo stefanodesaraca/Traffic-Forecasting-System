@@ -322,7 +322,13 @@ class RoadNetwork:
             style=style,
             xpoints=x_coords,
             ypoints=y_coords
-        )
+        ), plt.gcf()
+
+
+    @staticmethod
+    def _edit_variogram_plot(fig: plt.Figure, target: str) -> plt.Figure:
+        fig.suptitle(f"{target} Variogram")
+        return fig
 
 
     @staticmethod
@@ -388,7 +394,6 @@ class RoadNetwork:
                 )
             )
         ) # Submitting the tasks to the Dask cluster, gathering them and updating the trps_along_sp_preds dictionary
-
 
 
     def find_route(self,
@@ -463,7 +468,6 @@ class RoadNetwork:
             total_sp_length = sum([self._network.edges[e]["length"] for e in sp])
             average_highest_speed_limit = np.mean([self._network.edges[e]["highest_speed_limit"] for e in sp])
 
-
             paths.update({
                 str(p): {
                     "path": sp,
@@ -488,19 +492,19 @@ class RoadNetwork:
             link_agg_data = dict((link_id, self._get_link_aggregated_traffic_data(link_id=link_id)) for link_id in trps_per_edge.keys())  # Converting link_agg_data to dict for fast lookup
             # Simply using the dict() function on a list of tuples
 
+
+            # ---------- STEP 5 ----------
+
             for target in targets:
 
                 ok = self._get_ordinary_kriging(trps_along_path_preds=self.trps_along_sp_preds, time_range=time_range, target=target, verbose=True)
-                z_interpolated_vals, kriging_variance = self._ok_interpolate(ordinary_kriging_obj=ok,
+                z_interpolated_vals, kriging_variance, variogram_plot = self._ok_interpolate(ordinary_kriging_obj=ok,
                                                                             x_coords=line_predictions["lon"].values,
                                                                             y_coords=line_predictions["lat"].values,
                                                                             style="points")  # Kriging variance is sometimes called "ss" (sigma squared)
 
                 line_predictions[f"{target}_interpolated_value"] = z_interpolated_vals
                 line_predictions[f"{target}_variance"] = kriging_variance
-
-
-            # ---------- STEP 5 ----------
 
                 line_predictions[f"link_avg_{target}"] = line_predictions["link_id"].map(lambda link_id: link_agg_data[link_id][f"weighted_avg_{target}"])
 
@@ -541,12 +545,15 @@ class RoadNetwork:
                 # It's just a shortcut for mask = *row_value* isin(...) -> mask.sum() / len(mask)
 
                 paths[str(p)].update(**{
-                        f"{target}_ordinary_kriging_interpolated_values": z_interpolated_vals,
-                        f"{target}_high_traffic_perc": high_traffic_perc
-
+                    f"{target}_ordinary_kriging_interpolated_values": z_interpolated_vals,
+                    f"{target}_ordinary_kriging_variogram_plot": variogram_plot,
+                    f"{target}_high_traffic_perc": high_traffic_perc
                 })
 
-            if high_traffic_perc > 50:
+
+            # ---------- STEP 6 ----------
+
+            if any([paths[str(p)].get(f"{target}_high_traffic_perc") for target in targets]) > 50:
                 trp_research_buffer_radius += 2000 #Incrementing the TRP research buffer radius
 
                 sp_edges_weight = [(u, v, self._network[u][v]["weight"]) for u, v in sp_edges]
@@ -558,9 +565,6 @@ class RoadNetwork:
 
             else:
                 continue
-
-        #TODO ADD AS A LAYER THE TRPS WHICH WERE USE FOR ORDINARY KRIGING ON A SPECIFIC PATH
-
 
         for re in removed_edges.values():
             self._network.add_edges_from(re)
@@ -585,6 +589,15 @@ class RoadNetwork:
         )
 
 
+
+    def draw_route(self, route: dict[str, Any]) -> None:
+        #TODO ADD AS A LAYER THE TRPS WHICH WERE USE FOR ORDINARY KRIGING ON A SPECIFIC PATH
+        ...
+
+
+
+    def draw_routes(self, routes: dict[str, dict[str, Any]]) -> None:
+        ...
 
 
 
