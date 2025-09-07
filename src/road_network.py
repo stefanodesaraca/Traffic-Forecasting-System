@@ -1,3 +1,4 @@
+from pathlib import Path
 import datetime
 import pickle
 from itertools import chain
@@ -12,10 +13,19 @@ import dask.dataframe as dd
 from dask.distributed import Client
 import utm
 from pykrige.ok import OrdinaryKriging
+import folium
 import matplotlib.pyplot as plt
 
 
-from definitions import GlobalDefinitions, ProjectTables, ProjectMaterializedViews, TrafficClasses, IconStyles, RoadCategoryTraitLengthWeightMultipliers
+from definitions import (
+    GlobalDefinitions,
+    ProjectTables,
+    ProjectMaterializedViews,
+    TrafficClasses,
+    FoliumMapTiles,
+    IconStyles,
+    RoadCategoryTraitLengthWeightMultipliers
+)
 from loaders import BatchStreamLoader
 from pipelines import MLPreprocessingPipeline, MLPredictionPipeline
 from utils import save_plot
@@ -471,6 +481,8 @@ class RoadNetwork:
             paths.update({
                 str(p): {
                     "path": sp,
+                    "path_edges": sp_edges,
+                    "trps_per_edge": trps_per_edge,
                     "forecasted_travel_time": ((total_sp_length / (
                                 ((average_highest_speed_limit / 100) * 90) / 3.6)) * 60) + ((len(sp) * 0.25) * 0.30), # In minutes
                     # Considering that on average 25% of the road nodes (especially in urban areas) have traffic lights we'll count each one as 30s of wait time in the worst case scenario (all reds)
@@ -502,6 +514,8 @@ class RoadNetwork:
                                                                             x_coords=line_predictions["lon"].values,
                                                                             y_coords=line_predictions["lat"].values,
                                                                             style="points")  # Kriging variance is sometimes called "ss" (sigma squared)
+
+                variogram_plot = self._edit_variogram_plot(fig=variogram_plot, target=target)
 
                 line_predictions[f"{target}_interpolated_value"] = z_interpolated_vals
                 line_predictions[f"{target}_variance"] = kriging_variance
@@ -588,6 +602,34 @@ class RoadNetwork:
             )
         )
 
+
+    @staticmethod
+    def _create_map(lat_init: float, lon_init: float, zoom: PositiveInt = 8, tiles: str = FoliumMapTiles.OPEN_STREET_MAPS) -> folium.Map:
+        return folium.Map(location=[lat_init, lon_init], tiles=tiles, zoom_start=zoom)
+
+
+    @staticmethod
+    def _add_marker(folium_obj: folium.Map | folium.FeatureGroup, marker_lat: float, marker_lon: float, tooltip: str, popup: str, icon: folium.Icon | None = None, circle: bool = False, radius: float | None = None) -> None:
+        if not circle:
+            folium.Marker(location=[marker_lat, marker_lon], tooltip=tooltip, popup=popup, icon=icon).add_to(folium_obj)
+        else:
+            folium.CircleMarker(location=[marker_lat, marker_lon], radius=radius, tooltip=tooltip, popup=popup, icon=icon).add_to(folium_obj)
+        return None
+
+
+    @staticmethod
+    def _add_line(folium_obj: folium.Map | folium.FeatureGroup, locations: list[float], color: str, weight: float, smooth_factor: float, tooltip: str | None = None, popup: str | None = None) -> None:
+        folium.PolyLine(locations=locations, color=color, weight=weight, smooth_factor=smooth_factor).add_to(folium_obj)
+        return None
+    # https://python-visualization.github.io/folium/latest/user_guide/vector_layers/polyline.html
+
+
+    @staticmethod
+    def export_map(map_obj: folium.Map, fp: str | Path) -> None:
+        if not fp.endswith(".html"):
+            raise ValueError("Wrong exporting format for interactive map. Must be HTML")
+        map_obj.save(fp)  # Must end with .html
+        return None
 
 
     def draw_route(self, route: dict[str, Any]) -> None:
