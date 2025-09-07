@@ -9,6 +9,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import dask.dataframe as dd
+from dask.distributed import Client
 import utm
 from pykrige.ok import OrdinaryKriging
 import matplotlib.pyplot as plt
@@ -28,11 +29,13 @@ class RoadNetwork:
     def __init__(self,
                  network_id: str,
                  name: str,
+                 dask_client: Client,
                  backend: str = "networkx",
                  db_broker: Any | None = None,
                  loader: BatchStreamLoader | None = None,
                  network_binary: bytes | None = None
     ):
+        self._dask_client = dask_client
         self._loader: BatchStreamLoader = loader
         self._db_broker: Any = db_broker #Synchronous DBBroker
         self.network_id: str = network_id
@@ -306,6 +309,7 @@ class RoadNetwork:
             variogram_model="spherical",
             coordinates_type="geographical",
             verbose=verbose,
+            #enable_statistics=True,
             enable_plotting=True
         )
 
@@ -358,6 +362,35 @@ class RoadNetwork:
         ) #Can't return a potentially negative weight
 
 
+    def _compute_trp_entry(self, trp: dict[str, Any], targets: list[str], lags: list[int]):
+        trp_id = trp["trp_id"]
+        return trp_id, {
+            **{
+                f"{target}_preds": self._get_trp_predictions(
+                    trp_id=trp_id,
+                    target=target,
+                    road_category=trp["road_category"],
+                    lags=lags
+                )[[target, "zoned_dt_iso"]]
+                for target in targets
+            },
+            **trp
+        }
+
+
+    def _update_trps_preds(self, targets: list[str], lags: list[int], client: Client):
+        self.trps_along_sp_preds.update(
+            **dict(
+                client.gather(
+                    client.map(
+                        lambda trp: self._compute_trp_entry(trp, targets=targets, lags=lags), self.trps_along_sp.difference(set(self.trps_along_sp_preds.keys()))
+                    )
+                )
+            )
+        ) # Submitting the tasks to the Dask cluster, gathering them and updating the trps_along_sp_preds dictionary
+
+
+
     def find_route(self,
                    source: str,
                    destination: str,
@@ -368,7 +401,7 @@ class RoadNetwork:
                    has_toll_stations: bool | None = None,
                    has_ferry_routes: bool | None = None,
                    trp_research_buffer_radius: PositiveInt = 3500
-    ) -> list[tuple[str, str]]:
+    ) -> dict[str, dict[str, Any]]:
 
         if not all([d.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT) for d in time_range]):
             raise ValueError(f"All time range values must be in {GlobalDefinitions.DT_ISO_TZ_FORMAT} format")
@@ -400,6 +433,7 @@ class RoadNetwork:
         heuristic = lambda u, v: self._get_minkowski_dist(u, v, self._network)
         paths = {}
         removed_edges = {} #For each path we'll keep the edges removed when searching alternative paths
+        lags = [24, 36, 48, 60, 72]
 
 
         for p in range(5):
@@ -420,15 +454,9 @@ class RoadNetwork:
 
             # ---------- STEP 3 ----------
 
-            self.trps_along_sp_preds.update(**{
-                trp["trp_id"]: {
-                    **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["trp_id"], target=target, road_category=trp["road_category"], lags=[24, 36, 48, 60, 72])[[target, "zoned_dt_iso"]]
-                        for target in targets},
-                    **trp,
-                } for trp in self.trps_along_sp.difference(set(self.trps_along_sp_preds.keys())) # All TRPs that are along the shortest path, but not in the ones for which we already computed the predictions
-            })
-            # Re-use them for future slightly different shortest path which have the same trps in common with the previous shortest paths
-            #TODO IMPLEMENT MULTIPROCESSING AND ADD TO self.trps_along_sp_preds THE PREDICTIONS FOR ALL TRPs FOR WHICH THEY WERE COMPUTED ALL AT ONCE
+            self._update_trps_preds(targets, lags=lags, client=self._dask_client)
+            # Re-using TRPs' predictions for future slightly different shortest path which have the same trps in common with the previous shortest paths
+
 
             # ---------- STEP 4 ----------
 
@@ -497,45 +525,37 @@ class RoadNetwork:
                 # Getting only the fraction of rows where the mask value is True, so it is already a division on the total of rows
                 # It's just a shortcut for mask = *row_value* isin(...) -> mask.sum() / len(mask)
 
-                total_sp_length = sum([self._network.edges[e]["length"] for e in sp])
-                average_highest_speed_limit = np.mean([self._network.edges[e]["highest_speed_limit"] for e in sp])
 
-                paths.update({
-                    str(p): {
-                        "path": sp,
-                        "forecasted_travel_time": ((total_sp_length / (((average_highest_speed_limit / 100) * 90) / 3.6)) * 60) + ((len(sp) * 0.25) * 0.30),
-                        #Considering that on average 25% of the road nodes (especially in urban areas) have traffic lights we'll count each one as 30s of wait time in the worst case scenario (all reds)
-                        "high_traffic_perc": high_traffic_perc,
-                        "trp_research_buffer_radius": trp_research_buffer_radius
-                    }
-                })
+            #TODO THIS WAS ALL IN for target in targets, WRONG
+            total_sp_length = sum([self._network.edges[e]["length"] for e in sp])
+            average_highest_speed_limit = np.mean([self._network.edges[e]["highest_speed_limit"] for e in sp])
 
-                if high_traffic_perc > 50:
-                    trp_research_buffer_radius += 2000 #Incrementing the TRP research buffer radius
+            paths.update({
+                str(p): {
+                    "path": sp,
+                    "forecasted_travel_time": ((total_sp_length / (((average_highest_speed_limit / 100) * 90) / 3.6)) * 60) + ((len(sp) * 0.25) * 0.30), # In minutes
+                    #Considering that on average 25% of the road nodes (especially in urban areas) have traffic lights we'll count each one as 30s of wait time in the worst case scenario (all reds)
+                    "trps_along_sp": self.trps_along_sp,
+                    "ordinary_kriging_interpolated_values": z_interpolated_vals,
+                    "high_traffic_perc": high_traffic_perc,
+                    "trp_research_buffer_radius": trp_research_buffer_radius
+                }
+            })
 
-                    sp_edges_weight = [(u, v, self._network[u][v]["weight"]) for u, v in sp_edges]
+            if high_traffic_perc > 50:
+                trp_research_buffer_radius += 2000 #Incrementing the TRP research buffer radius
 
-                    # Sort by weight (descending) and pick the top-n heaviest nodes to remove them
-                    n = max(1, len(sp_edges))  # Maximum number of heaviest edges to remove
-                    removed_edges[str(p)] = [(u, v) for u, v, w in sorted(sp_edges_weight, key=lambda x: x[2], reverse=True)[:n]]
-                    self._network.remove_edges_from(removed_edges[str(p)])
+                sp_edges_weight = [(u, v, self._network[u][v]["weight"]) for u, v in sp_edges]
 
-                else:
-                    break
+                # Sort by weight (descending) and pick the top-n heaviest nodes to remove them
+                n = max(1, len(sp_edges))  # Maximum number of heaviest edges to remove
+                removed_edges[str(p)] = [(u, v) for u, v, w in sorted(sp_edges_weight, key=lambda x: x[2], reverse=True)[:n]]
+                self._network.remove_edges_from(removed_edges[str(p)])
 
-
-
-
-
+            else:
+                continue
 
         #TODO ADD AS A LAYER THE TRPS WHICH WERE USE FOR ORDINARY KRIGING ON A SPECIFIC PATH
-
-        #TODO CREATE INTERPOLATION CHARTS FOR OSLO, BERGEN, TRONDHEIM, BODO, TROMSO, STAVANGER, ALTA, ETC. BY EXECUTING FORECASTS FOR EACH TRP IN THOSE CITIES (BY USING MUNICIPALITY ID)
-
-
-
-
-
 
 
         for re in removed_edges.values():
@@ -551,8 +571,6 @@ class RoadNetwork:
             self._network.add_edges_from(has_toll_stations_edges)
         if has_ferry_routes:
             self._network.add_edges_from(has_ferry_routes_edges)
-
-        #TODO THE FORECASTED TRAVEL TIME WILL BE TOTAL LENGTH IN METERS OF THE WHOLE LINESTRING DIVIDED BY 85% OF THE MAX SPEED LIMIT + 30s * (85% OF THE TOTAL NUMBER OF NODES THAT THE USER WILL PASS THROUGH, SINCE EACH ONE IS AN INTERSECTION AND PROBABLY 85% HAVE A TRAFFIC LIGHT)
 
         return dict(
             sorted(
