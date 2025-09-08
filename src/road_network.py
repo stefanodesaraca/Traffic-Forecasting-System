@@ -642,14 +642,6 @@ class RoadNetwork:
         return next(iter(route["path"]), route["path"][-1])
 
 
-    @staticmethod
-    def _get_layers_assembly(map_obj: folium.Map, layers: list[folium.FeatureGroup]) -> folium.Map:
-
-        #TODO ADD routes OBJECTS TO THE MAP THAT GETS IMPUTED AS ARGUMENT AND RETURN THE COMBINED MAP OBJECT
-
-        return ...
-
-
     def _get_route_map_layers(self, route: dict[str, Any]) -> list[folium.FeatureGroup]:
 
         path_start_node, path_end_node = self._get_route_start_end_nodes(route=route)
@@ -671,6 +663,12 @@ class RoadNetwork:
             self._add_marker(folium_obj=trps_layer, marker_lat=trp["lat"], marker_lon=trp["lon"], popup=trp["trp_id"], icon=IconStyles.TRP_LINK_STYLE.value)
 
         return [steps_layer, edges_layer, trps_layer]
+
+
+    @staticmethod
+    def _get_layers_assembly(map_obj: folium.Map, layers: list[folium.FeatureGroup]) -> folium.Map:
+        all(layer.add_to(map_obj) for layer in layers)
+        return map_obj
 
 
     def draw_route(self,
@@ -711,9 +709,19 @@ class RoadNetwork:
             lon_init = np.mean([lon for lat, lon in map_loc_init])
 
         return self._get_layers_assembly(
-            map_obj=self._create_map(lat_init=lat_init, lon_init=lon_init, zoom=zoom_init or MapDefaultConfigs.ZOOM.value, tiles=tiles or FoliumMapTiles.OPEN_STREET_MAPS.value),
+            map_obj=self._create_map(lat_init=lat_init, lon_init=lon_init, zoom=zoom_init or MapDefaultConfigs.ZOOM.value, tiles=tiles or FoliumMapTiles.OPEN_STREET_MAPS.value), # The map where to add all layers
             layers=list(*chain(self._get_route_map_layers(route=r) for r in routes.values())) # Map layers
         )
+
+
+    def draw_municipality_traffic_heatmap(self, municipality_id: PositiveInt) -> folium.Map:
+
+
+
+        #TODO EXECUTE ORDINARY KRIGING WITH THE DATA FROM ALL THE TRPS OF THE SPECIFIED MUNICIPALITY (IF ANY TRPs EXIST THERE)
+
+
+        return ...
 
 
     def degree_centrality(self) -> dict:
