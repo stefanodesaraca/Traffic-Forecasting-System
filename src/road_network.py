@@ -24,7 +24,8 @@ from definitions import (
     TrafficClasses,
     FoliumMapTiles,
     IconStyles,
-    RoadCategoryTraitLengthWeightMultipliers
+    RoadCategoryTraitLengthWeightMultipliers,
+    MapDefaultConfigs
 )
 from loaders import BatchStreamLoader
 from pipelines import MLPreprocessingPipeline, MLPredictionPipeline
@@ -608,12 +609,12 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _create_map(lat_init: float, lon_init: float, zoom: PositiveInt = 8, tiles: str = FoliumMapTiles.OPEN_STREET_MAPS.value) -> folium.Map:
+    def _create_map(lat_init: float | np.floating, lon_init: float | np.floating, zoom: PositiveInt = 8, tiles: str = FoliumMapTiles.OPEN_STREET_MAPS.value) -> folium.Map:
         return folium.Map(location=[lat_init, lon_init], tiles=tiles, zoom_start=zoom)
 
 
     @staticmethod
-    def _add_marker(folium_obj: folium.Map | folium.FeatureGroup, marker_lat: float, marker_lon: float, tooltip: str | None = None, popup: str | None = None, icon: folium.Icon | None = None, circle: bool = False, radius: float | None = None) -> None:
+    def _add_marker(folium_obj: folium.Map | folium.FeatureGroup, marker_lat: float | np.floating, marker_lon: float | np.floating, tooltip: str | None = None, popup: str | None = None, icon: folium.Icon | None = None, circle: bool = False, radius: float | None = None) -> None:
         if not circle:
             folium.Marker(location=[marker_lat, marker_lon], tooltip=tooltip, popup=popup, icon=icon).add_to(folium_obj)
         else:
@@ -622,7 +623,7 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _add_line(folium_obj: folium.Map | folium.FeatureGroup, locations: list[float], color: str, weight: float, smooth_factor: float | None = None, tooltip: str | None = None, popup: str | None = None) -> None:
+    def _add_line(folium_obj: folium.Map | folium.FeatureGroup, locations: list[float | np.floating], color: str, weight: float, smooth_factor: float | None = None, tooltip: str | None = None, popup: str | None = None) -> None:
         folium.PolyLine(locations=locations, color=color, weight=weight, smooth_factor=smooth_factor, tooltip=tooltip, popup=popup).add_to(folium_obj)
         return None
     # https://python-visualization.github.io/folium/latest/user_guide/vector_layers/polyline.html
@@ -642,7 +643,7 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _route_maps_assembler(map_obj: folium.Map, routes: list[folium.FeatureGroup]) -> folium.Map:
+    def _get_layers_assembly(map_obj: folium.Map, layers: list[folium.FeatureGroup]) -> folium.Map:
 
         #TODO ADD routes OBJECTS TO THE MAP THAT GETS IMPUTED AS ARGUMENT AND RETURN THE COMBINED MAP OBJECT
 
@@ -674,16 +675,16 @@ class RoadNetwork:
 
     def draw_route(self,
                    route: dict[str, Any],
-                   map_loc_start: list[float] | None = None,
+                   map_loc_init: list[float] | None = None,
                    tiles: str | FoliumMapTiles = FoliumMapTiles.OPEN_STREET_MAPS.value,
-                   zoom_start: PositiveInt | None = None) -> folium.Map:
+                   zoom_init: PositiveInt | None = None) -> folium.Map:
 
         path_start_node, path_end_node = self._get_route_start_end_nodes(route=route)
 
-        if map_loc_start is None:
-            map_loc_start = [path_start_node["lat"], path_start_node["lon"]]
+        if map_loc_init is None:
+            map_loc_init = [path_start_node["lat"], path_start_node["lon"]]
 
-        route_map = self._create_map(lat_init=map_loc_start[0], lon_init=map_loc_start[1], zoom=zoom_start or 8, tiles=tiles or FoliumMapTiles.OPEN_STREET_MAPS.value)
+        route_map = self._create_map(lat_init=map_loc_init[0], lon_init=map_loc_init[1], zoom=zoom_init or MapDefaultConfigs.ZOOM.value, tiles=tiles or FoliumMapTiles.OPEN_STREET_MAPS.value)
 
         for layer in self._get_route_map_layers(route=route):
             layer.add_to(route_map)
@@ -693,13 +694,26 @@ class RoadNetwork:
 
     def draw_routes(self,
                     routes: dict[str, dict[str, Any]],
-                    export: bool | None = None,
-                    fp: str | Path | None = None) -> None:
+                    map_loc_init: list[float] | None = None,
+                    zoom_init: int = MapDefaultConfigs.ZOOM.value,
+                    tiles: str = FoliumMapTiles.OPEN_STREET_MAPS. value) -> folium.Map:
 
-        map =
-        self._route_maps_assembler()
+        lat_init = None
+        lon_init = None
 
-        return None
+        if map_loc_init is None:
+            map_loc_init = [
+                (sn["lat"], en["lon"])
+                for route_init in [(self._get_route_start_end_nodes(route=r)) for r in routes.values()]
+                for sn, en in route_init
+            ]
+            lat_init = np.mean([lat for lat, lon in map_loc_init])
+            lon_init = np.mean([lon for lat, lon in map_loc_init])
+
+        return self._get_layers_assembly(
+            map_obj=self._create_map(lat_init=lat_init, lon_init=lon_init, zoom=zoom_init or MapDefaultConfigs.ZOOM.value, tiles=tiles or FoliumMapTiles.OPEN_STREET_MAPS.value),
+            layers=list(*chain(self._get_route_map_layers(route=r) for r in routes.values())) # Map layers
+        )
 
 
     def degree_centrality(self) -> dict:

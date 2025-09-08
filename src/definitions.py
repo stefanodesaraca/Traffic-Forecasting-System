@@ -227,3 +227,7 @@ class RoadCategoryTraitLengthWeightMultipliers(Enum):
     F = 1.3
     K = 1.5
     P = 2.0
+
+
+class MapDefaultConfigs(Enum):
+    ZOOM = 8
