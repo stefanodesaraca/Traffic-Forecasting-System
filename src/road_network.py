@@ -715,7 +715,11 @@ class RoadNetwork:
 
 
     def draw_municipality_traffic_heatmap(self, municipality_id: PositiveInt) -> folium.Map:
-        
+        municipality_geom = self._db_broker.send_sql(f"""
+            SELECT "geom"
+            FROM "{ProjectTables.Municipalities.value}"
+            WHERE "id" == '{municipality_id}'
+        """)
 
 
         #TODO EXECUTE ORDINARY KRIGING WITH THE DATA FROM ALL THE TRPS OF THE SPECIFIED MUNICIPALITY (IF ANY TRPs EXIST THERE)

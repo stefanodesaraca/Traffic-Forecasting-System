@@ -142,11 +142,13 @@ class AIODBManager:
 
                 # Insert municipalities for this county
                 for muni in county.get("municipalities", []):
+                    muni_row = municipality_aux_data.query(f'`EGS.KOMMUNENUMMER.11769` == {muni["number"]}')
+                    geom_value = muni_row["GEO.GEOMETRI"].iloc[0] if not muni_row.empty else None
                     await conn.execute(
                         f"""INSERT INTO "{ProjectTables.Municipalities.value}" ("id", "name", "county_id", "country_part_id", "geom")
                             VALUES ($1, $2, $3, $4, $5)
                             ON CONFLICT ("id") DO NOTHING""",
-                        muni["number"], muni["name"], county["number"], part["id"], municipality_aux_data.query(f'EGS.KOMMUNENUMMER.11769').to_dict().get("GEO.GEOMETRI", None)
+                        muni["number"], muni["name"], county["number"], part["id"], geom_value
                     )
 
         return None
