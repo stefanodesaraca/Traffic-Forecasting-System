@@ -13,7 +13,7 @@ from asyncpg.exceptions import DuplicateDatabaseError
 import psycopg
 from psycopg.rows import tuple_row
 from cleantext import clean
-from pydantic import with_config
+import pandas as pd
 from pydantic.types import PositiveInt
 
 from sklearn.tree import DecisionTreeRegressor
@@ -89,7 +89,7 @@ class AIODBManager:
         self._db_host: str = db_host
 
 
-    async def _check_table_existance(self, table: str) -> bool:
+    async def _check_table_existence(self, table: str) -> bool:
         async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
                                        dbname=self._maintenance_db, host=self._db_host) as conn:
             return (await conn.fetchval(f"""
@@ -115,13 +115,14 @@ class AIODBManager:
     async def _check_hub_db_integrity(self) -> bool:
         #Steps:
         #1. Check the "Projects" table existance
-        if any(check is False for check in [await self._check_table_existance(HubDBTables.Projects.value)]):
+        if any(check is False for check in [await self._check_table_existence(HubDBTables.Projects.value)]):
             return False
         return True
 
 
     @staticmethod
     async def insert_areas(conn: asyncpg.connection, data: dict[str, Any]) -> None:
+        municipality_aux_data = await asyncio.to_thread(pd.read_csv, GlobalDefinitions.MUNICIPALITIES_AUXILIARY_DATA, sep=";", encoding="utf-8")
 
         for part in data["areas"]["countryParts"]:
             # Insert country part
@@ -142,10 +143,10 @@ class AIODBManager:
                 # Insert municipalities for this county
                 for muni in county.get("municipalities", []):
                     await conn.execute(
-                        f"""INSERT INTO "{ProjectTables.Municipalities.value}" ("id", "name", "county_id", "country_part_id")
-                            VALUES ($1, $2, $3, $4)
+                        f"""INSERT INTO "{ProjectTables.Municipalities.value}" ("id", "name", "county_id", "country_part_id", "geom")
+                            VALUES ($1, $2, $3, $4, $5)
                             ON CONFLICT ("id") DO NOTHING""",
-                        muni["number"], muni["name"], county["number"], part["id"]
+                        muni["number"], muni["name"], county["number"], part["id"], municipality_aux_data.query(f'EGS.KOMMUNENUMMER.11769').to_dict().get("GEO.GEOMETRI", None)
                     )
 
         return None
@@ -358,6 +359,7 @@ class AIODBManager:
                             name TEXT NOT NULL,
                             county_id INTEGER NOT NULL,
                             country_part_id INTEGER NOT NULL,
+                            geom GEOMETRY NOT NULL,
                             FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}"(id),
                             FOREIGN KEY (country_part_id) REFERENCES "{ProjectTables.CountryParts.value}"(id)
                         );

@@ -44,6 +44,7 @@ class GlobalDefinitions(BaseModel):
 
     MEAN_SPEED_DIR: ClassVar[Path] = Path("data", MEAN_SPEED)
     MODEL_GRIDS_FILE: ClassVar[Path] = Path("data", "model_grids.json")
+    MUNICIPALITIES_AUXILIARY_DATA: ClassVar[Path] = Path("data", "road_network", "kommuner.csv")
 
     MICE_COLS: ClassVar[list[str]] = ["volume", "coverage"]
 
@@ -227,6 +228,7 @@ class RoadCategoryTraitLengthWeightMultipliers(Enum):
     F = 1.3
     K = 1.5
     P = 2.0
+
 
 
 class MapDefaultConfigs(Enum):

@@ -715,7 +715,7 @@ class RoadNetwork:
 
 
     def draw_municipality_traffic_heatmap(self, municipality_id: PositiveInt) -> folium.Map:
-
+        
 
 
         #TODO EXECUTE ORDINARY KRIGING WITH THE DATA FROM ALL THE TRPS OF THE SPECIFIED MUNICIPALITY (IF ANY TRPs EXIST THERE)
