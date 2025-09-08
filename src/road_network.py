@@ -1,4 +1,5 @@
 from pathlib import Path
+from collections import defaultdict
 import datetime
 import pickle
 from itertools import chain
@@ -15,7 +16,6 @@ import utm
 from pykrige.ok import OrdinaryKriging
 import folium
 import matplotlib.pyplot as plt
-
 
 from definitions import (
     GlobalDefinitions,
@@ -267,7 +267,7 @@ class RoadNetwork:
                 has_ferry_routes=has_ferry_routes,
             )
 
-        # NOTE WHEN WE'LL HAVE THE ABILITY TO FILTER DIRECTLY AT THE SOURCE OF THE NODES (WHEN WE'LL HAVE THE MUNICIPALITY AND COUNTY DATA ON THE NODES) WE'LL JUST NOT LOAD THE ONES OUTSIDE OF THE FILTERS CONDITIONS
+        # NOTE WHEN WE'LL HAVE THE ABILITY TO FILTER DIRECTLY AT THE SOURCE OF THE NODES (WHEN WE'LL HAVE THE MUNICIPALITY AND COUNTY DATA ON THE NODES) WE'LL JUST NOT LOAD THE ONES OUTSIDE THE FILTERS CONDITIONS
 
         if verbose:
             print("Road network graph created!")
@@ -486,7 +486,7 @@ class RoadNetwork:
                     "forecasted_travel_time": ((total_sp_length / (
                                 ((average_highest_speed_limit / 100) * 90) / 3.6)) * 60) + ((len(sp) * 0.25) * 0.30), # In minutes
                     # Considering that on average 25% of the road nodes (especially in urban areas) have traffic lights we'll count each one as 30s of wait time in the worst case scenario (all reds)
-                    "trps_along_sp": self.trps_along_sp,
+                    "trps_along_path": self.trps_along_sp,
                     "trp_research_buffer_radius": trp_research_buffer_radius
                 }
             })
@@ -637,62 +637,69 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _route_maps_assembler(map_obj: folium.Map, routes: list[folium.FeatureGroup]) -> list[folium.FeatureGroup]:
+    def _get_route_start_end_nodes(route: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        return next(iter(route["path"]), route["path"][-1])
+
+
+    @staticmethod
+    def _route_maps_assembler(map_obj: folium.Map, routes: list[folium.FeatureGroup]) -> folium.Map:
 
         #TODO ADD routes OBJECTS TO THE MAP THAT GETS IMPUTED AS ARGUMENT AND RETURN THE COMBINED MAP OBJECT
 
         return ...
 
 
+    def _get_route_map_layers(self, route: dict[str, Any]) -> list[folium.FeatureGroup]:
 
+        path_start_node, path_end_node = self._get_route_start_end_nodes(route=route)
+
+        # Layers
+        steps_layer = folium.FeatureGroup("steps")
+        edges_layer = folium.FeatureGroup("edges")
+        trps_layer = folium.FeatureGroup("trps")
+
+        # Adding source node
+        self._add_marker(folium_obj=steps_layer, marker_lat=path_start_node["lat"], marker_lon=path_start_node["lon"], popup="Start", icon=IconStyles.SOURCE_NODE_STYLE.value, circle=True)
+        # Adding destination node
+        self._add_marker(folium_obj=steps_layer, marker_lat=path_end_node["lat"], marker_lon=path_end_node["lon"], popup="Destination", icon=IconStyles.DESTINATION_NODE_STYLE.value, circle=True)
+
+        for edge in route["line_predictions"].iterrows():
+            self._add_line(folium_obj=edges_layer, locations=[edge["lat"], edge["lon"]], color=TrafficClasses[edge["traffic_class"]].value, weight=10)
+
+        for trp in route["trps_along_path"]:
+            self._add_marker(folium_obj=trps_layer, marker_lat=trp["lat"], marker_lon=trp["lon"], popup=trp["trp_id"], icon=IconStyles.TRP_LINK_STYLE.value)
+
+        return [steps_layer, edges_layer, trps_layer]
 
 
     def draw_route(self,
                    route: dict[str, Any],
                    map_loc_start: list[float] | None = None,
                    tiles: str | FoliumMapTiles = FoliumMapTiles.OPEN_STREET_MAPS.value,
-                   zoom_start: PositiveInt | None = None,
-                   export: bool | None = None,
-                   fp: str | Path | None = None) -> None:
+                   zoom_start: PositiveInt | None = None) -> folium.Map:
 
-        path_start_node = next(iter(route["path"]))
-        path_end_node = route["path"][-1]
+        path_start_node, path_end_node = self._get_route_start_end_nodes(route=route)
 
         if map_loc_start is None:
             map_loc_start = [path_start_node["lat"], path_start_node["lon"]]
 
         route_map = self._create_map(lat_init=map_loc_start[0], lon_init=map_loc_start[1], zoom=zoom_start or 8, tiles=tiles or FoliumMapTiles.OPEN_STREET_MAPS.value)
 
-        # Layers
-        steps_layer = folium.FeatureGroup("steps")
-        edges_layer = folium.FeatureGroup("edges")
+        for layer in self._get_route_map_layers(route=route):
+            layer.add_to(route_map)
 
-        # Adding source node
-        self._add_marker(folium_obj=steps_layer, marker_lat=map_loc_start[0], marker_lon=map_loc_start[1], tooltip=..., popup=..., circle=True)
-        # Adding destination node
-        self._add_marker(folium_obj=steps_layer, marker_lat=path_end_node["lat"], marker_lon=path_end_node["lon"], tooltip=..., popup=..., circle=True)
-
-        for edge in route["line_predictions"].iterrows():
-            self._add_line(folium_obj=edges_layer, locations=[edge["lat"], edge["lon"]], color=TrafficClasses[edge["traffic_class"]].value, weight=10)
+        return route_map
 
 
+    def draw_routes(self,
+                    routes: dict[str, dict[str, Any]],
+                    export: bool | None = None,
+                    fp: str | Path | None = None) -> None:
 
-
-
-
-        #TODO ADD AS A LAYER THE TRPS WHICH WERE USE FOR ORDINARY KRIGING ON A SPECIFIC PATH
+        map =
+        self._route_maps_assembler()
 
         return None
-
-
-
-    @staticmethod
-    def draw_routes(routes: dict[str, dict[str, Any]], export: bool | None = None, fp: str | Path | None = None) -> None:
-
-        ...
-
-        return None
-
 
 
     def degree_centrality(self) -> dict:
@@ -707,7 +714,7 @@ class RoadNetwork:
 
     def betweenness_centrality(self) -> dict:
         """
-        Returns the betweennes centrality for each node
+        Returns the betweenness centrality for each node
         """
         return nx.betweenness_centrality(self._network, seed=100)
 
