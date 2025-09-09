@@ -15,6 +15,7 @@ import utm
 from pykrige.ok import OrdinaryKriging
 import folium
 import matplotlib.pyplot as plt
+from PIL import Image
 
 from definitions import (
     GlobalDefinitions,
@@ -324,7 +325,7 @@ class RoadNetwork:
     def _ok_interpolate(ordinary_kriging_obj: OrdinaryKriging, x_coords: list[float | np.floating], y_coords: list[float | np.floating], style: Literal["grid", "points"]) -> Any:
         if not len(x_coords) == len(y_coords):
             raise ValueError("There must be exactly the same number of pairs of coordinates")
-        return ordinary_kriging_obj.execute(.tolist()
+        return ordinary_kriging_obj.execute(
             style=style,
             xpoints=x_coords,
             ypoints=y_coords
@@ -664,6 +665,13 @@ class RoadNetwork:
         return [steps_layer, edges_layer, trps_layer]
 
 
+    def _get_traffic_map_layers(self, trps: list[dict[str, Any]]) -> list[folium.FeatureGroup]:
+        trps_layer = folium.FeatureGroup("trps")
+        for trp in trps:
+            self._add_marker(folium_obj=trps_layer, marker_lat=trp["lat"], marker_lon=trp["lon"], popup=trp["id"], icon=IconStyles.TRP_LINK_STYLE.value)
+        return [trps_layer]
+
+
     @staticmethod
     def _get_layers_assembly(map_obj: folium.Map, layers: list[folium.FeatureGroup]) -> folium.Map:
         all(layer.add_to(map_obj) for layer in layers)
@@ -732,45 +740,50 @@ class RoadNetwork:
         }
 
 
-    def draw_municipality_traffic_volume_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], model: str) -> folium.Map:
+    def draw_municipality_traffic_volume_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], model: str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
         check_municipality_id(municipality_id=municipality_id)
 
-        municipality_geometry = self._db_broker.get_municipality_geometry(municipality_id=municipality_id)
-        min_lon, min_lat, max_lon, max_lat = municipality_geometry.bounds
+        municipality_geom = self._db_broker.get_municipality_geometry(municipality_id=municipality_id)
+        min_lon, min_lat, max_lon, max_lat = municipality_geom.bounds
 
         ok = self._get_ordinary_kriging(y_pred=self._get_municipality_id_preds(municipality_id=municipality_id, target=GlobalDefinitions.VOLUME, model=model), time_range=time_range, target=GlobalDefinitions.VOLUME)
+        _, kriging_variance, variogram_plot = self._ok_interpolate(
+                                                ordinary_kriging_obj=ok,
+                                                x_coords=np.linspace(min_lon - 0.35, max_lon + 0.35, 100).tolist(), # Grid x bounds
+                                                y_coords=np.linspace(min_lat - 0.10, max_lat + 0.10, 100).tolist(), # Grid y bounds
+                                                style="grid"
+                                            )
 
-        z_interpolated_vals, kriging_variance, variogram_plot = self._ok_interpolate(
-                                                                            ordinary_kriging_obj=ok,
-                                                                            x_coords=np.linspace(min_lon - 0.35, max_lon + 0.35, 100).tolist(), # Grid x bounds
-                                                                            y_coords=np.linspace(min_lat - 0.10, max_lat + 0.10, 100).tolist(), # Grid y bounds
-                                                                            style="grid"
-                                                                        )
+        print("Kriging variance: ", kriging_variance)
 
-        #TODO EXECUTE ORDINARY KRIGING WITH THE DATA FROM ALL THE TRPS OF THE SPECIFIED MUNICIPALITY (IF ANY TRPs EXIST THERE)
+        municipality_geom_center = municipality_geom.centroid
+        municipality_traffic_map = self._create_map(lat_init=municipality_geom_center.y, lon_init=municipality_geom_center.x, zoom=zoom_init or MapDefaultConfigs.ZOOM.value, tiles=tiles or FoliumMapTiles.OPEN_STREET_MAPS.value)
 
-        return ...
+        return self._get_layers_assembly(municipality_traffic_map, self._get_traffic_map_layers(self._db_broker.get_municipality_trps(municipality_id=municipality_id)))
 
 
-    def draw_municipality_traffic_mean_speed_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], model: str) -> folium.Map:
+    def draw_municipality_traffic_mean_speed_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], model: str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
         check_municipality_id(municipality_id=municipality_id)
 
-        municipality_geometry = self._db_broker.get_municipality_geometry(municipality_id=municipality_id)
-        min_lon, min_lat, max_lon, max_lat = municipality_geometry.bounds
+        municipality_geom = self._db_broker.get_municipality_geometry(municipality_id=municipality_id)
+        min_lon, min_lat, max_lon, max_lat = municipality_geom.bounds
 
         ok = self._get_ordinary_kriging(y_pred=self._get_municipality_id_preds(municipality_id=municipality_id, target=GlobalDefinitions.MEAN_SPEED, model=model), time_range=time_range, target=GlobalDefinitions.MEAN_SPEED)
+        _, kriging_variance, variogram_plot = self._ok_interpolate(
+                                                ordinary_kriging_obj=ok,
+                                                x_coords=np.linspace(min_lon - 0.35, max_lon + 0.35, 100).tolist(), # Grid x bounds
+                                                y_coords=np.linspace(min_lat - 0.10, max_lat + 0.10, 100).tolist(), # Grid y bounds
+                                                style="grid"
+                                            )
+        print("Kriging variance: ", kriging_variance)
 
-        z_interpolated_vals, kriging_variance, variogram_plot = self._ok_interpolate(
-                                                                            ordinary_kriging_obj=ok,
-                                                                            x_coords=np.linspace(min_lon - 0.35, max_lon + 0.35, 100).tolist(), # Grid x bounds
-                                                                            y_coords=np.linspace(min_lat - 0.10, max_lat + 0.10, 100).tolist(), # Grid y bounds
-                                                                            style="grid"
-                                                                        )
+        municipality_geom_center = municipality_geom.centroid
+        municipality_traffic_map = self._create_map(lat_init=municipality_geom_center.y, lon_init=municipality_geom_center.x, zoom=zoom_init or MapDefaultConfigs.ZOOM.value, tiles=tiles or FoliumMapTiles.OPEN_STREET_MAPS.value)
 
-        #TODO EXECUTE ORDINARY KRIGING WITH THE DATA FROM ALL THE TRPS OF THE SPECIFIED MUNICIPALITY (IF ANY TRPs EXIST THERE)
+        return self._get_layers_assembly(municipality_traffic_map, self._get_traffic_map_layers(self._db_broker.get_municipality_trps(municipality_id=municipality_id)))
 
 
-        return ...
+    #TODO MAKE THESE TWO METHODS INTO A COMMON ONE
 
 
     def degree_centrality(self) -> dict:
