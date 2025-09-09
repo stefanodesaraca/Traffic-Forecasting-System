@@ -560,10 +560,13 @@ def manage_road_network(functionality: str) -> None:
 
         #TODO CREATE INTERPOLATION CHARTS FOR OSLO, BERGEN, TRONDHEIM, BODO, TROMSO, STAVANGER, ALTA, ETC. BY EXECUTING FORECASTS FOR EACH TRP IN THOSE CITIES (BY USING MUNICIPALITY ID)
 
+    elif functionality == "4.4":
 
+        async def update_municipalities_geometry():
+            await (await get_aiodbmanager_broker()).update_municipalities_geometries()
 
+        asyncio.run(update_municipalities_geometry())
 
-        ...
 
     return None
 
@@ -604,6 +607,7 @@ def main():
         "4.1": manage_road_network,
         "4.2": manage_road_network,
         "4.3": manage_road_network,
+        "4.4": manage_road_network,
         "5.1": manage_ml,
         "5.2": manage_ml,
         "5.3": manage_ml,

@@ -1,9 +1,11 @@
+from pathlib import Path
 import json
 from typing import Any, Literal, Generator, LiteralString, Sequence, Mapping
 import datetime
 from dateutil.relativedelta import relativedelta
 import asyncio
 from contextlib import contextmanager
+import pandas as pd
 import psycopg
 from pydantic.types import PositiveInt
 import asyncpg
@@ -444,4 +446,21 @@ class AIODBManagerBroker:
     async def insert_trps(self, data: dict[str, Any]) -> None:
         async with postgres_conn_async(self._tfs_user, password=self._tfs_password, dbname=(await self.get_current_project()).get("name", None), host=self._db_host) as conn:
             await (await self._get_db_manager_async()).insert_trps(conn=conn, data=data)
+        return None
+
+
+    async def update_municipalities_geometries(self) -> None:
+        municipality_aux_data = await asyncio.to_thread(pd.read_csv, GlobalDefinitions.MUNICIPALITIES_AUXILIARY_DATA, sep=";", encoding="utf-8")
+        async with postgres_conn_async(self._tfs_user, password=self._tfs_password, dbname=(await self.get_current_project()).get("name", None), host=self._db_host) as conn:
+            muni = [row["id"] for row in await conn.fetch(f"""
+                SELECT "id" FROM "{ProjectTables.Municipalities.value}"
+            """)]
+            for m in muni:
+                muni_row = municipality_aux_data.query(f'`EGS.KOMMUNENUMMER.11769` == {m}')
+                geom_value = muni_row["GEO.GEOMETRI"].iloc[0] if not muni_row.empty else None
+                await conn.execute(f"""
+                    UPDATE "{ProjectTables.Municipalities.value}"
+                    SET geom = $1
+                    WHERE id = $2
+                """, geom_value, m)
         return None
