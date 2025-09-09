@@ -350,7 +350,17 @@ class DBBroker:
 
     def get_ml_models(self) -> dict[str, Any]:
         return self.send_sql(f"""
-            SELECT * FROM "{ProjectTables.MLModels.value}"
+            SELECT "id", "name", "type" FROM "{ProjectTables.MLModels.value}"
+        """)
+
+
+    def get_trained_models(self, target: str | None = None, road_category: str | None = None) -> dict[str, Any]:
+        check_target(target=target, errors=True)
+        return self.send_sql(f"""
+            SELECT t."name", t."target", t."road_category", m."id"
+            FROM "{ProjectTables.TrainedModels.value}" t JOIN "{ProjectTables.MLModels.value}" m ON t.id = m.id
+            WHERE {f't.target = {target}' if target else "1=1"}
+            AND {f't.road_category = {road_category}' if road_category else "1=1"}
         """)
 
 

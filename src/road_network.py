@@ -28,7 +28,7 @@ from definitions import (
 )
 from loaders import BatchStreamLoader
 from pipelines import MLPreprocessingPipeline, MLPredictionPipeline
-from utils import save_plot
+from utils import check_municipality_id, save_plot
 
 
 
@@ -199,13 +199,9 @@ class RoadNetwork:
         #Returning the average value of each target variable aggregated respectively by any counties, municipalities and road categories the link may belong to, this way we'll have a customized indicator of what are the "normal" (average) conditions on that road
 
 
-    def _get_trp_predictions(self, trp_id: str, target: str, road_category: str, lags: list[PositiveInt]) -> Generator[dd.DataFrame, None, None] | dd.DataFrame:
-        #return (
-        #    MLPredictionPipeline(trp_id=trp_id, target=target, road_category=road_category, model=model, preprocessing_pipeline=MLPreprocessingPipeline(), loader=self._loader, db_broker=self._db_broker).start()
-        #    for model in self._db_broker.get_trained_model_objects(target=target, road_category=road_category)
-        #)
+    def _get_trp_predictions(self, trp_id: str, target: str, road_category: str, lags: list[PositiveInt], model: str) -> dd.DataFrame:
         models = {m["name"]: pickle.loads(m["pickle_object"]) for m in self._db_broker.get_trained_model_objects(target=target, road_category=road_category)}
-        return MLPredictionPipeline(trp_id=trp_id, target=target, road_category=road_category, model=models["HistGradientBoostingRegressor"], preprocessing_pipeline=MLPreprocessingPipeline(), loader=self._loader, db_broker=self._db_broker).start(lags=lags)
+        return MLPredictionPipeline(trp_id=trp_id, target=target, road_category=road_category, model=models[model], preprocessing_pipeline=MLPreprocessingPipeline(), loader=self._loader, db_broker=self._db_broker).start(lags=lags)
 
 
     @staticmethod
@@ -296,7 +292,7 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _get_ok_structured_data(trps_along_path_preds: dict[str, dict[str, dd.DataFrame]], time_range: list[datetime.datetime], target: str):
+    def _get_ok_structured_data(y_pred: dict[str, dict[str, dd.DataFrame] | Any], time_range: list[datetime.datetime], target: str):
         return dd.from_dict({
             idx: {
                 target: row[target],
@@ -304,14 +300,14 @@ class RoadNetwork:
                 "lon": trp_data.get("lon"),
                 "lat": trp_data.get("lat"),
             }
-            for trp_data in trps_along_path_preds.values()
+            for trp_data in y_pred.values()
             for idx, row in enumerate(trp_data[f"{target}_preds"].itertuples(index=False), start=0)
-            if row["zoned_dt_iso"] in time_range # This way we'll execute ordinary kriging only the strictly necessary number of times
+            if row["zoned_dt_iso"] in time_range # This way we'll execute ordinary kriging only the strictly necessary number of times in case the zoned_dt_iso range of the dataframe goes over the time range we're actually interested analyzing
         })
 
 
-    def _get_ordinary_kriging(self, trps_along_path_preds: dict[str, dict[str, dd.DataFrame]], time_range: list[datetime.datetime], target: str, verbose: bool = False):
-        ok_df = self._get_ok_structured_data(trps_along_path_preds=trps_along_path_preds, time_range=time_range, target=GlobalDefinitions.target)
+    def _get_ordinary_kriging(self, y_pred: dict[str, dict[str, dd.DataFrame] | Any], time_range: list[datetime.datetime], target: str, verbose: bool = False):
+        ok_df = self._get_ok_structured_data(y_pred=y_pred, time_range=time_range, target=GlobalDefinitions.target)
         return OrdinaryKriging(
             x=ok_df["lon"].values,
             y=ok_df["lat"].values,
@@ -378,7 +374,7 @@ class RoadNetwork:
         ) #Can't return a potentially negative weight
 
 
-    def _compute_trp_entry(self, trp: dict[str, Any], targets: list[str], lags: list[int]):
+    def _compute_trp_entry(self, trp: dict[str, Any], targets: list[str], lags: list[int], model: str) -> tuple[str, dict[str, Any | dd.DataFrame]]:
         trp_id = trp["trp_id"]
         return trp_id, {
             **{
@@ -386,7 +382,8 @@ class RoadNetwork:
                     trp_id=trp_id,
                     target=target,
                     road_category=trp["road_category"],
-                    lags=lags
+                    lags=lags,
+                    model=model
                 )[[target, "zoned_dt_iso"]]
                 for target in targets
             },
@@ -394,16 +391,16 @@ class RoadNetwork:
         }
 
 
-    def _update_trps_preds(self, targets: list[str], lags: list[int], client: Client):
+    def _update_trps_preds(self, targets: list[str], lags: list[int], model: str, client: Client):
         self.trps_along_sp_preds.update(
             **dict(
                 client.gather(
                     client.map(
-                        lambda trp: self._compute_trp_entry(trp, targets=targets, lags=lags), self.trps_along_sp.difference(set(self.trps_along_sp_preds.keys()))
+                        lambda trp: self._compute_trp_entry(trp, targets=targets, lags=lags, model=model), self.trps_along_sp.difference(set(self.trps_along_sp_preds.keys()))
                     )
                 )
             )
-        ) # Submitting the tasks to the Dask cluster, gathering them and updating the trps_along_sp_preds dictionary
+        ) # Submitting the tasks to the Dask cluster, gathering them and updating the trps_along_sp_preds dictionary. FYI: Using the dict() function on a tuple creates a dictionary
 
 
     def find_route(self,
@@ -415,7 +412,8 @@ class RoadNetwork:
                    has_only_public_transport_lanes: bool | None = None,
                    has_toll_stations: bool | None = None,
                    has_ferry_routes: bool | None = None,
-                   trp_research_buffer_radius: PositiveInt = 3500
+                   trp_research_buffer_radius: PositiveInt = 3500,
+                   model: str = "HistGradientBoostingRegressor"
     ) -> dict[str, dict[str, Any]]:
 
         if not all([d.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT) for d in time_range]):
@@ -469,7 +467,7 @@ class RoadNetwork:
 
             # ---------- STEP 3 ----------
 
-            self._update_trps_preds(targets, lags=lags, client=self._dask_client)
+            self._update_trps_preds(targets, lags=lags, client=self._dask_client, model=model)
             # Re-using TRPs' predictions for future slightly different shortest path which have the same trps in common with the previous shortest paths
 
 
@@ -509,11 +507,13 @@ class RoadNetwork:
 
             for target in targets:
 
-                ok = self._get_ordinary_kriging(trps_along_path_preds=self.trps_along_sp_preds, time_range=time_range, target=target, verbose=True)
-                z_interpolated_vals, kriging_variance, variogram_plot = self._ok_interpolate(ordinary_kriging_obj=ok,
+                ok = self._get_ordinary_kriging(y_pred=self.trps_along_sp_preds, time_range=time_range, target=target, verbose=True)
+                z_interpolated_vals, kriging_variance, variogram_plot = self._ok_interpolate(
+                                                                            ordinary_kriging_obj=ok,
                                                                             x_coords=line_predictions["lon"].values,
                                                                             y_coords=line_predictions["lat"].values,
-                                                                            style="points")  # Kriging variance is sometimes called "ss" (sigma squared)
+                                                                            style="points"
+                                                                        )  # Kriging variance is sometimes called "ss" (sigma squared)
 
                 variogram_plot = self._edit_variogram_plot(fig=variogram_plot, target=target)
 
@@ -714,12 +714,26 @@ class RoadNetwork:
 
 
 
-    def draw_municipality_traffic_volume_heatmap(self, municipality_id: PositiveInt) -> folium.Map:
-        if not isinstance(municipality_id, PositiveInt):
-            raise ValueError(f"{municipality_id} is not a positive int")
+    def _get_municipality_id_preds(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], target: str, model: str) -> dict[str, dict[str, dd.DataFrame]]:
+        municipality_trps_preds = {
+            trp["id"]: self._get_trp_predictions(
+                    trp_id=trp["id"],
+                    road_category=trp["road_category"],
+                    target=GlobalDefinitions.VOLUME,
+                    lags=GlobalDefinitions.SHORT_TERM_LAGS,
+                    model=model
+            )
+            for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id)
+        }
+        return municipality_trps_preds
 
-        for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id):
-            self._get_trp_predictions(trp_id=trp["id"], road_category=trp["road_category"], target=GlobalDefinitions.VOLUME, lags=GlobalDefinitions.SHORT_TERM_LAGS)
+
+    def draw_municipality_traffic_volume_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime]) -> folium.Map:
+        check_municipality_id(municipality_id=municipality_id)
+
+        m
+
+        self._get_ordinary_kriging(y_pred=, time_range=, target=)
 
 
         #TODO EXECUTE ORDINARY KRIGING WITH THE DATA FROM ALL THE TRPS OF THE SPECIFIED MUNICIPALITY (IF ANY TRPs EXIST THERE)
@@ -728,12 +742,8 @@ class RoadNetwork:
         return ...
 
 
-    def draw_municipality_traffic_mean_speed_heatmap(self, municipality_id: PositiveInt) -> folium.Map:
-        if not isinstance(municipality_id, PositiveInt):
-            raise ValueError(f"{municipality_id} is not a positive int")
-
-        for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id):
-            self._get_trp_predictions(trp_id=trp["id"], road_category=trp["road_category"], target=GlobalDefinitions.MEAN_SPEED, lags=GlobalDefinitions.SHORT_TERM_LAGS)
+    def draw_municipality_traffic_mean_speed_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime]) -> folium.Map:
+        check_municipality_id(municipality_id=municipality_id)
 
 
         #TODO EXECUTE ORDINARY KRIGING WITH THE DATA FROM ALL THE TRPS OF THE SPECIFIED MUNICIPALITY (IF ANY TRPs EXIST THERE)

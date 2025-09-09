@@ -546,6 +546,12 @@ def manage_road_network(functionality: str) -> None:
 
     elif functionality == "4.2":
         db_broker = get_db_broker()
+
+        #TODO PRINT AVAILABLE MODELS
+        print("Available models for ")
+        print(db_broker.get_trained_models())
+
+
         network = RoadNetwork(
             network_id="test",
             name="test",

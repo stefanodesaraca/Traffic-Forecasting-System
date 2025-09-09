@@ -65,6 +65,12 @@ def check_target(target: str, errors: bool = False) -> bool:
     return True
 
 
+def check_municipality_id(municipality_id: PositiveInt) -> bool:
+    if not isinstance(municipality_id, PositiveInt):
+        raise ValueError(f"{municipality_id} is not a positive int")
+    return True
+
+
 def to_pg_array(py_list: list[str] | tuple[str]) -> str:
     return "{" + ",".join(py_list) + "}"
 
