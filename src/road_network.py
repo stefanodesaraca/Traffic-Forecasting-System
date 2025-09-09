@@ -321,10 +321,10 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _ok_interpolate(ordinary_kriging_obj: OrdinaryKriging, x_coords: list[float], y_coords: list[float], style: Literal["grid", "points"]) -> Any:
+    def _ok_interpolate(ordinary_kriging_obj: OrdinaryKriging, x_coords: list[float | np.floating], y_coords: list[float | np.floating], style: Literal["grid", "points"]) -> Any:
         if not len(x_coords) == len(y_coords):
             raise ValueError("There must be exactly the same number of pairs of coordinates")
-        return ordinary_kriging_obj.execute(
+        return ordinary_kriging_obj.execute(.tolist()
             style=style,
             xpoints=x_coords,
             ypoints=y_coords
@@ -732,13 +732,21 @@ class RoadNetwork:
         }
 
 
-    def _get_municipality_target_ordinary_kriging(self, municipality_id: str, time_range: list[datetime.datetime], target: str, model: str) -> OrdinaryKriging:
-        return self._get_ordinary_kriging(y_pred=self._get_municipality_id_preds(municipality_id=municipality_id, target=target, model=model), time_range=time_range, target=target)
-
-
     def draw_municipality_traffic_volume_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], model: str) -> folium.Map:
         check_municipality_id(municipality_id=municipality_id)
-        ok = self._get_municipality_target_ordinary_kriging(municipality_id=municipality_id, time_range=time_range, target=GlobalDefinitions.VOLUME, model=model)
+
+        municipality_geometry = self._db_broker.get_municipality_geometry(municipality_id=municipality_id)
+        min_lon, min_lat, max_lon, max_lat = municipality_geometry.bounds
+
+        ok = self._get_ordinary_kriging(y_pred=self._get_municipality_id_preds(municipality_id=municipality_id, target=GlobalDefinitions.VOLUME, model=model), time_range=time_range, target=GlobalDefinitions.VOLUME)
+
+        z_interpolated_vals, kriging_variance, variogram_plot = self._ok_interpolate(
+                                                                            ordinary_kriging_obj=ok,
+                                                                            x_coords=np.linspace(min_lon - 0.35, max_lon + 0.35, 100).tolist(), # Grid x bounds
+                                                                            y_coords=np.linspace(min_lat - 0.10, max_lat + 0.10, 100).tolist(), # Grid y bounds
+                                                                            style="grid"
+                                                                        )
+
         #TODO EXECUTE ORDINARY KRIGING WITH THE DATA FROM ALL THE TRPS OF THE SPECIFIED MUNICIPALITY (IF ANY TRPs EXIST THERE)
 
         return ...
@@ -746,8 +754,18 @@ class RoadNetwork:
 
     def draw_municipality_traffic_mean_speed_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], model: str) -> folium.Map:
         check_municipality_id(municipality_id=municipality_id)
-        ok = self._get_municipality_target_ordinary_kriging(municipality_id=municipality_id, time_range=time_range, target=GlobalDefinitions.MEAN_SPEED, model=model)
 
+        municipality_geometry = self._db_broker.get_municipality_geometry(municipality_id=municipality_id)
+        min_lon, min_lat, max_lon, max_lat = municipality_geometry.bounds
+
+        ok = self._get_ordinary_kriging(y_pred=self._get_municipality_id_preds(municipality_id=municipality_id, target=GlobalDefinitions.MEAN_SPEED, model=model), time_range=time_range, target=GlobalDefinitions.MEAN_SPEED)
+
+        z_interpolated_vals, kriging_variance, variogram_plot = self._ok_interpolate(
+                                                                            ordinary_kriging_obj=ok,
+                                                                            x_coords=np.linspace(min_lon - 0.35, max_lon + 0.35, 100).tolist(), # Grid x bounds
+                                                                            y_coords=np.linspace(min_lat - 0.10, max_lat + 0.10, 100).tolist(), # Grid y bounds
+                                                                            style="grid"
+                                                                        )
 
         #TODO EXECUTE ORDINARY KRIGING WITH THE DATA FROM ALL THE TRPS OF THE SPECIFIED MUNICIPALITY (IF ANY TRPs EXIST THERE)
 
