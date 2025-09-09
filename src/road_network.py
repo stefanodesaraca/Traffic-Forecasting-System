@@ -714,36 +714,39 @@ class RoadNetwork:
 
 
 
-    def _get_municipality_id_preds(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], target: str, model: str) -> dict[str, dict[str, dd.DataFrame]]:
-        municipality_trps_preds = {
-            trp["id"]: self._get_trp_predictions(
-                    trp_id=trp["id"],
-                    road_category=trp["road_category"],
-                    target=GlobalDefinitions.VOLUME,
-                    lags=GlobalDefinitions.SHORT_TERM_LAGS,
-                    model=model
-            )
+    def _get_municipality_id_preds(self, municipality_id: PositiveInt, target: str, model: str) -> dict[str, dict[str, dd.DataFrame]]:
+        return {
+            trp["id"]:
+                {
+                    f"{target}_preds": self._get_trp_predictions(
+                        trp_id=trp["id"],
+                        road_category=trp["road_category"],
+                        target=GlobalDefinitions.VOLUME,
+                        lags=GlobalDefinitions.SHORT_TERM_LAGS,
+                        model=model
+                    ),
+                    "lat": trp["lat"],
+                    "lon": trp["lon"],
+            }
             for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id)
         }
-        return municipality_trps_preds
 
 
-    def draw_municipality_traffic_volume_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime]) -> folium.Map:
+    def _get_municipality_target_ordinary_kriging(self, municipality_id: str, time_range: list[datetime.datetime], target: str, model: str) -> OrdinaryKriging:
+        return self._get_ordinary_kriging(y_pred=self._get_municipality_id_preds(municipality_id=municipality_id, target=target, model=model), time_range=time_range, target=target)
+
+
+    def draw_municipality_traffic_volume_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], model: str) -> folium.Map:
         check_municipality_id(municipality_id=municipality_id)
-
-        m
-
-        self._get_ordinary_kriging(y_pred=, time_range=, target=)
-
-
+        ok = self._get_municipality_target_ordinary_kriging(municipality_id=municipality_id, time_range=time_range, target=GlobalDefinitions.VOLUME, model=model)
         #TODO EXECUTE ORDINARY KRIGING WITH THE DATA FROM ALL THE TRPS OF THE SPECIFIED MUNICIPALITY (IF ANY TRPs EXIST THERE)
-
 
         return ...
 
 
-    def draw_municipality_traffic_mean_speed_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime]) -> folium.Map:
+    def draw_municipality_traffic_mean_speed_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], model: str) -> folium.Map:
         check_municipality_id(municipality_id=municipality_id)
+        ok = self._get_municipality_target_ordinary_kriging(municipality_id=municipality_id, time_range=time_range, target=GlobalDefinitions.MEAN_SPEED, model=model)
 
 
         #TODO EXECUTE ORDINARY KRIGING WITH THE DATA FROM ALL THE TRPS OF THE SPECIFIED MUNICIPALITY (IF ANY TRPs EXIST THERE)

@@ -375,7 +375,7 @@ class DBBroker:
 
     def get_municipality_trps(self, municipality_id: PositiveInt) -> list[dict[str, Any]]:
         return self.send_sql(f"""
-                    SELECT "id", "road_category"
+                    SELECT "id", "road_category", "lat", "lon"
                     FROM "{ProjectTables.TrafficRegistrationPoints.value}"
                     WHERE "municipality_id" = %s
                 """, execute_args=[municipality_id])
