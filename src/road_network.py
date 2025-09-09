@@ -1,5 +1,4 @@
 from pathlib import Path
-from collections import defaultdict
 import datetime
 import pickle
 from itertools import chain
@@ -300,7 +299,7 @@ class RoadNetwork:
     def _get_ok_structured_data(trps_along_path_preds: dict[str, dict[str, dd.DataFrame]], time_range: list[datetime.datetime], target: str):
         return dd.from_dict({
             idx: {
-                f"{target}": row[target],
+                target: row[target],
                 "zoned_dt_iso": row["zoned_dt_iso"],
                 "lon": trp_data.get("lon"),
                 "lat": trp_data.get("lat"),
@@ -449,7 +448,7 @@ class RoadNetwork:
         heuristic = lambda u, v: self._get_minkowski_dist(u, v, self._network)
         paths = {}
         removed_edges = {} #For each path we'll keep the edges removed when searching alternative paths
-        lags = [24, 36, 48, 60, 72]
+        lags = GlobalDefinitions.SHORT_TERM_LAGS
 
 
         for p in range(5):
@@ -714,12 +713,27 @@ class RoadNetwork:
         )
 
 
-    def draw_municipality_traffic_heatmap(self, municipality_id: PositiveInt) -> folium.Map:
-        municipality_geom = self._db_broker.send_sql(f"""
-            SELECT "geom"
-            FROM "{ProjectTables.Municipalities.value}"
-            WHERE "id" == '{municipality_id}'
-        """)
+
+    def draw_municipality_traffic_volume_heatmap(self, municipality_id: PositiveInt) -> folium.Map:
+        if not isinstance(municipality_id, PositiveInt):
+            raise ValueError(f"{municipality_id} is not a positive int")
+
+        for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id):
+            self._get_trp_predictions(trp_id=trp["id"], road_category=trp["road_category"], target=GlobalDefinitions.VOLUME, lags=GlobalDefinitions.SHORT_TERM_LAGS)
+
+
+        #TODO EXECUTE ORDINARY KRIGING WITH THE DATA FROM ALL THE TRPS OF THE SPECIFIED MUNICIPALITY (IF ANY TRPs EXIST THERE)
+
+
+        return ...
+
+
+    def draw_municipality_traffic_mean_speed_heatmap(self, municipality_id: PositiveInt) -> folium.Map:
+        if not isinstance(municipality_id, PositiveInt):
+            raise ValueError(f"{municipality_id} is not a positive int")
+
+        for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id):
+            self._get_trp_predictions(trp_id=trp["id"], road_category=trp["road_category"], target=GlobalDefinitions.MEAN_SPEED, lags=GlobalDefinitions.SHORT_TERM_LAGS)
 
 
         #TODO EXECUTE ORDINARY KRIGING WITH THE DATA FROM ALL THE TRPS OF THE SPECIFIED MUNICIPALITY (IF ANY TRPs EXIST THERE)

@@ -9,6 +9,8 @@ import pandas as pd
 import psycopg
 from pydantic.types import PositiveInt
 import asyncpg
+from shapely.geometry.base import BaseGeometry
+from shapely import wkt
 
 from exceptions import WrongSQLStatementError, MissingDataError
 from definitions import GlobalDefinitions, HubDBTables, ProjectTables, ProjectViews, RowFactories
@@ -359,6 +361,22 @@ class DBBroker:
             WHERE id = %s;
         """, execute_args=[json.dumps(grid), model_id])
         return None
+
+
+    def get_municipality_trps(self, municipality_id: PositiveInt) -> list[dict[str, Any]]:
+        return self.send_sql(f"""
+                    SELECT "id", "road_category"
+                    FROM "{ProjectTables.TrafficRegistrationPoints.value}"
+                    WHERE "municipality_id" = %s
+                """, execute_args=[municipality_id])
+
+
+    def get_municipality_geometry(self, municipality_id: PositiveInt) -> BaseGeometry:
+        return wkt.loads(self.send_sql(f"""
+                    SELECT ST_AsText("geom")
+                    FROM "{ProjectTables.Municipalities.value}"
+                    WHERE "id" = %s
+                """, execute_args=[municipality_id], single=True))
 
 
 
