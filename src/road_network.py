@@ -79,31 +79,6 @@ class RoadNetwork:
         return minkowski([u_easting, u_northing], [v_easting, v_northing], p=2.0) #TODO 1.0 if G.edges[u, v]["road_category"] in GlobalDefinitions.HIGH_SPEED_ROAD_CATEGORIES else
 
 
-    @staticmethod
-    def _get_trait_length_by_road_category(links: list[callable]) -> dict[str, float]:
-        lengths = {}
-        for link in links:
-            lengths[link["road_category"]] += link["length"]
-        return lengths
-
-
-    @staticmethod
-    def _get_trait_main_road_category(grouped_trait: dict[str, float]) -> str:
-        return max(grouped_trait, key=grouped_trait.get)
-
-
-    @staticmethod
-    def _get_road_category_proportions(grouped_trait: dict[str, float]) -> dict[str, dict[str, float]]:
-        total = sum(grouped_trait.values())
-        stats = {}
-        for category, length in grouped_trait.items():
-            stats[category] = {
-                "length": length,
-                "percentage": (length / total) * 100
-            }
-        return stats
-
-
     def _get_neighbor_links(self, link_id: str, buffer_zone_radius: PositiveInt) -> dict[str, Any]:
         return self._db_broker.send_sql(
             f""" SELECT rgl_b.* FROM "{ProjectTables.RoadGraphLinks}" rgl_a 
@@ -205,17 +180,6 @@ class RoadNetwork:
         return MLPredictionPipeline(trp_id=trp_id, target=target, road_category=road_category, model=models[model], preprocessing_pipeline=MLPreprocessingPipeline(), loader=self._loader, db_broker=self._db_broker).start(lags=lags)
 
 
-    @staticmethod
-    def _get_increments(n: int | float, k: PositiveInt) -> list[int | float]:
-        step = n // k
-        return [step * i for i in range(1, k + 1)]
-
-
-    @staticmethod
-    def _closest(numbers: list[int | float], k: int | float):
-        return min(numbers, key=lambda n: abs(n - k))
-
-
     def load_nodes(self) -> None:
         all(self._network.add_nodes_from((row.to_dict().pop("node_id"), row) for _, row in partition.iterrows()) for partition in self._loader.get_nodes().partitions)
         return None
@@ -293,22 +257,20 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _get_ok_structured_data(y_pred: dict[str, dict[str, dd.DataFrame] | Any], time_range: list[datetime.datetime], target: str):
+    def _get_ok_structured_data(y_pred: dict[str, dict[str, dd.DataFrame] | Any], horizon: datetime.datetime, target: str):
         return dd.from_dict({
             idx: {
                 target: row[target],
-                "zoned_dt_iso": row["zoned_dt_iso"],
                 "lon": trp_data.get("lon"),
                 "lat": trp_data.get("lat"),
             }
             for trp_data in y_pred.values()
-            for idx, row in enumerate(trp_data[f"{target}_preds"].itertuples(index=False), start=0)
-            if row["zoned_dt_iso"] in time_range # This way we'll execute ordinary kriging only the strictly necessary number of times in case the zoned_dt_iso range of the dataframe goes over the time range we're actually interested analyzing
+            for idx, row in enumerate(trp_data[f"{target}_preds"].query(f"""zoned_dt_iso == '{horizon}'""").itertuples(index=False), start=0)
         })
 
 
-    def _get_ordinary_kriging(self, y_pred: dict[str, dict[str, dd.DataFrame] | Any], time_range: list[datetime.datetime], target: str, verbose: bool = False):
-        ok_df = self._get_ok_structured_data(y_pred=y_pred, time_range=time_range, target=GlobalDefinitions.target)
+    def _get_ordinary_kriging(self, y_pred: dict[str, dict[str, dd.DataFrame] | Any], horizon: datetime.datetime, target: str, verbose: bool = False):
+        ok_df = self._get_ok_structured_data(y_pred=y_pred, horizon=horizon, target=GlobalDefinitions.target)
         return OrdinaryKriging(
             x=ok_df["lon"].values,
             y=ok_df["lat"].values,
@@ -407,7 +369,7 @@ class RoadNetwork:
     def find_route(self,
                    source: str,
                    destination: str,
-                   time_range: list[datetime.datetime], # Can also be 1 datetime only. Must be zoned
+                   horizon: datetime.datetime, # Can also be 1 datetime only. Must be zoned
                    use_volume: bool | None = True,
                    use_mean_speed: bool | None = None,
                    has_only_public_transport_lanes: bool | None = None,
@@ -417,8 +379,8 @@ class RoadNetwork:
                    model: str = "HistGradientBoostingRegressor"
     ) -> dict[str, dict[str, Any]]:
 
-        if not all([d.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT) for d in time_range]):
-            raise ValueError(f"All time range values must be in {GlobalDefinitions.DT_ISO_TZ_FORMAT} format")
+        if not horizon.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT):
+            raise ValueError(f"The horizon value must be in {GlobalDefinitions.DT_ISO_TZ_FORMAT} format")
 
         if not any([use_volume, use_mean_speed]):
             raise ValueError(f"At least one of use_{GlobalDefinitions.VOLUME} or use_{GlobalDefinitions.MEAN_SPEED} must be set to True")

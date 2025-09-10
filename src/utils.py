@@ -278,3 +278,34 @@ def save_plot(plotFunction):
         return None
 
     return wrapper
+
+
+def get_increments(n: int | float, k: PositiveInt) -> list[int | float]:
+    step = n // k
+    return [step * i for i in range(1, k + 1)]
+
+
+def closest(numbers: list[int | float], k: int | float):
+    return min(numbers, key=lambda n: abs(n - k))
+
+
+def get_trait_length_by_road_category(links: list[callable]) -> dict[str, float]:
+    lengths = {}
+    for link in links:
+        lengths[link["road_category"]] += link["length"]
+    return lengths
+
+
+def get_trait_main_road_category(grouped_trait: dict[str, float]) -> str:
+    return max(grouped_trait, key=grouped_trait.get)
+
+
+def _get_road_category_proportions(grouped_trait: dict[str, float]) -> dict[str, dict[str, float]]:
+    total = sum(grouped_trait.values())
+    stats = {}
+    for category, length in grouped_trait.items():
+        stats[category] = {
+            "length": length,
+            "percentage": (length / total) * 100
+        }
+    return stats

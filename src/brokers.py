@@ -389,6 +389,12 @@ class DBBroker:
                 """, execute_args=[municipality_id], single=True))
 
 
+    def get_municipalities(self) -> list[dict]:
+        return self.send_sql(f"""
+            SELECT "id", "name"
+            FROM "{ProjectTables.Municipalities.value}"
+        """)
+
 
 class AIODBManagerBroker:
 

@@ -560,22 +560,36 @@ def manage_road_network(functionality: str) -> None:
                 dask_client=client
             )
             network.build() #county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID]
-            network.find_route(source="456663", destination="211623") #NOTE SECURE PATHS: (636379 - 635079), (629849, 629667), (R605677, 646497) | WITHOUT MUNICIPALITY FILTER (889404, 3151378), (456663 - 211623)
+            #network.find_route(source="456663", destination="211623", time_range=) #NOTE SECURE PATHS: (636379 - 635079), (629849, 629667), (R605677, 646497) | WITHOUT MUNICIPALITY FILTER (889404, 3151378), (456663 - 211623)
             #network.save_graph_svg()
 
 
     elif functionality == "4.3":
-        network = RoadNetwork(
-            network_id="test",
-            name="test",
-            db_broker=db_broker,
-            loader=BatchStreamLoader(db_broker=db_broker),
-            dask_client=client
-        )
+        db_broker = get_db_broker()
 
+        print("Available municipalities: ")
+        print(municipalities := db_broker.get_municipalities())
+        print("Choose the municipality you want to analyze")
+        muni = input("Municipality ID: ")
 
+        if not muni in {k: v for d in municipalities for k, v in d.items()}.keys():
+            raise ValueError("Wrong municipality ID imputed. Try again")
 
-        #TODO CREATE INTERPOLATION CHARTS FOR OSLO, BERGEN, TRONDHEIM, BODO, TROMSO, STAVANGER, ALTA, ETC. BY EXECUTING FORECASTS FOR EACH TRP IN THOSE CITIES (BY USING MUNICIPALITY ID)
+        print("Available models:")
+        print(db_broker.get_trained_models())
+
+        with dask_cluster_client(processes=False) as client:
+
+            network = RoadNetwork(
+                network_id="test",
+                name="test",
+                db_broker=db_broker,
+                loader=BatchStreamLoader(db_broker=db_broker),
+                dask_client=client
+            )
+            network.build()
+            #network.draw_municipality_traffic_volume_heatmap(municipality_id=muni, time_range=, model="DecisionTreeRegressor")
+
 
     elif functionality == "4.4":
 
