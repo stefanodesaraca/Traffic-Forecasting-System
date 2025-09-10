@@ -123,6 +123,7 @@ class ProjectTables(Enum):
     RoadLink_Counties = "RoadLink_Counties"
     RoadLink_TollStations = "RoadLink_TollStations"
     RoadLink_TrafficRegistrationPoints = "RoadLink_TrafficRegistrationPoints"
+    ModelBestParameters = "ModelBestParameters"
 
 
 
@@ -136,6 +137,7 @@ class ProjectConstraints(Enum):
 class ProjectViews(Enum):
     TrafficRegistrationPointsMetadataView = "TrafficRegistrationPointsMetadataView"
     VolumeMeanSpeedDateRangesView = "VolumeMeanSpeedDateRangesView"
+    BestGridSearchResults = "BestGridSearchResults"
 
 
 

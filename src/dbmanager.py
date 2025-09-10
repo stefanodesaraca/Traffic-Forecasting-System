@@ -417,9 +417,7 @@ class AIODBManager:
                             type TEXT DEFAULT 'Regression',
                             base_params JSON NOT NULL,
                             {GlobalDefinitions.VOLUME}_grid JSON,
-                            {GlobalDefinitions.MEAN_SPEED}_grid JSON,
-                            best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx INT DEFAULT 1,
-                            best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx INT DEFAULT 1
+                            {GlobalDefinitions.MEAN_SPEED}_grid JSON
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.BaseModels.value}" (
@@ -458,6 +456,16 @@ class AIODBManager:
                             mean_test_mean_absolute_error FLOAT NOT NULL,
                             mean_train_mean_absolute_error FLOAT NOT NULL,
                             PRIMARY KEY (id, model_id, road_category_id, target)
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.ModelBestParameters.value}" (
+                            model_id TEXT NOT NULL,
+                            result_id INT NOT NULL DEFAULT 1,
+                            target TEXT NOT NULL,
+                            road_category TEXT NOT NULL,
+                            FOREIGN KEY (model_id) REFERENCES "{ProjectTables.MLModels.value}"(id) ON DELETE CASCADE,
+                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id) ON DELETE CASCADE,
+                            PRIMARY KEY (model_id, result_id, target, road_category)
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.ForecastingSettings.value}" (
@@ -636,97 +644,35 @@ class AIODBManager:
                 FULL OUTER JOIN "{ProjectTables.MeanSpeed.value}" ms ON false;  -- Force Cartesian for aggregation without joining
                 
                 
-                CREATE OR REPLACE VIEW "best_{GlobalDefinitions.VOLUME}_gridsearch_results" AS
-                SELECT 
-                    m.id AS model_id,
-                    m.name AS model_name,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.params
-                        ELSE NULL
-                    END AS best_{GlobalDefinitions.VOLUME}_params,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_test_r2
-                        ELSE NULL
-                    END AS mean_test_r2,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_train_r2
-                        ELSE NULL
-                    END AS mean_train_r2,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_test_mean_squared_error
-                        ELSE NULL
-                    END AS mean_test_mean_squared_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_train_mean_squared_error
-                        ELSE NULL
-                    END AS mean_train_mean_squared_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_test_root_mean_squared_error
-                        ELSE NULL
-                    END AS mean_test_root_mean_squared_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_train_root_mean_squared_error
-                        ELSE NULL
-                    END AS mean_train_root_mean_squared_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_test_mean_absolute_error
-                        ELSE NULL
-                    END AS mean_test_mean_absolute_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_train_mean_absolute_error
-                        ELSE NULL
-                    END AS mean_train_mean_absolute_error
-                FROM "{ProjectTables.MLModels.value}" m
-                LEFT JOIN "{ProjectTables.ModelGridSearchCVResults.value}" r
-                    ON m.id = r.model_id
-                WHERE r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx
-                AND r.target = '{GlobalDefinitions.VOLUME}';
-                    
-                CREATE OR REPLACE VIEW "best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_results" AS
-                SELECT 
-                    m.id AS model_id,
-                    m.name AS model_name,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.params
-                        ELSE NULL
-                    END AS best_{GlobalDefinitions.MEAN_SPEED}_params,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_test_r2
-                        ELSE NULL
-                    END AS mean_test_r2,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_train_r2
-                        ELSE NULL
-                    END AS mean_train_r2,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_test_mean_squared_error
-                        ELSE NULL
-                    END AS mean_test_mean_squared_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_train_mean_squared_error
-                        ELSE NULL
-                    END AS mean_train_mean_squared_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_test_root_mean_squared_error
-                        ELSE NULL
-                    END AS mean_test_root_mean_squared_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_train_root_mean_squared_error
-                        ELSE NULL
-                    END AS mean_train_root_mean_squared_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_test_mean_absolute_error
-                        ELSE NULL
-                    END AS mean_test_mean_absolute_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_train_mean_absolute_error
-                        ELSE NULL
-                    END AS mean_train_mean_absolute_error
-                FROM "{ProjectTables.MLModels.value}" m
-                LEFT JOIN "{ProjectTables.ModelGridSearchCVResults.value}" r
-                    ON m.id = r.model_id
-	            WHERE r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx
-                AND r.target = '{GlobalDefinitions.MEAN_SPEED}';
+                CREATE OR REPLACE VIEW {ProjectViews.BestGridSearchResults.value} AS
+                SELECT
+                    mbp.model_id AS model_id,
+                    m.name AS name,
+                    mbp.result_id AS result_id,
+                    mbp.target AS target,
+                    mbp.road_category AS road_category,
+                    mgr.id AS grid_result_id,
+                    mgr.target AS grid_target,
+                    mgr.road_category_id AS road_category_id,
+                    mgr.params AS params,
+                    mgr.params_hash AS params_hash,
+                    mgr.mean_fit_time AS mean_fit_time,
+                    mgr.mean_test_r2 AS mean_test_r2,
+                    mgr.mean_train_r2 AS mean_train_r2,
+                    mgr.mean_test_mean_squared_error AS mean_test_mean_squared_error,
+                    mgr.mean_train_mean_squared_error AS mean_train_mean_squared_error,
+                    mgr.mean_test_root_mean_squared_error AS mean_test_root_mean_squared_error,
+                    mgr.mean_train_root_mean_squared_error AS mean_train_root_mean_squared_error,
+                    mgr.mean_test_mean_absolute_error AS mean_test_mean_absolute_error,
+                    mgr.mean_train_mean_absolute_error AS mean_train_mean_absolute_error
+                FROM "{ProjectTables.ModelBestParameters.value}" mbp
+                JOIN "{ProjectTables.MLModels.value}" m
+                    ON mbp.model_id = m.id
+                JOIN "{ProjectTables.ModelGridSearchCVResults.value}" mgr
+                    ON mbp.result_id = mgr.result_id
+                   AND mbp.model_id = mgr.model_id
+                   AND mbp.road_category = mgr.road_category_id
+                   AND mbp.target = mgr.target;
                 """)
 
                 # Materialized Views
