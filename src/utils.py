@@ -158,6 +158,29 @@ def arctan2_decoder(sin_val: float, cos_val: float) -> int | float:  # TODO VERI
     return (angle_rad * 360) / (2 * np.pi)
 
 
+def cyclical_decoder(sin_val: float, cos_val: float, period: PositiveInt) -> int:
+    """
+    Decode cyclical feature from sine & cosine encoding.
+
+    Parameters
+    ----------
+    sin_val : float
+        Sine component.
+    cos_val : float
+        Cosine component.
+    period : int
+        Number of discrete steps in the cycle (e.g., 24 for hours, 7 for week, 12 for month, 365 for day-of-year).
+
+    Returns
+    -------
+    int
+        Decoded value in original scale (e.g., 0–23 for hours).
+    """
+    angle_rad = np.arctan2(sin_val, cos_val) % (2 * np.pi)
+    value = int(round(period * angle_rad / (2 * np.pi)))
+    return value % period
+
+
 def split_by_target(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
     """
     Splits the Dask DataFrame into training and testing sets based on the target column and mode.

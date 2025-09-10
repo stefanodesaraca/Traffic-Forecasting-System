@@ -613,6 +613,8 @@ class AIODBManager:
                     trp.id AS trp_id,
                     trp.road_category AS road_category,
                     trp.county_id AS county_id,
+                    trp.lat AS lat,
+                    trp.lon AS lon,
                     COALESCE(v_agg.has_{GlobalDefinitions.VOLUME}, FALSE) AS has_{GlobalDefinitions.VOLUME}, -- If there weren't any rows for a specific TRP this would be NULL, instead we want FALSE
                     v_agg.{GlobalDefinitions.VOLUME}_start_date,
                     v_agg.{GlobalDefinitions.VOLUME}_end_date,

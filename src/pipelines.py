@@ -29,7 +29,7 @@ from shapely.geometry import shape
 from shapely import wkt
 
 from definitions import GlobalDefinitions, ProjectTables, ProjectConstraints
-from utils import ZScore, cos_encoder, sin_encoder, check_target, split_by_target, get_n_items_from_gen
+from utils import ZScore, cos_encoder, sin_encoder, cyclical_decoder, check_target, split_by_target, get_n_items_from_gen
 
 
 pd.set_option("display.max_rows", None)
@@ -618,9 +618,6 @@ class MLPreprocessingPipeline:
         data = self._add_lag_features(data=data, target=GlobalDefinitions.VOLUME, lags=lags)
         #data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
 
-        print(data.head(10))
-        print(data.columns)
-
         data = data.map_partitions(self._add_utm_columns) #Convert latitude and longitude into the appropriate UTM zone eastings and northings to maintain an accurate ratio when moving across the zone and not having distortions like in WGS84 coordinates where the closer to the poles the heavier distortions come into place
 
         data = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_TO_SCALE_FEATURES, scaler=MinMaxScaler)
@@ -671,6 +668,17 @@ class MLPredictionPipeline:
 
         self._trp_metadata = self._db_broker.get_trp_metadata(trp_id=trp_id)
         self._trp_utm_easting, self._trp_utm_northing, _, _ = utm.from_latlon(self._trp_metadata["lat"], self._trp_metadata["lon"])
+
+
+    @staticmethod
+    def _apply_cyclical_decoding(df: pd.DataFrame, sin_encoded_col_name: str, cos_encoded_col_name: str, period: PositiveInt, new_col_name: str) -> pd.DataFrame:
+        sin_vals = df[sin_encoded_col_name].astype(float)
+        cos_vals = df[cos_encoded_col_name].astype(float)
+
+        # Decoding cyclical values
+        df[new_col_name] = (np.arctan2(sin_vals, cos_vals) * period / (2 * np.pi)).round().astype(int) % period
+
+        return df
 
 
     def _get_training_records(self, training_mode: Literal[0, 1], cache_latest_dt_collection: bool = True) -> dd.DataFrame:
@@ -798,7 +806,13 @@ class MLPredictionPipeline:
         )
         data[self._target] = dd.from_array(self._model.predict(X_predict))
         data[cols_to_scale] = self._pipeline.scaler.inverse_transform(data[cols_to_scale])
-        return data
+
+        data = data.map_partitions(self._apply_cyclical_decoding, "hour_sin", "hour_cos", 24, "hour")
+        data = data.map_partitions(self._apply_cyclical_decoding, "day_sin", "day_cos", 31, "day")
+        data = data.map_partitions(self._apply_cyclical_decoding, "month_sin", "month_cos", 12, "month")
+        data = data.map_partitions(self._apply_cyclical_decoding, "week_sin", "week_cos", 53, "week")
+
+        return data.drop(columns=["hour_sin", "hour_cos", "day_sin", "day_cos", "month_sin", "month_cos", "week_sin", "week_cos"]).persist()
 
 
 
