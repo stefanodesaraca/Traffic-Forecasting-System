@@ -1,4 +1,3 @@
-from pathlib import Path
 import json
 from typing import Any, Literal, Generator, LiteralString, Sequence, Mapping
 import datetime
@@ -107,8 +106,8 @@ class AIODBBroker:
         """
         max_forecasting_window_size: int = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
-        print("V = Volume | MS = Mean Speed")
-        target = input("Target: ")
+        print("V: Volume | MS: Mean Speed")
+        target = input("Target: ").upper()
         print("Maximum number of days to forecast: ", max_forecasting_window_size)
 
         check_target(target, errors=True)
@@ -350,7 +349,8 @@ class DBBroker:
 
     def get_ml_models(self) -> dict[str, Any]:
         return self.send_sql(f"""
-            SELECT "id", "name", "type" FROM "{ProjectTables.MLModels.value}"
+            SELECT DISTINCT m.id AS id, m.name AS name, m.type AS type, gr.road_category_id AS road_category
+            FROM "{ProjectTables.MLModels.value}" m JOIN "{ProjectTables.ModelGridSearchCVResults.value}" gr ON m.id = gr.model_id
         """)
 
 

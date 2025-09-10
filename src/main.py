@@ -408,10 +408,8 @@ def manage_ml(functionality: str) -> None:
     if functionality == "5.1":
         db_broker = get_db_broker()
 
-        print("Available models: ")
-        db_broker.send_sql(f"""
-            SELECT * FROM {ProjectTables.MLModels.value}
-        """)
+        print("Models available: ")
+        pprint(db_broker.get_ml_models())
 
         model_id = input("Enter the ID of the model which you want to set the best parameters index for: ")
 
@@ -419,14 +417,16 @@ def manage_ml(functionality: str) -> None:
         target = input("Enter the target variable for which the model has been trained for: ")
         check_target(target, errors=True)
 
-        new_best_params_idx = int(input("Enter the new best parameters index for the model (integer value): "))
+        target = GlobalDefinitions.TARGET_DATA[target]
 
+        road_category = input("Enter the road category for which the model has been trained for: ")
+        new_best_params_idx = int(input("Enter the new best parameters index for the model (integer value): "))
 
         db_broker.send_sql(f"""
                             UPDATE "{ProjectTables.MLModels.value}"
-                            SET "{f"'best_{target}_gridsearch_params_idx'"}" = {new_best_params_idx}
+                            SET "{f"best_{target}_gridsearch_params_idx"}" = %s
                             WHERE "id" = '{model_id}';
-        """)
+        """, execute_args=[new_best_params_idx])
 
         print(f"Best parameters for model: {model_id} ad target: {target} updated correctly")
         return None
@@ -520,9 +520,9 @@ def forecast(functionality: str) -> None:
 
                 print(f"**************** {name}'s Predictions ****************")
 
-                data = pipeline.start(lags=[24, 36, 48, 60, 72], trp_tuning=True)
+                data = pipeline.start(lags=[24, 36, 48, 60, 72], trp_tuning=False)
 
-                print(data.compute()) #TODO CHECK IF VALUES ARE SORTED BY TRP AND BY DATE
+                print(data[[target, "hour", "day", "month", "year", "week"]].compute()) #TODO CHECK IF VALUES ARE SORTED BY TRP AND BY DATE
 
 
 

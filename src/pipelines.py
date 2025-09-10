@@ -817,7 +817,7 @@ class MLPredictionPipeline:
         data = data.map_partitions(self._apply_cyclical_decoding, "month_sin", "month_cos", 12, "month")
         data = data.map_partitions(self._apply_cyclical_decoding, "week_sin", "week_cos", 53, "week")
 
-        return data.drop(columns=["hour_sin", "hour_cos", "day_sin", "day_cos", "month_sin", "month_cos", "week_sin", "week_cos"]).persist()
+        return data.drop(columns=["coverage", "hour_sin", "hour_cos", "day_sin", "day_cos", "month_sin", "month_cos", "week_sin", "week_cos"]).persist()
 
 
 
