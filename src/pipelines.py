@@ -618,6 +618,9 @@ class MLPreprocessingPipeline:
         data = self._add_lag_features(data=data, target=GlobalDefinitions.VOLUME, lags=lags)
         #data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
 
+        print(data.head(10))
+        print(data.columns)
+
         data = data.map_partitions(self._add_utm_columns) #Convert latitude and longitude into the appropriate UTM zone eastings and northings to maintain an accurate ratio when moving across the zone and not having distortions like in WGS84 coordinates where the closer to the poles the heavier distortions come into place
 
         data = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_TO_SCALE_FEATURES, scaler=MinMaxScaler)
@@ -666,6 +669,9 @@ class MLPredictionPipeline:
 
         check_target(target=self._target, errors=True)
 
+        self._trp_metadata = self._db_broker.get_trp_metadata(trp_id=trp_id)
+        self._trp_utm_easting, self._trp_utm_northing, _, _ = utm.from_latlon(self._trp_metadata["lat"], self._trp_metadata["lon"])
+
 
     def _get_training_records(self, training_mode: Literal[0, 1], cache_latest_dt_collection: bool = True) -> dd.DataFrame:
         """
@@ -703,6 +709,8 @@ class MLPredictionPipeline:
             year=True,
             is_covid_year=True,
             is_mice=False,
+            trp_lat=True,
+            trp_lon=True,
             zoned_dt_start=training_functions_mapping[self._target]["training_data_start"](),
             zoned_dt_end=training_functions_mapping[self._target]["date_boundaries"](trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
         ).assign(is_future=False).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).persist()
@@ -726,7 +734,8 @@ class MLPredictionPipeline:
         attr = {GlobalDefinitions.VOLUME: np.nan} if self._target == GlobalDefinitions.VOLUME else {GlobalDefinitions.MEAN_SPEED: np.nan, "percentile_85": np.nan}  # TODO ADDRESS THE FACT THAT WE CAN'T PREDICT percentile_85, SO WE HAVE TO REMOVE IT FROM HERE
 
         last_available_data_dt = self._db_broker.get_volume_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"] if self._target == GlobalDefinitions.VOLUME else \
-        self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"]
+            self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"]
+
         rows_to_predict = pd.DataFrame({
             "trp_id": self._trp_id,
             **attr,
@@ -742,7 +751,11 @@ class MLPredictionPipeline:
             "year": dt.year,
             "week_cos": cos_encoder(dt.isocalendar().week, timeframe=53),
             "week_sin": sin_encoder(dt.isocalendar().week, timeframe=53),
-            "is_covid_year": False
+            "is_covid_year": False,
+            "lat": self._trp_metadata["lat"],
+            "lon": self._trp_metadata["lon"],
+            "utm_easting": self._trp_utm_easting,
+            "utm_northing": self._trp_utm_northing,
         } for dt in pd.date_range(start=last_available_data_dt, end=forecasting_horizon, freq="1h"))
         # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
@@ -754,11 +767,10 @@ class MLPredictionPipeline:
             GlobalDefinitions.VOLUME: self._pipeline.preprocess_volume,
             GlobalDefinitions.MEAN_SPEED: self._pipeline.preprocess_mean_speed
         }
-        past_data = self._get_training_records(
-            training_mode=0,
-            cache_latest_dt_collection=True
-        )
+
+        past_data = self._get_training_records(training_mode=0, cache_latest_dt_collection=True)
         future_records = self._generate_future_records(forecasting_horizon=self._db_broker.get_forecasting_horizon(target=self._target))
+
         return preprocessing_methods_mapping[self._target](data=dd.concat([past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=lags, z_score=False)
 
 
