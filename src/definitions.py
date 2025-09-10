@@ -23,7 +23,6 @@ class GlobalDefinitions(BaseModel):
     TARGET_DATA: ClassVar[dict[str, str]] = {"V": "volume", "MS": "mean_speed"}
     ROAD_CATEGORIES: ClassVar[list[str]] = ["E", "R", "F", "K", "P"]
     HIGH_SPEED_ROAD_CATEGORIES: ClassVar[list[str]] = ["E", "R"]
-    DEFAULT_MAX_FORECASTING_WINDOW_SIZE: ClassVar[PositiveInt] = 14
 
     HAS_VOLUME_CHECK: ClassVar[str] = "has_volume"
     HAS_MEAN_SPEED_CHECK: ClassVar[str] = "has_mean_speed"
@@ -62,6 +61,11 @@ class GlobalDefinitions(BaseModel):
 
     OSLO_COUNTY_ID: ClassVar[str] = "3"
 
+    DEFAULT_MAX_FORECASTING_WINDOW_SIZE: ClassVar[PositiveInt] = 1
+    HOUR_TIMEFRAME: ClassVar[PositiveInt] = 24
+    DAYS_TIMEFRAME: ClassVar[PositiveInt] = 31
+    MONTHS_TIMEFRAME: ClassVar[PositiveInt] = 12
+    WEEKS_TIMEFRAME: ClassVar[PositiveInt] = 53
     SHORT_TERM_LAGS: ClassVar[list[int]] = [24, 36, 48, 60, 72]
 
 

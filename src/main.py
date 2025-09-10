@@ -520,7 +520,7 @@ def forecast(functionality: str) -> None:
 
                 print(f"**************** {name}'s Predictions ****************")
 
-                data = pipeline.start(lags=[24, 36, 48, 60, 72], trp_tuning=True)
+                data = pipeline.start(lags=GlobalDefinitions.SHORT_TERM_LAGS, trp_tuning=True)
 
                 print(data[[target, "hour", "day", "month", "year", "week"]].compute()) #TODO CHECK IF VALUES ARE SORTED BY TRP AND BY DATE
 
