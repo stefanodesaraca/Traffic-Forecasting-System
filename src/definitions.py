@@ -62,7 +62,7 @@ class GlobalDefinitions(BaseModel):
 
     OSLO_COUNTY_ID: ClassVar[str] = "3"
 
-    SHORT_TERM_LAGS = [24, 36, 48, 60, 72]
+    SHORT_TERM_LAGS: ClassVar[list[int]] = [24, 36, 48, 60, 72]
 
 
 

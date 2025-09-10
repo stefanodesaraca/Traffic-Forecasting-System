@@ -752,7 +752,8 @@ class RoadNetwork:
         }
 
 
-    def draw_municipality_traffic_volume_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], model: str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
+
+    def _get_municipality_traffic_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], target: str, model:str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
         check_municipality_id(municipality_id=municipality_id)
 
         municipality_geom = self._db_broker.get_municipality_geometry(municipality_id=municipality_id)
@@ -761,75 +762,27 @@ class RoadNetwork:
         gridx = np.linspace(min_lon - 0.35, max_lon + 0.35, 100).tolist()
         gridy = np.linspace(min_lat - 0.10, max_lat + 0.10, 100).tolist()
 
-        ok = self._get_ordinary_kriging(y_pred=self._get_municipality_id_preds(municipality_id=municipality_id, target=GlobalDefinitions.VOLUME, model=model), time_range=time_range, target=GlobalDefinitions.VOLUME)
+        ok = self._get_ordinary_kriging(
+            y_pred=self._get_municipality_id_preds(municipality_id=municipality_id, target=target,
+                                                   model=model), time_range=time_range, target=target)
         z_interpolated_vals, kriging_variance, variogram_plot = self._ok_interpolate(
-                                                ordinary_kriging_obj=ok,
-                                                x_coords=gridx, # Grid x bounds
-                                                y_coords=gridy, # Grid y bounds
-                                                style="grid"
-                                            )
-
-        print("Kriging variance: ", kriging_variance)
-
-        municipality_geom_center = municipality_geom.centroid
-
-        municipality_traffic_map = self._create_map(lat_init=municipality_geom_center.y, lon_init=municipality_geom_center.x, zoom=zoom_init or MapDefaultConfigs.ZOOM.value, tiles=tiles or FoliumMapTiles.OPEN_STREET_MAPS.value)
-        municipality_traffic_map = self._get_layers_assembly(municipality_traffic_map, self._get_traffic_map_layers(self._db_broker.get_municipality_trps(municipality_id=municipality_id), municipality_geom=municipality_geom))
-
-        fig, ax = plt.subplots(figsize=(8, 8))
-        grid_interpolation_viz = ax.imshow(
-            z_interpolated_vals,
-            extent=(min(gridx),
-                    max(gridx),
-                    min(gridy),
-                    max(gridy)),
-            origin='lower',
-            cmap=TrafficClasses.CMAP.value, #NOTE BEFORE IT WAS 'magma',
-            alpha=1
+            ordinary_kriging_obj=ok,
+            x_coords=gridx,  # Grid x bounds
+            y_coords=gridy,  # Grid y bounds
+            style="grid"
         )
 
-        cbar = fig.colorbar(grid_interpolation_viz, ax=ax, orientation='vertical') # Adding a color bar #NOTE TRY WITHOUT , fraction=0.036, pad=0.04
-        cbar.set_label(GlobalDefinitions.VOLUME)
-
-        ax.axis('off') # Removing axes
-
-        # Creating an image overlay object to add as a layer to the folium city map
-        ImageOverlay(
-            image=fig,
-            bounds=[[min(gridy), min(gridx)], [max(gridy), max(gridx)]], # Defining the bounds where the image will be placed
-            opacity=.7,
-            interactive=True,
-            cross_origin=False,
-            zindex=1,
-        ).add_to(municipality_traffic_map)
-
-        plt.close(fig)
-
-        return municipality_traffic_map
-
-
-    def draw_municipality_traffic_mean_speed_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], model: str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
-        check_municipality_id(municipality_id=municipality_id)
-
-        municipality_geom = self._db_broker.get_municipality_geometry(municipality_id=municipality_id)
-        min_lon, min_lat, max_lon, max_lat = municipality_geom.bounds
-
-        gridx = np.linspace(min_lon - 0.35, max_lon + 0.35, 100).tolist()
-        gridy = np.linspace(min_lat - 0.10, max_lat + 0.10, 100).tolist()
-
-        ok = self._get_ordinary_kriging(y_pred=self._get_municipality_id_preds(municipality_id=municipality_id, target=GlobalDefinitions.MEAN_SPEED, model=model), time_range=time_range, target=GlobalDefinitions.MEAN_SPEED)
-        z_interpolated_vals, kriging_variance, variogram_plot = self._ok_interpolate(
-                                                ordinary_kriging_obj=ok,
-                                                x_coords=gridx, # Grid x bounds
-                                                y_coords=gridy, # Grid y bounds
-                                                style="grid"
-                                            )
         print("Kriging variance: ", kriging_variance)
 
         municipality_geom_center = municipality_geom.centroid
 
-        municipality_traffic_map = self._create_map(lat_init=municipality_geom_center.y, lon_init=municipality_geom_center.x, zoom=zoom_init or MapDefaultConfigs.ZOOM.value, tiles=tiles or FoliumMapTiles.OPEN_STREET_MAPS.value)
-        municipality_traffic_map = self._get_layers_assembly(municipality_traffic_map, self._get_traffic_map_layers(self._db_broker.get_municipality_trps(municipality_id=municipality_id), municipality_geom=municipality_geom))
+        municipality_traffic_map = self._create_map(lat_init=municipality_geom_center.y,
+                                                    lon_init=municipality_geom_center.x,
+                                                    zoom=zoom_init or MapDefaultConfigs.ZOOM.value,
+                                                    tiles=tiles or FoliumMapTiles.OPEN_STREET_MAPS.value)
+        municipality_traffic_map = self._get_layers_assembly(municipality_traffic_map, self._get_traffic_map_layers(
+            self._db_broker.get_municipality_trps(municipality_id=municipality_id),
+            municipality_geom=municipality_geom))
 
         fig, ax = plt.subplots(figsize=(8, 8))
         grid_interpolation_viz = ax.imshow(
@@ -845,7 +798,7 @@ class RoadNetwork:
 
         cbar = fig.colorbar(grid_interpolation_viz, ax=ax,
                             orientation='vertical')  # Adding a color bar #NOTE TRY WITHOUT , fraction=0.036, pad=0.04
-        cbar.set_label(GlobalDefinitions.VOLUME)
+        cbar.set_label(target)
 
         ax.axis('off')  # Removing axes
 
@@ -854,7 +807,7 @@ class RoadNetwork:
             image=fig,
             bounds=[[min(gridy), min(gridx)], [max(gridy), max(gridx)]],
             # Defining the bounds where the image will be placed
-            opacity=.7,
+            opacity=0.7,
             interactive=True,
             cross_origin=False,
             zindex=1,
@@ -864,7 +817,13 @@ class RoadNetwork:
 
         return municipality_traffic_map
 
-    #TODO MAKE THESE TWO METHODS INTO A COMMON ONE
+
+    def draw_municipality_traffic_volume_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], model: str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
+        return self._get_municipality_traffic_heatmap(municipality_id=municipality_id, time_range=time_range, target=GlobalDefinitions.VOLUME, model=model, tiles=tiles)
+
+
+    def draw_municipality_traffic_mean_speed_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], model: str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
+        return self._get_municipality_traffic_heatmap(municipality_id=municipality_id, time_range=time_range, target=GlobalDefinitions.MEAN_SPEED, model=model, tiles=tiles)
 
 
     def degree_centrality(self) -> dict:
