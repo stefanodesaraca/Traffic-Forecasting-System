@@ -790,6 +790,10 @@ class MLPredictionPipeline:
         }
         cols_to_scale = scaling_mapping[self._target]
         data = self._get_future_records(lags=lags)
+
+        print(data.head(10))
+        print(data.columns)
+
         if trp_tuning:
             X_tune, y_tune = split_by_target(
                 data=data[data["is_future"] != True].drop(columns=["is_future"]).persist(),
@@ -804,6 +808,10 @@ class MLPredictionPipeline:
             target=self._target,
             mode=1
         )
+
+        #print(X_predict.columns)
+
+
         data[self._target] = dd.from_array(self._model.predict(X_predict))
         data[cols_to_scale] = self._pipeline.scaler.inverse_transform(data[cols_to_scale])
 

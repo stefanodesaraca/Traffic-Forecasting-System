@@ -97,7 +97,7 @@ class ModelWrapper(BaseModel):
 
 
     @property
-    def fit_state(self):
+    def fit_state(self) -> bool:
         """
         Get the fitting state of the model.
 
@@ -195,6 +195,8 @@ class ModelWrapper(BaseModel):
         """
         if isinstance(self.model_obj, (RandomForestRegressor, DecisionTreeRegressor, HistGradientBoostingRegressor)):
             with joblib.parallel_backend("dask"):
+                feature_order = self.model_obj.feature_names_in_  # TODO IN THE FUTURE ADD IF MODEL IS FROM SCIKIT-LEARN
+                X = X[feature_order]
                 return self.model_obj.predict(X.compute()) # type: ignore[attr-defined] # <- WARNING: this comment is used to avoid seeing a useless warning since the model will indeed have a predict method, but the scikit-learn BaseEstimator class doesn't
         elif isinstance(self.model_obj, SktimeBaseEstimator):
             return ... #NOTE STILL TO IMPLEMENT
