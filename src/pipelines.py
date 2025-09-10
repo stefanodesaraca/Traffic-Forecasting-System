@@ -667,7 +667,6 @@ class MLPredictionPipeline:
         check_target(target=self._target, errors=True)
 
         self._trp_metadata = self._db_broker.get_trp_metadata(trp_id=trp_id)
-        self._trp_utm_easting, self._trp_utm_northing, _, _ = utm.from_latlon(self._trp_metadata["lat"], self._trp_metadata["lon"])
 
 
     @staticmethod
@@ -715,6 +714,9 @@ class MLPredictionPipeline:
                 "date_boundaries": self._db_broker.get_mean_speed_date_boundaries
             }
         }
+
+        print("VOLUME DATA BOUNDARY: ", get_volume_training_data_start())
+
         return training_functions_mapping[self._target]["loader"](
             road_category_filter=[self._road_category] if self._road_category else None,
             trp_list_filter=trp_id_filter,
@@ -766,9 +768,7 @@ class MLPredictionPipeline:
             "week_sin": sin_encoder(dt.isocalendar().week, timeframe=GlobalDefinitions.WEEKS_TIMEFRAME),
             "is_covid_year": False,
             "lat": self._trp_metadata["lat"],
-            "lon": self._trp_metadata["lon"],
-            "utm_easting": self._trp_utm_easting,
-            "utm_northing": self._trp_utm_northing,
+            "lon": self._trp_metadata["lon"]
         } for dt in pd.date_range(start=last_available_data_dt, end=forecasting_horizon, freq="1h"))
         # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
@@ -783,11 +783,21 @@ class MLPredictionPipeline:
 
         past_data = self._get_training_records(training_mode=training_mode, cache_latest_dt_collection=True)
 
-        print(past_data.shape)
+        print(past_data.shape[0].compute())
+        print(past_data.shape[1])
+
+        print(past_data.columns)
+        print(past_data.head(10))
 
         future_records = self._generate_future_records(forecasting_horizon=self._db_broker.get_forecasting_horizon(target=self._target))
 
-        print(future_records.shape)
+        print(future_records.shape[0].compute())
+        print(future_records.shape[1])
+
+        print(future_records.columns)
+        print(future_records.head(10))
+
+        print("PREPROCESSED", preprocessing_methods_mapping[self._target](data=dd.concat([past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=lags, z_score=False).compute())
 
 
         return preprocessing_methods_mapping[self._target](data=dd.concat([past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=lags, z_score=False)
