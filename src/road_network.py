@@ -100,14 +100,14 @@ class RoadNetwork:
             )
             SELECT 
                 trp.id,
-                trp.road_category
-                trp.lat
+                trp.road_category,
+                trp.lat,
                 trp.lon
             FROM neighbors n
             JOIN "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" rl_t
               ON n.neighbor_link_id = rl_t.link_id
             JOIN "{ProjectTables.TrafficRegistrationPoints.value}" trp
-              ON rl_t.trp_id = trp.trp_id;
+              ON rl_t.trp_id = trp.id;
         """, execute_args=[link_id, buffer_zone_radius])
 
 
@@ -419,13 +419,13 @@ class RoadNetwork:
             sp = self._get_shortest_path(source=source, destination=destination, heuristic=heuristic, weight=self._get_advanced_weighting)
             print(sp)
             sp_edges = self._get_path_edges(sp)
-            print(sp_edges)
+            #print(sp_edges)
 
 
             # ---------- STEP 2 ----------
 
             trps_per_edge = self._get_trps_per_edge(edges=sp_edges, trp_research_buffer_radius=trp_research_buffer_radius)
-            self.trps_along_sp = set(*chain(trps_per_edge.values())) # A set of dictionary where each dict is a TRP with its metadata (id, road_category, etc.)
+            self.trps_along_sp = set(chain(trps_per_edge.values())) # A set of dictionary where each dict is a TRP with its metadata (id, road_category, etc.)
 
 
             # ---------- STEP 3 ----------
