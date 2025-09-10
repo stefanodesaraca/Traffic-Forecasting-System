@@ -696,11 +696,11 @@ class MLPredictionPipeline:
 
         def get_volume_training_data_start():
             return (self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
-                    - timedelta(hours=((self._db_broker.get_forecasting_horizon(target=self._target) - self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2))
+                    - timedelta(hours=((self._db_broker.get_forecasting_horizon(target=self._target) - self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 10))
 
         def get_mean_speed_training_data_start():
             return (self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
-                    - timedelta(hours=((self._db_broker.get_forecasting_horizon(target=self._target) - self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2))
+                    - timedelta(hours=((self._db_broker.get_forecasting_horizon(target=self._target) - self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 10))
 
         trp_id_filter = (self._trp_id,) if training_mode == 0 else None
         training_functions_mapping = {
@@ -775,26 +775,32 @@ class MLPredictionPipeline:
         return dd.from_pandas(rows_to_predict).assign(is_future=True).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).persist()
 
 
-    def _get_future_records(self, lags: list[PositiveInt]):
+    def _get_future_records(self, training_mode: Literal[0, 1], lags: list[PositiveInt]):
         preprocessing_methods_mapping = {
             GlobalDefinitions.VOLUME: self._pipeline.preprocess_volume,
             GlobalDefinitions.MEAN_SPEED: self._pipeline.preprocess_mean_speed
         }
 
-        past_data = self._get_training_records(training_mode=0, cache_latest_dt_collection=True)
+        past_data = self._get_training_records(training_mode=training_mode, cache_latest_dt_collection=True)
+
+        print(past_data.shape)
+
         future_records = self._generate_future_records(forecasting_horizon=self._db_broker.get_forecasting_horizon(target=self._target))
+
+        print(future_records.shape)
+
 
         return preprocessing_methods_mapping[self._target](data=dd.concat([past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=lags, z_score=False)
 
 
-    def start(self, lags: list[PositiveInt], trp_tuning: bool = False) -> dd.DataFrame:
+    def start(self, training_mode: Literal[0, 1], lags: list[PositiveInt], trp_tuning: bool = False) -> dd.DataFrame:
         # trp_tuning defines if we want to train the already trained model on data exclusively from the TRP which we want to forecast data for to improve prediction accuracy
         scaling_mapping = {
             GlobalDefinitions.VOLUME: GlobalDefinitions.VOLUME_TO_SCALE_FEATURES,
             GlobalDefinitions.MEAN_SPEED: GlobalDefinitions.MEAN_SPEED_TO_SCALE_FEATURES
         }
         cols_to_scale = scaling_mapping[self._target]
-        data = self._get_future_records(lags=lags)
+        data = self._get_future_records(training_mode=training_mode, lags=lags)
 
         if trp_tuning:
             X_tune, y_tune = split_by_target(
@@ -817,10 +823,10 @@ class MLPredictionPipeline:
         data[self._target] = dd.from_array(self._model.predict(X_predict))
         data[cols_to_scale] = self._pipeline.scaler.inverse_transform(data[cols_to_scale])
 
-        data = data.map_partitions(self._apply_cyclical_decoding, "hour_sin", "hour_cos", 24, 0, "hour")
-        data = data.map_partitions(self._apply_cyclical_decoding, "day_sin", "day_cos", 31, 1, "day")
-        data = data.map_partitions(self._apply_cyclical_decoding, "month_sin", "month_cos", 12, 1, "month")
-        data = data.map_partitions(self._apply_cyclical_decoding, "week_sin", "week_cos", 53, 1, "week")
+        data = data.map_partitions(self._apply_cyclical_decoding, "hour_sin", "hour_cos", GlobalDefinitions.HOUR_TIMEFRAME, 0, "hour")
+        data = data.map_partitions(self._apply_cyclical_decoding, "day_sin", "day_cos", GlobalDefinitions.DAYS_TIMEFRAME, 1, "day")
+        data = data.map_partitions(self._apply_cyclical_decoding, "month_sin", "month_cos", GlobalDefinitions.MONTHS_TIMEFRAME, 1, "month")
+        data = data.map_partitions(self._apply_cyclical_decoding, "week_sin", "week_cos", GlobalDefinitions.WEEKS_TIMEFRAME, 1, "week")
 
         return data.drop(columns=["coverage", "hour_sin", "hour_cos", "day_sin", "day_cos", "month_sin", "month_cos", "week_sin", "week_cos"]).persist()
 
