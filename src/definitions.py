@@ -44,6 +44,7 @@ class GlobalDefinitions(BaseModel):
     MEAN_SPEED_DIR: ClassVar[Path] = Path("data", MEAN_SPEED)
     MODEL_GRIDS_FILE: ClassVar[Path] = Path("data", "model_grids.json")
     MUNICIPALITIES_AUXILIARY_DATA: ClassVar[Path] = Path("data", "road_network", "kommuner.csv")
+    MODELS_BEST_PARAMS: ClassVar[Path] = Path("data", "models_best_params.json")
 
     MICE_COLS: ClassVar[list[str]] = ["volume", "coverage"]
 

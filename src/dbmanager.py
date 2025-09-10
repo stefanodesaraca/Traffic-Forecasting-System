@@ -459,10 +459,12 @@ class AIODBManager:
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.ModelBestParameters.value}" (
+                            name TEXT NOT NULL,
                             model_id TEXT NOT NULL,
                             result_id INT NOT NULL DEFAULT 1,
                             target TEXT NOT NULL,
                             road_category TEXT NOT NULL,
+                            FOREIGN KEY (name) REFERENCES "{ProjectTables.MLModels.value}"(name) ON DELETE CASCADE,
                             FOREIGN KEY (model_id) REFERENCES "{ProjectTables.MLModels.value}"(id) ON DELETE CASCADE,
                             FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id) ON DELETE CASCADE,
                             PRIMARY KEY (model_id, result_id, target, road_category)

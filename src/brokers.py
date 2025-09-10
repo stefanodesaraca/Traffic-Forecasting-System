@@ -404,6 +404,31 @@ class DBBroker:
         """)
 
 
+    def update_model_best_gridsearch_params(self, best_gridsearch_params: list[dict[str, Any]]) -> None:
+        """
+        best_gridsearch_params list of dict structure: [{
+            name: str,
+            model_id: str,
+            result_id: str,
+            target: str,
+            road_category: str
+        }]
+        """
+        for d in best_gridsearch_params:
+            self.send_sql(f"""
+                INSERT INTO "{ProjectTables.ModelBestParameters.value}" ("name", "model_id", "result_id", "target", "road_category")
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT ("model_id", "result_id", "target", "road_category")
+                DO UPDATE SET
+                    model_id = EXCLUDED.model_id,
+                    result_id = EXCLUDED.result_id,
+                    target = EXCLUDED.target,
+                    road_category = EXCLUDED.road_category;
+            """, execute_args=[*d.values()])
+        return None
+
+
+
 class AIODBManagerBroker:
 
     def __init__(self,

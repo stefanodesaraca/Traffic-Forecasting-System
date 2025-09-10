@@ -194,11 +194,6 @@ def forecast_warmup(functionality: str) -> None:
     preprocessing_pipeline = MLPreprocessingPipeline()
 
     #NOTE FOR A FUTURE UPDATE WE'LL INTEGRATE THE ABILITY TO PREDICT AT DIFFERENT TIME HORIZONS (LONG TERM PREDICTIONS AND SHORT TERM PREDICTIONS)
-    #if long_term:
-    #    lags = [24, 36, 48, 60, 72]  # One, two and three days in the past
-    #else:
-    #    lags = [8766, 17532, 26298]  # One, two and three years in the past
-
 
     def get_model_query(operation_type: str, target: str):
         return {
@@ -479,6 +474,14 @@ def manage_ml(functionality: str) -> None:
 
         asyncio.run(insert_models_into_db())
 
+
+    if functionality == "5.5":
+        db_broker = get_db_broker()
+        with open(GlobalDefinitions.MODELS_BEST_PARAMS, "r", encoding="utf-8") as params:
+            db_broker.update_model_best_gridsearch_params(json.load(params))
+
+
+
     return None
 
 
@@ -641,7 +644,8 @@ def main():
         "5.2": manage_ml,
         "5.3": manage_ml,
         "5.4": manage_ml,
-        "5.5": eda
+        "5.5": manage_ml,
+        "5.6": eda
     }
 
     while True:
@@ -682,9 +686,10 @@ def main():
     5.2 Update model grid
     5.3 Update multiple model grids
     5.4 Insert models into project DB
-    5.5 EDA (Exploratory Data Analysis)
-    5.6 Erase all data about a project
-    5.7 Analyze pre-existing road network graph
+    5.5 Update model best gridsearch parameters
+    5.6 EDA (Exploratory Data Analysis)
+    5.7 Erase all data about a project
+    5.8 Analyze pre-existing road network graph
 0. Exit""")
 
         asyncio.run(initialize())
