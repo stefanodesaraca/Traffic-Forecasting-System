@@ -646,7 +646,7 @@ class AIODBManager:
                 FULL OUTER JOIN "{ProjectTables.MeanSpeed.value}" ms ON false;  -- Force Cartesian for aggregation without joining
                 
                 
-                CREATE OR REPLACE VIEW {ProjectViews.BestGridSearchResults.value} AS
+                CREATE OR REPLACE VIEW "{ProjectViews.BestGridSearchResults.value}" AS
                 SELECT
                     mbp.model_id AS model_id,
                     m.name AS name,

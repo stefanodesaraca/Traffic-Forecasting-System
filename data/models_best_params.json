@@ -2,7 +2,7 @@
   {
     "name": "DecisionTreeRegressor",
     "model_id": "e2ed1209af71a0d9a98e7de54783b8915174e42d04d8f8c1269071ad67529e7b",
-    "result_id": 1,
+    "result_id": 0,
     "target": "volume",
     "road_category": "E"
   },

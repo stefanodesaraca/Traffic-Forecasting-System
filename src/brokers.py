@@ -414,6 +414,7 @@ class DBBroker:
             road_category: str
         }]
         """
+        self.send_sql(f"""DELETE FROM "{ProjectTables.ModelBestParameters.value}";""")
         for d in best_gridsearch_params:
             self.send_sql(f"""
                 INSERT INTO "{ProjectTables.ModelBestParameters.value}" ("name", "model_id", "result_id", "target", "road_category")
