@@ -35,7 +35,7 @@ class AIODBBroker:
                     if single:
                         return await conn.fetchrow(sql)
                     return await conn.fetch(sql)
-                elif any(sql.lstrip().startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "insert", "update", "delete"]):
+                elif any(sql.lstrip().startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "WITH", "insert", "update", "delete", "with"]):
                     if many and many_values:
                         return await conn.executemany(sql, many_values)
                     elif many and not many_values:
@@ -202,7 +202,7 @@ class DBBroker:
                     if single:
                         return cur.fetchone()
                     return cur.fetchall()
-                elif any(sql.lstrip().startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "insert", "update", "delete"]):
+                elif any(sql.lstrip().startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "WITH", "insert", "update", "delete", "with"]):
                     if many and many_values:
                         return cur.executemany(sql, many_values)
                     elif many and not many_values:

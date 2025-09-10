@@ -52,10 +52,10 @@ class RoadNetwork:
         self.network_id: str = network_id
         self.name: str = name
         self._backend: str = backend
-        self._network: nx.DiGraph | None = None #TODO CORRECTLY DEFINE ROAD DIRECTIONS, BUT WITH AN UNDIRECTED GRAPH EVERYTHING WORKS CORRECTLY
+        self._network: nx.Graph | None = None #TODO CORRECTLY DEFINE ROAD DIRECTIONS, BUT WITH AN UNDIRECTED GRAPH EVERYTHING WORKS CORRECTLY
 
         if not network_binary:
-            self._network = nx.DiGraph(**{"network_id": self.network_id, "name": self.name})
+            self._network = nx.Graph(**{"network_id": self.network_id, "name": self.name})
         else:
             self._network = pickle.loads(network_binary)  # To load pre-computed graphs
 
@@ -64,7 +64,7 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _get_minkowski_dist(u: tuple[Any, ...], v: tuple[Any, ...], G: nx.DiGraph):
+    def _get_minkowski_dist(u: tuple[Any, ...], v: tuple[Any, ...], G: nx.Graph):
         # Parsing WKT geometry into shapely Point
         u_geom = G.nodes[u]["geom"]
         v_geom = G.nodes[v]["geom"]
@@ -470,7 +470,7 @@ class RoadNetwork:
 
             for target in targets:
 
-                ok = self._get_ordinary_kriging(y_pred=self.trps_along_sp_preds, time_range=time_range, target=target, verbose=True)
+                ok = self._get_ordinary_kriging(y_pred=self.trps_along_sp_preds, horizon=horizon, target=target, verbose=True)
                 z_interpolated_vals, kriging_variance, variogram_plot = self._ok_interpolate(
                                                                             ordinary_kriging_obj=ok,
                                                                             x_coords=line_predictions["lon"].values,
