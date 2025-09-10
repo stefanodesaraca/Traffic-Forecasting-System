@@ -109,6 +109,11 @@ class ModelWrapper(BaseModel):
         return self.model_obj.__sklearn_is_fitted__()
 
 
+    @property
+    def feature_order(self) -> list[str]:
+        return self.model_obj.feature_names_in_  # TODO IN THE FUTURE ADD IF MODEL IS FROM SCIKIT-LEARN
+
+
     def set(self, model_object: Any) -> None:
         """
         Set the model object in the wrapper. Basically just imputing a model object (not an instance) inside the wrapper
@@ -195,8 +200,6 @@ class ModelWrapper(BaseModel):
         """
         if isinstance(self.model_obj, (RandomForestRegressor, DecisionTreeRegressor, HistGradientBoostingRegressor)):
             with joblib.parallel_backend("dask"):
-                feature_order = self.model_obj.feature_names_in_  # TODO IN THE FUTURE ADD IF MODEL IS FROM SCIKIT-LEARN
-                X = X[feature_order]
                 return self.model_obj.predict(X.compute()) # type: ignore[attr-defined] # <- WARNING: this comment is used to avoid seeing a useless warning since the model will indeed have a predict method, but the scikit-learn BaseEstimator class doesn't
         elif isinstance(self.model_obj, SktimeBaseEstimator):
             return ... #NOTE STILL TO IMPLEMENT
