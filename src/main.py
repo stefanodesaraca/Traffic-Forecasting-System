@@ -546,7 +546,7 @@ def manage_road_network(functionality: str) -> None:
         db_broker = get_db_broker()
 
         print("Available models:")
-        print(db_broker.get_trained_models())
+        print(db_broker.get_trained_models(target=GlobalDefinitions.VOLUME)) #TODO VOLUME ONLY
 
         with dask_cluster_client(processes=False) as client:
 
@@ -558,7 +558,8 @@ def manage_road_network(functionality: str) -> None:
                 dask_client=client
             )
             network.build() #county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID]
-            #network.find_route(source="456663", destination="211623", time_range=) #NOTE SECURE PATHS: (636379 - 635079), (629849, 629667), (R605677, 646497) | WITHOUT MUNICIPALITY FILTER (889404, 3151378), (456663 - 211623)
+            network.find_route(source="456663", destination="211623", horizon=db_broker.get_forecasting_horizon(target=GlobalDefinitions.VOLUME)) #TODO VOLUME ONLY
+            #NOTE SECURE PATHS: (636379 - 635079), (629849, 629667), (R605677, 646497) | WITHOUT MUNICIPALITY FILTER (889404, 3151378), (456663 - 211623)
             #network.save_graph_svg()
 
 

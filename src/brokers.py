@@ -365,10 +365,10 @@ class DBBroker:
     def get_trained_models(self, target: str | None = None, road_category: str | None = None) -> dict[str, Any]:
         check_target(target=target, errors=True)
         return self.send_sql(f"""
-            SELECT t."name", t."target", t."road_category", m."id"
+            SELECT m."name", t."target", t."road_category", m."id"
             FROM "{ProjectTables.TrainedModels.value}" t JOIN "{ProjectTables.MLModels.value}" m ON t.id = m.id
-            WHERE {f't.target = {target}' if target else "1=1"}
-            AND {f't.road_category = {road_category}' if road_category else "1=1"}
+            WHERE {f"t.target = '{target}'" if target else "1=1"}
+            AND {f"t.road_category = '{road_category}'" if road_category else "1=1"}
         """)
 
 

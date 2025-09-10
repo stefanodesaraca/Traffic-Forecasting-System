@@ -714,10 +714,6 @@ class MLPredictionPipeline:
                 "date_boundaries": self._db_broker.get_mean_speed_date_boundaries
             }
         }
-
-        print(((self._db_broker.get_forecasting_horizon(target=self._target) - self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).seconds / 3600 * 24) * 2)
-        print("VOLUME DATA BOUNDARY: ", get_volume_training_data_start())
-
         return training_functions_mapping[self._target]["loader"](
             road_category_filter=[self._road_category] if self._road_category else None,
             trp_list_filter=trp_id_filter,
