@@ -17,6 +17,7 @@ from pipelines import MeanSpeedIngestionPipeline, RoadGraphObjectsIngestionPipel
 from loaders import BatchStreamLoader
 from ml import TFS
 from road_network import RoadNetwork
+from src.definitions import ProjectViews
 from utils import dask_cluster_client, check_target, split_by_target
 
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
@@ -211,15 +212,14 @@ def forecast_warmup(functionality: str) -> None:
             "training": f"""
                             SELECT 
                                 bgr.model_id as id,
-                                bgr.model_name as name,
-                                bgr.best_{target}_params as params,
+                                bgr.name as name,
+                                bgr.params as params,
                                 bm.pickle_object AS pickle_object
                             FROM 
-                                "best_{target}_gridsearch_results" bgr
+                                "{ProjectViews.BestGridSearchResults.value}" bgr
                             JOIN
                                 "{ProjectTables.BaseModels.value}" bm ON bgr.model_id = bm.id;
                             """,
-            # models_best_params_query #TODO ADD best_{target}_gridsearch_results TO ProjectViews
             "testing": f"""
                             SELECT 
                                 m.id as id,
@@ -232,7 +232,6 @@ def forecast_warmup(functionality: str) -> None:
                                 "{ProjectTables.TrainedModels.value}" tm ON m.model_id = tm.id
                             WHERE m.target = {target};
                             """
-            # models_best_params_query #TODO ADD best_{target}_gridsearch_results TO ProjectViews
         }.get(operation_type, None)
 
 
@@ -479,8 +478,6 @@ def manage_ml(functionality: str) -> None:
         db_broker = get_db_broker()
         with open(GlobalDefinitions.MODELS_BEST_PARAMS, "r", encoding="utf-8") as params:
             db_broker.update_model_best_gridsearch_params(json.load(params))
-
-
 
     return None
 
