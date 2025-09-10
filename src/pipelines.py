@@ -671,12 +671,17 @@ class MLPredictionPipeline:
 
 
     @staticmethod
-    def _apply_cyclical_decoding(df: pd.DataFrame, sin_encoded_col_name: str, cos_encoded_col_name: str, period: PositiveInt, new_col_name: str) -> pd.DataFrame:
+    def _apply_cyclical_decoding(df: pd.DataFrame,
+                                 sin_encoded_col_name: str,
+                                 cos_encoded_col_name: str,
+                                 period: PositiveInt,
+                                 start: int,  # Set to 1 if original values are 1-indexed
+                                 new_col_name: str) -> pd.DataFrame:
         sin_vals = df[sin_encoded_col_name].astype(float)
         cos_vals = df[cos_encoded_col_name].astype(float)
 
         # Decoding cyclical values
-        df[new_col_name] = (np.arctan2(sin_vals, cos_vals) * period / (2 * np.pi)).round().astype(int) % period
+        df[new_col_name] = (np.arctan2(sin_vals, cos_vals) * period / (2 * np.pi) + start).round().astype(int) % period
 
         return df
 
@@ -812,10 +817,10 @@ class MLPredictionPipeline:
         data[self._target] = dd.from_array(self._model.predict(X_predict))
         data[cols_to_scale] = self._pipeline.scaler.inverse_transform(data[cols_to_scale])
 
-        data = data.map_partitions(self._apply_cyclical_decoding, "hour_sin", "hour_cos", 24, "hour")
-        data = data.map_partitions(self._apply_cyclical_decoding, "day_sin", "day_cos", 31, "day")
-        data = data.map_partitions(self._apply_cyclical_decoding, "month_sin", "month_cos", 12, "month")
-        data = data.map_partitions(self._apply_cyclical_decoding, "week_sin", "week_cos", 53, "week")
+        data = data.map_partitions(self._apply_cyclical_decoding, "hour_sin", "hour_cos", 24, 0, "hour")
+        data = data.map_partitions(self._apply_cyclical_decoding, "day_sin", "day_cos", 31, 1, "day")
+        data = data.map_partitions(self._apply_cyclical_decoding, "month_sin", "month_cos", 12, 1, "month")
+        data = data.map_partitions(self._apply_cyclical_decoding, "week_sin", "week_cos", 53, 1, "week")
 
         return data.drop(columns=["coverage", "hour_sin", "hour_cos", "day_sin", "day_cos", "month_sin", "month_cos", "week_sin", "week_cos"]).persist()
 
