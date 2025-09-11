@@ -31,11 +31,11 @@ class AIODBBroker:
     async def send_sql_async(self, sql: str, single: bool = False, many: bool = False, many_values: list[tuple[Any, ...]] | None = None) -> Any:
         async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
-                if any(sql.lstrip().startswith(prefix) for prefix in ["SELECT", "select"]):
+                if any(sql.lstrip().startswith(prefix) for prefix in ["SELECT", "WITH", "select", "with"]):
                     if single:
                         return await conn.fetchrow(sql)
                     return await conn.fetch(sql)
-                elif any(sql.lstrip().startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "WITH", "insert", "update", "delete", "with"]):
+                elif any(sql.lstrip().startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "insert", "update", "delete"]):
                     if many and many_values:
                         return await conn.executemany(sql, many_values)
                     elif many and not many_values:
@@ -197,12 +197,12 @@ class DBBroker:
     def send_sql(self, sql: str, single: bool = False, many: bool = False, many_values: list[tuple[Any, ...]] | None = None, row_factory: Literal["tuple_row", "dict_row"] = "dict_row", execute_args: list[Any] | dict[str, Any] | None = None) -> Any:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host, row_factory=row_factory) as conn:
             with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
-                if any(sql.lstrip().startswith(prefix) for prefix in ["SELECT", "select"]):
+                if any(sql.lstrip().startswith(prefix) for prefix in ["SELECT", "WITH",  "select", "with"]):
                     cur.execute(sql)
                     if single:
                         return cur.fetchone()
                     return cur.fetchall()
-                elif any(sql.lstrip().startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "WITH", "insert", "update", "delete", "with"]):
+                elif any(sql.lstrip().startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "insert", "update", "delete"]):
                     if many and many_values:
                         return cur.executemany(sql, many_values)
                     elif many and not many_values:

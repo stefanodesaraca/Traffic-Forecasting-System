@@ -339,6 +339,7 @@ class RoadNetwork:
 
 
     def _update_trps_preds(self, targets: list[str], lags: list[int], model: str) -> None:
+        print(self.trps_along_sp.difference(set(self.trps_along_sp_preds.keys())))
         self.trps_along_sp_preds.update(**{
             trp["trp_id"]: {
                 **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["trp_id"], target=target, road_category=trp["road_category"], lags=lags, model=model)[[target, "zoned_dt_iso"]]
@@ -409,6 +410,7 @@ class RoadNetwork:
             # ---------- STEP 2 ----------
 
             trps_per_edge = self._get_trps_per_edge(edges=sp_edges, trp_research_buffer_radius=trp_research_buffer_radius)
+            print(set(chain(trps_per_edge.values())))
             self.trps_along_sp = set(chain(trps_per_edge.values())) # A set of dictionary where each dict is a TRP with its metadata (id, road_category, etc.)
 
 
