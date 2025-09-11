@@ -120,6 +120,11 @@ class RoadNetwork:
     ) -> dict[str, PositiveFloat | PositiveInt]:
         if round(county_avg_weight + municipality_avg_weight + road_category_avg_weight, 6) != 1.0:
             raise ValueError("Weights sum must be exactly 1")
+        self._db_broker.send_sql(f"""
+            REFRESH MATERIALIZED VIEW CONCURRENTLY "{ProjectMaterializedViews.TrafficDataByCountyMView.value}";
+            REFRESH MATERIALIZED VIEW CONCURRENTLY "{ProjectMaterializedViews.TrafficDataByMunicipalityMView.value}";
+            REFRESH MATERIALIZED VIEW CONCURRENTLY "{ProjectMaterializedViews.TrafficDataByRoadCategoryMView.value}";
+        """) # Using the CONCURRENTLY keyword to let the materialized views be available even when they are being refreshed
         return self._db_broker.send_sql(
             f"""
                 WITH link_agg_data AS (
@@ -254,7 +259,7 @@ class RoadNetwork:
                 trps_per_edge[e[2]["link_id"]] = self._get_neighbor_trps(e[2]["link_id"], trp_research_buffer_radius)
             if sum(len(v) for v in trps_per_edge) >= min(3, len(edges) // 3):
                 return trps_per_edge
-            trp_research_buffer_radius += 2000
+            trp_research_buffer_radius += 500
 
 
     @staticmethod
@@ -339,7 +344,6 @@ class RoadNetwork:
 
 
     def _update_trps_preds(self, targets: list[str], lags: list[int], model: str) -> None:
-        print("TRPs: ", list(trp for trp in self.trps_along_sp if trp["id"] not in self.trps_along_sp_preds.keys()))
         self.trps_along_sp_preds.update(**{
             trp["id"]: {
                 **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["id"], target=target, road_category=trp["road_category"], lags=lags, model=model)[[target, "zoned_dt_iso"]]
@@ -411,12 +415,12 @@ class RoadNetwork:
 
             trps_per_edge = self._get_trps_per_edge(edges=sp_edges, trp_research_buffer_radius=trp_research_buffer_radius)
             unique_trps = {tuple(d.items()) for d in chain.from_iterable(trps_per_edge.values())}
-            print([dict(t) for t in unique_trps])
             # Some edges could share the same TRP with others so we take each exactly once, so we'll compute the predictions for each one exactly once as well
             self.trps_along_sp = [dict(t) for t in unique_trps] # A set of dictionary where each dict is a TRP with its metadata (id, road_category, etc.)
 
 
             # ---------- STEP 3 ----------
+            print("TRPs: ", list(trp for trp in self.trps_along_sp if trp["id"] not in self.trps_along_sp_preds.keys()))
 
             self._update_trps_preds(targets, lags=lags, model=model)
             # Re-using TRPs' predictions for future slightly different shortest path which have the same trps in common with the previous shortest paths
@@ -424,8 +428,16 @@ class RoadNetwork:
 
             # ---------- STEP 4 ----------
 
-            total_sp_length = sum([self._network.edges[e]["length"] for e in sp])
-            average_highest_speed_limit = np.mean([self._network.edges[e]["highest_speed_limit"] for e in sp])
+            total_sp_length = sum(
+                self._network.edges[u, v]["length"]
+                for u, v in zip(sp[:-1], sp[1:])
+            )
+            print("Lengths: ", [self._network.edges[u, v]["length"] for u, v in zip(sp[:-1], sp[1:])])
+            average_highest_speed_limit = np.mean([
+                self._network.edges[u, v]["highest_speed_limit"]
+                for u, v in zip(sp[:-1], sp[1:])
+            ])
+            print("Highest speed limit: ", [self._network.edges[u, v]["highest_speed_limit"] for u, v in zip(sp[:-1], sp[1:])])
 
             paths.update({
                 str(p): {
@@ -442,9 +454,8 @@ class RoadNetwork:
 
             line_predictions = pd.DataFrame((
                     (x, y, (u, v), edge_data["link_id"])
-                    for u, v in sp_edges
-                    for edge_data, geom in
-                    [(self._network.get_edge_data(u, v), wkt.loads(self._network.get_edge_data(u, v)["geom"]))]
+                    for u, v, edge_data in sp_edges
+                    for geom in [wkt.loads(edge_data["geom"])]
                     for x, y in geom.coords
                 ),
                 columns=["lon", "lat", "edge", "link_id"]
@@ -703,7 +714,7 @@ class RoadNetwork:
 
 
 
-    def _get_municipality_traffic_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], target: str, model:str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
+    def _get_municipality_traffic_heatmap(self, municipality_id: PositiveInt, horizon: datetime.datetime, target: str, model:str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
         check_municipality_id(municipality_id=municipality_id)
 
         municipality_geom = self._db_broker.get_municipality_geometry(municipality_id=municipality_id)
@@ -712,9 +723,7 @@ class RoadNetwork:
         gridx = np.linspace(min_lon - 0.35, max_lon + 0.35, 100).tolist()
         gridy = np.linspace(min_lat - 0.10, max_lat + 0.10, 100).tolist()
 
-        ok = self._get_ordinary_kriging(
-            y_pred=self._get_municipality_id_preds(municipality_id=municipality_id, target=target,
-                                                   model=model), time_range=time_range, target=target)
+        ok = self._get_ordinary_kriging(y_pred=self._get_municipality_id_preds(municipality_id=municipality_id, target=target, model=model), horizon=horizon, target=target)
         z_interpolated_vals, kriging_variance, variogram_plot = self._ok_interpolate(
             ordinary_kriging_obj=ok,
             x_coords=gridx,  # Grid x bounds
@@ -730,9 +739,7 @@ class RoadNetwork:
                                                     lon_init=municipality_geom_center.x,
                                                     zoom=zoom_init or MapDefaultConfigs.ZOOM.value,
                                                     tiles=tiles or FoliumMapTiles.OPEN_STREET_MAPS.value)
-        municipality_traffic_map = self._get_layers_assembly(municipality_traffic_map, self._get_traffic_map_layers(
-            self._db_broker.get_municipality_trps(municipality_id=municipality_id),
-            municipality_geom=municipality_geom))
+        municipality_traffic_map = self._get_layers_assembly(municipality_traffic_map, self._get_traffic_map_layers(self._db_broker.get_municipality_trps(municipality_id=municipality_id), municipality_geom=municipality_geom))
 
         fig, ax = plt.subplots(figsize=(8, 8))
         grid_interpolation_viz = ax.imshow(
@@ -768,12 +775,12 @@ class RoadNetwork:
         return municipality_traffic_map
 
 
-    def draw_municipality_traffic_volume_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], model: str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
-        return self._get_municipality_traffic_heatmap(municipality_id=municipality_id, time_range=time_range, target=GlobalDefinitions.VOLUME, model=model, tiles=tiles)
+    def draw_municipality_traffic_volume_heatmap(self, municipality_id: PositiveInt, horizon: datetime.datetime, model: str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
+        return self._get_municipality_traffic_heatmap(municipality_id=municipality_id, horizon=horizon, target=GlobalDefinitions.VOLUME, model=model, tiles=tiles)
 
 
-    def draw_municipality_traffic_mean_speed_heatmap(self, municipality_id: PositiveInt, time_range: list[datetime.datetime], model: str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
-        return self._get_municipality_traffic_heatmap(municipality_id=municipality_id, time_range=time_range, target=GlobalDefinitions.MEAN_SPEED, model=model, tiles=tiles)
+    def draw_municipality_traffic_mean_speed_heatmap(self, municipality_id: PositiveInt, horizon: datetime.datetime, model: str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
+        return self._get_municipality_traffic_heatmap(municipality_id=municipality_id, horizon=horizon, target=GlobalDefinitions.MEAN_SPEED, model=model, tiles=tiles)
 
 
     def degree_centrality(self) -> dict:

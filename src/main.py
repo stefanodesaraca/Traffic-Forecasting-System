@@ -565,17 +565,18 @@ def manage_road_network(functionality: str) -> None:
 
     elif functionality == "4.3":
         db_broker = get_db_broker()
+        target = GlobalDefinitions.VOLUME #TODO VOLUME ONLY FOR NOW
 
         print("Available municipalities: ")
-        print(municipalities := db_broker.get_municipalities())
+        print(municipalities := db_broker.get_municipalities(has_trps_filter=True))
         print("Choose the municipality you want to analyze")
-        muni = input("Municipality ID: ")
+        muni = int(input("Municipality ID: "))
 
-        if not muni in {k: v for d in municipalities for k, v in d.items()}.keys():
+        if not muni in set(m['id'] for m in municipalities):
             raise ValueError("Wrong municipality ID imputed. Try again")
 
         print("Available models:")
-        print(db_broker.get_trained_models())
+        print(db_broker.get_trained_models(target=target))
 
         with dask_cluster_client(processes=False) as client:
 
@@ -587,7 +588,7 @@ def manage_road_network(functionality: str) -> None:
                 dask_client=client
             )
             network.build()
-            #network.draw_municipality_traffic_volume_heatmap(municipality_id=muni, time_range=, model="DecisionTreeRegressor")
+            network.draw_municipality_traffic_volume_heatmap(municipality_id=muni, horizon=db_broker.get_forecasting_horizon(target=target), model="HistGradientBoostingRegressor")
 
 
     elif functionality == "4.4":

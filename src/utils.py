@@ -66,7 +66,7 @@ def check_target(target: str, errors: bool = False) -> bool:
 
 
 def check_municipality_id(municipality_id: PositiveInt) -> bool:
-    if not isinstance(municipality_id, PositiveInt):
+    if not isinstance(municipality_id, int):
         raise ValueError(f"{municipality_id} is not a positive int")
     return True
 

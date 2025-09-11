@@ -35,7 +35,7 @@ class AIODBBroker:
                     if single:
                         return await conn.fetchrow(sql)
                     return await conn.fetch(sql)
-                elif any(sql.lstrip().startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "insert", "update", "delete"]):
+                elif any(sql.lstrip().startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "REFRESH MATERIALIZED VIEW", "insert", "update", "delete", "refresh materialized view"]):
                     if many and many_values:
                         return await conn.executemany(sql, many_values)
                     elif many and not many_values:
@@ -202,7 +202,7 @@ class DBBroker:
                     if single:
                         return cur.fetchone()
                     return cur.fetchall()
-                elif any(sql.lstrip().startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "insert", "update", "delete"]):
+                elif any(sql.lstrip().startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "REFRESH MATERIALIZED VIEW", "insert", "update", "delete", "refresh materialized view"]):
                     if many and many_values:
                         return cur.executemany(sql, many_values)
                     elif many and not many_values:
@@ -363,7 +363,8 @@ class DBBroker:
 
 
     def get_trained_models(self, target: str | None = None, road_category: str | None = None) -> dict[str, Any]:
-        check_target(target=target, errors=True)
+        if target:
+            check_target(target=target, errors=True)
         return self.send_sql(f"""
             SELECT m."name", t."target", t."road_category", m."id"
             FROM "{ProjectTables.TrainedModels.value}" t JOIN "{ProjectTables.MLModels.value}" m ON t.id = m.id
@@ -373,6 +374,8 @@ class DBBroker:
 
 
     def update_model_grid(self, model: str, target: str, grid: dict[str, any]) -> None:
+        if target:
+            check_target(target=target, errors=True)
         self.send_sql(f"""
             UPDATE "{ProjectTables.MLModels.value}"
             SET {target}_grid = %s
@@ -397,10 +400,14 @@ class DBBroker:
                 """, execute_args=[municipality_id], single=True))
 
 
-    def get_municipalities(self) -> list[dict]:
+    def get_municipalities(self, has_trps_filter: bool | None = None) -> list[dict]:
         return self.send_sql(f"""
-            SELECT "id", "name"
-            FROM "{ProjectTables.Municipalities.value}"
+            SELECT m."id", m."name"
+            FROM "{ProjectTables.Municipalities.value}" m
+            {f'''
+            JOIN "{ProjectTables.TrafficRegistrationPoints}" trp ON m.id = trp.municipality_id
+            ''' if has_trps_filter else ""}
+            ;
         """)
 
 

@@ -720,8 +720,8 @@ class MLPredictionPipeline:
         last_available_data_dt = self._db_broker.get_volume_date_boundaries(trp_id_filter=tuple([self._trp_id]) if training_mode == 0 else None, enable_cache=False)["max"] if self._target == GlobalDefinitions.VOLUME else \
             self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=tuple([self._trp_id]) if training_mode == 0 else None, enable_cache=False)["max"]
 
-        print("DEBUG: last_available_data_dt =", last_available_data_dt)
-        print("DEBUG: forecasting_horizon   =", forecasting_horizon)
+        #print("DEBUG: last_available_data_dt =", last_available_data_dt)
+        #print("DEBUG: forecasting_horizon =", forecasting_horizon)
 
         rows_to_predict = pd.DataFrame({
             "trp_id": self._trp_id,
@@ -735,7 +735,7 @@ class MLPredictionPipeline:
             "hour_sin": sin_encoder(dt.hour, timeframe=GlobalDefinitions.HOUR_TIMEFRAME),
             "month_cos": cos_encoder(dt.month, timeframe=GlobalDefinitions.MONTHS_TIMEFRAME),
             "month_sin": sin_encoder(dt.month, timeframe=GlobalDefinitions.MONTHS_TIMEFRAME),
-            "year": int(dt.year),
+            "year": dt.year,
             "week_cos": cos_encoder(dt.isocalendar().week, timeframe=GlobalDefinitions.WEEKS_TIMEFRAME),
             "week_sin": sin_encoder(dt.isocalendar().week, timeframe=GlobalDefinitions.WEEKS_TIMEFRAME),
             "is_covid_year": False,
@@ -795,8 +795,6 @@ class MLPredictionPipeline:
         data = data.map_partitions(apply_cyclical_decoding, "week_sin", "week_cos", GlobalDefinitions.WEEKS_TIMEFRAME, 1, "week")
 
         data = data.map_partitions(lambda df: df.assign(zoned_dt_iso=pd.to_datetime(dict(year=df["year"], month=df["month"], day=df["day"], hour=df["hour"]), errors="coerce")))
-
-        print(data.head(30))
 
         return data.drop(columns=["coverage", "hour_sin", "hour_cos", "day_sin", "day_cos", "month_sin", "month_cos", "week_sin", "week_cos"]).persist()
 
