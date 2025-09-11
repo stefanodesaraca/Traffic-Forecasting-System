@@ -394,10 +394,10 @@ class DBBroker:
 
     def get_municipality_geometry(self, municipality_id: PositiveInt) -> BaseGeometry:
         return wkt.loads(self.send_sql(f"""
-                    SELECT ST_AsText("geom")
+                    SELECT ST_AsText("geom")  AS geom
                     FROM "{ProjectTables.Municipalities.value}"
                     WHERE "id" = %s
-                """, execute_args=[municipality_id], single=True))
+                """, execute_args=[municipality_id], single=True).get("geom"))
 
 
     def get_municipalities(self, has_trps_filter: bool | None = None) -> list[dict]:
@@ -405,7 +405,7 @@ class DBBroker:
             SELECT m."id", m."name"
             FROM "{ProjectTables.Municipalities.value}" m
             {f'''
-            JOIN "{ProjectTables.TrafficRegistrationPoints}" trp ON m.id = trp.municipality_id
+            JOIN "{ProjectTables.TrafficRegistrationPoints.value}" trp ON m.id = trp.municipality_id
             ''' if has_trps_filter else ""}
             ;
         """)

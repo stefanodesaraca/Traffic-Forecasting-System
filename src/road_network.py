@@ -121,10 +121,10 @@ class RoadNetwork:
         if round(county_avg_weight + municipality_avg_weight + road_category_avg_weight, 6) != 1.0:
             raise ValueError("Weights sum must be exactly 1")
         self._db_broker.send_sql(f"""
-            REFRESH MATERIALIZED VIEW CONCURRENTLY "{ProjectMaterializedViews.TrafficDataByCountyMView.value}";
-            REFRESH MATERIALIZED VIEW CONCURRENTLY "{ProjectMaterializedViews.TrafficDataByMunicipalityMView.value}";
-            REFRESH MATERIALIZED VIEW CONCURRENTLY "{ProjectMaterializedViews.TrafficDataByRoadCategoryMView.value}";
-        """) # Using the CONCURRENTLY keyword to let the materialized views be available even when they are being refreshed
+            REFRESH MATERIALIZED VIEW "{ProjectMaterializedViews.TrafficDataByCountyMView.value}";
+            REFRESH MATERIALIZED VIEW "{ProjectMaterializedViews.TrafficDataByMunicipalityMView.value}";
+            REFRESH MATERIALIZED VIEW "{ProjectMaterializedViews.TrafficDataByRoadCategoryMView.value}";
+        """)
         return self._db_broker.send_sql(
             f"""
                 WITH link_agg_data AS (
