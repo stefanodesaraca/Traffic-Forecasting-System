@@ -276,7 +276,7 @@ class RoadNetwork:
 
 
     def _get_ordinary_kriging(self, y_pred: dict[str, dict[str, dd.DataFrame] | Any], horizon: datetime.datetime, target: str, verbose: bool = False):
-        ok_df = self._get_ok_structured_data(y_pred=y_pred, horizon=horizon, target=GlobalDefinitions.target)
+        ok_df = self._get_ok_structured_data(y_pred=y_pred, horizon=horizon, target=target)
         return OrdinaryKriging(
             x=ok_df["lon"].values,
             y=ok_df["lat"].values,
@@ -694,7 +694,6 @@ class RoadNetwork:
         )
 
 
-
     def _get_municipality_id_preds(self, municipality_id: PositiveInt, target: str, model: str) -> dict[str, dict[str, dd.DataFrame]]:
         return {
             trp["id"]:
@@ -711,7 +710,6 @@ class RoadNetwork:
             }
             for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id)
         }
-
 
 
     def _get_municipality_traffic_heatmap(self, municipality_id: PositiveInt, horizon: datetime.datetime, target: str, model:str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
@@ -753,8 +751,7 @@ class RoadNetwork:
             alpha=1
         )
 
-        cbar = fig.colorbar(grid_interpolation_viz, ax=ax,
-                            orientation='vertical')  # Adding a color bar #NOTE TRY WITHOUT , fraction=0.036, pad=0.04
+        cbar = fig.colorbar(grid_interpolation_viz, ax=ax, orientation='vertical')  # Adding a color bar #NOTE TRY WITHOUT , fraction=0.036, pad=0.04
         cbar.set_label(target)
 
         ax.axis('off')  # Removing axes
