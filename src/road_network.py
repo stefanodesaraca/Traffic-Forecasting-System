@@ -271,7 +271,7 @@ class RoadNetwork:
                 "lat": trp_data.get("lat"),
             }
             for trp_data in y_pred.values()
-            for idx, row in enumerate(trp_data[f"{target}_preds"].query(f"""zoned_dt_iso == '{horizon}'""").itertuples(index=False), start=0)
+            for idx, row in enumerate(trp_data[f"{target}_preds"].query(f"""zoned_dt_iso == '{horizon}'""").iterrows(index=False), start=0)
         })
 
 
