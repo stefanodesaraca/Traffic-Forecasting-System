@@ -2,6 +2,7 @@ from pathlib import Path
 import datetime
 import pickle
 from itertools import chain
+from functools import partial
 from typing import Any, Literal, Mapping
 from scipy.spatial.distance import minkowski
 from shapely import wkt
@@ -177,7 +178,7 @@ class RoadNetwork:
 
     def _get_trp_predictions(self, trp_id: str, target: str, road_category: str, lags: list[PositiveInt], model: str) -> dd.DataFrame:
         models = {m["name"]: pickle.loads(m["pickle_object"]) for m in self._db_broker.get_trained_model_objects(target=target, road_category=road_category)}
-        return MLPredictionPipeline(trp_id=trp_id, target=target, road_category=road_category, model=models[model], preprocessing_pipeline=MLPreprocessingPipeline(), loader=self._loader, db_broker=self._db_broker).start(lags=lags)
+        return MLPredictionPipeline(trp_id=trp_id, target=target, road_category=road_category, model=models[model], preprocessing_pipeline=MLPreprocessingPipeline(), loader=self._loader, db_broker=self._db_broker).start(training_mode=1, lags=lags) #TODO CUSTOMIZE TRAINING MODE
 
 
     def load_nodes(self) -> None:
@@ -337,33 +338,16 @@ class RoadNetwork:
         ) #Can't return a potentially negative weight
 
 
-    def _compute_trp_entry(self, trp: dict[str, Any], targets: list[str], lags: list[int], model: str) -> tuple[str, dict[str, Any | dd.DataFrame]]:
-        trp_id = trp["trp_id"]
-        return trp_id, {
-            **{
-                f"{target}_preds": self._get_trp_predictions(
-                    trp_id=trp_id,
-                    target=target,
-                    road_category=trp["road_category"],
-                    lags=lags,
-                    model=model
-                )[[target, "zoned_dt_iso"]]
-                for target in targets
-            },
-            **trp
-        }
-
-
-    def _update_trps_preds(self, targets: list[str], lags: list[int], model: str, client: Client):
-        self.trps_along_sp_preds.update(
-            **dict(
-                client.gather(
-                    client.map(
-                        lambda trp: self._compute_trp_entry(trp, targets=targets, lags=lags, model=model), self.trps_along_sp.difference(set(self.trps_along_sp_preds.keys()))
-                    )
-                )
-            )
-        ) # Submitting the tasks to the Dask cluster, gathering them and updating the trps_along_sp_preds dictionary. FYI: Using the dict() function on a tuple creates a dictionary
+    def _update_trps_preds(self, targets: list[str], lags: list[int], model: str) -> None:
+        self.trps_along_sp_preds.update(**{
+            trp["trp_id"]: {
+                **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["trp_id"], target=target, road_category=trp["road_category"], lags=lags, model=model)[[target, "zoned_dt_iso"]]
+                   for target in targets},
+                **trp,
+            } for trp in self.trps_along_sp.difference(set(self.trps_along_sp_preds.keys()))
+            # All TRPs that are along the shortest path, but not in the ones for which we already computed the predictions
+        }) # FYI: Using the dict() function on a tuple creates a dictionary
+        return None
 
 
     def find_route(self,
@@ -430,7 +414,7 @@ class RoadNetwork:
 
             # ---------- STEP 3 ----------
 
-            self._update_trps_preds(targets, lags=lags, client=self._dask_client, model=model)
+            self._update_trps_preds(targets, lags=lags, model=model)
             # Re-using TRPs' predictions for future slightly different shortest path which have the same trps in common with the previous shortest paths
 
 

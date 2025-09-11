@@ -372,12 +372,12 @@ class DBBroker:
         """)
 
 
-    def update_model_grid(self, model_id: str, target: str, grid: dict[str, any]) -> None:
+    def update_model_grid(self, model: str, target: str, grid: dict[str, any]) -> None:
         self.send_sql(f"""
             UPDATE "{ProjectTables.MLModels.value}"
             SET {target}_grid = %s
-            WHERE id = %s;
-        """, execute_args=[json.dumps(grid), model_id])
+            WHERE name = %s;
+        """, execute_args=[json.dumps(grid), model])
         return None
 
 

@@ -10,14 +10,13 @@ import dask.dataframe as dd
 
 from proj_secrets import scheduler_addr
 from exceptions import TRPNotFoundError
-from definitions import GlobalDefinitions, DBConfig, ProjectTables
+from definitions import GlobalDefinitions, DBConfig, ProjectTables, ProjectViews
 from downloader import start_client_async, volumes_to_db, fetch_trps, fetch_trps_from_ids
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
 from pipelines import MeanSpeedIngestionPipeline, RoadGraphObjectsIngestionPipeline, MLPreprocessingPipeline, MLPredictionPipeline
 from loaders import BatchStreamLoader
 from ml import TFS
 from road_network import RoadNetwork
-from src.definitions import ProjectViews
 from utils import dask_cluster_client, check_target, split_by_target
 
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
@@ -405,7 +404,7 @@ def manage_ml(functionality: str) -> None:
         print("Models available: ")
         pprint(db_broker.get_ml_models())
 
-        model_id = input("Enter the ID of the model which you want to set the best parameters index for: ")
+        model = input("Enter the ID of the model which you want to set the best parameters index for: ")
 
         print("\nV: Volumes | MS: Mean Speed")
         target = input("Enter the target variable for which the model has been trained for: ")
@@ -419,10 +418,10 @@ def manage_ml(functionality: str) -> None:
         db_broker.send_sql(f"""
                             UPDATE "{ProjectTables.MLModels.value}"
                             SET "{f"best_{target}_gridsearch_params_idx"}" = %s
-                            WHERE "id" = '{model_id}';
+                            WHERE "id" = '{model}';
         """, execute_args=[new_best_params_idx])
 
-        print(f"Best parameters for model: {model_id} ad target: {target} updated correctly")
+        print(f"Best parameters for model: {model} ad target: {target} updated correctly")
         return None
 
 
@@ -432,7 +431,7 @@ def manage_ml(functionality: str) -> None:
         print("Models available: ")
         pprint(db_broker.get_ml_models())
 
-        model_id = input("Enter the model ID: ")
+        model = input("Enter the model ID: ")
         target = input("Enter the target variable of the grid you want to update: ")
         check_target(target=target, errors=True)
         grid_fp = input("Enter grid filepath: ")
@@ -440,11 +439,7 @@ def manage_ml(functionality: str) -> None:
         with open(grid_fp, "r", encoding="utf-8") as f:
             grid = json.load(f)
 
-        db_broker.update_model_grid(
-            model_id=model_id,
-            target=target,
-            grid=grid
-        )
+        db_broker.update_model_grid(model=model, target=target, grid=grid)
 
 
     if functionality == "5.3":
@@ -455,14 +450,10 @@ def manage_ml(functionality: str) -> None:
         with open(grids_fp, "r", encoding="utf-8") as f:
             grids = json.load(f)
 
-        for model_id, target_grids in grids.items():
+        for model, target_grids in grids.items():
             for target, grid in target_grids.items():
                 if target != "base_parameters":
-                    db_broker.update_model_grid(
-                        model_id=model_id,
-                        target=target,
-                        grid=grid
-                    )
+                    db_broker.update_model_grid(model=model, target=target, grid=grid)
 
 
     if functionality == "5.4":
