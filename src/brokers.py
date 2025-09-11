@@ -198,7 +198,7 @@ class DBBroker:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host, row_factory=row_factory) as conn:
             with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
                 if any(sql.lstrip().startswith(prefix) for prefix in ["SELECT", "WITH",  "select", "with"]):
-                    cur.execute(sql)
+                    cur.execute(sql, params=execute_args)
                     if single:
                         return cur.fetchone()
                     return cur.fetchall()
