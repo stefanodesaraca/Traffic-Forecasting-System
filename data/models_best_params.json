@@ -9,7 +9,7 @@
   {
     "name": "HistGradientBoostingRegressor",
     "model_id": "464ec5f60bc9d1d064c2d78b1891564de1afdea3c97fe3bf486d5682b693f9fe",
-    "result_id": 1212,
+    "result_id": 1,
     "target": "volume",
     "road_category": "E"
   },

@@ -331,7 +331,7 @@ def forecast_warmup(functionality: str) -> None:
                         )
                     )
 
-        print(rcs)
+        print("Road categories: ", rcs)
 
         return None
 

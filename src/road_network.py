@@ -339,19 +339,10 @@ class RoadNetwork:
 
 
     def _update_trps_preds(self, targets: list[str], lags: list[int], model: str) -> None:
-
-        for trp in list(trp for trp in self.trps_along_sp if trp["id"] not in self.trps_along_sp_preds.keys()):
-            print(trp["road_category"])
-            for target in targets:
-                print(self._get_trp_predictions(trp_id=trp["id"], target=target, road_category=trp["road_category"], lags=lags, model=model).head(30))
-
+        print("TRPs: ", list(trp for trp in self.trps_along_sp if trp["id"] not in self.trps_along_sp_preds.keys()))
         self.trps_along_sp_preds.update(**{
             trp["id"]: {
-                **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["id"], target=target, road_category=trp["road_category"], lags=lags, model=model).map_partitions(
-                        lambda df: df.assign(
-                            zoned_dt_iso=pd.to_datetime(df[['year', 'month', 'day', 'hour']], errors="coerce")
-                        )
-                    )
+                **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["id"], target=target, road_category=trp["road_category"], lags=lags, model=model)[[target, "zoned_dt_iso"]]
                    for target in targets},
                 **trp,
             } for trp in list(trp for trp in self.trps_along_sp if trp["id"] not in self.trps_along_sp_preds.keys()) #Only calculating the predictions for the TRPs which hadn't seen their data predict yet, #TODO CHECK CONTENT: list(filter(lambda x: x not in self.trps_along_sp_preds.keys(), self.trps_along_sp))
