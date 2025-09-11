@@ -272,9 +272,12 @@ def forecast_warmup(functionality: str) -> None:
             for m in db_broker.send_sql(functionality_mapping[functionality]["model_query"])
         }
 
+        rcs = []
         for road_category, trp_ids in db_broker.get_trp_ids_by_road_category(has_volumes=True if target == GlobalDefinitions.VOLUME else None,
                                                                              has_mean_speed=True if target == GlobalDefinitions.MEAN_SPEED else None,
-                                                                             county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID]).items():
+                                                                             county_ids_filter=county_id_filter).items():
+
+            rcs.append(road_category)
 
             print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 
@@ -282,7 +285,7 @@ def forecast_warmup(functionality: str) -> None:
                 data=functionality_mapping[functionality]["preprocessing_pipeline"](
                     data=functionality_mapping[functionality]["loading_method"](
                         batch_size=50000,
-                        county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID],
+                        county_ids_filter=county_id_filter,
                         trp_list_filter=trp_ids,
                         road_category_filter=[road_category],
                         encoded_cyclical_features=True,
@@ -327,6 +330,8 @@ def forecast_warmup(functionality: str) -> None:
                             db_broker=db_broker
                         )
                     )
+
+        print(rcs)
 
         return None
 
@@ -386,6 +391,8 @@ def forecast_warmup(functionality: str) -> None:
 
         if functionality not in functionality_mapping:
             raise ValueError(f"Unknown functionality: {functionality}")
+
+        county_id_filter = [GlobalDefinitions.OSLO_COUNTY_ID]
 
         target = functionality_mapping[functionality]["target"]
         process_functionality(functionality_mapping[functionality]["func"]) #Process the chosen operation
@@ -536,8 +543,10 @@ def manage_road_network(functionality: str) -> None:
     elif functionality == "4.2":
         db_broker = get_db_broker()
 
+        target = GlobalDefinitions.VOLUME #TODO VOLUME ONLY
+
         print("Available models:")
-        print(db_broker.get_trained_models(target=GlobalDefinitions.VOLUME)) #TODO VOLUME ONLY
+        print(db_broker.get_trained_models(target=target))
 
         with dask_cluster_client(processes=False) as client:
 
@@ -549,8 +558,8 @@ def manage_road_network(functionality: str) -> None:
                 dask_client=client
             )
             network.build() #county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID]
-            network.find_route(source="456663", destination="211623", horizon=db_broker.get_forecasting_horizon(target=GlobalDefinitions.VOLUME)) #TODO VOLUME ONLY
-            #NOTE SECURE PATHS: (636379 - 635079), (629849, 629667), (R605677, 646497) | WITHOUT MUNICIPALITY FILTER (889404, 3151378), (456663 - 211623)
+            network.find_route(source="636379", destination="635079", horizon=db_broker.get_forecasting_horizon(target=target))
+            #NOTE SECURE PATHS: (636379 - 635079), (629849, 629667), (R605677, 646497) | WITHOUT MUNICIPALITY FILTER (889404, 3151378), (456663 - 211623 (HAS F ROADS))
             #network.save_graph_svg()
 
 

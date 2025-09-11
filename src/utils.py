@@ -138,47 +138,19 @@ def cos_encoder(data: dd.Series | dd.DataFrame | PositiveInt, timeframe: int) ->
     return np.cos((data - 1) * (2.0 * np.pi / timeframe))
 
 
-def arctan2_decoder(sin_val: float, cos_val: float) -> int | float:  # TODO VERIFY IF IT'S ACTUALLY AN INT (IF SO REMOVE | float)
-    """
-    Decode cyclical features using arctan2 function.
+def apply_cyclical_decoding(df: pd.DataFrame,
+                            sin_encoded_col_name: str,
+                            cos_encoded_col_name: str,
+                            period: PositiveInt,
+                            start: int,  # Set to 1 if original values are 1-indexed
+                            new_col_name: str) -> pd.DataFrame:
+    sin_vals = df[sin_encoded_col_name].astype(float)
+    cos_vals = df[cos_encoded_col_name].astype(float)
 
-    Parameters
-    ----------
-    sin_val : float
-        The sine component value.
-    cos_val : float
-        The cosine component value.
+    # Decoding cyclical values
+    df[new_col_name] = (np.arctan2(sin_vals, cos_vals) * period / (2 * np.pi) + start).round().astype(int) % period
 
-    Returns
-    -------
-    int or float
-        The decoded angle in degrees.
-    """
-    angle_rad = np.arctan2(sin_val, cos_val)
-    return (angle_rad * 360) / (2 * np.pi)
-
-
-def cyclical_decoder(sin_val: float, cos_val: float, period: PositiveInt) -> int:
-    """
-    Decode cyclical feature from sine & cosine encoding.
-
-    Parameters
-    ----------
-    sin_val : float
-        Sine component.
-    cos_val : float
-        Cosine component.
-    period : int
-        Number of discrete steps in the cycle (e.g., 24 for hours, 7 for week, 12 for month, 365 for day-of-year).
-
-    Returns
-    -------
-    int
-        Decoded value in original scale (e.g., 0–23 for hours).
-    """
-    angle_rad = np.arctan2(sin_val, cos_val) % (2 * np.pi)
-    value = int(round(period * angle_rad / (2 * np.pi)))
-    return value % period
+    return df
 
 
 def split_by_target(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:

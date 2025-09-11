@@ -29,7 +29,7 @@ from shapely.geometry import shape
 from shapely import wkt
 
 from definitions import GlobalDefinitions, ProjectTables, ProjectConstraints
-from utils import ZScore, cos_encoder, sin_encoder, cyclical_decoder, check_target, split_by_target, get_n_items_from_gen
+from utils import ZScore, cos_encoder, sin_encoder, apply_cyclical_decoding, check_target, split_by_target, get_n_items_from_gen
 
 
 pd.set_option("display.max_rows", None)
@@ -552,20 +552,6 @@ class MLPreprocessingPipeline:
         data = data.reset_index(drop=True)
         for lag in lags:
             data[f"{target}_lag{lag}h"] = data.groupby("trp_id")[target].shift(lag)  # N hours shift
-            data[f"{target}_rolling_mean{lag}h"] = (
-                data.groupby("trp_id")[target]
-                .shift(lag)  # exclude current hour
-                .rolling(window=lag, min_periods=1)  # min_periods=1 ensures that the rolling statistic is computed even if fewer than *lag (value)* valid values exist.
-                .mean()
-                .reset_index(drop=True)  # Drop group index, align back
-            )
-            data[f"{target}_rolling_std{lag}h"] = (
-                data.groupby("trp_id")[target]
-                .shift(lag)  # exclude current hour
-                .rolling(window=lag, min_periods=1)
-                .std()
-                .reset_index(drop=True)  # Drop group index, align back
-            )
             # print(data.columns)
             # print(data.dtypes)
             #IMPORTANT: we're grouping because in the dataframe there's data from multiple TRPs which have completely different values
@@ -593,11 +579,9 @@ class MLPreprocessingPipeline:
             data[feat] = le.fit_transform(data[feat])
         return data.persist()
 
-
     @staticmethod
     def _wgs84_to_utm(lat: float, lon: float) -> tuple[float, float]:
         return utm.from_latlon(lat, lon) #https://github.com/Turbo87/utm
-
 
     @staticmethod
     def _add_utm_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -616,7 +600,7 @@ class MLPreprocessingPipeline:
             data = ZScore(data, column=GlobalDefinitions.VOLUME)
 
         data = self._add_lag_features(data=data, target=GlobalDefinitions.VOLUME, lags=lags)
-        #data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
+        data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
 
         data = data.map_partitions(self._add_utm_columns) #Convert latitude and longitude into the appropriate UTM zone eastings and northings to maintain an accurate ratio when moving across the zone and not having distortions like in WGS84 coordinates where the closer to the poles the heavier distortions come into place
 
@@ -632,7 +616,7 @@ class MLPreprocessingPipeline:
         if z_score:
             data = ZScore(data, column=GlobalDefinitions.MEAN_SPEED)
         data = self._add_lag_features(data=data, target=GlobalDefinitions.MEAN_SPEED, lags=lags)
-        #data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
+        data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
 
         data = data.map_partitions(self._add_utm_columns) #Convert latitude and longitude into the appropriate UTM zone eastings and northings to maintain an accurate ratio when moving across the zone and not having distortions like in WGS84 coordinates where the closer to the poles the heavier distortions come into place
 
@@ -667,22 +651,6 @@ class MLPredictionPipeline:
         check_target(target=self._target, errors=True)
 
         self._trp_metadata = self._db_broker.get_trp_metadata(trp_id=trp_id)
-
-
-    @staticmethod
-    def _apply_cyclical_decoding(df: pd.DataFrame,
-                                 sin_encoded_col_name: str,
-                                 cos_encoded_col_name: str,
-                                 period: PositiveInt,
-                                 start: int,  # Set to 1 if original values are 1-indexed
-                                 new_col_name: str) -> pd.DataFrame:
-        sin_vals = df[sin_encoded_col_name].astype(float)
-        cos_vals = df[cos_encoded_col_name].astype(float)
-
-        # Decoding cyclical values
-        df[new_col_name] = (np.arctan2(sin_vals, cos_vals) * period / (2 * np.pi) + start).round().astype(int) % period
-
-        return df
 
 
     def _get_training_records(self, training_mode: Literal[0, 1], cache_latest_dt_collection: bool = True) -> dd.DataFrame:
@@ -814,10 +782,10 @@ class MLPredictionPipeline:
         data[self._target] = dd.from_array(self._model.predict(X_predict))
         data[cols_to_scale] = self._pipeline.scaler.inverse_transform(data[cols_to_scale])
 
-        data = data.map_partitions(self._apply_cyclical_decoding, "hour_sin", "hour_cos", GlobalDefinitions.HOUR_TIMEFRAME, 0, "hour")
-        data = data.map_partitions(self._apply_cyclical_decoding, "day_sin", "day_cos", GlobalDefinitions.DAYS_TIMEFRAME, 1, "day")
-        data = data.map_partitions(self._apply_cyclical_decoding, "month_sin", "month_cos", GlobalDefinitions.MONTHS_TIMEFRAME, 1, "month")
-        data = data.map_partitions(self._apply_cyclical_decoding, "week_sin", "week_cos", GlobalDefinitions.WEEKS_TIMEFRAME, 1, "week")
+        data = data.map_partitions(apply_cyclical_decoding, "hour_sin", "hour_cos", GlobalDefinitions.HOUR_TIMEFRAME, 0, "hour")
+        data = data.map_partitions(apply_cyclical_decoding, "day_sin", "day_cos", GlobalDefinitions.DAYS_TIMEFRAME, 1, "day")
+        data = data.map_partitions(apply_cyclical_decoding, "month_sin", "month_cos", GlobalDefinitions.MONTHS_TIMEFRAME, 1, "month")
+        data = data.map_partitions(apply_cyclical_decoding, "week_sin", "week_cos", GlobalDefinitions.WEEKS_TIMEFRAME, 1, "week")
 
         return data.drop(columns=["coverage", "hour_sin", "hour_cos", "day_sin", "day_cos", "month_sin", "month_cos", "week_sin", "week_cos"]).persist()
 
