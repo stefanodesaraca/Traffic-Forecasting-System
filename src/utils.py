@@ -1,4 +1,5 @@
 import shutil
+import logging
 from contextlib import contextmanager
 from itertools import islice
 from typing import Literal, Any, Generator
@@ -9,7 +10,6 @@ import dask
 import dask.dataframe as dd
 from dask.distributed import Client, LocalCluster
 from functools import lru_cache, wraps
-import warnings
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -21,24 +21,11 @@ from definitions import GlobalDefinitions
 
 pd.set_option("display.max_columns", None)
 
-#warnings.filterwarnings(
-#    "ignore",
-#    message=".*shuffle.*initialized.*",
-#    category=UserWarning,
-#    module="distributed.shuffle._scheduler_plugin"
-#)
-
-#warnings.filterwarnings(
-#    "ignore",
-#    message=".*shuffle.*deactivated.*",
-#    category=UserWarning,
-#    module="distributed.shuffle._scheduler_plugin"
-#)
 
 
 
 @contextmanager
-def dask_cluster_client(scheduler_address: str | None = None, direct_to_workers: bool = False, processes: bool = False):
+def dask_cluster_client(scheduler_address: str | None = None, direct_to_workers: bool = False, processes: bool = False, silence_warnings: bool = True):
     """
     - Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
     - Check localhost:8787 to watch real-time processing
@@ -52,7 +39,8 @@ def dask_cluster_client(scheduler_address: str | None = None, direct_to_workers:
     if scheduler_address:
         client = Client(address=scheduler_address + ":8786",
                         timeout="60s",
-                        direct_to_workers=direct_to_workers)
+                        direct_to_workers=direct_to_workers,
+                        silence_logs=logging.WARNING)
         # Creating a zip of the entire src/ folder
         shutil.make_archive("src", "zip", "src")
         # Upload the whole archive to workers

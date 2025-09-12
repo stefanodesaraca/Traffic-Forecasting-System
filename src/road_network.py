@@ -17,6 +17,7 @@ from pykrige.ok import OrdinaryKriging
 import folium
 from folium.raster_layers import ImageOverlay
 import matplotlib.pyplot as plt
+import warnings
 
 from definitions import (
     GlobalDefinitions,
@@ -32,6 +33,11 @@ from loaders import BatchStreamLoader
 from pipelines import MLPreprocessingPipeline, MLPredictionPipeline
 from utils import check_municipality_id, save_plot
 
+
+warnings.filterwarnings(
+    "ignore",
+    module="distributed.shuffle"
+)
 
 
 
@@ -264,6 +270,11 @@ class RoadNetwork:
 
     @staticmethod
     def _get_ok_structured_data(y_pred: dict[str, dict[str, dd.DataFrame] | Any], horizon: datetime.datetime, target: str):
+        print("y_pred ", y_pred)
+        for trp_data in y_pred.values():
+            print("HELLO: ", trp_data[f"{target}_preds"].loc[trp_data[f"{target}_preds"]["zoned_dt_iso"] == horizon].compute())
+            print("lon", trp_data["lon"])
+            print("lat", trp_data["lat"])
         return dd.from_pandas(pd.DataFrame([
             {
                 target: row[target],
@@ -271,7 +282,7 @@ class RoadNetwork:
                 "lat": trp_data["lat"],
             }
             for trp_data in y_pred.values()
-            for _, row in trp_data[f"{target}_preds"].query(f"zoned_dt_iso == '{horizon}'").iterrows()
+            for _, row in trp_data[f"{target}_preds"].loc[trp_data[f"{target}_preds"]["zoned_dt_iso"] == horizon].iterrows()
         ]), npartitions=1)
 
 
@@ -345,6 +356,7 @@ class RoadNetwork:
 
 
     def _update_trps_preds(self, targets: list[str], lags: list[int], model: str) -> None:
+        print("TEST: ", list(trp for trp in self.trps_along_sp if trp["id"] not in self.trps_along_sp_preds.keys()))
         self.trps_along_sp_preds.update(**{
             trp["id"]: {
                 **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["id"], target=target, road_category=trp["road_category"], lags=lags, model=model)[[target, "zoned_dt_iso"]]
