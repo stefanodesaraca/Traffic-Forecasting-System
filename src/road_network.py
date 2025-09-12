@@ -100,10 +100,10 @@ class RoadNetwork:
                 WHERE ST_DWithin(rgl_a.geom::geography, rgl_b.geom::geography, %s)
             )
             SELECT 
-                trp.id,
-                trp.road_category,
-                trp.lat,
-                trp.lon
+                trp.id AS id,
+                trp.road_category AS road_category,
+                trp.lat AS lat,
+                trp.lon AS lon
             FROM neighbors n
             JOIN "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" rl_t
               ON n.neighbor_link_id = rl_t.link_id
@@ -182,7 +182,7 @@ class RoadNetwork:
 
 
     def _get_trp_predictions(self, trp_id: str, target: str, road_category: str, lags: list[PositiveInt], model: str) -> dd.DataFrame:
-        models = {m["name"]: pickle.loads(m["pickle_object"]) for m in self._db_broker.get_trained_model_objects(target=target, road_category=road_category)}
+        models = {m["name"]: pickle.loads(m["pickle_object"]) for m in self._db_broker.get_trained_model_objects(target=target, road_category=road_category)} # WARNING: If no models exist for a specific road category this could end up being an empty dictionary
         return MLPredictionPipeline(trp_id=trp_id, target=target, road_category=road_category, model=models[model], preprocessing_pipeline=MLPreprocessingPipeline(), loader=self._loader, db_broker=self._db_broker).start(training_mode=1, lags=lags) #TODO CUSTOMIZE TRAINING MODE
 
 
@@ -264,19 +264,20 @@ class RoadNetwork:
 
     @staticmethod
     def _get_ok_structured_data(y_pred: dict[str, dict[str, dd.DataFrame] | Any], horizon: datetime.datetime, target: str):
-        return dd.from_dict({
-            idx: {
+        return dd.from_pandas(pd.DataFrame([
+            {
                 target: row[target],
-                "lon": trp_data.get("lon"),
-                "lat": trp_data.get("lat"),
+                "lon": trp_data["lon"],
+                "lat": trp_data["lat"],
             }
             for trp_data in y_pred.values()
-            for idx, row in enumerate(trp_data[f"{target}_preds"].query(f"""zoned_dt_iso == '{horizon}'""").iterrows(index=False), start=0)
-        })
+            for _, row in trp_data[f"{target}_preds"].query(f"zoned_dt_iso == '{horizon}'").iterrows()
+        ]), npartitions=1)
 
 
     def _get_ordinary_kriging(self, y_pred: dict[str, dict[str, dd.DataFrame] | Any], horizon: datetime.datetime, target: str, verbose: bool = False):
         ok_df = self._get_ok_structured_data(y_pred=y_pred, horizon=horizon, target=target)
+        print(ok_df)
         return OrdinaryKriging(
             x=ok_df["lon"].values,
             y=ok_df["lat"].values,
@@ -695,13 +696,18 @@ class RoadNetwork:
 
 
     def _get_municipality_id_preds(self, municipality_id: PositiveInt, target: str, model: str) -> dict[str, dict[str, dd.DataFrame]]:
+        for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id):
+            print(trp["id"])
+            print(trp["road_category"])
+            print(trp["lat"])
+            print(trp["lon"])
         return {
             trp["id"]:
                 {
                     f"{target}_preds": self._get_trp_predictions(
                         trp_id=trp["id"],
                         road_category=trp["road_category"],
-                        target=GlobalDefinitions.VOLUME,
+                        target=target,
                         lags=GlobalDefinitions.SHORT_TERM_LAGS,
                         model=model
                     ),
@@ -712,7 +718,7 @@ class RoadNetwork:
         }
 
 
-    def _get_municipality_traffic_heatmap(self, municipality_id: PositiveInt, horizon: datetime.datetime, target: str, model:str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
+    def _get_municipality_traffic_heatmap(self, municipality_id: PositiveInt, horizon: datetime.datetime, target: str, model: str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
         check_municipality_id(municipality_id=municipality_id)
 
         municipality_geom = self._db_broker.get_municipality_geometry(municipality_id=municipality_id)
@@ -772,11 +778,11 @@ class RoadNetwork:
         return municipality_traffic_map
 
 
-    def draw_municipality_traffic_volume_heatmap(self, municipality_id: PositiveInt, horizon: datetime.datetime, model: str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
+    def draw_municipality_traffic_volume_heatmap(self, municipality_id: PositiveInt, horizon: datetime.datetime, model: str = "HistGradientBoostingRegressor", zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
         return self._get_municipality_traffic_heatmap(municipality_id=municipality_id, horizon=horizon, target=GlobalDefinitions.VOLUME, model=model, tiles=tiles)
 
 
-    def draw_municipality_traffic_mean_speed_heatmap(self, municipality_id: PositiveInt, horizon: datetime.datetime, model: str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
+    def draw_municipality_traffic_mean_speed_heatmap(self, municipality_id: PositiveInt, horizon: datetime.datetime, model: str = "HistGradientBoostingRegressor", zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
         return self._get_municipality_traffic_heatmap(municipality_id=municipality_id, horizon=horizon, target=GlobalDefinitions.MEAN_SPEED, model=model, tiles=tiles)
 
 

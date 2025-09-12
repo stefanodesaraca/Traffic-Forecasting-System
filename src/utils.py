@@ -9,6 +9,7 @@ import dask
 import dask.dataframe as dd
 from dask.distributed import Client, LocalCluster
 from functools import lru_cache, wraps
+import warnings
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -19,6 +20,21 @@ from exceptions import TargetVariableNotFoundError, MissingDataError
 from definitions import GlobalDefinitions
 
 pd.set_option("display.max_columns", None)
+
+#warnings.filterwarnings(
+#    "ignore",
+#    message=".*shuffle.*initialized.*",
+#    category=UserWarning,
+#    module="distributed.shuffle._scheduler_plugin"
+#)
+
+#warnings.filterwarnings(
+#    "ignore",
+#    message=".*shuffle.*deactivated.*",
+#    category=UserWarning,
+#    module="distributed.shuffle._scheduler_plugin"
+#)
+
 
 
 @contextmanager

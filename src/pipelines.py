@@ -635,10 +635,10 @@ class MLPredictionPipeline:
                  trp_id: str,
                  road_category: str,
                  target: str,
-                 db_broker: Any,
-                 loader: Any,
+                 db_broker: callable,
+                 loader: callable,
                  preprocessing_pipeline: MLPreprocessingPipeline,
-                 model: Any
+                 model: callable
     ):
         from brokers import DBBroker
         from loaders import BatchStreamLoader
