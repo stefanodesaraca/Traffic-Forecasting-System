@@ -39,6 +39,8 @@ warnings.filterwarnings(
     module="distributed.shuffle"
 )
 
+import sys
+
 
 
 
@@ -450,8 +452,9 @@ class RoadNetwork:
                     "path": sp,
                     "path_edges": sp_edges, #Has edges latitude and longitudes too
                     "trps_per_edge": trps_per_edge, #Has TRPs latitude and longitudes too
-                    "forecasted_travel_time": ((total_sp_length / (
-                                ((average_highest_speed_limit / 100) * 90) / 3.6)) * 60) + ((len(sp) * 0.25) * 0.30), # In minutes
+                    "forecasted_travel_time": round(((total_sp_length / (
+                                ((average_highest_speed_limit / 100) * 90) / 3.6)) * 60) + ((len(sp) * 0.25) * 0.30), ndigits=2), # In minutes
+                    # The formula indicates the length of the trait (in meters) and divided by 90% of the speed limit (in m/s (dividing it by 3.6)) all multiplied by 60 since we're interested in getting travel time minutes
                     # Considering that on average 25% of the road nodes (especially in urban areas) have traffic lights we'll count each one as 30s of wait time in the worst case scenario (all reds)
                     "trps_along_path": self.trps_along_sp,
                     "trp_research_buffer_radius": trp_research_buffer_radius
@@ -485,6 +488,12 @@ class RoadNetwork:
 
                 variogram_plot = self._edit_variogram_plot(fig=variogram_plot, target=target)
 
+                print("SIZE OF OK OBJ: ", sys.getsizeof(ok))
+                print("SIZE OF VARIOGRAM PLOT: ", sys.getsizeof(variogram_plot))
+                print("SIZE OF z_interpolated_vals: ", sys.getsizeof(z_interpolated_vals))
+                print("SIZE OF kriging_variance: ", sys.getsizeof(kriging_variance))
+
+
                 line_predictions[f"{target}_interpolated_value"] = z_interpolated_vals
                 line_predictions[f"{target}_variance"] = kriging_variance
 
@@ -492,14 +501,6 @@ class RoadNetwork:
 
                 # Difference (point prediction - link-level avg)
                 line_predictions[f"{target}_diff_from_avg"] = line_predictions[f"{target}_interpolated_value"] - line_predictions[f"link_avg_{target}"]
-
-                # Merge STD computation into the dataframe
-                line_predictions = line_predictions.merge((
-                    line_predictions
-                    .groupby("link_id")[f"{target}_diff_from_avg"]
-                    .std()
-                    .rename(f"{target}_diff_std")
-                ), on="link_id", how="left")
 
                 pct_diff = (line_predictions[f"{target}_interpolated_value"] - line_predictions[f"link_avg_{target}"]) / line_predictions[f"link_avg_{target}"] * 100
                 line_predictions[f"{target}_traffic_class"] = np.select(
@@ -532,17 +533,14 @@ class RoadNetwork:
                     f"{target}_high_traffic_perc": high_traffic_perc,
                 })
 
+                print(f"SIZE OF PATHS AT ITERATION {p}: ", sys.getsizeof(paths))
+                print(f"SIZE OF PATHS AT LINE PREDICTIONS {p}: ", sys.getsizeof(line_predictions))
+
 
             # ---------- STEP 6 ----------
 
-            print("HIGH TRAFFIC", [paths[str(p)].get(f"{target}_high_traffic_perc", 0) > 50 for target in targets])
-            print("IF THE PATH IS MARKED AS HIGH FOR ANY OF THE TWO TARGETS", any(paths[str(p)].get(f"{target}_high_traffic_perc", 0) > 50 for target in targets))
-
             if any(paths[str(p)].get(f"{target}_high_traffic_perc", 0) > 50 for target in targets):
                 trp_research_buffer_radius += 2000 #Incrementing the TRP research buffer radius
-
-
-                print("SHORTEST PATH EDGES: ", sp_edges)
 
                 sp_edges_weight = [(u, v, self._get_advanced_weighting(u, v, data)) for u, v, data in sp_edges]
 
@@ -553,8 +551,14 @@ class RoadNetwork:
                 print("EDGES TO REMOVE", removed_edges)
                 self._network.remove_edges_from(removed_edges[str(p)])
 
+                print(f"SIZE OF PATHS AT ITERATION {p} IN IF STAT: ", sys.getsizeof(paths))
+                print(f"SIZE OF PATHS AT LINE PREDICTIONS {p} IN IF STAT: ", sys.getsizeof(line_predictions))
+
             else:
                 break
+
+
+            print("REMOVE EDGES: ", removed_edges)
 
 
             print("PATHS:", paths)
@@ -563,18 +567,34 @@ class RoadNetwork:
 
 
         for re in removed_edges.values():
+            print("HELLO 1")
             self._network.add_edges_from(re)
+
+        print("HELLO 2")
 
         # Adding removed nodes back into the graph to avoid needing to re-build the whole graph again
         self._network.add_nodes_from(unreachable)
 
+        print("HELLO 3")
+
         # Adding removed edges back into the graph to avoid needing to re-build the whole graph again
         if has_only_public_transport_lanes:
             self._network.add_edges_from(has_only_public_transport_lanes_edges)
+
+        print("HELLO 4")
+
         if has_toll_stations:
             self._network.add_edges_from(has_toll_stations_edges)
+
+        print("HELLO 5")
+
+
         if has_ferry_routes:
             self._network.add_edges_from(has_ferry_routes_edges)
+
+        print("HELLO 6")
+
+
 
 
         print("PATH ITEMS: ", paths.items())
@@ -745,8 +765,8 @@ class RoadNetwork:
         gridx = np.linspace(min_lon - 0.35, max_lon + 0.35, 100).tolist()
         gridy = np.linspace(min_lat - 0.10, max_lat + 0.10, 100).tolist()
 
-        ok = self._get_ordinary_kriging(y_pred=self._get_municipality_id_preds(municipality_id=municipality_id, target=target, model=model), horizon=horizon, target=target)
-        z_interpolated_vals, kriging_variance, variogram_plot = self._ok_interpolate(
+        ok, variogram_plot = self._get_ordinary_kriging(y_pred=self._get_municipality_id_preds(municipality_id=municipality_id, target=target, model=model), horizon=horizon, target=target)
+        z_interpolated_vals, kriging_variance = self._ok_interpolate(
             ordinary_kriging_obj=ok,
             x_coords=gridx,  # Grid x bounds
             y_coords=gridy,  # Grid y bounds
