@@ -453,7 +453,7 @@ class RoadNetwork:
                     "path_edges": sp_edges, #Has edges latitude and longitudes too
                     "trps_per_edge": trps_per_edge, #Has TRPs latitude and longitudes too
                     "forecasted_travel_time": round(((total_sp_length / (
-                                ((average_highest_speed_limit / 100) * 90) / 3.6)) * 60) + ((len(sp) * 0.25) * 0.30), ndigits=2), # In minutes
+                                ((average_highest_speed_limit / 100) * 90) / 3.6)) / 60) + ((len(sp) * 0.25) * 0.30), ndigits=2), # In minutes
                     # The formula indicates the length of the trait (in meters) and divided by 90% of the speed limit (in m/s (dividing it by 3.6)) all multiplied by 60 since we're interested in getting travel time minutes
                     # Considering that on average 25% of the road nodes (especially in urban areas) have traffic lights we'll count each one as 30s of wait time in the worst case scenario (all reds)
                     "trps_along_path": self.trps_along_sp,
@@ -563,7 +563,8 @@ class RoadNetwork:
 
             print("PATHS:", paths)
             print("LINE PREDICTIONS: ", line_predictions)
-            paths[str(p)].update({"line_predictions": line_predictions})
+
+            paths[str(p)]["line_predictions"] = line_predictions
 
 
         for re in removed_edges.values():
@@ -596,7 +597,7 @@ class RoadNetwork:
 
 
 
-
+        print("PATHS 2: ", paths)
         print("PATH ITEMS: ", paths.items())
 
         return dict(
@@ -839,20 +840,6 @@ class RoadNetwork:
         Returns the betweenness centrality for each node
         """
         return nx.betweenness_centrality(self._network, seed=100)
-
-
-    def eigenvector_centrality(self) -> dict:
-        """
-        Returns the eigenvector centrality for each node
-        """
-        return nx.eigenvector_centrality(self._network)
-
-
-    def load_centrality(self) -> dict:
-        """
-        Returns the eigenvector centrality for each node
-        """
-        return nx.load_centrality(self._network)
 
 
     def to_pickle(self) -> None:
