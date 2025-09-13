@@ -39,8 +39,7 @@ def dask_cluster_client(scheduler_address: str | None = None, direct_to_workers:
     if scheduler_address:
         client = Client(address=scheduler_address + ":8786",
                         timeout="60s",
-                        direct_to_workers=direct_to_workers,
-                        silence_logs=logging.WARNING)
+                        direct_to_workers=direct_to_workers)
         # Creating a zip of the entire src/ folder
         shutil.make_archive("src", "zip", "src")
         # Upload the whole archive to workers
@@ -53,6 +52,9 @@ def dask_cluster_client(scheduler_address: str | None = None, direct_to_workers:
     else:
         cluster = LocalCluster(processes=processes)
         client = Client(cluster)
+
+    dask.config.set({'logging.distributed': 'error'})
+
     try:
         yield client
     finally:

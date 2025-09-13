@@ -796,8 +796,6 @@ class MLPredictionPipeline:
 
         data = data.map_partitions(lambda df: df.assign(zoned_dt_iso=pd.to_datetime(dict(year=df["year"], month=df["month"], day=df["day"], hour=df["hour"]), errors="coerce")))
 
-        print(data.drop(columns=["coverage", "hour_sin", "hour_cos", "day_sin", "day_cos", "month_sin", "month_cos", "week_sin", "week_cos"]).persist())
-
         return data.drop(columns=["coverage", "hour_sin", "hour_cos", "day_sin", "day_cos", "month_sin", "month_cos", "week_sin", "week_cos"]).persist()
 
 

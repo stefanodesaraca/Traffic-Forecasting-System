@@ -59,7 +59,7 @@ class RoadNetwork:
         self.network_id: str = network_id
         self.name: str = name
         self._backend: str = backend
-        self._network: nx.Graph | None = None #TODO CORRECTLY DEFINE ROAD DIRECTIONS, BUT WITH AN UNDIRECTED GRAPH EVERYTHING WORKS CORRECTLY
+        self._network: nx.Graph | None = None #TODO CORRECTLY DEFINE ROAD DIRECTIONS, BUT WITH AN UNDIRECTED GRAPH EVERYTHING WORKS CORRECTLY. CHECK IF MULTI DIGRAPH WORKS
 
         if not network_binary:
             self._network = nx.Graph(**{"network_id": self.network_id, "name": self.name})
@@ -270,11 +270,6 @@ class RoadNetwork:
 
     @staticmethod
     def _get_ok_structured_data(y_pred: dict[str, dict[str, dd.DataFrame] | Any], horizon: datetime.datetime, target: str):
-        print("y_pred ", y_pred)
-        for trp_data in y_pred.values():
-            print("HELLO: ", trp_data[f"{target}_preds"].loc[trp_data[f"{target}_preds"]["zoned_dt_iso"] == horizon].compute())
-            print("lon", trp_data["lon"])
-            print("lat", trp_data["lat"])
         return dd.from_pandas(pd.DataFrame([
             {
                 target: row[target],
@@ -288,17 +283,16 @@ class RoadNetwork:
 
     def _get_ordinary_kriging(self, y_pred: dict[str, dict[str, dd.DataFrame] | Any], horizon: datetime.datetime, target: str, verbose: bool = False):
         ok_df = self._get_ok_structured_data(y_pred=y_pred, horizon=horizon, target=target)
-        print(ok_df)
         return OrdinaryKriging(
             x=ok_df["lon"].values,
             y=ok_df["lat"].values,
             z=ok_df[target].values,
             variogram_model="spherical",
-            coordinates_type="geographical",
+            coordinates_type="geographic",
             verbose=verbose,
             #enable_statistics=True,
             enable_plotting=True
-        )
+        ), plt.gcf()
 
 
     @staticmethod
@@ -309,7 +303,7 @@ class RoadNetwork:
             style=style,
             xpoints=x_coords,
             ypoints=y_coords
-        ), plt.gcf()
+        )
 
 
     @staticmethod
@@ -319,7 +313,7 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _get_advanced_weighting(edge_start: str, edge_end: str, attrs: dict) -> PositiveFloat | None:
+    def _get_advanced_weighting(edge_start: str, edge_end: str, attrs: dict | Mapping[str, Any]) -> PositiveFloat | None:
         length: PositiveFloat = attrs.get("length")
         road_category: str = attrs.get("road_category")
         min_lanes: PositiveInt = attrs.get("min_lanes")
@@ -433,7 +427,6 @@ class RoadNetwork:
 
 
             # ---------- STEP 3 ----------
-            print("TRPs: ", list(trp for trp in self.trps_along_sp if trp["id"] not in self.trps_along_sp_preds.keys()))
 
             self._update_trps_preds(targets, lags=lags, model=model)
             # Re-using TRPs' predictions for future slightly different shortest path which have the same trps in common with the previous shortest paths
@@ -482,8 +475,8 @@ class RoadNetwork:
 
             for target in targets:
 
-                ok = self._get_ordinary_kriging(y_pred=self.trps_along_sp_preds, horizon=horizon, target=target, verbose=True)
-                z_interpolated_vals, kriging_variance, variogram_plot = self._ok_interpolate(
+                ok, variogram_plot = self._get_ordinary_kriging(y_pred=self.trps_along_sp_preds, horizon=horizon, target=target, verbose=True)
+                z_interpolated_vals, kriging_variance = self._ok_interpolate(
                                                                             ordinary_kriging_obj=ok,
                                                                             x_coords=line_predictions["lon"].values,
                                                                             y_coords=line_predictions["lat"].values,
@@ -542,20 +535,30 @@ class RoadNetwork:
 
             # ---------- STEP 6 ----------
 
-            if any([paths[str(p)].get(f"{target}_high_traffic_perc") for target in targets]) > 50:
+            print("HIGH TRAFFIC", [paths[str(p)].get(f"{target}_high_traffic_perc", 0) > 50 for target in targets])
+            print("IF THE PATH IS MARKED AS HIGH FOR ANY OF THE TWO TARGETS", any(paths[str(p)].get(f"{target}_high_traffic_perc", 0) > 50 for target in targets))
+
+            if any(paths[str(p)].get(f"{target}_high_traffic_perc", 0) > 50 for target in targets):
                 trp_research_buffer_radius += 2000 #Incrementing the TRP research buffer radius
 
-                sp_edges_weight = [(u, v, self._network[u][v]["weight"]) for u, v in sp_edges]
+
+                print("SHORTEST PATH EDGES: ", sp_edges)
+
+                sp_edges_weight = [(u, v, self._get_advanced_weighting(u, v, data)) for u, v, data in sp_edges]
 
                 # Sort by weight (descending) and pick the top-n heaviest nodes to remove them
                 n = max(1, len(sp_edges))  # Maximum number of heaviest edges to remove
+                print("N OF HEAVY EDGES TO REMOVE: ", n)
                 removed_edges[str(p)] = [(u, v) for u, v, w in sorted(sp_edges_weight, key=lambda x: x[2], reverse=True)[:n]]
+                print("EDGES TO REMOVE", removed_edges)
                 self._network.remove_edges_from(removed_edges[str(p)])
 
             else:
-                continue
+                break
 
 
+            print("PATHS:", paths)
+            print("LINE PREDICTIONS: ", line_predictions)
             paths[str(p)].update({"line_predictions": line_predictions})
 
 
@@ -572,6 +575,9 @@ class RoadNetwork:
             self._network.add_edges_from(has_toll_stations_edges)
         if has_ferry_routes:
             self._network.add_edges_from(has_ferry_routes_edges)
+
+
+        print("PATH ITEMS: ", paths.items())
 
         return dict(
             sorted(
