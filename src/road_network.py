@@ -281,6 +281,7 @@ class RoadNetwork:
 
     def _get_ordinary_kriging(self, y_pred: dict[str, dict[str, dd.DataFrame] | Any], horizon: datetime.datetime, target: str, verbose: bool = False):
         ok_df = self._get_ok_structured_data(y_pred=y_pred, horizon=horizon, target=target)
+        print("TEST 2: ", ok_df)
         return OrdinaryKriging(
             x=ok_df["lon"].values,
             y=ok_df["lat"].values,
@@ -409,147 +410,154 @@ class RoadNetwork:
 
         for p in range(5):
 
-            # ---------- STEP 1 ----------
+            try:
 
-            sp = self._get_shortest_path(source=source, destination=destination, heuristic=heuristic, weight=self._get_advanced_weighting)
-            print(sp)
-            sp_edges = self._get_path_edges(sp)
-            #print(sp_edges)
+                # ---------- STEP 1 ----------
 
-
-            # ---------- STEP 2 ----------
-
-            trps_per_edge = self._get_trps_per_edge(edges=sp_edges, trp_research_buffer_radius=trp_research_buffer_radius)
-            unique_trps = {tuple(d.items()) for d in chain.from_iterable(trps_per_edge.values())}
-            # Some edges could share the same TRP with others so we take each exactly once, so we'll compute the predictions for each one exactly once as well
-            self.trps_along_sp = [dict(t) for t in unique_trps] # A set of dictionary where each dict is a TRP with its metadata (id, road_category, etc.)
+                sp = self._get_shortest_path(source=source, destination=destination, heuristic=heuristic, weight=self._get_advanced_weighting)
+                print(sp)
+                sp_edges = self._get_path_edges(sp)
+                #print(sp_edges)
 
 
-            # ---------- STEP 3 ----------
+                # ---------- STEP 2 ----------
 
-            self._update_trps_preds(targets, lags=lags, model=model)
-            # Re-using TRPs' predictions for future slightly different shortest path which have the same trps in common with the previous shortest paths
-
-
-            # ---------- STEP 4 ----------
-
-            total_sp_length = sum(
-                self._network.edges[u, v]["length"]
-                for u, v in zip(sp[:-1], sp[1:])
-            )
-            print("Lengths: ", [self._network.edges[u, v]["length"] for u, v in zip(sp[:-1], sp[1:])])
-            average_highest_speed_limit = np.mean([
-                self._network.edges[u, v]["highest_speed_limit"]
-                for u, v in zip(sp[:-1], sp[1:])
-            ])
-            print("Highest speed limit: ", [self._network.edges[u, v]["highest_speed_limit"] for u, v in zip(sp[:-1], sp[1:])])
-
-            paths.update({
-                str(p): {
-                    "path": sp,
-                    "path_edges": sp_edges, #Has edges latitude and longitudes too
-                    "trps_per_edge": trps_per_edge, #Has TRPs latitude and longitudes too
-                    "forecasted_travel_time": round(((total_sp_length / (
-                                ((average_highest_speed_limit / 100) * 90) / 3.6)) / 60) + ((len(sp) * 0.25) * 0.30), ndigits=2), # In minutes
-                    # The formula indicates the length of the trait (in meters) and divided by 90% of the speed limit (in m/s (dividing it by 3.6)) all multiplied by 60 since we're interested in getting travel time minutes
-                    # Considering that on average 25% of the road nodes (especially in urban areas) have traffic lights we'll count each one as 30s of wait time in the worst case scenario (all reds)
-                    "trps_along_path": self.trps_along_sp,
-                    "trp_research_buffer_radius": trp_research_buffer_radius
-                }
-            })
-
-            line_predictions = pd.DataFrame((
-                    (x, y, (u, v), edge_data["link_id"])
-                    for u, v, edge_data in sp_edges
-                    for geom in [wkt.loads(edge_data["geom"])]
-                    for x, y in geom.coords
-                ),
-                columns=["lon", "lat", "edge", "link_id"]
-            )  # Creating the structure of the dataframe where we'll concatenate ordinary kriging results
-
-            link_agg_data = dict((link_id, self._get_link_aggregated_traffic_data(link_id=link_id)) for link_id in trps_per_edge.keys())  # Converting link_agg_data to dict for fast lookup
-            # Simply using the dict() function on a list of tuples
+                trps_per_edge = self._get_trps_per_edge(edges=sp_edges, trp_research_buffer_radius=trp_research_buffer_radius)
+                unique_trps = {tuple(d.items()) for d in chain.from_iterable(trps_per_edge.values())}
+                # Some edges could share the same TRP with others so we take each exactly once, so we'll compute the predictions for each one exactly once as well
+                self.trps_along_sp = [dict(t) for t in unique_trps] # A set of dictionary where each dict is a TRP with its metadata (id, road_category, etc.)
 
 
-            # ---------- STEP 5 ----------
+                # ---------- STEP 3 ----------
 
-            for target in targets:
+                self._update_trps_preds(targets, lags=lags, model=model)
+                # Re-using TRPs' predictions for future slightly different shortest path which have the same trps in common with the previous shortest paths
 
-                ok, variogram_plot = self._get_ordinary_kriging(y_pred=self.trps_along_sp_preds, horizon=horizon, target=target, verbose=True)
-                z_interpolated_vals, kriging_variance = self._ok_interpolate(
-                                                                            ordinary_kriging_obj=ok,
-                                                                            x_coords=line_predictions["lon"].values,
-                                                                            y_coords=line_predictions["lat"].values,
-                                                                            style="points"
-                                                                        )  # Kriging variance is sometimes called "ss" (sigma squared)
 
-                variogram_plot = self._edit_variogram_plot(fig=variogram_plot, target=target)
+                # ---------- STEP 4 ----------
 
-                line_predictions[f"{target}_interpolated_value"] = z_interpolated_vals
-                line_predictions[f"{target}_variance"] = kriging_variance
+                total_sp_length = sum(
+                    self._network.edges[u, v]["length"]
+                    for u, v in zip(sp[:-1], sp[1:])
+                )
+                print("Lengths: ", [self._network.edges[u, v]["length"] for u, v in zip(sp[:-1], sp[1:])])
+                average_highest_speed_limit = np.mean([
+                    self._network.edges[u, v]["highest_speed_limit"]
+                    for u, v in zip(sp[:-1], sp[1:])
+                ])
+                print("Highest speed limit: ", [self._network.edges[u, v]["highest_speed_limit"] for u, v in zip(sp[:-1], sp[1:])])
 
-                line_predictions[f"link_avg_{target}"] = line_predictions["link_id"].map(lambda link_id: link_agg_data[link_id][f"weighted_avg_{target}"])
-
-                # Difference (point prediction - link-level avg)
-                line_predictions[f"{target}_diff_from_avg"] = line_predictions[f"{target}_interpolated_value"] - line_predictions[f"link_avg_{target}"]
-
-                pct_diff = (line_predictions[f"{target}_interpolated_value"] - line_predictions[f"link_avg_{target}"]) / line_predictions[f"link_avg_{target}"] * 100
-                line_predictions[f"{target}_traffic_class"] = np.select(
-                    [
-                        pct_diff < -25, # LOW
-                        (pct_diff >= -25) & (pct_diff < -15), # LOW_AVERAGE
-                        (pct_diff >= -15) & (pct_diff <= 15), # AVERAGE
-                        (pct_diff > 15) & (pct_diff <= 25), # HIGH_AVERAGE
-                        (pct_diff > 25) & (pct_diff <= 50), # HIGH
-                        pct_diff > 50 # STOP_AND_GO
-                    ],
-                    [
-                        TrafficClasses.LOW.name,
-                        TrafficClasses.LOW_AVERAGE.name,
-                        TrafficClasses.AVERAGE.name,
-                        TrafficClasses.HIGH_AVERAGE.name,
-                        TrafficClasses.HIGH.name,
-                        TrafficClasses.STOP_AND_GO.name
-                    ],
-                    default=TrafficClasses.LOW.name
-                ) # Each traffic class represents a percentage difference from the mean, example: if the forecasted value distance from the mean is within 15-25% more than the mean then average_high elif 25-50% more high, elif 50-100% stop and go
-
-                high_traffic_perc = line_predictions[f"{target}_traffic_class"].isin([TrafficClasses.HIGH_AVERAGE.name, TrafficClasses.HIGH.name]).mean() * 100 # Calculating the percentage of the total path which has a traffic level above HIGH_AVERAGE
-                # Getting only the fraction of rows where the mask value is True, so it is already a division on the total of rows
-                # It's just a shortcut for mask = *row_value* isin(...) -> mask.sum() / len(mask)
-
-                paths[str(p)].update(**{
-                    f"{target}_ordinary_kriging_interpolated_values": z_interpolated_vals,
-                    f"{target}_ordinary_kriging_variogram_plot": variogram_plot,
-                    f"{target}_high_traffic_perc": high_traffic_perc,
+                paths.update({
+                    str(p): {
+                        "path": sp,
+                        "path_edges": sp_edges, #Has edges latitude and longitudes too
+                        "trps_per_edge": trps_per_edge, #Has TRPs latitude and longitudes too
+                        "forecasted_travel_time": round(((total_sp_length / (
+                                    ((average_highest_speed_limit / 100) * 90) / 3.6)) / 60) + ((len(sp) * 0.25) * 0.30), ndigits=2), # In minutes
+                        # The formula indicates the length of the trait (in meters) and divided by 90% of the speed limit (in m/s (dividing it by 3.6)) all multiplied by 60 since we're interested in getting travel time minutes
+                        # Considering that on average 25% of the road nodes (especially in urban areas) have traffic lights we'll count each one as 30s of wait time in the worst case scenario (all reds)
+                        "trps_along_path": self.trps_along_sp,
+                        "trp_research_buffer_radius": trp_research_buffer_radius
+                    }
                 })
 
+                line_predictions = pd.DataFrame((
+                        (x, y, (u, v), edge_data["link_id"])
+                        for u, v, edge_data in sp_edges
+                        for geom in [wkt.loads(edge_data["geom"])]
+                        for x, y in geom.coords
+                    ),
+                    columns=["lon", "lat", "edge", "link_id"]
+                )  # Creating the structure of the dataframe where we'll concatenate ordinary kriging results
 
-            # ---------- STEP 6 ----------
+                link_agg_data = dict((link_id, self._get_link_aggregated_traffic_data(link_id=link_id)) for link_id in trps_per_edge.keys())  # Converting link_agg_data to dict for fast lookup
+                # Simply using the dict() function on a list of tuples
 
-            if any(paths[str(p)].get(f"{target}_high_traffic_perc", 0) > 50 for target in targets):
-                trp_research_buffer_radius += 2000 #Incrementing the TRP research buffer radius
 
-                sp_edges_weight = [(u, v, self._get_advanced_weighting(u, v, data)) for u, v, data in sp_edges]
+                # ---------- STEP 5 ----------
 
-                # Sort by weight (descending) and pick the top-n heaviest nodes to remove them
-                n = max(1, len(sp_edges))  # Maximum number of heaviest edges to remove
-                print("N OF HEAVY EDGES TO REMOVE: ", n)
-                removed_edges[str(p)] = [(u, v) for u, v, w in sorted(sp_edges_weight, key=lambda x: x[2], reverse=True)[:n]]
-                print("EDGES TO REMOVE", removed_edges)
-                self._network.remove_edges_from(removed_edges[str(p)])
+                for target in targets:
 
-            else:
+                    ok, variogram_plot = self._get_ordinary_kriging(y_pred=self.trps_along_sp_preds, horizon=horizon, target=target, verbose=True)
+                    z_interpolated_vals, kriging_variance = self._ok_interpolate(
+                                                                                ordinary_kriging_obj=ok,
+                                                                                x_coords=line_predictions["lon"].values,
+                                                                                y_coords=line_predictions["lat"].values,
+                                                                                style="points"
+                                                                            )  # Kriging variance is sometimes called "ss" (sigma squared)
+
+                    variogram_plot = self._edit_variogram_plot(fig=variogram_plot, target=target)
+
+                    line_predictions[f"{target}_interpolated_value"] = z_interpolated_vals
+                    line_predictions[f"{target}_variance"] = kriging_variance
+
+                    line_predictions[f"link_avg_{target}"] = line_predictions["link_id"].map(lambda link_id: link_agg_data[link_id][f"weighted_avg_{target}"])
+
+                    # Difference (point prediction - link-level avg)
+                    line_predictions[f"{target}_diff_from_avg"] = line_predictions[f"{target}_interpolated_value"] - line_predictions[f"link_avg_{target}"]
+
+                    pct_diff = (line_predictions[f"{target}_interpolated_value"] - line_predictions[f"link_avg_{target}"]) / line_predictions[f"link_avg_{target}"] * 100
+                    line_predictions[f"{target}_traffic_class"] = np.select(
+                        [
+                            pct_diff < -25, # LOW
+                            (pct_diff >= -25) & (pct_diff < -15), # LOW_AVERAGE
+                            (pct_diff >= -15) & (pct_diff <= 15), # AVERAGE
+                            (pct_diff > 15) & (pct_diff <= 25), # HIGH_AVERAGE
+                            (pct_diff > 25) & (pct_diff <= 50), # HIGH
+                            pct_diff > 50 # STOP_AND_GO
+                        ],
+                        [
+                            TrafficClasses.LOW.name,
+                            TrafficClasses.LOW_AVERAGE.name,
+                            TrafficClasses.AVERAGE.name,
+                            TrafficClasses.HIGH_AVERAGE.name,
+                            TrafficClasses.HIGH.name,
+                            TrafficClasses.STOP_AND_GO.name
+                        ],
+                        default=TrafficClasses.LOW.name
+                    ) # Each traffic class represents a percentage difference from the mean, example: if the forecasted value distance from the mean is within 15-25% more than the mean then average_high elif 25-50% more high, elif 50-100% stop and go
+
+                    high_traffic_perc = line_predictions[f"{target}_traffic_class"].isin([TrafficClasses.HIGH_AVERAGE.name, TrafficClasses.HIGH.name]).mean() * 100 # Calculating the percentage of the total path which has a traffic level above HIGH_AVERAGE
+                    # Getting only the fraction of rows where the mask value is True, so it is already a division on the total of rows
+                    # It's just a shortcut for mask = *row_value* isin(...) -> mask.sum() / len(mask)
+
+                    paths[str(p)].update(**{
+                        f"{target}_ordinary_kriging_interpolated_values": z_interpolated_vals,
+                        f"{target}_ordinary_kriging_variogram_plot": variogram_plot,
+                        f"{target}_high_traffic_perc": high_traffic_perc,
+                    })
+
+
+                # ---------- STEP 6 ----------
+
+                if any(paths[str(p)].get(f"{target}_high_traffic_perc", 0) > 50 for target in targets):
+                    trp_research_buffer_radius += 2000 #Incrementing the TRP research buffer radius
+
+                    sp_edges_weight = [(u, v, self._get_advanced_weighting(u, v, data)) for u, v, data in sp_edges]
+
+                    # Sort by weight (descending) and pick the top-n heaviest nodes to remove them
+                    n = max(1, len(sp_edges))  # Maximum number of heaviest edges to remove
+                    print("N OF HEAVY EDGES TO REMOVE: ", n)
+                    removed_edges[str(p)] = [(u, v) for u, v, w in sorted(sp_edges_weight, key=lambda x: x[2], reverse=True)[:n]]
+                    print("EDGES TO REMOVE", removed_edges)
+                    self._network.remove_edges_from(removed_edges[str(p)])
+
+                else:
+                    break
+
+                print("PATHS:", paths)
+                print("LINE PREDICTIONS: ", line_predictions)
+
+                paths[str(p)]["line_predictions"] = line_predictions
+
+
+                for re in removed_edges.values():
+                    self._network.add_edges_from(re)
+
+
+            except nx.exception.NetworkXNoPath:
                 break
 
-            print("PATHS:", paths)
-            print("LINE PREDICTIONS: ", line_predictions)
-
-            paths[str(p)]["line_predictions"] = line_predictions
-
-
-        for re in removed_edges.values():
-            self._network.add_edges_from(re)
 
         # Adding removed nodes back into the graph to avoid needing to re-build the whole graph again
         self._network.add_nodes_from(unreachable)
@@ -697,18 +705,32 @@ class RoadNetwork:
 
 
     def _get_municipality_id_preds(self, municipality_id: PositiveInt, target: str, model: str) -> dict[str, dict[str, dd.DataFrame]]:
+        print("TEST 1: ", {
+            trp["id"]:  {
+                f"{target}_preds": self._get_trp_predictions(
+                    trp_id=trp["id"],
+                    road_category=trp["road_category"],
+                    target=target,
+                    lags=GlobalDefinitions.SHORT_TERM_LAGS,
+                    model=model
+                ),
+                "lat": trp["lat"],
+                "lon": trp["lon"],
+            }
+            for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id)
+        })
+
         return {
-            trp["id"]:
-                {
-                    f"{target}_preds": self._get_trp_predictions(
-                        trp_id=trp["id"],
-                        road_category=trp["road_category"],
-                        target=target,
-                        lags=GlobalDefinitions.SHORT_TERM_LAGS,
-                        model=model
-                    ),
-                    "lat": trp["lat"],
-                    "lon": trp["lon"],
+            trp["id"]:  {
+                f"{target}_preds": self._get_trp_predictions(
+                    trp_id=trp["id"],
+                    road_category=trp["road_category"],
+                    target=target,
+                    lags=GlobalDefinitions.SHORT_TERM_LAGS,
+                    model=model
+                ),
+                "lat": trp["lat"],
+                "lon": trp["lon"],
             }
             for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id)
         }
