@@ -9,7 +9,6 @@ from pydantic.types import PositiveFloat, PositiveInt
 import networkx as nx
 import numpy as np
 import pandas as pd
-from dask import delayed, compute
 import dask.dataframe as dd
 from dask.distributed import Client
 import utm
@@ -38,9 +37,6 @@ warnings.filterwarnings(
     "ignore",
     module="distributed.shuffle"
 )
-
-import sys
-
 
 
 
@@ -373,37 +369,14 @@ class RoadNetwork:
 
 
     def _update_trps_preds(self, targets: list[str], lags: list[int], model: str) -> None:
-        trps_to_predict = list(trp for trp in self.trps_along_sp if trp["id"] not in self.trps_along_sp_preds.keys())
-
-        @delayed
-        def predict_for_trp(trp):
-            preds = {
-                f"{target}_preds": self._get_trp_predictions(
-                    trp_id=trp["id"],
-                    target=target,
-                    road_category=trp["road_category"],
-                    lags=lags,
-                    model=model
-                )[[target, "zoned_dt_iso"]]
-                for target in targets
-            }
-            return trp["id"], {**preds, **trp}
-
-        # Scheduling all predictions in parallel
-        delayed_results = [predict_for_trp(trp) for trp in trps_to_predict]
-
-        # Computing results in parallel
-        results = compute(*delayed_results)
-        self.trps_along_sp_preds.update(dict(results))
-
-        #self.trps_along_sp_preds.update(**{
-        #    trp["id"]: {
-        #        **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["id"], target=target, road_category=trp["road_category"], lags=lags, model=model)[[target, "zoned_dt_iso"]]
-        #           for target in targets},
-        #        **trp,
-        #    } for trp in list(trp for trp in self.trps_along_sp if trp["id"] not in self.trps_along_sp_preds.keys()) #Only calculating the predictions for the TRPs which hadn't seen their data predict yet, #TODO CHECK CONTENT: list(filter(lambda x: x not in self.trps_along_sp_preds.keys(), self.trps_along_sp))
-        #    # All TRPs that are along the shortest path, but not in the ones for which we already computed the predictions
-        #}) # FYI: Using the dict() function on a tuple creates a dictionary
+        self.trps_along_sp_preds.update(**{
+           trp["id"]: {
+               **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["id"], target=target, road_category=trp["road_category"], lags=lags, model=model)[[target, "zoned_dt_iso"]]
+                  for target in targets},
+               **trp,
+           } for trp in list(trp for trp in self.trps_along_sp if trp["id"] not in self.trps_along_sp_preds.keys()) #Only calculating the predictions for the TRPs which hadn't seen their data predict yet, #TODO CHECK CONTENT: list(filter(lambda x: x not in self.trps_along_sp_preds.keys(), self.trps_along_sp))
+           # All TRPs that are along the shortest path, but not in the ones for which we already computed the predictions
+        }) # FYI: Using the dict() function on a tuple creates a dictionary
         return None
 
 
@@ -746,11 +719,6 @@ class RoadNetwork:
 
 
     def _get_municipality_id_preds(self, municipality_id: PositiveInt, target: str, model: str) -> dict[str, dict[str, dd.DataFrame]]:
-        for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id):
-            print(trp["id"])
-            print(trp["road_category"])
-            print(trp["lat"])
-            print(trp["lon"])
         return {
             trp["id"]:
                 {
