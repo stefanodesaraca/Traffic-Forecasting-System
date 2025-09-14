@@ -15,6 +15,7 @@ from typing import Any, Literal, cast
 from pydantic import BaseModel
 from pydantic.types import PositiveInt
 import utm
+import matplotlib.pyplot as plt
 
 from sklearn.linear_model import Lasso, GammaRegressor, QuantileRegressor
 from sklearn.tree import DecisionTreeClassifier
@@ -29,7 +30,16 @@ from shapely.geometry import shape
 from shapely import wkt
 
 from definitions import GlobalDefinitions, ProjectTables, ProjectConstraints
-from utils import ZScore, cos_encoder, sin_encoder, apply_cyclical_decoding, check_target, split_by_target, get_n_items_from_gen
+from utils import (
+    ZScore,
+    cos_encoder,
+    sin_encoder,
+    apply_cyclical_decoding,
+    check_target,
+    split_by_target,
+    get_n_items_from_gen,
+    save_plot
+)
 
 
 pd.set_option("display.max_rows", None)
@@ -799,7 +809,33 @@ class MLPredictionPipeline:
         return data.drop(columns=["coverage", "hour_sin", "hour_cos", "day_sin", "day_cos", "month_sin", "month_cos", "week_sin", "week_cos"]).persist()
 
 
+    def plot_predictions(self, predictions: dd.DataFrame, show: bool = False) -> plt.Figure:
 
+        data_dates_upper_boundary = self._db_broker.get_volume_date_boundaries(trp_id_filter=[self._trp_id])["max"] if self._target == GlobalDefinitions.VOLUME else self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=[self._trp_id])["max"]
+
+        fig, ax = plt.subplots(figsize=(16, 9))
+
+        ax.plot(
+            x=predictions["zoned_dt_iso"],
+            y=predictions[self._target],
+            marker='o',
+            linestyle='dashed',
+            linewidth=2,
+            markersize=12
+        )
+
+        ax.grid(axis="both")
+        ax.title(f"{self._target} predictions from {data_dates_upper_boundary} to {self._db_broker.get_forecasting_horizon(self._target)}")
+
+        ax.xlabel("Zoned datetime")
+        ax.ylabel(f"{self._target} predictions")
+
+        ax.legend()
+
+        if show:
+            fig.show()
+
+        return fig
 
 
 
