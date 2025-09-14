@@ -521,8 +521,8 @@ class AIODBManager:
                             road_node_ids TEXT[],
                             highest_speed_limit INTEGER,
                             lowest_speed_limit INTEGER,
-                            max_lanes INTEGER,
-                            min_lanes INTEGER,
+                            max_lanes INTEGER DEFAULT 1, -- if a link's number of lanes is unknown the lowest bound is one. Otherwise that road wouldn't exist :)
+                            min_lanes INTEGER DEFAULT 1,
                             has_only_public_transport_lanes BOOLEAN,
                             length DOUBLE PRECISION,
                             traffic_direction_wrt_metering_direction TEXT,

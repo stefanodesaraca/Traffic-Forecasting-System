@@ -329,19 +329,40 @@ class RoadNetwork:
         ) * 0.35
         # Base travel time adjusted by road category and speed
 
+
+        print("travel_time_factor:", travel_time_factor)
+
         lane_factor = (
             # Contribution from minimum and maximum lanes
             min_lanes * 0.10 +
             max_lanes * 0.10
         )
+
+        print("lane_factor:", lane_factor)
+
         # Higher flow roads have a smaller multiplier that indicates particularly good conditions to travel as opposed to municipality-roads where multiple factors could influence the travel time, like: road maintenance, heavy tourist vehicles that block the road or that go slower, etc.
         speed_factor = (
             # Contribution of the highest speed limit
             ((highest_speed_limit / 100) * 85) * 0.20 +
             highest_speed_limit * 0.20
         )
+
+        print("speed_factor:", speed_factor)
+
         lowest_speed_contribution = lowest_speed_limit * 0.05
         # Contribution of the lowest speed limit
+
+
+        print("lowest_speed_contribution: ", lowest_speed_contribution)
+
+
+        print("WEIGHT: ", abs(
+                travel_time_factor +
+                lane_factor +
+                speed_factor +
+                lowest_speed_contribution
+        ))
+
 
         return abs(
                 travel_time_factor +
@@ -393,6 +414,8 @@ class RoadNetwork:
         has_toll_stations_edges = None
         has_ferry_routes_edges = None
 
+        unreachable = []
+
         if has_only_public_transport_lanes:
             self._network.remove_edges_from(has_only_public_transport_lanes_edges := [(u, v) for u, v, attrs in self._network.edges(data=True) if attrs['has_only_public_transport_lanes'] < 3])
         if has_toll_stations:
@@ -400,8 +423,9 @@ class RoadNetwork:
         if has_ferry_routes:
             self._network.remove_edges_from(has_ferry_routes_edges := [(u, v) for u, v, attrs in self._network.edges(data=True) if attrs['has_ferry_routes'] < 3])
 
+        unreachable.extend(list(i for i in nx.isolates(self._network)))
         #Removing isolated nodes since they're unreachable
-        self._network.remove_nodes_from(unreachable := list(i for i in nx.isolates(self._network)))
+        self._network.remove_nodes_from(unreachable)
         #This way we're also going to apply all filters if any have been set since if there isn't a link connecting a node to another that will be isolated
 
         heuristic = lambda u, v: self._get_minkowski_dist(u, v, self._network)
@@ -411,6 +435,8 @@ class RoadNetwork:
 
 
         for p in range(5):
+
+            print("SONO QUI")
 
             # ---------- STEP 1 ----------
 
@@ -551,6 +577,12 @@ class RoadNetwork:
                 print("EDGES TO REMOVE", removed_edges)
                 self._network.remove_edges_from(removed_edges[str(p)])
 
+                print("NEW ISOLATED NODES: ", list(i for i in nx.isolates(self._network)))
+
+                unreachable.extend(list(i for i in nx.isolates(self._network)))
+                # Removing isolated nodes since they're unreachable
+                self._network.remove_nodes_from(unreachable)
+
                 print(f"SIZE OF PATHS AT ITERATION {p} IN IF STAT: ", sys.getsizeof(paths))
                 print(f"SIZE OF PATHS AT LINE PREDICTIONS {p} IN IF STAT: ", sys.getsizeof(line_predictions))
 
@@ -565,6 +597,8 @@ class RoadNetwork:
             print("LINE PREDICTIONS: ", line_predictions)
 
             paths[str(p)]["line_predictions"] = line_predictions
+
+            print("I'M HERE")
 
 
         for re in removed_edges.values():
