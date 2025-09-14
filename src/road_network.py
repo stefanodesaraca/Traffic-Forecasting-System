@@ -324,41 +324,19 @@ class RoadNetwork:
             RoadCategoryTraitLengthWeightMultipliers[road_category].value
         ) * 0.35
         # Base travel time adjusted by road category and speed
-
-
-        print("travel_time_factor:", travel_time_factor)
-
         lane_factor = (
             # Contribution from minimum and maximum lanes
             min_lanes * 0.10 +
             max_lanes * 0.10
         )
-
-        print("lane_factor:", lane_factor)
-
         # Higher flow roads have a smaller multiplier that indicates particularly good conditions to travel as opposed to municipality-roads where multiple factors could influence the travel time, like: road maintenance, heavy tourist vehicles that block the road or that go slower, etc.
         speed_factor = (
             # Contribution of the highest speed limit
             ((highest_speed_limit / 100) * 85) * 0.20 +
             highest_speed_limit * 0.20
         )
-
-        print("speed_factor:", speed_factor)
-
         lowest_speed_contribution = lowest_speed_limit * 0.05
         # Contribution of the lowest speed limit
-
-
-        print("lowest_speed_contribution: ", lowest_speed_contribution)
-
-
-        print("WEIGHT: ", abs(
-                travel_time_factor +
-                lane_factor +
-                speed_factor +
-                lowest_speed_contribution
-        ))
-
 
         return abs(
                 travel_time_factor +

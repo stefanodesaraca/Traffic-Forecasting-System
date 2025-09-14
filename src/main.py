@@ -548,7 +548,7 @@ def manage_road_network(functionality: str) -> None:
         print("Available models:")
         print(db_broker.get_trained_models(target=target))
 
-        with dask_cluster_client(processes=False) as client:
+        with dask_cluster_client(scheduler_address=scheduler_addr, processes=False) as client:
 
             network = RoadNetwork(
                 network_id="test",
@@ -578,7 +578,7 @@ def manage_road_network(functionality: str) -> None:
         print("Available models:")
         print(db_broker.get_trained_models(target=target))
 
-        with dask_cluster_client(processes=False) as client:
+        with dask_cluster_client(scheduler_address=scheduler_addr, processes=False) as client:
 
             network = RoadNetwork(
                 network_id="test",
