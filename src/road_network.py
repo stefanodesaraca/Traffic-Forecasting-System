@@ -2,7 +2,6 @@ from pathlib import Path
 import datetime
 import pickle
 from itertools import chain
-from functools import partial
 from typing import Any, Literal, Mapping
 from scipy.spatial.distance import minkowski
 from shapely import wkt
@@ -10,6 +9,7 @@ from pydantic.types import PositiveFloat, PositiveInt
 import networkx as nx
 import numpy as np
 import pandas as pd
+from dask import delayed, compute
 import dask.dataframe as dd
 from dask.distributed import Client
 import utm
@@ -373,15 +373,37 @@ class RoadNetwork:
 
 
     def _update_trps_preds(self, targets: list[str], lags: list[int], model: str) -> None:
-        print("TEST: ", list(trp for trp in self.trps_along_sp if trp["id"] not in self.trps_along_sp_preds.keys()))
-        self.trps_along_sp_preds.update(**{
-            trp["id"]: {
-                **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["id"], target=target, road_category=trp["road_category"], lags=lags, model=model)[[target, "zoned_dt_iso"]]
-                   for target in targets},
-                **trp,
-            } for trp in list(trp for trp in self.trps_along_sp if trp["id"] not in self.trps_along_sp_preds.keys()) #Only calculating the predictions for the TRPs which hadn't seen their data predict yet, #TODO CHECK CONTENT: list(filter(lambda x: x not in self.trps_along_sp_preds.keys(), self.trps_along_sp))
-            # All TRPs that are along the shortest path, but not in the ones for which we already computed the predictions
-        }) # FYI: Using the dict() function on a tuple creates a dictionary
+        trps_to_predict = list(trp for trp in self.trps_along_sp if trp["id"] not in self.trps_along_sp_preds.keys())
+
+        @delayed
+        def predict_for_trp(trp):
+            preds = {
+                f"{target}_preds": self._get_trp_predictions(
+                    trp_id=trp["id"],
+                    target=target,
+                    road_category=trp["road_category"],
+                    lags=lags,
+                    model=model
+                )[[target, "zoned_dt_iso"]]
+                for target in targets
+            }
+            return trp["id"], {**preds, **trp}
+
+        # Scheduling all predictions in parallel
+        delayed_results = [predict_for_trp(trp) for trp in trps_to_predict]
+
+        # Computing results in parallel
+        results = compute(*delayed_results)
+        self.trps_along_sp_preds.update(dict(results))
+
+        #self.trps_along_sp_preds.update(**{
+        #    trp["id"]: {
+        #        **{f"{target}_preds": self._get_trp_predictions(trp_id=trp["id"], target=target, road_category=trp["road_category"], lags=lags, model=model)[[target, "zoned_dt_iso"]]
+        #           for target in targets},
+        #        **trp,
+        #    } for trp in list(trp for trp in self.trps_along_sp if trp["id"] not in self.trps_along_sp_preds.keys()) #Only calculating the predictions for the TRPs which hadn't seen their data predict yet, #TODO CHECK CONTENT: list(filter(lambda x: x not in self.trps_along_sp_preds.keys(), self.trps_along_sp))
+        #    # All TRPs that are along the shortest path, but not in the ones for which we already computed the predictions
+        #}) # FYI: Using the dict() function on a tuple creates a dictionary
         return None
 
 
@@ -435,8 +457,6 @@ class RoadNetwork:
 
 
         for p in range(5):
-
-            print("SONO QUI")
 
             # ---------- STEP 1 ----------
 
@@ -514,12 +534,6 @@ class RoadNetwork:
 
                 variogram_plot = self._edit_variogram_plot(fig=variogram_plot, target=target)
 
-                print("SIZE OF OK OBJ: ", sys.getsizeof(ok))
-                print("SIZE OF VARIOGRAM PLOT: ", sys.getsizeof(variogram_plot))
-                print("SIZE OF z_interpolated_vals: ", sys.getsizeof(z_interpolated_vals))
-                print("SIZE OF kriging_variance: ", sys.getsizeof(kriging_variance))
-
-
                 line_predictions[f"{target}_interpolated_value"] = z_interpolated_vals
                 line_predictions[f"{target}_variance"] = kriging_variance
 
@@ -559,9 +573,6 @@ class RoadNetwork:
                     f"{target}_high_traffic_perc": high_traffic_perc,
                 })
 
-                print(f"SIZE OF PATHS AT ITERATION {p}: ", sys.getsizeof(paths))
-                print(f"SIZE OF PATHS AT LINE PREDICTIONS {p}: ", sys.getsizeof(line_predictions))
-
 
             # ---------- STEP 6 ----------
 
@@ -577,62 +588,28 @@ class RoadNetwork:
                 print("EDGES TO REMOVE", removed_edges)
                 self._network.remove_edges_from(removed_edges[str(p)])
 
-                print("NEW ISOLATED NODES: ", list(i for i in nx.isolates(self._network)))
-
-                unreachable.extend(list(i for i in nx.isolates(self._network)))
-                # Removing isolated nodes since they're unreachable
-                self._network.remove_nodes_from(unreachable)
-
-                print(f"SIZE OF PATHS AT ITERATION {p} IN IF STAT: ", sys.getsizeof(paths))
-                print(f"SIZE OF PATHS AT LINE PREDICTIONS {p} IN IF STAT: ", sys.getsizeof(line_predictions))
-
             else:
                 break
-
-
-            print("REMOVE EDGES: ", removed_edges)
-
 
             print("PATHS:", paths)
             print("LINE PREDICTIONS: ", line_predictions)
 
             paths[str(p)]["line_predictions"] = line_predictions
 
-            print("I'M HERE")
-
 
         for re in removed_edges.values():
-            print("HELLO 1")
             self._network.add_edges_from(re)
-
-        print("HELLO 2")
 
         # Adding removed nodes back into the graph to avoid needing to re-build the whole graph again
         self._network.add_nodes_from(unreachable)
 
-        print("HELLO 3")
-
         # Adding removed edges back into the graph to avoid needing to re-build the whole graph again
         if has_only_public_transport_lanes:
             self._network.add_edges_from(has_only_public_transport_lanes_edges)
-
-        print("HELLO 4")
-
         if has_toll_stations:
             self._network.add_edges_from(has_toll_stations_edges)
-
-        print("HELLO 5")
-
-
         if has_ferry_routes:
             self._network.add_edges_from(has_ferry_routes_edges)
-
-        print("HELLO 6")
-
-
-
-        print("PATHS 2: ", paths)
-        print("PATH ITEMS: ", paths.items())
 
         return dict(
             sorted(
