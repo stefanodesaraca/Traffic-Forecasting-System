@@ -545,7 +545,7 @@ class RoadNetwork:
                     removed_edges[str(p)] = [
                         (u, v, self._network.edges[u, v].copy())
                         for u, v, w in sorted(sp_edges_weight, key=lambda x: x[2], reverse=True)[:n]
-                    ]
+                    ] # Must save the whole edge with the attributes dictionary to add back into the graph afterward (with the attributes dictionary as well)
                     print("EDGES TO REMOVE", removed_edges)
                     self._network.remove_edges_from(removed_edges[str(p)])
 
@@ -558,12 +558,12 @@ class RoadNetwork:
                 paths[str(p)]["line_predictions"] = line_predictions
 
 
-                for re in removed_edges.values():
-                    self._network.add_edges_from(re)
-
-
         except nx.exception.NetworkXNoPath:
             pass
+
+
+        for re in removed_edges.values():
+            self._network.add_edges_from(re)
 
         # Adding removed nodes back into the graph to avoid needing to re-build the whole graph again
         self._network.add_nodes_from(unreachable)
