@@ -281,7 +281,6 @@ class RoadNetwork:
 
     def _get_ordinary_kriging(self, y_pred: dict[str, dict[str, dd.DataFrame] | Any], horizon: datetime.datetime, target: str, verbose: bool = False):
         ok_df = self._get_ok_structured_data(y_pred=y_pred, horizon=horizon, target=target)
-        print("TEST 2: ", ok_df)
         return OrdinaryKriging(
             x=ok_df["lon"].values,
             y=ok_df["lat"].values,
@@ -319,9 +318,6 @@ class RoadNetwork:
         max_lanes: PositiveInt = attrs.get("max_lanes")
         highest_speed_limit: PositiveInt = attrs.get("highest_speed_limit")
         lowest_speed_limit: PositiveInt = attrs.get("lowest_speed_limit")
-
-        print(attrs)
-        print(highest_speed_limit)
 
         travel_time_factor = (
             ((length / (((highest_speed_limit / 100) * 85) / 3.6)) / 60) *
@@ -547,7 +543,7 @@ class RoadNetwork:
                         for u, v, w in sorted(sp_edges_weight, key=lambda x: x[2], reverse=True)[:n]
                     ] # Must save the whole edge with the attributes dictionary to add back into the graph afterward (with the attributes dictionary as well)
                     print("EDGES TO REMOVE", removed_edges)
-                    self._network.remove_edges_from(removed_edges[str(p)])
+                    self._network.remove_edges_from([(u, v) for u, v, _ in removed_edges[str(p)]]) # Adopting this method since remove_edges_from accepts (u, v) tuples without attributes, but we need to keep attributes for the future re-insertion in the graph of ALL the nodes removed during the iterations
 
                 else:
                     break
@@ -711,20 +707,8 @@ class RoadNetwork:
 
 
     def _get_municipality_id_preds(self, municipality_id: PositiveInt, target: str, model: str) -> dict[str, dict[str, dd.DataFrame]]:
-        print("TEST 1: ", {
-            trp["id"]:  {
-                f"{target}_preds": self._get_trp_predictions(
-                    trp_id=trp["id"],
-                    road_category=trp["road_category"],
-                    target=target,
-                    lags=GlobalDefinitions.SHORT_TERM_LAGS,
-                    model=model
-                ),
-                "lat": trp["lat"],
-                "lon": trp["lon"],
-            }
-            for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id)
-        })
+
+        print("MUNICIPALITY TRPS: ", self._db_broker.get_municipality_trps(municipality_id=municipality_id))
 
         return {
             trp["id"]:  {
