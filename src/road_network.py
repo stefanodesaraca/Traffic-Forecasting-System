@@ -542,7 +542,10 @@ class RoadNetwork:
                     # Sort by weight (descending) and pick the top-n heaviest nodes to remove them
                     n = max(1, len(sp_edges))  # Maximum number of heaviest edges to remove
                     print("N OF HEAVY EDGES TO REMOVE: ", n)
-                    removed_edges[str(p)] = [(u, v) for u, v, w in sorted(sp_edges_weight, key=lambda x: x[2], reverse=True)[:n]]
+                    removed_edges[str(p)] = [
+                        (u, v, self._network.edges[u, v].copy())
+                        for u, v, w in sorted(sp_edges_weight, key=lambda x: x[2], reverse=True)[:n]
+                    ]
                     print("EDGES TO REMOVE", removed_edges)
                     self._network.remove_edges_from(removed_edges[str(p)])
 
