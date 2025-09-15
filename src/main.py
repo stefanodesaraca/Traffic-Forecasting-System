@@ -560,6 +560,7 @@ def manage_road_network(functionality: str) -> None:
             network.build() #county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID]
             routes = network.find_route(source="636379", destination="635079", horizon=db_broker.get_forecasting_horizon(target=target).replace(tzinfo=None))
             #NOTE SECURE PATHS: (636379 - 635079), (629849, 629667), (R605677, 646497) | WITHOUT MUNICIPALITY FILTER (889404, 3151378), (456663 - 211623 (HAS F ROADS))
+            print(routes)
             #network.save_graph_svg()
 
 

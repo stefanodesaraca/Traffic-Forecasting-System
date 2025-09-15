@@ -519,8 +519,8 @@ class AIODBManager:
                             subsumed_traffic_node_ids TEXT[],
                             road_link_ids TEXT[],
                             road_node_ids TEXT[],
-                            highest_speed_limit INTEGER,
-                            lowest_speed_limit INTEGER,
+                            highest_speed_limit INTEGER DEFAULT 30,
+                            lowest_speed_limit INTEGER DEFAULT 30,
                             max_lanes INTEGER DEFAULT 1, -- if a link's number of lanes is unknown the lowest bound is one. Otherwise that road wouldn't exist :)
                             min_lanes INTEGER DEFAULT 1,
                             has_only_public_transport_lanes BOOLEAN,
