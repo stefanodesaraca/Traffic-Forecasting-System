@@ -1,19 +1,22 @@
+import json
 import os
 import sys
 import time
 import pickle
+from pprint import pprint
 import asyncio
 import dask
 import dask.dataframe as dd
 
+from proj_secrets import scheduler_addr
 from exceptions import TRPNotFoundError
-from definitions import GlobalDefinitions, DBConfig, ProjectTables
+from definitions import GlobalDefinitions, DBConfig, ProjectTables, ProjectViews
 from downloader import start_client_async, volumes_to_db, fetch_trps, fetch_trps_from_ids
 from brokers import AIODBManagerBroker, AIODBBroker, DBBroker
 from pipelines import MeanSpeedIngestionPipeline, RoadGraphObjectsIngestionPipeline, MLPreprocessingPipeline, MLPredictionPipeline
 from loaders import BatchStreamLoader
 from ml import TFS
-from road_network import *
+from road_network import RoadNetwork
 from utils import dask_cluster_client, check_target, split_by_target
 
 from tfs_eda import analyze_volume, volume_multicollinearity_test, analyze_mean_speed, mean_speed_multicollinearity_test
@@ -90,7 +93,8 @@ async def manage_global(functionality: str) -> None:
 async def manage_downloads(functionality: str) -> None:
     if functionality == "2.1":
         print("\nDownloading traffic registration points information for the active operation...")
-        await (await get_aiodbmanager_broker()).insert_trps(data=await fetch_trps(gql_client=await start_client_async()))
+        await (await get_aiodbmanager_broker()).insert_trps(data=await fetch_trps(
+            gql_client=await start_client_async()))
         print("Traffic registration points information downloaded successfully\n\n")
 
 
@@ -100,8 +104,8 @@ async def manage_downloads(functionality: str) -> None:
 
 
     elif functionality == "2.3":
-        time_start = await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE
-        time_end = await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE
+        time_start = await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.00" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE
+        time_end = await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.00" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE
         print("Downloading traffic volumes data for every registration point for the current project...")
         await volumes_to_db(
             db_broker_async=await get_aiodb_broker(),
@@ -118,8 +122,8 @@ async def manage_downloads(functionality: str) -> None:
         await volumes_to_db(
             db_broker_async=await get_aiodb_broker(),
             trp_ids=trp_ids,
-            time_start=await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE,
-            time_end=await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.000" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE,
+            time_start=await asyncio.to_thread(input, "Insert starting datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.00" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE,
+            time_end=await asyncio.to_thread(input, "Insert ending datetime (of the time frame which you're interested in) - YYYY-MM-DDTHH: ") + ":00:00.00" + GlobalDefinitions.NORWEGIAN_UTC_TIME_ZONE,
             max_retries=5
         )
         print(f"Downloading traffic volumes data for TRPs: {list(trp_ids)}...")
@@ -190,11 +194,6 @@ def forecast_warmup(functionality: str) -> None:
     preprocessing_pipeline = MLPreprocessingPipeline()
 
     #NOTE FOR A FUTURE UPDATE WE'LL INTEGRATE THE ABILITY TO PREDICT AT DIFFERENT TIME HORIZONS (LONG TERM PREDICTIONS AND SHORT TERM PREDICTIONS)
-    #if long_term:
-    #    lags = [24, 36, 48, 60, 72]  # One, two and three days in the past
-    #else:
-    #    lags = [8766, 17532, 26298]  # One, two and three years in the past
-
 
     def get_model_query(operation_type: str, target: str):
         return {
@@ -212,15 +211,14 @@ def forecast_warmup(functionality: str) -> None:
             "training": f"""
                             SELECT 
                                 bgr.model_id as id,
-                                bgr.model_name as name,
-                                bgr.best_{target}_params as params,
+                                bgr.name as name,
+                                bgr.params as params,
                                 bm.pickle_object AS pickle_object
                             FROM 
-                                "best_{target}_gridsearch_results" bgr
+                                "{ProjectViews.BestGridSearchResults.value}" bgr
                             JOIN
                                 "{ProjectTables.BaseModels.value}" bm ON bgr.model_id = bm.id;
                             """,
-            # models_best_params_query #TODO ADD best_{target}_gridsearch_results TO ProjectViews
             "testing": f"""
                             SELECT 
                                 m.id as id,
@@ -233,7 +231,6 @@ def forecast_warmup(functionality: str) -> None:
                                 "{ProjectTables.TrainedModels.value}" tm ON m.model_id = tm.id
                             WHERE m.target = {target};
                             """
-            # models_best_params_query #TODO ADD best_{target}_gridsearch_results TO ProjectViews
         }.get(operation_type, None)
 
 
@@ -275,8 +272,12 @@ def forecast_warmup(functionality: str) -> None:
             for m in db_broker.send_sql(functionality_mapping[functionality]["model_query"])
         }
 
+        rcs = []
         for road_category, trp_ids in db_broker.get_trp_ids_by_road_category(has_volumes=True if target == GlobalDefinitions.VOLUME else None,
-                                                                             has_mean_speed=True if target == GlobalDefinitions.MEAN_SPEED else None).items():
+                                                                             has_mean_speed=True if target == GlobalDefinitions.MEAN_SPEED else None,
+                                                                             county_ids_filter=county_id_filter).items():
+
+            rcs.append(road_category)
 
             print(f"\n********************* Executing data preprocessing for road category: {road_category} *********************\n")
 
@@ -284,11 +285,14 @@ def forecast_warmup(functionality: str) -> None:
                 data=functionality_mapping[functionality]["preprocessing_pipeline"](
                     data=functionality_mapping[functionality]["loading_method"](
                         batch_size=50000,
+                        county_ids_filter=county_id_filter,
                         trp_list_filter=trp_ids,
                         road_category_filter=[road_category],
                         encoded_cyclical_features=True,
                         is_mice=False,
                         is_covid_year=True,
+                        trp_lat=True,
+                        trp_lon=True,
                         sort_by_date=True,
                         sort_ascending=True
                     ),
@@ -298,11 +302,10 @@ def forecast_warmup(functionality: str) -> None:
                 target=target,
                 mode=0
             )
-            print(f"Shape of the merged data for road category {road_category}: ", X_train.shape[0].start() +
-                  X_test.shape[0].start() + y_train.shape[0].start() + y_test.shape[0].start())
+            print(f"Shape of the merged data for road category {road_category}: ",
+                  X_train.shape[0].compute() + X_test.shape[0].compute() + y_train.shape[0].compute() + y_test.shape[0].compute())
 
             for model, content in models.items():
-                #print(content)
                 if functionality_mapping[functionality]["type"] == "gridsearch":
                     func(X_train, y_train, TFS(
                             model=content["binary"](**content["params"]),
@@ -311,7 +314,7 @@ def forecast_warmup(functionality: str) -> None:
                             client=client,
                             db_broker=db_broker
                         )
-                         )
+                    )
                 elif functionality_mapping[functionality]["type"] == "training":
                     func(X_test, y_test, TFS(
                             model=content["binary"](**content["params"]),
@@ -319,19 +322,21 @@ def forecast_warmup(functionality: str) -> None:
                             road_category=road_category, #Needed for model export
                             db_broker=db_broker
                         )
-                         )
+                    )
                 elif functionality_mapping[functionality]["type"] == "testing":
                     func(X_test, y_test, TFS(
                             model=content["binary"],
                             target=target,
                             db_broker=db_broker
                         )
-                         )
+                    )
+
+        print("Road categories: ", rcs)
 
         return None
 
 
-    with dask_cluster_client(processes=False) as client:
+    with dask_cluster_client(scheduler_address=scheduler_addr, processes=False) as client:
 
         functionality_mapping = {
             "3.2.1": {
@@ -387,6 +392,8 @@ def forecast_warmup(functionality: str) -> None:
         if functionality not in functionality_mapping:
             raise ValueError(f"Unknown functionality: {functionality}")
 
+        county_id_filter = [GlobalDefinitions.OSLO_COUNTY_ID]
+
         target = functionality_mapping[functionality]["target"]
         process_functionality(functionality_mapping[functionality]["func"]) #Process the chosen operation
 
@@ -401,34 +408,76 @@ def manage_ml(functionality: str) -> None:
     if functionality == "5.1":
         db_broker = get_db_broker()
 
-        print("Available models: ")
-        db_broker.send_sql(f"""
-            SELECT * FROM {ProjectTables.MLModels.value}
-        """)
+        print("Models available: ")
+        pprint(db_broker.get_ml_models())
 
-        model_id = input("Enter the ID of the model which you want to set the best parameters index for: ")
+        model = input("Enter the ID of the model which you want to set the best parameters index for: ")
 
         print("\nV: Volumes | MS: Mean Speed")
         target = input("Enter the target variable for which the model has been trained for: ")
         check_target(target, errors=True)
 
-        new_best_params_idx = int(input("Enter the new best parameters index for the model (integer value): "))
+        target = GlobalDefinitions.TARGET_DATA[target]
 
+        road_category = input("Enter the road category for which the model has been trained for: ")
+        new_best_params_idx = int(input("Enter the new best parameters index for the model (integer value): "))
 
         db_broker.send_sql(f"""
                             UPDATE "{ProjectTables.MLModels.value}"
-                            SET "{f"'best_{target}_gridsearch_params_idx'"}" = {new_best_params_idx}
-                            WHERE "id" = '{model_id}';
-        """)
+                            SET "{f"best_{target}_gridsearch_params_idx"}" = %s
+                            WHERE "id" = '{model}';
+        """, execute_args=[new_best_params_idx])
 
-        print(f"Best parameters for model: {model_id} ad target: {target} updated correctly")
+        print(f"Best parameters for model: {model} ad target: {target} updated correctly")
         return None
 
 
+    if functionality == "5.2":
+        db_broker = get_db_broker()
+
+        print("Models available: ")
+        pprint(db_broker.get_ml_models())
+
+        model = input("Enter the model ID: ")
+        target = input("Enter the target variable of the grid you want to update: ")
+        check_target(target=target, errors=True)
+        grid_fp = input("Enter grid filepath: ")
+
+        with open(grid_fp, "r", encoding="utf-8") as f:
+            grid = json.load(f)
+
+        db_broker.update_model_grid(model=model, target=target, grid=grid)
+
+
+    if functionality == "5.3":
+        db_broker = get_db_broker()
+
+        grids_fp = input("Enter grids filepath: ")
+
+        with open(grids_fp, "r", encoding="utf-8") as f:
+            grids = json.load(f)
+
+        for model, target_grids in grids.items():
+            for target, grid in target_grids.items():
+                if target != "base_parameters":
+                    db_broker.update_model_grid(model=model, target=target, grid=grid)
+
+
+    if functionality == "5.4":
+
+        async def insert_models_into_db():
+            broker = await get_aiodbmanager_broker()
+            await broker.insert_models()
+
+        asyncio.run(insert_models_into_db())
+
+
+    if functionality == "5.5":
+        db_broker = get_db_broker()
+        with open(GlobalDefinitions.MODELS_BEST_PARAMS, "r", encoding="utf-8") as params:
+            db_broker.update_model_best_gridsearch_params(json.load(params))
+
     return None
-
-
-
 
 
 def forecast(functionality: str) -> None:
@@ -443,7 +492,7 @@ def forecast(functionality: str) -> None:
 
     if functionality == "3.3.1":
 
-        with dask_cluster_client(processes=False) as client:
+        with dask_cluster_client(scheduler_address=scheduler_addr, processes=False) as client:
             trps_with_data = db_broker.get_all_trps_metadata(**{f"has_{target}_filter": True}).keys()
             trp_ids = [d.get("id") for d in db_broker.get_trp_ids() if d.get("id") in trps_with_data]
             print("TRP IDs: ", trp_ids)
@@ -469,11 +518,9 @@ def forecast(functionality: str) -> None:
 
                 print(f"**************** {name}'s Predictions ****************")
 
-                data = pipeline.start()
+                data = pipeline.start(training_mode=0, lags=GlobalDefinitions.SHORT_TERM_LAGS, trp_tuning=False)
 
-                print(data)
-
-
+                print(data[[target, "hour", "day", "month", "year", "week"]].compute())
 
     return None
 
@@ -481,22 +528,90 @@ def forecast(functionality: str) -> None:
 async def setup_road_network() -> None:
     pipeline = RoadGraphObjectsIngestionPipeline(db_broker_async=await get_aiodb_broker())
     print("Setting up road network data...")
+    await pipeline.ingest_toll_stations(fp="data/road_network/toll_stations.json")
     await pipeline.ingest_nodes(fp="data/road_network/traffic-nodes-2024_2025-02-28.geojson")
     await pipeline.ingest_links(fp="data/road_network/traffic_links_2024_2025-02-27.geojson")
     print("Road network data successfully ingested into the DB")
     return None
 
 
-async def manage_road_network(functionality: str) -> None:
+def manage_road_network(functionality: str) -> None:
 
     if functionality == "4.1":
-        await setup_road_network()
+        asyncio.run(setup_road_network())
 
     elif functionality == "4.2":
-        # TODO FILTER ONLY THE OSLO MUNICIPALITY!
-        ...
+        db_broker = get_db_broker()
+
+        target = GlobalDefinitions.VOLUME #TODO VOLUME ONLY
+
+        print("Available models:")
+        print(db_broker.get_trained_models(target=target))
+
+        with dask_cluster_client(scheduler_address=scheduler_addr, processes=False) as client:
+
+            network = RoadNetwork(
+                network_id="test",
+                name="test",
+                db_broker=db_broker,
+                loader=BatchStreamLoader(db_broker=db_broker),
+                dask_client=client
+            )
+            network.build() #county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID]
+            routes = network.find_route(source="636379", destination="635079", horizon=db_broker.get_forecasting_horizon(target=target).replace(tzinfo=None))
+            #NOTE SECURE PATHS: (636379 - 635079), (629849, 629667), (R605677, 646497) | WITHOUT MUNICIPALITY FILTER (889404, 3151378), (456663 - 211623 (HAS F ROADS))
+            print(routes)
+            #network.save_graph_svg()
+
+
+    elif functionality == "4.3":
+        db_broker = get_db_broker()
+        target = GlobalDefinitions.VOLUME #TODO VOLUME ONLY FOR NOW
+
+        print("Available municipalities: ")
+        print(municipalities := db_broker.get_municipalities(has_trps_filter=True))
+        print("Choose the municipality you want to analyze")
+        muni = int(input("Municipality ID: "))
+
+        if not muni in set(m['id'] for m in municipalities):
+            raise ValueError("Wrong municipality ID imputed. Try again")
+
+        print("Available models:")
+        print(db_broker.get_trained_models(target=target))
+
+        with dask_cluster_client(scheduler_address=scheduler_addr, processes=False) as client:
+
+            network = RoadNetwork(
+                network_id="test",
+                name="test",
+                db_broker=db_broker,
+                loader=BatchStreamLoader(db_broker=db_broker),
+                dask_client=client
+            )
+            network.build()
+            network._get_municipality_id_preds(municipality_id=301, target=GlobalDefinitions.VOLUME, model="HistGradientBoostingRegressor")
+            network.draw_municipality_traffic_volume_heatmap(municipality_id=muni, horizon=db_broker.get_forecasting_horizon(target=target), model="HistGradientBoostingRegressor")
+
+
+    elif functionality == "4.4":
+
+        async def update_municipalities_geometry():
+            await (await get_aiodbmanager_broker()).update_municipalities_geometries()
+
+        asyncio.run(update_municipalities_geometry())
+
 
     return None
+
+
+
+
+
+
+
+
+
+
 
 
 def main():
@@ -525,8 +640,13 @@ def main():
         "4.1": manage_road_network,
         "4.2": manage_road_network,
         "4.3": manage_road_network,
+        "4.4": manage_road_network,
         "5.1": manage_ml,
-        "5.2": eda
+        "5.2": manage_ml,
+        "5.3": manage_ml,
+        "5.4": manage_ml,
+        "5.5": manage_ml,
+        "5.6": eda
     }
 
     while True:
@@ -564,9 +684,13 @@ def main():
     4.3 Graph analysis
 5. Other options
     5.1 Update best parameters for a model
-    5.2 EDA (Exploratory Data Analysis)
-    5.3 Erase all data about a project
-    5.4 Analyze pre-existing road network graph
+    5.2 Update model grid
+    5.3 Update multiple model grids
+    5.4 Insert models into project DB
+    5.5 Update model best gridsearch parameters
+    5.6 EDA (Exploratory Data Analysis)
+    5.7 Erase all data about a project
+    5.8 Analyze pre-existing road network graph
 0. Exit""")
 
         asyncio.run(initialize())

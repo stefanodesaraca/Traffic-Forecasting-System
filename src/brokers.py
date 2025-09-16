@@ -1,11 +1,15 @@
+import json
 from typing import Any, Literal, Generator, LiteralString, Sequence, Mapping
 import datetime
 from dateutil.relativedelta import relativedelta
 import asyncio
 from contextlib import contextmanager
+import pandas as pd
 import psycopg
 from pydantic.types import PositiveInt
 import asyncpg
+from shapely.geometry.base import BaseGeometry
+from shapely import wkt
 
 from exceptions import WrongSQLStatementError, MissingDataError
 from definitions import GlobalDefinitions, HubDBTables, ProjectTables, ProjectViews, RowFactories
@@ -27,11 +31,11 @@ class AIODBBroker:
     async def send_sql_async(self, sql: str, single: bool = False, many: bool = False, many_values: list[tuple[Any, ...]] | None = None) -> Any:
         async with postgres_conn_async(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             async with conn.transaction():
-                if any(sql.lstrip().startswith(prefix) for prefix in ["SELECT", "select"]):
+                if any(sql.lstrip().startswith(prefix) for prefix in ["SELECT", "WITH", "select", "with"]):
                     if single:
                         return await conn.fetchrow(sql)
                     return await conn.fetch(sql)
-                elif any(sql.lstrip().startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "insert", "update", "delete"]):
+                elif any(sql.lstrip().startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "REFRESH MATERIALIZED VIEW", "insert", "update", "delete", "refresh materialized view"]):
                     if many and many_values:
                         return await conn.executemany(sql, many_values)
                     elif many and not many_values:
@@ -102,8 +106,8 @@ class AIODBBroker:
         """
         max_forecasting_window_size: int = max(GlobalDefinitions.DEFAULT_MAX_FORECASTING_WINDOW_SIZE, forecasting_window_size)  # The maximum number of days that can be forecasted is equal to the maximum value between the default window size (14 days) and the maximum window size that can be set through the function parameter
 
-        print("V = Volume | MS = Mean Speed")
-        target = input("Target: ")
+        print("V: Volume | MS: Mean Speed")
+        target = input("Target: ").upper()
         print("Maximum number of days to forecast: ", max_forecasting_window_size)
 
         check_target(target, errors=True)
@@ -190,15 +194,15 @@ class DBBroker:
             pass
 
 
-    def send_sql(self, sql: str, single: bool = False, many: bool = False, many_values: list[tuple[Any, ...]] | None = None, row_factory: Literal["tuple_row", "dict_row"] = "dict_row", execute_args: list[Any] | None = None) -> Any:
+    def send_sql(self, sql: str, single: bool = False, many: bool = False, many_values: list[tuple[Any, ...]] | None = None, row_factory: Literal["tuple_row", "dict_row"] = "dict_row", execute_args: list[Any] | dict[str, Any] | None = None) -> Any:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host, row_factory=row_factory) as conn:
             with conn.cursor(row_factory=RowFactories.factories.get(row_factory)) as cur:
-                if any(sql.lstrip().startswith(prefix) for prefix in ["SELECT", "select"]):
-                    cur.execute(sql)
+                if any(sql.lstrip().startswith(prefix) for prefix in ["SELECT", "WITH",  "select", "with"]):
+                    cur.execute(sql, params=execute_args)
                     if single:
                         return cur.fetchone()
                     return cur.fetchall()
-                elif any(sql.lstrip().startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "insert", "update", "delete"]):
+                elif any(sql.lstrip().startswith(prefix) for prefix in ["INSERT", "UPDATE", "DELETE", "REFRESH MATERIALIZED VIEW", "insert", "update", "delete", "refresh materialized view"]):
                     if many and many_values:
                         return cur.executemany(sql, many_values)
                     elif many and not many_values:
@@ -225,7 +229,7 @@ class DBBroker:
                 return cur.fetchall()
 
 
-    def get_trp_ids_by_road_category(self, has_volumes: bool | None = None, has_mean_speed: bool | None = None) -> dict[Any, ...]:
+    def get_trp_ids_by_road_category(self, has_volumes: bool | None = None, has_mean_speed: bool | None = None, county_ids_filter: list[str] | None = None) -> dict[Any, ...]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with self.PostgresConnectionCursor(query=f"""SELECT json_object_agg("road_category", "ids") AS result
                                                          FROM (
@@ -233,9 +237,10 @@ class DBBroker:
                                                              FROM "{ProjectViews.TrafficRegistrationPointsMetadataView.value}"
                                                              WHERE {f"has_{GlobalDefinitions.VOLUME} = TRUE" if has_volumes else "1=1"}
                                                              AND {f"has_{GlobalDefinitions.MEAN_SPEED} = TRUE" if has_mean_speed else "1=1"}
+                                                             AND {f"county_id = ANY(%s)" if county_ids_filter else "1=1"}
                                                              GROUP BY "road_category"
                                                          ) AS sub;
-                                                      """, conn=conn) as cur:
+                                                      """, conn=conn, params=tuple(to_pg_array(f) for f in [county_ids_filter] if f)) as cur:
                 return cur.fetchone()["result"]
             #Output example:
             #{
@@ -245,6 +250,10 @@ class DBBroker:
 
     @cached()
     def get_volume_date_boundaries(self, trp_id_filter: list[str] | None = None) -> dict[str, Any]:
+        if any([trp_id_filter]):
+            params = tuple(to_pg_array(f) for f in [list(trp_id_filter)])
+        else:
+            params = None
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
             with self.PostgresConnectionCursor(query=f"""
                     SELECT
@@ -253,21 +262,25 @@ class DBBroker:
                     FROM "{ProjectTables.Volume.value}"
                     {f'''WHERE "trp_id" = ANY(%s)''' if trp_id_filter else ""}
                     ;
-                    """, conn=conn, params=tuple(to_pg_array(f) for f in [list(trp_id_filter)])) as cur:
+                    """, conn=conn, params=params) as cur:
                 result = cur.fetchone()
                 return {"min": result[f"{GlobalDefinitions.VOLUME}_start_date"], "max": result[f"{GlobalDefinitions.VOLUME}_end_date"]} #Respectively: min and max
 
     @cached()
     def get_mean_speed_date_boundaries(self, trp_id_filter: list[str] | None = None) -> dict[str, Any]:
         with postgres_conn(user=self._db_user, password=self._db_password, dbname=self._db_name, host=self._db_host) as conn:
-            with self.PostgresConnectionCursor(f"""
+            if any([trp_id_filter]):
+                params = tuple(to_pg_array(f) for f in [list(trp_id_filter)])
+            else:
+                params = None
+            with self.PostgresConnectionCursor(query=f"""
                     SELECT
-                        MIN(zoned_dt_iso) AS {GlobalDefinitions.MEAN_SPEED}_start_date,
-                        MAX(zoned_dt_iso) AS {GlobalDefinitions.MEAN_SPEED}_end_date
+                        MIN("zoned_dt_iso") AS {GlobalDefinitions.MEAN_SPEED}_start_date,
+                        MAX("zoned_dt_iso") AS {GlobalDefinitions.MEAN_SPEED}_end_date
                     FROM "{ProjectTables.MeanSpeed.value}"
-                    {f"WHERE m.trp_id = '{trp_id_filter}'" if trp_id_filter else ""}
+                    {f'WHERE "trp_id" = ANY(%s)' if trp_id_filter else ""}
                     ;
-                    """, conn=conn, params=tuple(to_pg_array(f) for f in [list(trp_id_filter)])) as cur:
+                    """, conn=conn, params=params) as cur:
                 result = cur.fetchone()
                 return {"min": result[f"{GlobalDefinitions.MEAN_SPEED}_start_date"], "max": result[f"{GlobalDefinitions.MEAN_SPEED}_end_date"]} #Respectively: min and max
 
@@ -340,6 +353,87 @@ class DBBroker:
                 FROM "{ProjectTables.ForecastingSettings.value}"
                 WHERE "id" = TRUE;""",
             single=True).get(f"{target}_horizon", None)
+
+
+    def get_ml_models(self) -> dict[str, Any]:
+        return self.send_sql(f"""
+            SELECT DISTINCT m.id AS id, m.name AS name, m.type AS type, gr.road_category_id AS road_category
+            FROM "{ProjectTables.MLModels.value}" m JOIN "{ProjectTables.ModelGridSearchCVResults.value}" gr ON m.id = gr.model_id
+        """)
+
+
+    def get_trained_models(self, target: str | None = None, road_category: str | None = None) -> dict[str, Any]:
+        if target:
+            check_target(target=target, errors=True)
+        return self.send_sql(f"""
+            SELECT m."name", t."target", t."road_category", m."id"
+            FROM "{ProjectTables.TrainedModels.value}" t JOIN "{ProjectTables.MLModels.value}" m ON t.id = m.id
+            WHERE {f"t.target = '{target}'" if target else "1=1"}
+            AND {f"t.road_category = '{road_category}'" if road_category else "1=1"}
+        """)
+
+
+    def update_model_grid(self, model: str, target: str, grid: dict[str, any]) -> None:
+        if target:
+            check_target(target=target, errors=True)
+        self.send_sql(f"""
+            UPDATE "{ProjectTables.MLModels.value}"
+            SET {target}_grid = %s
+            WHERE name = %s;
+        """, execute_args=[json.dumps(grid), model])
+        return None
+
+
+    def get_municipality_trps(self, municipality_id: PositiveInt) -> list[dict[str, Any]]:
+        return self.send_sql(f"""
+                    SELECT "id", "road_category", "lat", "lon"
+                    FROM "{ProjectTables.TrafficRegistrationPoints.value}"
+                    WHERE "municipality_id" = %s
+                """, execute_args=[municipality_id])
+
+
+    def get_municipality_geometry(self, municipality_id: PositiveInt) -> BaseGeometry:
+        return wkt.loads(self.send_sql(f"""
+                    SELECT ST_AsText("geom")  AS geom
+                    FROM "{ProjectTables.Municipalities.value}"
+                    WHERE "id" = %s
+                """, execute_args=[municipality_id], single=True).get("geom"))
+
+
+    def get_municipalities(self, has_trps_filter: bool | None = None) -> list[dict]:
+        return self.send_sql(f"""
+            SELECT m."id", m."name"
+            FROM "{ProjectTables.Municipalities.value}" m
+            {f'''
+            JOIN "{ProjectTables.TrafficRegistrationPoints.value}" trp ON m.id = trp.municipality_id
+            ''' if has_trps_filter else ""}
+            ;
+        """)
+
+
+    def update_model_best_gridsearch_params(self, best_gridsearch_params: list[dict[str, Any]]) -> None:
+        """
+        best_gridsearch_params list of dict structure: [{
+            name: str,
+            model_id: str,
+            result_id: str,
+            target: str,
+            road_category: str
+        }]
+        """
+        self.send_sql(f"""DELETE FROM "{ProjectTables.ModelBestParameters.value}";""")
+        for d in best_gridsearch_params:
+            self.send_sql(f"""
+                INSERT INTO "{ProjectTables.ModelBestParameters.value}" ("name", "model_id", "result_id", "target", "road_category")
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT ("model_id", "result_id", "target", "road_category")
+                DO UPDATE SET
+                    model_id = EXCLUDED.model_id,
+                    result_id = EXCLUDED.result_id,
+                    target = EXCLUDED.target,
+                    road_category = EXCLUDED.road_category;
+            """, execute_args=[*d.values()])
+        return None
 
 
 
@@ -418,7 +512,30 @@ class AIODBManagerBroker:
             """)
 
 
+    async def insert_models(self) -> None:
+        async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=(await self.get_current_project()).get("name", None), host=self._db_host) as conn:
+            await (await self._get_db_manager_async()).insert_models(conn=conn)
+        return None
+
+
     async def insert_trps(self, data: dict[str, Any]) -> None:
         async with postgres_conn_async(self._tfs_user, password=self._tfs_password, dbname=(await self.get_current_project()).get("name", None), host=self._db_host) as conn:
             await (await self._get_db_manager_async()).insert_trps(conn=conn, data=data)
+        return None
+
+
+    async def update_municipalities_geometries(self) -> None:
+        municipality_aux_data = await asyncio.to_thread(pd.read_csv, GlobalDefinitions.MUNICIPALITIES_AUXILIARY_DATA, sep=";", encoding="utf-8")
+        async with postgres_conn_async(self._tfs_user, password=self._tfs_password, dbname=(await self.get_current_project()).get("name", None), host=self._db_host) as conn:
+            muni = [row["id"] for row in await conn.fetch(f"""
+                SELECT "id" FROM "{ProjectTables.Municipalities.value}"
+            """)]
+            for m in muni:
+                muni_row = municipality_aux_data.query(f'`EGS.KOMMUNENUMMER.11769` == {m}')
+                geom_value = muni_row["GEO.GEOMETRI"].iloc[0] if not muni_row.empty else None
+                await conn.execute(f"""
+                    UPDATE "{ProjectTables.Municipalities.value}"
+                    SET geom = $1
+                    WHERE id = $2
+                """, geom_value, m)
         return None

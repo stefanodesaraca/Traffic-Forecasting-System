@@ -1,12 +1,20 @@
+import shutil
+import logging
 from contextlib import contextmanager
 from itertools import islice
 from typing import Literal, Any, Generator
 import numpy as np
 import pandas as pd
-import dask.dataframe as dd
 from pydantic.types import PositiveInt
+import dask
+import dask.dataframe as dd
 from dask.distributed import Client, LocalCluster
 from functools import lru_cache, wraps
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+import plotly
+import plotly.express as px
 
 from exceptions import TargetVariableNotFoundError, MissingDataError
 from definitions import GlobalDefinitions
@@ -14,21 +22,45 @@ from definitions import GlobalDefinitions
 pd.set_option("display.max_columns", None)
 
 
+
+
 @contextmanager
-def dask_cluster_client(processes=False):
+def dask_cluster_client(scheduler_address: str | None = None, direct_to_workers: bool = False, processes: bool = False, silence_warnings: bool = True):
     """
     - Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
     - Check localhost:8787 to watch real-time processing
     - By default, the number of workers is obtained by dask using the standard os.cpu_count()
     - More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
     """
-    cluster = LocalCluster(processes=processes)
-    client = Client(cluster)
+    from dask.distributed import shuffle
+    shuffle.p2p_barrier_timeout = 120  # increase from 30s to 2 minutes
+
+    cluster = None
+    if scheduler_address:
+        client = Client(address=scheduler_address + ":8786",
+                        timeout="60s",
+                        direct_to_workers=direct_to_workers)
+        # Creating a zip of the entire src/ folder
+        shutil.make_archive("src", "zip", "src")
+        # Upload the whole archive to workers
+        client.upload_file("src.zip")
+        dask.config.set({"dataframe.shuffle.method": "tasks"})
+
+        print(client.scheduler_info())  # shows scheduler & workers
+        print(client.run(lambda: __import__('sys').executable))  # shows python executable on each worker
+        print(client.run(lambda: __import__('socket').gethostname()))  # confirm hosts
+    else:
+        cluster = LocalCluster(processes=processes)
+        client = Client(cluster)
+
+    dask.config.set({'logging.distributed': 'error'})
+
     try:
         yield client
     finally:
         client.close()
-        cluster.close()
+        if not scheduler_address:
+            cluster.close()
 
 
 def check_target(target: str, errors: bool = False) -> bool:
@@ -36,6 +68,12 @@ def check_target(target: str, errors: bool = False) -> bool:
         if errors:
             raise TargetVariableNotFoundError(f"Wrong target variable: {target}")
         return False
+    return True
+
+
+def check_municipality_id(municipality_id: PositiveInt) -> bool:
+    if not isinstance(municipality_id, int):
+        raise ValueError(f"{municipality_id} is not a positive int")
     return True
 
 
@@ -106,24 +144,19 @@ def cos_encoder(data: dd.Series | dd.DataFrame | PositiveInt, timeframe: int) ->
     return np.cos((data - 1) * (2.0 * np.pi / timeframe))
 
 
-def arctan2_decoder(sin_val: float, cos_val: float) -> int | float:  # TODO VERIFY IF IT'S ACTUALLY AN INT (IF SO REMOVE | float)
-    """
-    Decode cyclical features using arctan2 function.
+def apply_cyclical_decoding(df: pd.DataFrame,
+                            sin_encoded_col_name: str,
+                            cos_encoded_col_name: str,
+                            period: PositiveInt,
+                            start: int,  # Set to 1 if original values are 1-indexed
+                            new_col_name: str) -> pd.DataFrame:
+    sin_vals = df[sin_encoded_col_name].astype(float)
+    cos_vals = df[cos_encoded_col_name].astype(float)
 
-    Parameters
-    ----------
-    sin_val : float
-        The sine component value.
-    cos_val : float
-        The cosine component value.
+    # Decoding cyclical values
+    df[new_col_name] = (np.arctan2(sin_vals, cos_vals) * period / (2 * np.pi) + start).round().astype(int) % period
 
-    Returns
-    -------
-    int or float
-        The decoded angle in degrees.
-    """
-    angle_rad = np.arctan2(sin_val, cos_val)
-    return (angle_rad * 360) / (2 * np.pi)
+    return df
 
 
 def split_by_target(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
@@ -147,7 +180,7 @@ def split_by_target(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tup
     if mode == 1:
         return X.persist(), y.persist()
     elif mode == 0:
-        n_rows = data.shape[0].start()
+        n_rows = data.shape[0].compute()
         p_70 = int(n_rows * 0.70)
         return (dd.from_pandas(X.head(p_70)),
                 dd.from_pandas(X.tail(n_rows - p_70)),
@@ -216,3 +249,64 @@ def cached_async():
                 return await func(*args, **kwargs)
         return wrapper
     return decorator
+
+
+def save_plot(plotFunction):
+    def save(plots, fp):
+        if isinstance(plots, (plt.Figure, plt.Axes, sns.axisgrid.FacetGrid, sns.axisgrid.PairGrid, list)):
+            plt.savefig(fp, dpi=300)
+            print(f"{fp} exported correctly")
+        elif isinstance(plots, plotly.graph_objs._figure.Figure):
+            plots.write_html(fp)
+            print(f"{fp} exported correctly")
+        else:
+            try:
+                plt.savefig(f"{fp}", dpi=300)
+                print(f"{fp} exported correctly")
+            except Exception as e:
+                print(
+                    f"\033[91mExporting the plots wasn't possible, the returned type is not included in the decorator function. Error: {e}\033[0m")
+        return None
+
+    @wraps(plotFunction)
+    def wrapper(*args, **kwargs):
+        plots, fp = plotFunction(*args, **kwargs)
+        if isinstance(plots, list):
+            for plot in plots:
+                save(plot, fp)
+        else:
+            save(plots, fp)
+        return None
+
+    return wrapper
+
+
+def get_increments(n: int | float, k: PositiveInt) -> list[int | float]:
+    step = n // k
+    return [step * i for i in range(1, k + 1)]
+
+
+def closest(numbers: list[int | float], k: int | float):
+    return min(numbers, key=lambda n: abs(n - k))
+
+
+def get_trait_length_by_road_category(links: list[callable]) -> dict[str, float]:
+    lengths = {}
+    for link in links:
+        lengths[link["road_category"]] += link["length"]
+    return lengths
+
+
+def get_trait_main_road_category(grouped_trait: dict[str, float]) -> str:
+    return max(grouped_trait, key=grouped_trait.get)
+
+
+def _get_road_category_proportions(grouped_trait: dict[str, float]) -> dict[str, dict[str, float]]:
+    total = sum(grouped_trait.values())
+    stats = {}
+    for category, length in grouped_trait.items():
+        stats[category] = {
+            "length": length,
+            "percentage": (length / total) * 100
+        }
+    return stats

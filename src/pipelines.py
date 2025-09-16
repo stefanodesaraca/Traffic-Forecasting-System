@@ -1,4 +1,5 @@
 import math
+from itertools import pairwise
 import datetime
 from datetime import timedelta
 import json
@@ -13,6 +14,8 @@ import pandas as pd
 from typing import Any, Literal, cast
 from pydantic import BaseModel
 from pydantic.types import PositiveInt
+import utm
+import matplotlib.pyplot as plt
 
 from sklearn.linear_model import Lasso, GammaRegressor, QuantileRegressor
 from sklearn.tree import DecisionTreeClassifier
@@ -26,8 +29,17 @@ import geojson
 from shapely.geometry import shape
 from shapely import wkt
 
-from definitions import GlobalDefinitions, ProjectTables
-from utils import ZScore, cos_encoder, sin_encoder, check_target, split_by_target, get_n_items_from_gen
+from definitions import GlobalDefinitions, ProjectTables, ProjectConstraints
+from utils import (
+    ZScore,
+    cos_encoder,
+    sin_encoder,
+    apply_cyclical_decoding,
+    check_target,
+    split_by_target,
+    get_n_items_from_gen,
+    save_plot
+)
 
 
 pd.set_option("display.max_rows", None)
@@ -274,7 +286,7 @@ class MeanSpeedIngestionPipeline(IngestionPipelineMixin):
         await self._db_broker_async.send_sql_async(f"""
             INSERT INTO "{ProjectTables.MeanSpeed.value}" ({', '.join(f'"{f}"' for f in fields)})
             VALUES ({', '.join(f'${nth_field}' for nth_field in range(1, len(fields) + 1))})
-            ON CONFLICT ON CONSTRAINT "unique_mean_speed_per_trp_and_time" DO NOTHING;
+            ON CONFLICT ON CONSTRAINT "{ProjectConstraints.UNIQUE_MEAN_SPEED_PER_TRP_AND_TIME.value}" DO NOTHING;
         """, many=True, many_values=list(self.data.itertuples(index=False, name=None)))
 
         print(f"""Ended TRP: {fp} cleaning""")
@@ -295,6 +307,47 @@ class RoadGraphObjectsIngestionPipeline:
             return geojson.loads(await geo.read())
 
 
+    @staticmethod
+    async def _load_json_async(fp: str) -> dict[str, Any]:
+        async with aiofiles.open(fp, "r", encoding="utf-8") as j:
+            return json.loads(await j.read())
+
+
+    @staticmethod
+    def _get_toll_station_property_by_id(properties_list: list[dict[str, Any]], target_id: int, target_property: str = "verdi") -> str | None:
+        return next((eg.get(target_property) for eg in properties_list if eg.get("id") == target_id), None)
+
+
+    async def ingest_toll_stations(self, fp: str, batch_size: PositiveInt = 200, n_async_jobs: PositiveInt = 10) -> None:
+        semaphore = asyncio.Semaphore(n_async_jobs)
+        toll_stations = (await self._load_json_async(fp)).get("objekter", [])
+
+        tolls_ing_query = f"""
+            INSERT INTO "{ProjectTables.TollStations.value}" ("id", "name", "geom")
+            VALUES ($1, $2, ST_Transform(
+                    ST_Force2D(ST_GeomFromText($3, $4)),
+                    {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}
+                ) -- Removing the Z axis from the points which have that dimension as well
+            )
+            ON CONFLICT DO NOTHING;
+        """ # Transforming the projection which the current geometry has into WGS84 to store it into the DB
+
+        batches = get_n_items_from_gen(gen=((
+            station.get("id"),
+            self._get_toll_station_property_by_id(properties_list=station.get("egenskaper"), target_id=1078, target_property="verdi"),
+            station.get("geometri").get("wkt"),
+            station.get("geometri").get("srid")
+        ) for station in toll_stations), n=batch_size)
+
+        async def limited_ingest(batch: list[tuple[Any]]) -> None:
+            async with semaphore:
+                return await self._db_broker_async.send_sql_async(sql=tolls_ing_query, many=True, many_values=batch)
+
+        await asyncio.gather(*(asyncio.wait_for(limited_ingest(batch), timeout=30) for batch in batches)) #Setting a timer so if the tasks fail for whatever reason they won't hang forever
+
+        return None
+
+
     async def ingest_nodes(self, fp: str | Path, batch_size: PositiveInt = 200, n_async_jobs: PositiveInt = 10) -> None:
         semaphore = asyncio.Semaphore(n_async_jobs)
 
@@ -304,7 +357,6 @@ class RoadGraphObjectsIngestionPipeline:
                 "node_id",
                 "type",
                 "geom",
-                "connected_traffic_link_ids",
                 "road_node_ids",
                 "is_roundabout",
                 "number_of_incoming_links",
@@ -314,15 +366,15 @@ class RoadGraphObjectsIngestionPipeline:
                 "road_system_references",
                 "raw_properties"
             ) VALUES (
-                $1, $2, ST_GeomFromText($3, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}), $4, $5, $6, $7, $8, $9, $10, $11, $12
-            );
+                $1, $2, ST_GeomFromText($3, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}), $4, $5, $6, $7, $8, $9, $10, $11
+            )
+            ON CONFLICT DO NOTHING;
         """
 
         batches = get_n_items_from_gen(gen=((
             feature.get("properties").get("id"),
             feature.get("type"),
             shape(feature.get("geometry")).wkt, # Convertion of the geometry to WKT for PostGIS compatibility (so that PostGIS can read the actual shape of the feature)
-            feature.get("properties").get("connectedTrafficLinkIds"),
             feature.get("properties").get("roadNodeIds"),
             feature.get("properties").get("isRoundabout"),
             feature.get("properties").get("numberOfIncomingLinks"),
@@ -345,9 +397,13 @@ class RoadGraphObjectsIngestionPipeline:
     async def ingest_links(self, fp: str | Path, batch_size: PositiveInt = 200, n_async_jobs: PositiveInt = 10) -> None:
         semaphore = asyncio.Semaphore(n_async_jobs)
         road_categories = await self._db_broker_async.get_road_categories_async(enable_cache=True, name_as_key=True)
+        valid_toll_station_ids = list(r["id"] for r in (await self._db_broker_async.send_sql_async(
+            f'SELECT "id" FROM "{ProjectTables.TollStations.value}";'
+        )))
+        valid_trp_ids = list(r["id"] for r in (await self._db_broker_async.get_trp_ids_async()))
 
         links = (await self._load_geojson_async(fp=fp)).get("features", [])
-        ing_query = f"""
+        links_ing_query = f"""
                     INSERT INTO "{ProjectTables.RoadGraphLinks.value}" (
                         "link_id",
                         "type",
@@ -364,8 +420,6 @@ class RoadGraphObjectsIngestionPipeline:
                         "subsumed_traffic_node_ids",
                         "road_link_ids",
                         "road_node_ids",
-                        "municipality_ids",
-                        "county_ids",
                         "highest_speed_limit",
                         "lowest_speed_limit",
                         "max_lanes",
@@ -376,8 +430,6 @@ class RoadGraphObjectsIngestionPipeline:
                         "is_norwegian_scenic_route",
                         "is_ferry_route",
                         "is_ramp",
-                        "toll_station_ids",
-                        "associated_trp_ids",
                         "traffic_volumes",
                         "urban_ratio",
                         "number_of_establishments",
@@ -387,13 +439,45 @@ class RoadGraphObjectsIngestionPipeline:
                         "anomalies",
                         "raw_properties"
                     ) VALUES (
-                        $1, $2, ST_GeomFromText($3, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}), $4, $5, $6, $7, $8, $9, $10,
+                        $1, $2, ST_GeomFromText($3, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}), $4, $5, $6, $7, $8, $9, $10,
                         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-                        $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37
-                    );
+                        $24, $25, $26, $27, $28, $29, $30, $31, $32, $33
+                    )
+                    ON CONFLICT DO NOTHING;
                 """
 
-        batches = get_n_items_from_gen(gen=((
+        link_municipalities_ing_query = f"""
+                    INSERT INTO "{ProjectTables.RoadLink_Municipalities.value}" (
+                        "link_id",
+                        "municipality_id"
+                    )
+                    VALUES ($1, $2)
+                    ON CONFLICT DO NOTHING;
+        """
+        link_counties_ing_query = f"""
+                    INSERT INTO "{ProjectTables.RoadLink_Counties.value}" (
+                        "link_id",
+                        "county_id"
+                    )
+                    VALUES ($1, $2)
+                    ON CONFLICT DO NOTHING;
+        """
+        link_toll_stations_ing_query = f"""
+                    INSERT INTO "{ProjectTables.RoadLink_TollStations.value}" (
+                        "link_id",
+                        "toll_station_id"
+                    )
+                    VALUES ($1, $2);
+        """
+        link_trps_ing_query = f"""
+                    INSERT INTO "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" (
+                        "link_id",
+                        "trp_id"
+                    )
+                    VALUES ($1, $2);
+        """
+
+        link_batches = get_n_items_from_gen(gen=((
             feature.get("properties").get("id"),
             feature.get("type"),
             shape(feature.get("geometry")).wkt, # Convert geometry to WKT with shapely's shape() and then extracting the wkt
@@ -409,8 +493,6 @@ class RoadGraphObjectsIngestionPipeline:
             feature.get("properties").get("subsumedTrafficNodeIds"),
             feature.get("properties").get("roadLinkIds"),
             feature.get("properties").get("roadNodeIds"),
-            feature.get("properties").get("municipalityIds"),
-            feature.get("properties").get("countyIds"),
             feature.get("properties").get("highestSpeedLimit"),
             feature.get("properties").get("lowestSpeedLimit"),
             feature.get("properties").get("maxLanes"),
@@ -421,8 +503,6 @@ class RoadGraphObjectsIngestionPipeline:
             feature.get("properties").get("isNorwegianScenicRoute"),
             feature.get("properties").get("isFerryRoute"),
             feature.get("properties").get("isRamp"),
-            feature.get("properties").get("tollStationIds"),
-            feature.get("properties").get("associatedTrpIds"),
             json.dumps(feature.get("properties").get("trafficVolumes", [])),
             feature.get("properties").get("urbanRatio"),
             feature.get("properties").get("numberOfEstablishments"),
@@ -432,12 +512,36 @@ class RoadGraphObjectsIngestionPipeline:
             json.dumps(feature.get("properties").get("anomalies", [])),
             json.dumps(feature)
         ) for feature in links), n=batch_size)
+        link_municipalities_matches = get_n_items_from_gen(gen=(
+            (feature.get("properties").get("id"), muni)
+            for feature in links
+            for muni in feature.get("properties").get("municipalityIds")
+        ), n=batch_size)
+        link_counties_matches = get_n_items_from_gen(gen=(
+            (feature.get("properties").get("id"), county)
+            for feature in links
+            for county in feature.get("properties").get("countyIds")
+        ), n=batch_size)
+        link_toll_stations_matches = get_n_items_from_gen(gen=(
+            (feature.get("properties").get("id"), station)
+            for feature in links
+            for station in feature.get("properties").get("tollStationIds")
+            if station in valid_toll_station_ids
+        ), n=batch_size)
+        link_trps_matches = get_n_items_from_gen(gen=(
+            (feature.get("properties").get("id"), station)
+            for feature in links
+            for station in feature.get("properties").get("associatedTrpIds")
+            if station in valid_trp_ids
+        ), n=batch_size)
 
-        async def limited_ingest(batch: list[tuple[Any]]) -> None:
+        async def limited_ingest(query: str, batch: list[tuple[Any]]) -> None:
             async with semaphore:
-                return await self._db_broker_async.send_sql_async(sql=ing_query, many=True, many_values=batch)
+                return await self._db_broker_async.send_sql_async(sql=query, many=True, many_values=batch)
 
-        await asyncio.gather(*(limited_ingest(batch) for batch in batches))
+        for query, batches in zip([links_ing_query, link_municipalities_ing_query, link_counties_ing_query, link_toll_stations_ing_query, link_trps_ing_query],
+                                  [link_batches, link_municipalities_matches, link_counties_matches, link_toll_stations_matches, link_trps_matches]):
+            await asyncio.gather(*(asyncio.wait_for(limited_ingest(query, batch), timeout=30) for batch in batches), return_exceptions=True) #Setting a timer so if the tasks fail for whatever reason they won't hang forever
 
         return None
 
@@ -448,14 +552,24 @@ class MLPreprocessingPipeline:
     def __init__(self):
         self._scaler: MinMaxScaler
 
+
     @property
     def scaler(self) -> MinMaxScaler | None:
         return self._scaler or None
 
     @staticmethod
     def _add_lag_features(data: dd.DataFrame, target: str, lags: list[PositiveInt]) -> dd.DataFrame:
+        data = data.reset_index(drop=True)
         for lag in lags:
-            data[f"{target}_lag{lag}h"] = data[target].shift(lag)  # n hours shift
+            data[f"{target}_lag{lag}h"] = data.groupby("trp_id")[target].shift(lag)  # N hours shift
+            # print(data.columns)
+            # print(data.dtypes)
+            #IMPORTANT: we're grouping because in the dataframe there's data from multiple TRPs which have completely different values
+            data[f"coverage_{target}_lag{lag}h"] = data["coverage"] * data[f"{target}_lag{lag}h"]
+
+        for lag_t1, lag_t2 in pairwise(lags):
+            data[f"{target}_delta_{lag_t1}h_{lag_t2}h"] = data[f"{target}_lag{lag_t1}h"] - data[f"{target}_lag{lag_t2}h"] #TODO IN THE FUTURE ADDRESS THE CASE WHERE THIS SUBTRACTION COULD BE ZERO
+            # Delta value between the first lag and the second one per cycle. Lags are taken pairwise from the lags list, if the number of lags is odd the last element won't be included. If the lags list has only one element no delta can be calculated, so the pairwise() function will just return an empty iterator
         return data.persist()
 
 
@@ -475,6 +589,18 @@ class MLPreprocessingPipeline:
             data[feat] = le.fit_transform(data[feat])
         return data.persist()
 
+    @staticmethod
+    def _wgs84_to_utm(lat: float, lon: float) -> tuple[float, float]:
+        return utm.from_latlon(lat, lon) #https://github.com/Turbo87/utm
+
+    @staticmethod
+    def _add_utm_columns(df: pd.DataFrame) -> pd.DataFrame:
+        #Uses pandas because each partition of a Dask dataframe is actually a pandas dataframe
+        easting, northing, _, _ = zip(*df.apply(lambda r: utm.from_latlon(r.lat, r.lon), axis=1))
+        df["utm_easting"] = easting
+        df["utm_northing"] = northing
+        return df
+
 
     def preprocess_volume(self,
                           data: dd.DataFrame,
@@ -482,9 +608,16 @@ class MLPreprocessingPipeline:
                           z_score: bool = False) -> dd.DataFrame:
         if z_score:
             data = ZScore(data, column=GlobalDefinitions.VOLUME)
+
         data = self._add_lag_features(data=data, target=GlobalDefinitions.VOLUME, lags=lags)
-        data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES)
-        data = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_SCALED_FEATURES, scaler=MinMaxScaler)
+        data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
+
+        data = data.map_partitions(self._add_utm_columns) #Convert latitude and longitude into the appropriate UTM zone eastings and northings to maintain an accurate ratio when moving across the zone and not having distortions like in WGS84 coordinates where the closer to the poles the heavier distortions come into place
+
+        data = self._scale_features(data=data, feats=GlobalDefinitions.VOLUME_TO_SCALE_FEATURES, scaler=MinMaxScaler)
+        data = data.sort_values(by=GlobalDefinitions.PREPROCESSING_SORTING_COLUMNS, ascending=True)
+        data["year"] = data["year"].astype(int)
+
         return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
 
@@ -495,8 +628,14 @@ class MLPreprocessingPipeline:
         if z_score:
             data = ZScore(data, column=GlobalDefinitions.MEAN_SPEED)
         data = self._add_lag_features(data=data, target=GlobalDefinitions.MEAN_SPEED, lags=lags)
-        data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.ENCODED_FEATURES)
-        data = self._scale_features(data=data, feats=GlobalDefinitions.MEAN_SPEED_SCALED_FEATURES, scaler=MinMaxScaler)
+        data = self._encode_categorical_features(data=data, feats=GlobalDefinitions.CATEGORICAL_FEATURES)
+
+        data = data.map_partitions(self._add_utm_columns) #Convert latitude and longitude into the appropriate UTM zone eastings and northings to maintain an accurate ratio when moving across the zone and not having distortions like in WGS84 coordinates where the closer to the poles the heavier distortions come into place
+
+        data = self._scale_features(data=data, feats=GlobalDefinitions.MEAN_SPEED_TO_SCALE_FEATURES, scaler=MinMaxScaler)
+        data = data.sort_values(by=GlobalDefinitions.PREPROCESSING_SORTING_COLUMNS, ascending=True)
+        data["year"] = data["year"].astype(int)
+
         return data.drop(columns=GlobalDefinitions.NON_PREDICTORS, axis=1).persist()
 
 
@@ -506,11 +645,11 @@ class MLPredictionPipeline:
                  trp_id: str,
                  road_category: str,
                  target: str,
-                 db_broker: Any,
-                 loader: Any,
+                 db_broker: callable,
+                 loader: callable,
                  preprocessing_pipeline: MLPreprocessingPipeline,
-                 model: Any
-                 ):
+                 model: callable
+    ):
         from brokers import DBBroker
         from loaders import BatchStreamLoader
         from ml import ModelWrapper
@@ -525,6 +664,8 @@ class MLPredictionPipeline:
 
         check_target(target=self._target, errors=True)
 
+        self._trp_metadata = self._db_broker.get_trp_metadata(trp_id=trp_id)
+
 
     def _get_training_records(self, training_mode: Literal[0, 1], cache_latest_dt_collection: bool = True) -> dd.DataFrame:
         """
@@ -536,11 +677,11 @@ class MLPredictionPipeline:
 
         def get_volume_training_data_start():
             return (self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
-                    - timedelta(hours=((self._db_broker.get_forecasting_horizon(target=self._target) - self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2))
+                    - timedelta(hours=((self._db_broker.get_forecasting_horizon(target=self._target) - self._db_broker.get_volume_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).seconds / 3600 * 24) * 2))
 
         def get_mean_speed_training_data_start():
             return (self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
-                    - timedelta(hours=((self._db_broker.get_forecasting_horizon(target=self._target) - self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).days * 24) * 2))
+                    - timedelta(hours=((self._db_broker.get_forecasting_horizon(target=self._target) - self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]).seconds / 3600 * 24) * 2))
 
         trp_id_filter = (self._trp_id,) if training_mode == 0 else None
         training_functions_mapping = {
@@ -556,18 +697,20 @@ class MLPredictionPipeline:
             }
         }
         return training_functions_mapping[self._target]["loader"](
-            road_category_filter=[self._road_category],
+            road_category_filter=[self._road_category] if self._road_category else None,
             trp_list_filter=trp_id_filter,
             encoded_cyclical_features=True,
             year=True,
             is_covid_year=True,
             is_mice=False,
+            trp_lat=True,
+            trp_lon=True,
             zoned_dt_start=training_functions_mapping[self._target]["training_data_start"](),
             zoned_dt_end=training_functions_mapping[self._target]["date_boundaries"](trp_id_filter=trp_id_filter, enable_cache=cache_latest_dt_collection)["max"]
         ).assign(is_future=False).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).persist()
 
 
-    def _generate_future_records(self, forecasting_horizon: datetime.datetime) -> dd.DataFrame | None:
+    def _generate_future_records(self, training_mode: Literal[0, 1], forecasting_horizon: datetime.datetime) -> dd.DataFrame | None:
         """
         Generate records of the future to predict.
 
@@ -584,47 +727,57 @@ class MLPredictionPipeline:
 
         attr = {GlobalDefinitions.VOLUME: np.nan} if self._target == GlobalDefinitions.VOLUME else {GlobalDefinitions.MEAN_SPEED: np.nan, "percentile_85": np.nan}  # TODO ADDRESS THE FACT THAT WE CAN'T PREDICT percentile_85, SO WE HAVE TO REMOVE IT FROM HERE
 
-        last_available_data_dt = self._db_broker.get_volume_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"] if self._target == GlobalDefinitions.VOLUME else \
-        self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=tuple([self._trp_id]), enable_cache=False)["max"]
-        rows_to_predict = ({
+        last_available_data_dt = self._db_broker.get_volume_date_boundaries(trp_id_filter=tuple([self._trp_id]) if training_mode == 0 else None, enable_cache=False)["max"] if self._target == GlobalDefinitions.VOLUME else \
+            self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=tuple([self._trp_id]) if training_mode == 0 else None, enable_cache=False)["max"]
+
+        #print("DEBUG: last_available_data_dt =", last_available_data_dt)
+        #print("DEBUG: forecasting_horizon =", forecasting_horizon)
+
+        rows_to_predict = pd.DataFrame({
             "trp_id": self._trp_id,
             **attr,
             "coverage": 100.0,
             # We'll assume it's 100 since we won't know the coverage until the measurements are actually made
             "zoned_dt_iso": dt,
-            "day_cos": cos_encoder(dt.day, timeframe=31),
-            "day_sin": sin_encoder(dt.day, timeframe=31),
-            "hour_cos": cos_encoder(dt.hour, timeframe=24),
-            "hour_sin": sin_encoder(dt.hour, timeframe=24),
-            "month_cos": cos_encoder(dt.month, timeframe=12),
-            "month_sin": sin_encoder(dt.month, timeframe=12),
+            "day_cos": cos_encoder(dt.day, timeframe=GlobalDefinitions.DAYS_TIMEFRAME),
+            "day_sin": sin_encoder(dt.day, timeframe=GlobalDefinitions.DAYS_TIMEFRAME),
+            "hour_cos": cos_encoder(dt.hour, timeframe=GlobalDefinitions.HOUR_TIMEFRAME),
+            "hour_sin": sin_encoder(dt.hour, timeframe=GlobalDefinitions.HOUR_TIMEFRAME),
+            "month_cos": cos_encoder(dt.month, timeframe=GlobalDefinitions.MONTHS_TIMEFRAME),
+            "month_sin": sin_encoder(dt.month, timeframe=GlobalDefinitions.MONTHS_TIMEFRAME),
             "year": dt.year,
-            "week_cos": cos_encoder(dt.isocalendar().week, timeframe=53),
-            "week_sin": sin_encoder(dt.isocalendar().week, timeframe=53),
-            "is_covid_year": False
+            "week_cos": cos_encoder(dt.isocalendar().week, timeframe=GlobalDefinitions.WEEKS_TIMEFRAME),
+            "week_sin": sin_encoder(dt.isocalendar().week, timeframe=GlobalDefinitions.WEEKS_TIMEFRAME),
+            "is_covid_year": False,
+            "lat": self._trp_metadata["lat"],
+            "lon": self._trp_metadata["lon"]
         } for dt in pd.date_range(start=last_available_data_dt, end=forecasting_horizon, freq="1h"))
         # The start parameter contains the last date for which we have data available, the end one contains the target date for which we want to predict data
 
-        return dd.from_pandas(pd.DataFrame(list(rows_to_predict))).assign(is_future=True).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).persist()
+        return dd.from_pandas(rows_to_predict).assign(is_future=True).repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE).persist()
 
 
-    def _get_future_records(self):
-        past_data = self._get_training_records(
-            training_mode=0,
-            cache_latest_dt_collection=True
-        )
-        future_records = self._generate_future_records(forecasting_horizon=self._db_broker.get_forecasting_horizon(target=self._target))
-        return getattr(self._pipeline, f"preprocess_{self._target}")(data=dd.concat([past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=[24, 36, 48, 60, 72], z_score=False)
+    def _get_future_records(self, training_mode: Literal[0, 1], lags: list[PositiveInt]):
+        preprocessing_methods_mapping = {
+            GlobalDefinitions.VOLUME: self._pipeline.preprocess_volume,
+            GlobalDefinitions.MEAN_SPEED: self._pipeline.preprocess_mean_speed
+        }
+
+        past_data = self._get_training_records(training_mode=training_mode, cache_latest_dt_collection=True)
+        future_records = self._generate_future_records(training_mode=training_mode, forecasting_horizon=self._db_broker.get_forecasting_horizon(target=self._target))
+
+        return preprocessing_methods_mapping[self._target](data=dd.concat([past_data, future_records], axis='columns').repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE), lags=lags, z_score=False)
 
 
-    def start(self, trp_tuning: bool = False) -> dd.DataFrame:
+    def start(self, training_mode: Literal[0, 1], lags: list[PositiveInt], trp_tuning: bool = False) -> dd.DataFrame:
         # trp_tuning defines if we want to train the already trained model on data exclusively from the TRP which we want to forecast data for to improve prediction accuracy
         scaling_mapping = {
-            GlobalDefinitions.VOLUME: GlobalDefinitions.VOLUME_SCALED_FEATURES,
-            GlobalDefinitions.MEAN_SPEED: GlobalDefinitions.MEAN_SPEED_SCALED_FEATURES
+            GlobalDefinitions.VOLUME: GlobalDefinitions.VOLUME_TO_SCALE_FEATURES,
+            GlobalDefinitions.MEAN_SPEED: GlobalDefinitions.MEAN_SPEED_TO_SCALE_FEATURES
         }
-        scaled_cols = scaling_mapping[self._target]
-        data = self._get_future_records()
+        cols_to_scale = scaling_mapping[self._target]
+        data = self._get_future_records(training_mode=training_mode, lags=lags)
+
         if trp_tuning:
             X_tune, y_tune = split_by_target(
                 data=data[data["is_future"] != True].drop(columns=["is_future"]).persist(),
@@ -639,13 +792,50 @@ class MLPredictionPipeline:
             target=self._target,
             mode=1
         )
+        X_predict = X_predict[self._model.feature_order]
+
+        data = data.reset_index(drop=True)
+
         data[self._target] = dd.from_array(self._model.predict(X_predict))
-        data[scaled_cols] = self._pipeline.scaler.inverse_transform(data[scaled_cols])
-        print(data.compute())
-        return data
+        data[cols_to_scale] = self._pipeline.scaler.inverse_transform(data[cols_to_scale])
+
+        data = data.map_partitions(apply_cyclical_decoding, "hour_sin", "hour_cos", GlobalDefinitions.HOUR_TIMEFRAME, 0, "hour")
+        data = data.map_partitions(apply_cyclical_decoding, "day_sin", "day_cos", GlobalDefinitions.DAYS_TIMEFRAME, 1, "day")
+        data = data.map_partitions(apply_cyclical_decoding, "month_sin", "month_cos", GlobalDefinitions.MONTHS_TIMEFRAME, 1, "month")
+        data = data.map_partitions(apply_cyclical_decoding, "week_sin", "week_cos", GlobalDefinitions.WEEKS_TIMEFRAME, 1, "week")
+
+        data = data.map_partitions(lambda df: df.assign(zoned_dt_iso=pd.to_datetime(dict(year=df["year"], month=df["month"], day=df["day"], hour=df["hour"]), errors="coerce")))
+
+        return data.drop(columns=["coverage", "hour_sin", "hour_cos", "day_sin", "day_cos", "month_sin", "month_cos", "week_sin", "week_cos"]).persist()
 
 
+    def plot_predictions(self, predictions: dd.DataFrame, show: bool = False) -> plt.Figure:
 
+        data_dates_upper_boundary = self._db_broker.get_volume_date_boundaries(trp_id_filter=[self._trp_id])["max"] if self._target == GlobalDefinitions.VOLUME else self._db_broker.get_mean_speed_date_boundaries(trp_id_filter=[self._trp_id])["max"]
+
+        fig, ax = plt.subplots(figsize=(16, 9))
+
+        ax.plot(
+            x=predictions["zoned_dt_iso"],
+            y=predictions[self._target],
+            marker='o',
+            linestyle='dashed',
+            linewidth=2,
+            markersize=12
+        )
+
+        ax.grid(axis="both")
+        ax.title(f"{self._target} predictions from {data_dates_upper_boundary} to {self._db_broker.get_forecasting_horizon(self._target)}")
+
+        ax.xlabel("Zoned datetime")
+        ax.ylabel(f"{self._target} predictions")
+
+        ax.legend()
+
+        if show:
+            fig.show()
+
+        return fig
 
 
 

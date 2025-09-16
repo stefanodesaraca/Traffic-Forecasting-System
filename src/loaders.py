@@ -1,7 +1,6 @@
 import datetime
 from typing import Any, Generator
 import dask.dataframe as dd
-import numpy as np
 import pandas as pd
 from pydantic.types import PositiveInt
 
@@ -44,6 +43,7 @@ class BatchStreamLoader:
                    batch_size: PositiveInt = 50000,
                    trp_list_filter: list[str] | None = None,
                    road_category_filter: list[str] | None = None,
+                   county_ids_filter: list[str] | None = None,
                    limit: PositiveInt | None = None,
                    split_cyclical_features: bool = False,
                    year: bool = True,
@@ -52,6 +52,8 @@ class BatchStreamLoader:
                    is_mice: bool = False,
                    zoned_dt_start: datetime.datetime | None = None,
                    zoned_dt_end: datetime.datetime | None = None,
+                   trp_lat: bool | None = False,
+                   trp_lon: bool | None = False,
                    sort_by_date: bool = True,
                    sort_ascending: bool = True,
                    df_partitions_size: PositiveInt = 100000
@@ -64,6 +66,8 @@ class BatchStreamLoader:
                 {"v.is_mice AS is_mice," if is_mice else ""}
                 v.zoned_dt_iso AS zoned_dt_iso
                 {",EXTRACT(YEAR FROM zoned_dt_iso) as year" if year else ""}
+                {f",t.lat AS lat" if trp_lat else ""}
+                {f",t.lon AS lon" if trp_lon else ""}
             {'''
                 ,
                 EXTRACT(DAY FROM zoned_dt_iso) AS day_of_month,
@@ -98,12 +102,13 @@ class BatchStreamLoader:
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
             AND {f'''"zoned_dt_iso" >= '{str(zoned_dt_start)}'::timestamptz''' if zoned_dt_start else "1=1"}
             AND {f'''"zoned_dt_iso" <= '{str(zoned_dt_end)}'::timestamptz''' if zoned_dt_end else "1=1"}
+            AND {f"t.county_id = ANY(%s)" if county_ids_filter else "1=1"}
             {f'''
             ORDER BY "zoned_dt_iso" {"ASC" if sort_ascending else "DESC"}
             ''' if sort_by_date else ""
             }
             {f"LIMIT {limit}" if limit else ""}
-        """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
+        """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter, county_ids_filter] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
         # The ORDER BY (descending order) is necessary since in time series forecasting the order of the records is fundamental
 
 
@@ -111,6 +116,7 @@ class BatchStreamLoader:
                        batch_size: PositiveInt = 50000,
                        trp_list_filter: list[str] | None = None,
                        road_category_filter: list[str] | None = None,
+                       county_ids_filter: list[str] | None = None,
                        limit: PositiveInt | None = None,
                        split_cyclical_features: bool = False,
                        year: bool = True,
@@ -119,6 +125,8 @@ class BatchStreamLoader:
                        is_mice: bool = False,
                        zoned_dt_start: datetime.datetime | None = None,
                        zoned_dt_end: datetime.datetime | None = None,
+                       trp_lat: bool | None = False,
+                       trp_lon: bool | None = False,
                        sort_by_date: bool = True,
                        sort_ascending: bool = True,
                        df_partitions_size: PositiveInt = 100000
@@ -132,6 +140,8 @@ class BatchStreamLoader:
                  {"ms.is_mice AS is_mice," if is_mice else ""}
                  ms.zoned_dt_iso AS zoned_dt_iso
                 {",EXTRACT(YEAR FROM zoned_dt_iso) as year" if year else ""}
+                {f",t.lat AS lat" if trp_lat else ""}
+                {f",t.lon AS lon" if trp_lon else ""}
             {'''
                 ,
                 EXTRACT(DAY FROM zoned_dt_iso) AS day_of_month,
@@ -166,12 +176,13 @@ class BatchStreamLoader:
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
             AND {f'''"zoned_dt_iso" >= '{str(zoned_dt_start)}'::timestamptz''' if zoned_dt_start else "1=1"}
             AND {f'''"zoned_dt_iso" <= '{str(zoned_dt_end)}'::timestamptz''' if zoned_dt_end else "1=1"}
+            AND {f"t.county_id = ANY(%s)" if county_ids_filter else "1=1"}
             {f'''
             ORDER BY "zoned_dt_iso" {"ASC" if sort_ascending else "DESC"}''' 
             if sort_by_date else ""
             }            
             {f"LIMIT {limit}" if limit else ""}
-        """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
+        """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter, county_ids_filter] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
         # The ORDER BY (descending order) is necessary since in time series forecasting the order of the records is fundamental
 
 
@@ -184,11 +195,9 @@ class BatchStreamLoader:
                   ) -> dd.DataFrame:
         return self._load_from_stream(self._db_broker.get_stream(sql=f"""
             SELECT 
-                "id",
                 "node_id",
                 "type",
                 ST_AsText("geom") AS geom,
-                "connected_traffic_link_ids",
                 "road_node_ids",
                 "is_roundabout",
                 "number_of_incoming_links",
@@ -217,61 +226,74 @@ class BatchStreamLoader:
                   county_ids_filter: list[str] | None = None,
                   node_ids_filter: list[str] | None = None,
                   link_ids_filter: list[str] | None = None,
-                  has_only_public_transport_lanes_filter: bool | None = False,
+                  has_only_public_transport_lanes_filter: bool | None = None,
+                  has_trps: bool | None = None,
+                  has_toll_stations: bool | None = None,
+                  has_ferry_routes: bool | None = None,
                   limit: PositiveInt | None = None,
                   df_partitions_size: PositiveInt = 100000) -> dd.DataFrame:
         return self._load_from_stream(self._db_broker.get_stream(sql=f"""
             SELECT 
-                "id",
-                "link_id",
-                "type",
+                rl.link_id,
+                rl.type,
                 ST_AsText("geom") AS geom,
-                "year_applies_to",
-                "candidate_ids",
-                "road_system_references",
-                "road_category",
-                "road_placements",
-                "functional_road_class",
-                "function_class",
-                "start_traffic_node_id",
-                "end_traffic_node_id",
-                "subsumed_traffic_node_ids",
-                "road_link_ids",
-                "road_node_ids",
-                "municipality_ids",
-                "county_ids",
-                "highest_speed_limit",
-                "lowest_speed_limit",
-                "max_lanes",
-                "min_lanes",
-                "has_only_public_transport_lanes",
-                "length",
-                "traffic_direction_wrt_metering_direction",
-                "is_norwegian_scenic_route",
-                "is_ferry_route",
-                "is_ramp",
-                "toll_station_ids",
-                "associated_trp_ids"
-                "traffic_volumes",
-                "urban_ratio",
-                "number_of_establishments",
-                "number_of_employees",
-                "number_of_inhabitants",
-                "has_anomalies",
-                "anomalies",
-                "raw_properties"
-            FROM "{ProjectTables.RoadGraphLinks.value}"
-            WHERE {f'''"link_id" = ANY(%s)'''
+                rl.year_applies_to,
+                rl.candidate_ids,
+                rl.road_system_references,
+                rl.road_category,
+                rl.road_placements,
+                rl.functional_road_class,
+                rl.function_class,
+                rl.start_traffic_node_id,
+                rl.end_traffic_node_id,
+                rl.subsumed_traffic_node_ids,
+                rl.road_link_ids,
+                rl.highest_speed_limit,
+                rl.lowest_speed_limit,
+                rl.max_lanes,
+                rl.min_lanes,
+                rl.has_only_public_transport_lanes,
+                rl.length,
+                rl.traffic_direction_wrt_metering_direction,
+                rl.is_norwegian_scenic_route,
+                rl.is_ferry_route,
+                rl.is_ramp,
+                rl.traffic_volumes,
+                rl.urban_ratio,
+                rl.number_of_establishments,
+                rl.number_of_employees,
+                rl.number_of_inhabitants,
+                rl.has_anomalies,
+                rl.anomalies,
+                rl.raw_properties,
+                (SELECT EXISTS (
+                        SELECT 1
+                        FROM "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}"
+                        WHERE link_id = rl.link_id
+                    )) AS has_trps,
+                (SELECT EXISTS (
+                        SELECT 1
+                        FROM "{ProjectTables.RoadLink_TollStations.value}"
+                        WHERE link_id = rl.link_id
+                    )) AS has_toll_stations
+                {''',ARRAY_AGG(m.municipality_id) AS municipality_ids''' if municipality_ids_filter else ""}
+                {''',ARRAY_AGG(c.county_id) AS county_ids''' if county_ids_filter else ""}
+            FROM "{ProjectTables.RoadGraphLinks.value}" rl 
+            {f'LEFT JOIN "{ProjectTables.RoadLink_Municipalities.value}" m ON rl.link_id = m.link_id' if municipality_ids_filter else ""}
+            {f'LEFT JOIN "{ProjectTables.RoadLink_Counties.value}" c ON rl.link_id = c.link_id' if county_ids_filter else ""}
+            LEFT JOIN "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" t ON rl.link_id = t.link_id
+            LEFT JOIN "{ProjectTables.RoadLink_TollStations.value}" ts ON rl.link_id = ts.link_id
+            WHERE {f'''"rl.link_id" = ANY(%s)'''
                 if link_id_filter else "1=1"
             }
-            {f'''"road_category" = ANY(%s)'''
+            AND {f'''"rl.road_category" = ANY(%s)'''
                 if road_category_filter else "1=1"
             }
-            AND {f'''"municipality_ids" && ANY(%s)'''
-                if node_ids_filter else "1=1"
+            AND {f'''"municipality_id" = ANY(%s)'''
+                if municipality_ids_filter else "1=1"
             }
-            AND {f'''"county_ids" && ANY(%s)'''
-                if node_ids_filter else "1=1"
+            AND {f'''"county_id" = ANY(%s)'''
+                if county_ids_filter else "1=1"
             }
             AND {f'''"road_node_ids" && ANY(%s)'''
                 if node_ids_filter else "1=1"
@@ -282,6 +304,61 @@ class BatchStreamLoader:
             AND {f'"has_only_public_transport_lanes" = FALSE' 
                 if has_only_public_transport_lanes_filter is False else "1=1"
             }
+            AND {f'''is_ferry_route = FALSE''' 
+                if has_ferry_routes else "1=1"
+            }
+            AND {f'''(SELECT EXISTS (
+                        SELECT 1
+                        FROM "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}"
+                        WHERE link_id = rl.link_id
+                    )) = TRUE''' 
+                if has_trps else "1=1"
+            }
+            AND {f'''(SELECT EXISTS (
+                        SELECT 1
+                        FROM "{ProjectTables.RoadLink_TollStations.value}"
+                        WHERE link_id = rl.link_id
+                    )) = TRUE''' 
+                if has_toll_stations else "1=1"
+            }
+            {f'''
+            GROUP BY
+                rl.id,
+                rl.link_id,
+                rl.type,
+                rl.geom,
+                rl.year_applies_to,
+                rl.candidate_ids,
+                rl.road_system_references,
+                rl.road_category,
+                rl.road_placements,
+                rl.functional_road_class,
+                rl.function_class,
+                rl.start_traffic_node_id,
+                rl.end_traffic_node_id,
+                rl.subsumed_traffic_node_ids,
+                rl.road_link_ids,
+                rl.highest_speed_limit,
+                rl.lowest_speed_limit,
+                rl.max_lanes,
+                rl.min_lanes,
+                rl.has_only_public_transport_lanes,
+                rl.length,
+                rl.traffic_direction_wrt_metering_direction,
+                rl.is_norwegian_scenic_route,
+                rl.is_ferry_route,
+                rl.is_ramp,
+                rl.traffic_volumes,
+                rl.urban_ratio,
+                rl.number_of_establishments,
+                rl.number_of_employees,
+                rl.number_of_inhabitants,
+                rl.has_anomalies,
+                rl.anomalies,
+                rl.raw_properties,
+                has_trps,
+                has_toll_stations
+            ''' if municipality_ids_filter or county_ids_filter else ""}
             {f"LIMIT {limit}" if limit else ""}
             ;
             """, filters=tuple(to_pg_array(f) for f in [

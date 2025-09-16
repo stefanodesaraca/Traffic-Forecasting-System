@@ -13,18 +13,33 @@ from asyncpg.exceptions import DuplicateDatabaseError
 import psycopg
 from psycopg.rows import tuple_row
 from cleantext import clean
-from pydantic import with_config
+import pandas as pd
 from pydantic.types import PositiveInt
 
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import (
-    RandomForestRegressor,
-    HistGradientBoostingRegressor,
+    HistGradientBoostingRegressor
 )
 
 from exceptions import ProjectDBNotFoundError
-from definitions import GlobalDefinitions, HubDBTables, HUBDBConstraints, ProjectTables, ProjectConstraints, ProjectViews, RowFactories, AIODBManagerInternalConfig as AIODBMInternalConfig
-from downloader import start_client_async, fetch_areas, fetch_road_categories, fetch_trps
+from definitions import (
+    GlobalDefinitions,
+    HubDBTables,
+    HUBDBConstraints,
+    ProjectTables,
+    ProjectConstraints,
+    ProjectViews,
+    ProjectMaterializedViews,
+    FunctionClasses,
+    RowFactories,
+    AIODBManagerInternalConfig as AIODBMInternalConfig
+)
+from downloader import (
+    start_client_async,
+    fetch_areas,
+    fetch_road_categories,
+    fetch_trps
+)
 
 
 @asynccontextmanager
@@ -74,7 +89,7 @@ class AIODBManager:
         self._db_host: str = db_host
 
 
-    async def _check_table_existance(self, table: str) -> bool:
+    async def _check_table_existence(self, table: str) -> bool:
         async with postgres_conn_async(user=self._superuser, password=self._superuser_password,
                                        dbname=self._maintenance_db, host=self._db_host) as conn:
             return (await conn.fetchval(f"""
@@ -100,13 +115,14 @@ class AIODBManager:
     async def _check_hub_db_integrity(self) -> bool:
         #Steps:
         #1. Check the "Projects" table existance
-        if any(check is False for check in [await self._check_table_existance(HubDBTables.Projects.value)]):
+        if any(check is False for check in [await self._check_table_existence(HubDBTables.Projects.value)]):
             return False
         return True
 
 
     @staticmethod
     async def insert_areas(conn: asyncpg.connection, data: dict[str, Any]) -> None:
+        municipality_aux_data = await asyncio.to_thread(pd.read_csv, GlobalDefinitions.MUNICIPALITIES_AUXILIARY_DATA, sep=";", encoding="utf-8")
 
         for part in data["areas"]["countryParts"]:
             # Insert country part
@@ -119,18 +135,20 @@ class AIODBManager:
             for county in part["counties"]:
                 # Insert county
                 await conn.execute(
-                    f"""INSERT INTO "{ProjectTables.Counties.value}" ("number", "name", "country_part_id") 
-                        VALUES ($1, $2, $3) ON CONFLICT ("number") DO NOTHING""",
+                    f"""INSERT INTO "{ProjectTables.Counties.value}" ("id", "name", "country_part_id") 
+                        VALUES ($1, $2, $3) ON CONFLICT ("id") DO NOTHING""",
                     county["number"], county["name"], part["id"]
                 )
 
                 # Insert municipalities for this county
                 for muni in county.get("municipalities", []):
+                    muni_row = municipality_aux_data.query(f'`EGS.KOMMUNENUMMER.11769` == {muni["number"]}')
+                    geom_value = muni_row["GEO.GEOMETRI"].iloc[0] if not muni_row.empty else None
                     await conn.execute(
-                        f"""INSERT INTO "{ProjectTables.Municipalities.value}" ("number", "name", "county_number", "country_part_id")
-                            VALUES ($1, $2, $3, $4)
-                            ON CONFLICT ("number") DO NOTHING""",
-                        muni["number"], muni["name"], county["number"], part["id"]
+                        f"""INSERT INTO "{ProjectTables.Municipalities.value}" ("id", "name", "county_id", "country_part_id", "geom")
+                            VALUES ($1, $2, $3, $4, $5)
+                            ON CONFLICT ("id") DO NOTHING""",
+                        muni["number"], muni["name"], county["number"], part["id"], geom_value
                     )
 
         return None
@@ -154,20 +172,20 @@ class AIODBManager:
             await conn.execute(
                 f"""
                 INSERT INTO "{ProjectTables.TrafficRegistrationPoints.value}" (
-                    "id", "name", "lat", "lon",
+                    "id", "name", "lat", "lon", "geom",
                     "road_reference_short_form", "road_category",
                     "road_link_sequence", "relative_position",
-                    "county", "country_part_id", "country_part_name",
-                    "county_number", "geographic_number",
+                    "country_part_id", "country_part_name",
+                    "county_id", "municipality_id", "geographic_number",
                     "traffic_registration_type",
                     "first_data", "first_data_with_quality_metrics"
                 )
                 VALUES (
-                    $1, $2, $3, $4,
+                    $1, $2, $3, $4, ST_SetSRID(ST_MakePoint($4, $3), {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}),
                     $5, $6,
                     $7, $8,
-                    $9, $10, $11,
-                    $12, $13,
+                    $9, $10,
+                    $11, $12, $13,
                     $14,
                     $15, $16
                 )
@@ -181,25 +199,29 @@ class AIODBManager:
                 trp["location"].get("roadReference", {}).get("roadCategory", {}).get("id"),
                 trp["location"].get("roadLinkSequence", {}).get("roadLinkSequenceId"),
                 trp["location"].get("roadLinkSequence", {}).get("relativePosition"),
-                trp["location"].get("county", {}).get("name"),
                 (
                     trp["location"].get("county", {})
                     .get("countryPart", {})
                     .get("id")
                 ),
-                trp["location"].get("county", {}).get("countryPart", {}).get("name"),
+                (
+                    trp["location"].get("county", {})
+                    .get("countryPart", {})
+                    .get("name")
+                ),
                 trp["location"].get("county", {}).get("number"),
+                trp["location"].get("municipality", {}).get("number"),
                 trp["location"].get("county", {}).get("geographicNumber"),
                 trp.get("trafficRegistrationType"),
-                datetime.strptime(trp.get("dataTimeSpan", {}).get("firstData"), GlobalDefinitions.DT_ISO_TZ_FORMAT),
-                datetime.strptime(trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics"), GlobalDefinitions.DT_ISO_TZ_FORMAT)
+                datetime.strptime(trp.get("dataTimeSpan", {}).get("firstData"), GlobalDefinitions.DT_ISO_TZ_FORMAT) if trp.get("dataTimeSpan", {}).get("firstData") else None,
+                datetime.strptime(trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics"), GlobalDefinitions.DT_ISO_TZ_FORMAT) if trp.get("dataTimeSpan", {}).get("firstDataWithQualityMetrics") else None
             )
         return None
 
     @staticmethod
     async def insert_models(conn: asyncpg.connection) -> None:
 
-        for model in (RandomForestRegressor, DecisionTreeRegressor, HistGradientBoostingRegressor):
+        for model in [DecisionTreeRegressor, HistGradientBoostingRegressor]:
             estimator_name = model.__name__
             async with aiofiles.open(GlobalDefinitions.MODEL_GRIDS_FILE, "r", encoding="utf-8") as gs:
                 data = json.loads(await gs.read())[estimator_name] ##estimator_name
@@ -217,8 +239,8 @@ class AIODBManager:
                 estimator_name,
                 model._estimator_type, #estimator_type
                 json.dumps(data["base_parameters"]),
-                json.dumps(data[f"{GlobalDefinitions.VOLUME}_grid"]), #volume_grid
-                json.dumps(data[f"{GlobalDefinitions.MEAN_SPEED}_grid"]) #mean_speed_grid
+                json.dumps(data[f"{GlobalDefinitions.VOLUME}"]), #volume grid
+                json.dumps(data[f"{GlobalDefinitions.MEAN_SPEED}"]) #mean_speed grid
             )
 
             joblib_bytes = io.BytesIO()  # Serializing model into a joblib object directly in memory through the BytesIO class
@@ -237,6 +259,16 @@ class AIODBManager:
                 joblib_bytes.getvalue()
             )
 
+        return None
+
+    @staticmethod
+    async def insert_function_classes(conn: asyncpg.connection) -> None:
+        for function_class in FunctionClasses:
+            await conn.execute(f"""
+                INSERT INTO "{ProjectTables.FunctionClasses.value}" ("id", "name")
+                VALUES ($1, $2)
+                ON CONFLICT DO NOTHING;
+            """, function_class.name, function_class.value)
         return None
 
 
@@ -259,8 +291,7 @@ class AIODBManager:
                            "Enter json TRPs' data file path: ")
 
         print("Setting up necessary data...")
-        for fetch, insert, td, sd, fd, jed in zip(fetch_funcs, insert_funcs, try_desc, success_desc, fail_desc,
-                                                  json_enter_desc, strict=True):
+        for fetch, insert, td, sd, fd, jed in zip(fetch_funcs, insert_funcs, try_desc, success_desc, fail_desc, json_enter_desc, strict=True):
             print(td)
             data = await fetch(await start_client_async())
             if data:
@@ -271,6 +302,9 @@ class AIODBManager:
                 json_file = input(jed)
                 async with aiofiles.open(json_file, "r", encoding="utf-8") as a:
                     await insert(conn=conn, data=json.load(a))
+
+        await self.insert_models(conn=conn)
+        await self.insert_function_classes(conn=conn)
 
         return None
 
@@ -316,18 +350,19 @@ class AIODBManager:
                         );
 
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.Counties.value}" (
-                            number INTEGER PRIMARY KEY,
+                            id INTEGER PRIMARY KEY,
                             name TEXT NOT NULL,
                             country_part_id INTEGER NOT NULL,
                             FOREIGN KEY (country_part_id) REFERENCES "{ProjectTables.CountryParts.value}"(id)
                         );
 
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.Municipalities.value}" (
-                            number INTEGER PRIMARY KEY,
+                            id INTEGER PRIMARY KEY,
                             name TEXT NOT NULL,
-                            county_number INTEGER NOT NULL,
+                            county_id INTEGER NOT NULL,
                             country_part_id INTEGER NOT NULL,
-                            FOREIGN KEY (county_number) REFERENCES "{ProjectTables.Counties.value}"(number),
+                            geom GEOMETRY NOT NULL,
+                            FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}"(id),
                             FOREIGN KEY (country_part_id) REFERENCES "{ProjectTables.CountryParts.value}"(id)
                         );
 
@@ -336,19 +371,22 @@ class AIODBManager:
                             name TEXT NOT NULL,
                             lat FLOAT NOT NULL,
                             lon FLOAT NOT NULL,
+                            geom GEOMETRY (Point, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL,
                             road_reference_short_form TEXT NOT NULL,
                             road_category TEXT NOT NULL,
                             road_link_sequence INTEGER NOT NULL,
                             relative_position FLOAT NOT NULL,
-                            county TEXT NOT NULL,
                             country_part_id INTEGER NOT NULL,
                             country_part_name TEXT NOT NULL,
-                            county_number INTEGER NOT NULL,
+                            county_id INTEGER NOT NULL,
+                            municipality_id INTEGER NOT NULL,
                             geographic_number INTEGER NOT NULL,
                             traffic_registration_type TEXT NOT NULL,
                             first_data TIMESTAMPTZ,
                             first_data_with_quality_metrics TIMESTAMPTZ,
-                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id)
+                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id),
+                            FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}"(id),
+                            FOREIGN KEY (municipality_id) REFERENCES "{ProjectTables.Municipalities.value}"(id)
                         );
 
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.Volume.value}" (
@@ -379,9 +417,7 @@ class AIODBManager:
                             type TEXT DEFAULT 'Regression',
                             base_params JSON NOT NULL,
                             {GlobalDefinitions.VOLUME}_grid JSON,
-                            {GlobalDefinitions.MEAN_SPEED}_grid JSON,
-                            best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx INT DEFAULT 1,
-                            best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx INT DEFAULT 1
+                            {GlobalDefinitions.MEAN_SPEED}_grid JSON
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.BaseModels.value}" (
@@ -422,17 +458,39 @@ class AIODBManager:
                             PRIMARY KEY (id, model_id, road_category_id, target)
                         );
                         
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.ModelBestParameters.value}" (
+                            name TEXT NOT NULL,
+                            model_id TEXT NOT NULL,
+                            result_id INT NOT NULL DEFAULT 1,
+                            target TEXT NOT NULL,
+                            road_category TEXT NOT NULL,
+                            FOREIGN KEY (name) REFERENCES "{ProjectTables.MLModels.value}"(name) ON DELETE CASCADE,
+                            FOREIGN KEY (model_id) REFERENCES "{ProjectTables.MLModels.value}"(id) ON DELETE CASCADE,
+                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id) ON DELETE CASCADE,
+                            PRIMARY KEY (model_id, result_id, target, road_category)
+                        );
+                        
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.ForecastingSettings.value}" (
                             id BOOLEAN PRIMARY KEY CHECK (id = TRUE),
-                            config JSONB DEFAULT '{{"volume_forecasting_horizon": null, "mean_speed_forecasting_horizon": null}}'
+                            config JSONB DEFAULT '{{"{GlobalDefinitions.VOLUME}_forecasting_horizon": null, "{GlobalDefinitions.MEAN_SPEED}_forecasting_horizon": null}}'
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.TollStations.value}" (
+                            id INTEGER PRIMARY KEY,
+                            name TEXT,
+                            geom GEOMETRY (Point, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL -- store coordinates in WGS84
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.FunctionClasses.value}" (
+                            id TEXT PRIMARY KEY,
+                            name TEXT NOT NULL
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadGraphNodes.value}" (
-                            id SERIAL PRIMARY KEY,
-                            node_id TEXT, -- corresponds to "id" in properties
+                            id SERIAL NOT NULL,
+                            node_id TEXT UNIQUE, -- corresponds to "id" in properties
                             type TEXT NOT NULL DEFAULT 'Feature',
-                            geom GEOMETRY(Point, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}) NOT NULL, -- store coordinates in WGS84
-                            connected_traffic_link_ids TEXT[],   -- array of strings
+                            geom GEOMETRY (Point, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL, -- store coordinates in WGS84
                             road_node_ids TEXT[],                -- array of strings
                             is_roundabout BOOLEAN,
                             number_of_incoming_links INTEGER,
@@ -440,14 +498,15 @@ class AIODBManager:
                             number_of_undirected_links INTEGER,
                             legal_turning_movements JSONB,       -- store array of objects
                             road_system_references TEXT[],       -- array of strings
-                            raw_properties JSONB                 -- store the entire properties object (for flexibility)
+                            raw_properties JSONB,                 -- store the entire properties object (for flexibility)
+                            PRIMARY KEY (node_id)
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadGraphLinks.value}" (
-                            id SERIAL PRIMARY KEY,
-                            link_id TEXT,  -- properties.id
+                            id SERIAL NOT NULL,
+                            link_id TEXT UNIQUE,  -- properties.id
                             type TEXT NOT NULL DEFAULT 'Feature',
-                            geom GEOMETRY,    -- supports any geometry type; use GEOMETRY(LineString, {GlobalDefinitions.COORDINATES_REFERENCE_SYSTEM}) if always lines
+                            geom GEOMETRY (LineString, {GlobalDefinitions.WGS84_REFERENCE_SYSTEM}) NOT NULL, -- store coordinates in WGS84
                             year_applies_to INTEGER,
                             candidate_ids TEXT[],
                             road_system_references TEXT[],
@@ -460,20 +519,16 @@ class AIODBManager:
                             subsumed_traffic_node_ids TEXT[],
                             road_link_ids TEXT[],
                             road_node_ids TEXT[],
-                            municipality_ids INTEGER[],
-                            county_ids INTEGER[],
-                            highest_speed_limit INTEGER,
-                            lowest_speed_limit INTEGER,
-                            max_lanes INTEGER,
-                            min_lanes INTEGER,
+                            highest_speed_limit INTEGER DEFAULT 30,
+                            lowest_speed_limit INTEGER DEFAULT 30,
+                            max_lanes INTEGER DEFAULT 1, -- if a link's number of lanes is unknown the lowest bound is one. Otherwise that road wouldn't exist :)
+                            min_lanes INTEGER DEFAULT 1,
                             has_only_public_transport_lanes BOOLEAN,
                             length DOUBLE PRECISION,
                             traffic_direction_wrt_metering_direction TEXT,
                             is_norwegian_scenic_route BOOLEAN,
                             is_ferry_route BOOLEAN,
                             is_ramp BOOLEAN,
-                            toll_station_ids INTEGER[],
-                            associated_trp_ids TEXT[],
                             traffic_volumes JSONB,          -- array of traffic volume objects
                             urban_ratio DOUBLE PRECISION,
                             number_of_establishments INTEGER,
@@ -482,11 +537,48 @@ class AIODBManager:
                             has_anomalies BOOLEAN,
                             anomalies JSONB,                -- array of anomaly objects
                             raw_properties JSONB,            -- optional: store full original properties
-                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id)
+                            FOREIGN KEY (road_category) REFERENCES "{ProjectTables.RoadCategories.value}"(id),
+                            FOREIGN KEY (start_traffic_node_id) REFERENCES "{ProjectTables.RoadGraphNodes.value}" (node_id),
+                            FOREIGN KEY (end_traffic_node_id) REFERENCES "{ProjectTables.RoadGraphNodes.value}" (node_id),
+                            FOREIGN KEY (function_class) REFERENCES "{ProjectTables.FunctionClasses.value}" (id),
+                            PRIMARY KEY (link_id)                          
+                        );                        
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadLink_Municipalities.value}" (
+                            link_id TEXT NOT NULL,
+                            municipality_id INTEGER NOT NULL,
+                            FOREIGN KEY (link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (link_id) ON DELETE CASCADE,
+                            FOREIGN KEY (municipality_id) REFERENCES "{ProjectTables.Municipalities.value}" (id) ON DELETE CASCADE,
+                            PRIMARY KEY (link_id, municipality_id)
+                        
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadLink_Counties.value}" (
+                            link_id TEXT NOT NULL,
+                            county_id INTEGER NOT NULL,
+                            FOREIGN KEY (link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (link_id) ON DELETE CASCADE,
+                            FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}" (id) ON DELETE CASCADE,
+                            PRIMARY KEY (link_id, county_id)
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadLink_TollStations.value}" (
+                            link_id TEXT NOT NULL,
+                            toll_station_id INTEGER NOT NULL,
+                            FOREIGN KEY (link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (link_id) ON DELETE CASCADE,
+                            FOREIGN KEY (toll_station_id) REFERENCES "{ProjectTables.TollStations.value}" (id) ON DELETE CASCADE,
+                            PRIMARY KEY (link_id, toll_station_id)
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" (
+                            link_id TEXT NOT NULL,
+                            trp_id TEXT NOT NULL,
+                            FOREIGN KEY (link_id) REFERENCES "{ProjectTables.RoadGraphLinks.value}" (link_id) ON DELETE CASCADE,
+                            FOREIGN KEY (trp_id) REFERENCES "{ProjectTables.TrafficRegistrationPoints.value}" (id) ON DELETE CASCADE,
+                            PRIMARY KEY (link_id, trp_id)
                         );
                         
                         CREATE TABLE IF NOT EXISTS "{ProjectTables.RoadNetworks.value}" (
-                            id SERIAL PRIMARY KEY,
+                            id TEXT PRIMARY KEY,
                             name TEXT NOT NULL UNIQUE,
                             binary_obj BYTEA
                         );
@@ -529,7 +621,10 @@ class AIODBManager:
                 )
                 SELECT
                     trp.id AS trp_id,
-                    trp.road_category,
+                    trp.road_category AS road_category,
+                    trp.county_id AS county_id,
+                    trp.lat AS lat,
+                    trp.lon AS lon,
                     COALESCE(v_agg.has_{GlobalDefinitions.VOLUME}, FALSE) AS has_{GlobalDefinitions.VOLUME}, -- If there weren't any rows for a specific TRP this would be NULL, instead we want FALSE
                     v_agg.{GlobalDefinitions.VOLUME}_start_date,
                     v_agg.{GlobalDefinitions.VOLUME}_end_date,
@@ -551,98 +646,90 @@ class AIODBManager:
                 FULL OUTER JOIN "{ProjectTables.MeanSpeed.value}" ms ON false;  -- Force Cartesian for aggregation without joining
                 
                 
-                CREATE OR REPLACE VIEW "best_{GlobalDefinitions.VOLUME}_gridsearch_results" AS
-                SELECT 
-                    m.id AS model_id,
-                    m.name AS model_name,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.params
-                        ELSE NULL
-                    END AS best_{GlobalDefinitions.VOLUME}_params,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_test_r2
-                        ELSE NULL
-                    END AS mean_test_r2,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_train_r2
-                        ELSE NULL
-                    END AS mean_train_r2,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_test_mean_squared_error
-                        ELSE NULL
-                    END AS mean_test_mean_squared_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_train_mean_squared_error
-                        ELSE NULL
-                    END AS mean_train_mean_squared_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_test_root_mean_squared_error
-                        ELSE NULL
-                    END AS mean_test_root_mean_squared_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_train_root_mean_squared_error
-                        ELSE NULL
-                    END AS mean_train_root_mean_squared_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_test_mean_absolute_error
-                        ELSE NULL
-                    END AS mean_test_mean_absolute_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx THEN r.mean_train_mean_absolute_error
-                        ELSE NULL
-                    END AS mean_train_mean_absolute_error
-                FROM "{ProjectTables.MLModels.value}" m
-                LEFT JOIN "{ProjectTables.ModelGridSearchCVResults.value}" r
-                    ON m.id = r.model_id
-                WHERE r.result_id = m.best_{GlobalDefinitions.VOLUME}_gridsearch_params_idx
-                AND r.target = '{GlobalDefinitions.VOLUME}';
-                    
-                CREATE OR REPLACE VIEW "best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_results" AS
-                SELECT 
-                    m.id AS model_id,
-                    m.name AS model_name,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.params
-                        ELSE NULL
-                    END AS best_{GlobalDefinitions.MEAN_SPEED}_params,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_test_r2
-                        ELSE NULL
-                    END AS mean_test_r2,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_train_r2
-                        ELSE NULL
-                    END AS mean_train_r2,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_test_mean_squared_error
-                        ELSE NULL
-                    END AS mean_test_mean_squared_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_train_mean_squared_error
-                        ELSE NULL
-                    END AS mean_train_mean_squared_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_test_root_mean_squared_error
-                        ELSE NULL
-                    END AS mean_test_root_mean_squared_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_train_root_mean_squared_error
-                        ELSE NULL
-                    END AS mean_train_root_mean_squared_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_test_mean_absolute_error
-                        ELSE NULL
-                    END AS mean_test_mean_absolute_error,
-                    CASE 
-                        WHEN r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx THEN r.mean_train_mean_absolute_error
-                        ELSE NULL
-                    END AS mean_train_mean_absolute_error
-                FROM "{ProjectTables.MLModels.value}" m
-                LEFT JOIN "{ProjectTables.ModelGridSearchCVResults.value}" r
-                    ON m.id = r.model_id
-	            WHERE r.result_id = m.best_{GlobalDefinitions.MEAN_SPEED}_gridsearch_params_idx
-                AND r.target = '{GlobalDefinitions.MEAN_SPEED}';
+                CREATE OR REPLACE VIEW "{ProjectViews.BestGridSearchResults.value}" AS
+                SELECT
+                    mbp.model_id AS model_id,
+                    m.name AS name,
+                    mbp.result_id AS result_id,
+                    mbp.target AS target,
+                    mbp.road_category AS road_category,
+                    mgr.id AS grid_result_id,
+                    mgr.target AS grid_target,
+                    mgr.road_category_id AS road_category_id,
+                    mgr.params AS params,
+                    mgr.params_hash AS params_hash,
+                    mgr.mean_fit_time AS mean_fit_time,
+                    mgr.mean_test_r2 AS mean_test_r2,
+                    mgr.mean_train_r2 AS mean_train_r2,
+                    mgr.mean_test_mean_squared_error AS mean_test_mean_squared_error,
+                    mgr.mean_train_mean_squared_error AS mean_train_mean_squared_error,
+                    mgr.mean_test_root_mean_squared_error AS mean_test_root_mean_squared_error,
+                    mgr.mean_train_root_mean_squared_error AS mean_train_root_mean_squared_error,
+                    mgr.mean_test_mean_absolute_error AS mean_test_mean_absolute_error,
+                    mgr.mean_train_mean_absolute_error AS mean_train_mean_absolute_error
+                FROM "{ProjectTables.ModelBestParameters.value}" mbp
+                JOIN "{ProjectTables.MLModels.value}" m
+                    ON mbp.model_id = m.id
+                JOIN "{ProjectTables.ModelGridSearchCVResults.value}" mgr
+                    ON mbp.result_id = mgr.result_id
+                   AND mbp.model_id = mgr.model_id
+                   AND mbp.road_category = mgr.road_category_id
+                   AND mbp.target = mgr.target;
                 """)
+
+                # Materialized Views
+                for prefix, mv in zip(
+                    [
+                        f'''CREATE MATERIALIZED VIEW IF NOT EXISTS "{ProjectMaterializedViews.TrafficDataByCountyMView.value}" AS''',
+                        f'''CREATE MATERIALIZED VIEW IF NOT EXISTS "{ProjectMaterializedViews.TrafficDataByMunicipalityMView.value}" AS''',
+                        f'''CREATE MATERIALIZED VIEW IF NOT EXISTS "{ProjectMaterializedViews.TrafficDataByRoadCategoryMView.value}" AS'''
+                    ],
+                    [
+                        f"""
+                        SELECT county_id,
+                               AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_county,
+                               AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_county
+                        FROM trp_base_agg
+                        GROUP BY county_id
+                        """,
+                        f"""
+                        SELECT municipality_id,
+                        AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_municipality,
+                        AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_municipality
+                        FROM trp_base_agg
+                        GROUP BY municipality_id
+                        """,
+                        f"""
+                        SELECT road_category,
+                        AVG(trp_avg_{GlobalDefinitions.VOLUME}) AS avg_{GlobalDefinitions.VOLUME}_by_road_category,
+                        AVG(trp_avg_{GlobalDefinitions.MEAN_SPEED}) AS avg_{GlobalDefinitions.MEAN_SPEED}_by_road_category
+                        FROM trp_base_agg
+                        GROUP BY road_category
+                        """
+                    ]
+                ):
+                    await conn.execute(
+                    prefix + f"""
+                    WITH trp_base_agg AS (
+                        SELECT
+                            t.id AS trp_id,
+                            t.county_id,
+                            t.municipality_id,
+                            t.road_category,
+                            AVG(v.{GlobalDefinitions.VOLUME})::DOUBLE PRECISION AS trp_avg_{GlobalDefinitions.VOLUME},
+                            AVG(s.{GlobalDefinitions.MEAN_SPEED})::DOUBLE PRECISION AS trp_avg_{GlobalDefinitions.MEAN_SPEED}
+                        FROM "{ProjectTables.TrafficRegistrationPoints.value}" t
+                        LEFT JOIN "{ProjectTables.Volume.value}" v
+                            ON v.trp_id = t.id
+                           AND COALESCE(v.is_mice, FALSE) = FALSE -- Excluding all MICEd records since they arent' actually recorded data (they're synthetically generated)
+                           AND v.coverage >= 50 -- Removing values recorded where coverage wasn't above 50%
+                        LEFT JOIN "{ProjectTables.MeanSpeed.value}" s
+                            ON s.trp_id = t.id
+                           AND COALESCE(s.is_mice, FALSE) = FALSE -- Excluding all MICEd records since they arent' actually recorded data (they're synthetically generated)
+                           AND s.coverage >= 50
+                        GROUP BY t.id, t.county_id, t.municipality_id, t.road_category
+                    )
+                    """ + mv + "WITH NO DATA;") # TRP based aggregation to have a common base to work for all the materialized views next
 
                 # Granting permission to access to all tables to the TFS user
                 await conn.execute(f"""
@@ -673,7 +760,6 @@ class AIODBManager:
         async with postgres_conn_async(user=self._tfs_user, password=self._tfs_password, dbname=name, host=self._db_host) as conn:
             if auto_project_setup:
                 await self._setup_project(conn=conn)
-                await self.insert_models(conn=conn)
 
         return None
 

@@ -135,13 +135,13 @@ async def fetch_trps_from_ids(gql_client: Client, trp_ids: list[str]) -> dict | 
         return None
 
 
-async def fetch_trps(gql_client: Client, municipality_numbers: list[int] | None = None) -> dict | ExecutionResult | None:
+async def fetch_trps(gql_client: Client, count_ids_filter: list[str] | None = None) -> dict | ExecutionResult | None:
     try:
         return await gql_client.execute_async(gql(
             f"""
             {{
               trafficRegistrationPoints(
-                searchQuery: {{roadCategoryIds: [E, R, F, K, P], countyNumbers: [{', '.join([str(n) for n in (municipality_numbers or [3])])}], isOperational: true, trafficType: VEHICLE, registrationFrequency: CONTINUOUS}}
+                searchQuery: {{roadCategoryIds: [{", ".join(GlobalDefinitions.ROAD_CATEGORIES)}]{f", countyNumbers: [{', '.join(count_ids_filter)}]" if count_ids_filter else ""}, isOperational: true, trafficType: VEHICLE, registrationFrequency: CONTINUOUS}}
               ) {{
                 id
                 name

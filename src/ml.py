@@ -31,7 +31,7 @@ from sklearn.metrics import (
 )
 
 from sktime.base import BaseEstimator as SktimeBaseEstimator
-from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastingBaseModel
+#from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastingBaseModel
 
 from exceptions import ModelNotSetError, ScoringNotFoundError
 from definitions import GlobalDefinitions, ProjectTables, ProjectConstraints
@@ -97,7 +97,7 @@ class ModelWrapper(BaseModel):
 
 
     @property
-    def fit_state(self):
+    def fit_state(self) -> bool:
         """
         Get the fitting state of the model.
 
@@ -107,6 +107,11 @@ class ModelWrapper(BaseModel):
             Whether the model has been fitted.
         """
         return self.model_obj.__sklearn_is_fitted__()
+
+
+    @property
+    def feature_order(self) -> list[str]:
+        return self.model_obj.feature_names_in_  # TODO IN THE FUTURE ADD IF MODEL IS FROM SCIKIT-LEARN
 
 
     def set(self, model_object: Any) -> None:
@@ -190,14 +195,12 @@ class ModelWrapper(BaseModel):
 
         Notes
         -----
-        Currently supports ScikitLearnBaseEstimator. PyTorchForecastingBaseModel
+        Currently supports ScikitLearnBaseEstimator
         and SktimeBaseEstimator support is still to be implemented.
         """
         if isinstance(self.model_obj, (RandomForestRegressor, DecisionTreeRegressor, HistGradientBoostingRegressor)):
             with joblib.parallel_backend("dask"):
                 return self.model_obj.predict(X.compute()) # type: ignore[attr-defined] # <- WARNING: this comment is used to avoid seeing a useless warning since the model will indeed have a predict method, but the scikit-learn BaseEstimator class doesn't
-        elif isinstance(self.model_obj, PyTorchForecastingBaseModel):
-            return ... #NOTE STILL TO IMPLEMENT
         elif isinstance(self.model_obj, SktimeBaseEstimator):
             return ... #NOTE STILL TO IMPLEMENT
         else:
@@ -228,7 +231,7 @@ class TFS:
     """
 
     def __init__(self, model: callable, target: str, db_broker: DBBroker, client: Client | None = None, road_category: str | None = None):
-        self._scoring_functions: dict[str, callable] = {
+        self._scoring_functions: dict[str, type[callable]] = {
             "r2": r2_score,
             "mean_squared_error": mean_squared_error,
             "root_mean_squared_error": root_mean_squared_error,
@@ -307,9 +310,9 @@ class TFS:
             scoring=self._scorer,
             refit="mean_absolute_error",
             return_train_score=True,
-            n_jobs=GlobalDefinitions.ML_CPUS,
+            n_jobs=-1, #NOTE JUST TEMPORARELY -1, BEFORE IT WAS: GlobalDefinitions.ML_CPUS
             scheduler=self._client,
-            cv=TimeSeriesSplit(n_splits=5)  # A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
+            cv=TimeSeriesSplit(n_splits=10)  # A time series splitter for cross validation (for time series cross validation) is necessary since there's a relationship between the rows, thus we cannot use classic cross validation which shuffles the data because that would lead to a data leakage and incorrect predictions
         )  # The models_gridsearch_parameters is obtained from the tfs_models file
 
         with joblib.parallel_backend("dask"):
@@ -435,10 +438,3 @@ class TFS:
 
 
 
-
-
-
-
-
-
-# TODO CREATE THE A2BForecaster CLASS
