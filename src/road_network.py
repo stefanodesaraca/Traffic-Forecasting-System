@@ -406,12 +406,6 @@ class RoadNetwork:
         try:
             for p in range(5):
 
-                empty_attr_edges = [
-                    (u, v) for u, v, attrs in self._network.edges(data=True) if not attrs
-                ]
-
-                print(empty_attr_edges)
-
                 # ---------- STEP 1 ----------
 
                 sp = self._get_shortest_path(source=source, destination=destination, heuristic=heuristic, weight=self._get_advanced_weighting)
@@ -575,7 +569,7 @@ class RoadNetwork:
         return dict(
             sorted(
                 paths.items(),
-                key=lambda item: item[1]["high_traffic_perc"],
+                key=lambda item: item[1]["forecasted_travel_time"],
                 reverse=False  # Since we want ascending order having the paths with the lower high traffic percentages first
             )
         )
@@ -709,6 +703,9 @@ class RoadNetwork:
     def _get_municipality_id_preds(self, municipality_id: PositiveInt, target: str, model: str) -> dict[str, dict[str, dd.DataFrame]]:
 
         print("MUNICIPALITY TRPS: ", self._db_broker.get_municipality_trps(municipality_id=municipality_id))
+
+        print("lat: ", [trp["lat"] for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id)])
+        print("lon: ", [trp["lon"] for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id)])
 
         return {
             trp["id"]:  {
