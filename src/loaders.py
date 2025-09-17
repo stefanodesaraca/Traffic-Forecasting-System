@@ -191,6 +191,8 @@ class BatchStreamLoader:
                   node_ids_filter: list[str] | None = None,
                   link_ids_filter: list[str] | None = None,
                   limit: PositiveInt | None = None,
+                  lat: bool | None = None,
+                  lon: bool | None = None,
                   df_partitions_size: PositiveInt = 100000
                   ) -> dd.DataFrame:
         return self._load_from_stream(self._db_broker.get_stream(sql=f"""
@@ -198,6 +200,14 @@ class BatchStreamLoader:
                 "node_id",
                 "type",
                 ST_AsText("geom") AS geom,
+                {f'''
+                ST_Y(ST_Transform("geom", {GlobalDefinitions.WGS84_REFERENCE_SYSTEM})) AS lat,
+                ''' if lat else ""
+                }
+                {f'''
+                ST_X(ST_Transform("geom", {GlobalDefinitions.WGS84_REFERENCE_SYSTEM})) AS lon,
+                ''' if lon else ""
+                }
                 "road_node_ids",
                 "is_roundabout",
                 "number_of_incoming_links",

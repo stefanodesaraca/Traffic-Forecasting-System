@@ -191,7 +191,7 @@ class RoadNetwork:
 
 
     def load_nodes(self) -> None:
-        all(self._network.add_nodes_from((row.to_dict().pop("node_id"), row) for _, row in partition.iterrows()) for partition in self._loader.get_nodes().partitions)
+        all(self._network.add_nodes_from((row.to_dict().pop("node_id"), row) for _, row in partition.iterrows()) for partition in self._loader.get_nodes(lat=True, lon=True).partitions)
         return None
 
 
@@ -368,7 +368,8 @@ class RoadNetwork:
                    has_toll_stations: bool | None = None,
                    has_ferry_routes: bool | None = None,
                    trp_research_buffer_radius: PositiveInt = 3500,
-                   model: str = "HistGradientBoostingRegressor"
+                   model: str = "HistGradientBoostingRegressor",
+                   max_iter: PositiveInt = 5
     ) -> dict[str, dict[str, Any]]:
 
         if not horizon.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT):
@@ -404,7 +405,7 @@ class RoadNetwork:
         lags = GlobalDefinitions.SHORT_TERM_LAGS
 
         try:
-            for p in range(5):
+            for p in range(max_iter):
 
                 # ---------- STEP 1 ----------
 
@@ -434,12 +435,12 @@ class RoadNetwork:
                     self._network.edges[u, v]["length"]
                     for u, v in zip(sp[:-1], sp[1:])
                 )
-                print("Lengths: ", [self._network.edges[u, v]["length"] for u, v in zip(sp[:-1], sp[1:])])
+                print("Route traits length: ", [self._network.edges[u, v]["length"] for u, v in zip(sp[:-1], sp[1:])])
                 average_highest_speed_limit = np.mean([
                     self._network.edges[u, v]["highest_speed_limit"]
                     for u, v in zip(sp[:-1], sp[1:])
                 ])
-                print("Highest speed limit: ", [self._network.edges[u, v]["highest_speed_limit"] for u, v in zip(sp[:-1], sp[1:])])
+                print("Highest speed limit by trait: ", [self._network.edges[u, v]["highest_speed_limit"] for u, v in zip(sp[:-1], sp[1:])])
 
                 paths.update({
                     str(p): {
@@ -531,20 +532,16 @@ class RoadNetwork:
 
                     # Sort by weight (descending) and pick the top-n heaviest nodes to remove them
                     n = max(1, len(sp_edges))  # Maximum number of heaviest edges to remove
-                    print("N OF HEAVY EDGES TO REMOVE: ", n)
                     removed_edges[str(p)] = [
                         (u, v, self._network.edges[u, v].copy())
                         for u, v, w in sorted(sp_edges_weight, key=lambda x: x[2], reverse=True)[:n]
                     ] # Must save the whole edge with the attributes dictionary to add back into the graph afterward (with the attributes dictionary as well)
-                    print("EDGES TO REMOVE", removed_edges)
                     self._network.remove_edges_from([(u, v) for u, v, _ in removed_edges[str(p)]]) # Adopting this method since remove_edges_from accepts (u, v) tuples without attributes, but we need to keep attributes for the future re-insertion in the graph of ALL the nodes removed during the iterations
 
                 else:
                     break
 
-                print("PATHS:", paths)
-                print("LINE PREDICTIONS: ", line_predictions)
-
+                print("Route predictions: ", line_predictions)
                 paths[str(p)]["line_predictions"] = line_predictions
 
 
@@ -604,9 +601,10 @@ class RoadNetwork:
         return None
 
 
-    @staticmethod
-    def _get_route_start_end_nodes(route: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-        return next(iter(route["path"]), route["path"][-1])
+    def _get_route_start_end_nodes(self, route: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        sn = self._network.nodes[route["path"][0]]
+        en = self._network.nodes[route["path"][-1]]
+        return self._network.nodes[route["path"][0]],  self._network.nodes[route["path"][-1]]
 
 
     def _get_route_map_layers(self, route: dict[str, Any]) -> list[folium.FeatureGroup]:
@@ -687,16 +685,15 @@ class RoadNetwork:
 
         if map_loc_init is None:
             map_loc_init = [
-                (sn["lat"], en["lon"])
-                for route_init in [(self._get_route_start_end_nodes(route=r)) for r in routes.values()]
-                for sn, en in route_init
+                (wkt.loads(sn["geom"]).coords["lat"], wkt.loads(en["geom"]).coords["lon"])
+                for sn, en in [tuple(self._get_route_start_end_nodes(route=r)) for r in routes.values()]
             ]
             lat_init = np.mean([lat for lat, lon in map_loc_init])
             lon_init = np.mean([lon for lat, lon in map_loc_init])
 
         return self._get_layers_assembly(
             map_obj=self._create_map(lat_init=lat_init, lon_init=lon_init, zoom=zoom_init or MapDefaultConfigs.ZOOM.value, tiles=tiles or FoliumMapTiles.OPEN_STREET_MAPS.value), # The map where to add all layers
-            layers=list(*chain(self._get_route_map_layers(route=r) for r in routes.values())) # Map layers
+            layers=list(chain.from_iterable(self._get_route_map_layers(route=r) for r in routes.values())) # Map layers
         )
 
 
