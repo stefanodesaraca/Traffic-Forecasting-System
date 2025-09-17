@@ -171,8 +171,8 @@ class RowFactories(BaseModel):
 
 
 class FoliumMapTiles(Enum):
-    CARTO_DB_POSITRON = "Cartodb Positron"
-    OPEN_STREET_MAPS = "OpenStreetMaps"
+    CARTO_DB_POSITRON = "CartoDB positron"
+    OPEN_STREET_MAPS = "OpenStreetMap"
     ESRI_SATELLITE = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" #TODO TO FILL THIS UP WITH z, y, x
     #https://gis.stackexchange.com/questions/290861/python-folium-package-for-satellite-map
     #https://python-visualization.github.io/folium/latest/user_guide/raster_layers/tiles.html

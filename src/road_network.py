@@ -602,8 +602,6 @@ class RoadNetwork:
 
 
     def _get_route_start_end_nodes(self, route: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-        sn = self._network.nodes[route["path"][0]]
-        en = self._network.nodes[route["path"][-1]]
         return self._network.nodes[route["path"][0]],  self._network.nodes[route["path"][-1]]
 
 
@@ -685,8 +683,8 @@ class RoadNetwork:
 
         if map_loc_init is None:
             map_loc_init = [
-                (wkt.loads(sn["geom"]).coords["lat"], wkt.loads(en["geom"]).coords["lon"])
-                for sn, en in [tuple(self._get_route_start_end_nodes(route=r)) for r in routes.values()]
+                (sn["lat"], sn["lon"])
+                for sn, _ in [tuple(self._get_route_start_end_nodes(route=r)) for r in routes.values()]
             ]
             lat_init = np.mean([lat for lat, lon in map_loc_init])
             lon_init = np.mean([lon for lat, lon in map_loc_init])
