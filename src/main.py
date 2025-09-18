@@ -564,7 +564,7 @@ def manage_road_network(functionality: str) -> None:
             print(routes)
             network.draw_routes(routes=routes)
             map = network.draw_route(route=routes["0"])
-            network.export_map(map_obj=map, fp=Path.cwd() / "map.html")
+            network.export_map(map_obj=map, fp=str(Path.cwd() / "map.html"))
             #network.save_graph_svg()
 
 

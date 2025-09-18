@@ -604,11 +604,9 @@ class RoadNetwork:
             folium.CircleMarker(location=[marker_lat, marker_lon], radius=radius, tooltip=tooltip, popup=popup, icon=icon).add_to(folium_obj)
         return None
 
-
     @staticmethod
     def _add_line(folium_obj: folium.Map | folium.FeatureGroup, locations: list[list[float | np.floating]], color: str, weight: float, smooth_factor: float | None = None, tooltip: str | None = None, popup: str | None = None) -> None:
         folium.PolyLine(locations=locations, color=color, weight=weight, smooth_factor=smooth_factor, tooltip=tooltip, popup=popup).add_to(folium_obj)
-        return None
     # https://python-visualization.github.io/folium/latest/user_guide/vector_layers/polyline.html
 
 
@@ -638,8 +636,16 @@ class RoadNetwork:
         # Adding destination node
         self._add_marker(folium_obj=steps_layer, marker_lat=path_end_node["lat"], marker_lon=path_end_node["lon"], popup="Destination", icon=IconStyles.DESTINATION_NODE_STYLE.value, circle=True)
 
-        for _, edge in route["line_predictions"].iterrows():
-            self._add_line(folium_obj=edges_layer, locations=[[edge["lat"], edge["lon"]]], color=TrafficClasses[edge["traffic_class"]].value, weight=10)
+        for i in range(len(route["line_predictions"]) - 1):
+            start = [route["line_predictions"].iloc[i]["lat"], route["line_predictions"].iloc[i]["lon"]]
+            end = [route["line_predictions"].iloc[i + 1]["lat"], route["line_predictions"].iloc[i + 1]["lon"]]
+
+            self._add_line(
+                folium_obj=edges_layer,
+                locations=[start, end],  # two points!
+                color=TrafficClasses[route["line_predictions"].iloc[i]["traffic_class"]].value,
+                weight=10
+            )
 
         for trp in route["trps_along_path"]:
             self._add_marker(folium_obj=trps_layer, marker_lat=trp["lat"], marker_lon=trp["lon"], popup=trp["id"], icon=IconStyles.TRP_LINK_STYLE.value)
