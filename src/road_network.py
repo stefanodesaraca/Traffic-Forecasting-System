@@ -32,6 +32,8 @@ from loaders import BatchStreamLoader
 from pipelines import MLPreprocessingPipeline, MLPredictionPipeline
 from utils import check_municipality_id, save_plot
 
+from pprint import pprint
+
 
 warnings.filterwarnings(
     "ignore",
@@ -268,6 +270,7 @@ class RoadNetwork:
 
     @staticmethod
     def _get_ok_structured_data(y_pred: dict[str, dict[str, dd.DataFrame] | Any], horizon: datetime.datetime, target: str):
+        pprint(y_pred.values())
         return dd.from_pandas(pd.DataFrame([
             {
                 target: row[target],
@@ -275,7 +278,7 @@ class RoadNetwork:
                 "lat": trp_data["lat"],
             }
             for trp_data in y_pred.values()
-            for _, row in trp_data[f"{target}_preds"].loc[trp_data[f"{target}_preds"]["zoned_dt_iso"] == horizon].iterrows()
+            for _, row in trp_data[f"{target}_preds"].loc[trp_data[f"{target}_preds"]["zoned_dt_iso"] == horizon].iterrows() #TODO FOR THE HEATMAP ERROR THE EMPTY DATAFRAME COMES FROM NOT HAVING A ROW WITH PREDS ZONED_DT_ISO == HORIZON
         ]), npartitions=1)
 
 
@@ -745,6 +748,9 @@ class RoadNetwork:
 
     def _get_municipality_traffic_heatmap(self, municipality_id: PositiveInt, horizon: datetime.datetime, target: str, model: str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
         check_municipality_id(municipality_id=municipality_id)
+
+        if not horizon.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT):
+            raise ValueError(f"The horizon value must be in {GlobalDefinitions.DT_ISO_TZ_FORMAT} format")
 
         municipality_geom = self._db_broker.get_municipality_geometry(municipality_id=municipality_id)
         min_lon, min_lat, max_lon, max_lat = municipality_geom.bounds

@@ -594,7 +594,7 @@ def manage_road_network(functionality: str) -> None:
             )
             network.build()
             pprint(network._get_municipality_id_preds(municipality_id=301, target=GlobalDefinitions.VOLUME, model="HistGradientBoostingRegressor"))
-            network.draw_municipality_traffic_volume_heatmap(municipality_id=muni, horizon=db_broker.get_forecasting_horizon(target=target), model="HistGradientBoostingRegressor")
+            network.draw_municipality_traffic_volume_heatmap(municipality_id=muni, horizon=db_broker.get_forecasting_horizon(target=target).replace(tzinfo=None), model="HistGradientBoostingRegressor")
 
 
     elif functionality == "4.4":
