@@ -541,6 +541,22 @@ class RoadNetwork:
                 else:
                     break
 
+                traffic_priority = {
+                    TrafficClasses.LOW.name: 0,
+                    TrafficClasses.LOW_AVERAGE.name: 1,
+                    TrafficClasses.AVERAGE.name: 2,
+                    TrafficClasses.HIGH_AVERAGE.name: 3,
+                    TrafficClasses.HIGH.name: 4,
+                    TrafficClasses.STOP_AND_GO.name: 5
+                }
+
+
+                class_cols = [f"{target}_traffic_class" for target in targets]
+                line_predictions["traffic_class"] = line_predictions[class_cols].apply(
+                    lambda row: max(row, key=lambda x: traffic_priority[x]),
+                    axis=1
+                )
+
                 print("Route predictions: ", line_predictions)
                 paths[str(p)]["line_predictions"] = line_predictions
 
@@ -587,7 +603,7 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _add_line(folium_obj: folium.Map | folium.FeatureGroup, locations: list[float | np.floating], color: str, weight: float, smooth_factor: float | None = None, tooltip: str | None = None, popup: str | None = None) -> None:
+    def _add_line(folium_obj: folium.Map | folium.FeatureGroup, locations: list[list[float | np.floating]], color: str, weight: float, smooth_factor: float | None = None, tooltip: str | None = None, popup: str | None = None) -> None:
         folium.PolyLine(locations=locations, color=color, weight=weight, smooth_factor=smooth_factor, tooltip=tooltip, popup=popup).add_to(folium_obj)
         return None
     # https://python-visualization.github.io/folium/latest/user_guide/vector_layers/polyline.html
@@ -619,11 +635,11 @@ class RoadNetwork:
         # Adding destination node
         self._add_marker(folium_obj=steps_layer, marker_lat=path_end_node["lat"], marker_lon=path_end_node["lon"], popup="Destination", icon=IconStyles.DESTINATION_NODE_STYLE.value, circle=True)
 
-        for edge in route["line_predictions"].iterrows():
-            self._add_line(folium_obj=edges_layer, locations=[edge["lat"], edge["lon"]], color=TrafficClasses[edge["traffic_class"]].value, weight=10)
+        for _, edge in route["line_predictions"].iterrows():
+            self._add_line(folium_obj=edges_layer, locations=[[edge["lat"], edge["lon"]]], color=TrafficClasses[edge["traffic_class"]].value, weight=10)
 
         for trp in route["trps_along_path"]:
-            self._add_marker(folium_obj=trps_layer, marker_lat=trp["lat"], marker_lon=trp["lon"], popup=trp["trp_id"], icon=IconStyles.TRP_LINK_STYLE.value)
+            self._add_marker(folium_obj=trps_layer, marker_lat=trp["lat"], marker_lon=trp["lon"], popup=trp["id"], icon=IconStyles.TRP_LINK_STYLE.value)
 
         return [steps_layer, edges_layer, trps_layer]
 
