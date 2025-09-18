@@ -311,7 +311,7 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _get_advanced_weighting(edge_start: str, edge_end: str, attrs: dict | Mapping[str, Any]) -> PositiveFloat | None:
+    def _get_edge_weighting(edge_start: str, edge_end: str, attrs: dict | Mapping[str, Any]) -> PositiveFloat | None:
         length: PositiveFloat = attrs.get("length")
         road_category: str = attrs.get("road_category")
         min_lanes: PositiveInt = attrs.get("min_lanes")
@@ -409,7 +409,7 @@ class RoadNetwork:
 
                 # ---------- STEP 1 ----------
 
-                sp = self._get_shortest_path(source=source, destination=destination, heuristic=heuristic, weight=self._get_advanced_weighting)
+                sp = self._get_shortest_path(source=source, destination=destination, heuristic=heuristic, weight=self._get_edge_weighting)
                 print(sp)
                 sp_edges = self._get_path_edges(sp)
                 #print(sp_edges)
@@ -479,7 +479,7 @@ class RoadNetwork:
                                                                                 x_coords=line_predictions["lon"].values,
                                                                                 y_coords=line_predictions["lat"].values,
                                                                                 style="points"
-                                                                            )  # Kriging variance is sometimes called "ss" (sigma squared)
+                                                                            ) # Kriging variance is sometimes called "ss" (sigma squared)
 
                     variogram_plot = self._edit_variogram_plot(fig=variogram_plot, target=target)
 
@@ -528,7 +528,7 @@ class RoadNetwork:
                 if any(paths[str(p)].get(f"{target}_high_traffic_perc", 0) > 50 for target in targets):
                     trp_research_buffer_radius += 2000 #Incrementing the TRP research buffer radius
 
-                    sp_edges_weight = [(u, v, self._get_advanced_weighting(u, v, data)) for u, v, data in sp_edges]
+                    sp_edges_weight = [(u, v, self._get_edge_weighting(u, v, data)) for u, v, data in sp_edges]
 
                     # Sort by weight (descending) and pick the top-n heaviest nodes to remove them
                     n = max(1, len(sp_edges))  # Maximum number of heaviest edges to remove
@@ -595,6 +595,9 @@ class RoadNetwork:
 
     @staticmethod
     def _add_marker(folium_obj: folium.Map | folium.FeatureGroup, marker_lat: float | np.floating, marker_lon: float | np.floating, tooltip: str | None = None, popup: str | None = None, icon: folium.Icon | None = None, circle: bool = False, radius: float | None = None) -> None:
+        if isinstance(icon, dict):
+            from folium.plugins import BeautifyIcon
+            icon = BeautifyIcon(**icon)
         if not circle:
             folium.Marker(location=[marker_lat, marker_lon], tooltip=tooltip, popup=popup, icon=icon).add_to(folium_obj)
         else:

@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 import sys
 import time
 import pickle
@@ -562,7 +563,8 @@ def manage_road_network(functionality: str) -> None:
             #NOTE SECURE PATHS: (636379 - 635079), (629849, 629667), (R605677, 646497) | WITHOUT MUNICIPALITY FILTER (889404, 3151378), (456663 - 211623 (HAS F ROADS))
             print(routes)
             network.draw_routes(routes=routes)
-            network.draw_route(route=routes["0"])
+            map = network.draw_route(route=routes["0"])
+            network.export_map(map_obj=map, fp=Path.cwd() / "map.html")
             #network.save_graph_svg()
 
 
