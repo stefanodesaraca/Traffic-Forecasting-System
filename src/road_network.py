@@ -594,14 +594,14 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _add_marker(folium_obj: folium.Map | folium.FeatureGroup, marker_lat: float | np.floating, marker_lon: float | np.floating, tooltip: str | None = None, popup: str | None = None, icon: folium.Icon | None = None, circle: bool = False, radius: float | None = None) -> None:
+    def _add_marker(folium_obj: folium.Map | folium.FeatureGroup, marker_lat: float | np.floating, marker_lon: float | np.floating, tooltip: str | None = None, popup: str | None = None, icon: folium.Icon | None = None, circle: bool = False, fill: bool = False, radius: float | None = None) -> None:
         if isinstance(icon, dict):
             from folium.plugins import BeautifyIcon
             icon = BeautifyIcon(**icon)
         if not circle:
             folium.Marker(location=[marker_lat, marker_lon], tooltip=tooltip, popup=popup, icon=icon).add_to(folium_obj)
         else:
-            folium.CircleMarker(location=[marker_lat, marker_lon], radius=radius, tooltip=tooltip, popup=popup, icon=icon).add_to(folium_obj)
+            folium.CircleMarker(location=[marker_lat, marker_lon], radius=radius, tooltip=tooltip, popup=popup, icon=icon, fill=fill).add_to(folium_obj)
         return None
 
     @staticmethod
@@ -632,9 +632,9 @@ class RoadNetwork:
         trps_layer = folium.FeatureGroup("trps")
 
         # Adding source node
-        self._add_marker(folium_obj=steps_layer, marker_lat=path_start_node["lat"], marker_lon=path_start_node["lon"], popup="Start", icon=IconStyles.SOURCE_NODE_STYLE.value, circle=True)
+        self._add_marker(folium_obj=steps_layer, marker_lat=path_start_node["lat"], marker_lon=path_start_node["lon"], popup="Start", icon=folium.Icon(icon=IconStyles.SOURCE_NODE_STYLE.value["icon"]))
         # Adding destination node
-        self._add_marker(folium_obj=steps_layer, marker_lat=path_end_node["lat"], marker_lon=path_end_node["lon"], popup="Destination", icon=IconStyles.DESTINATION_NODE_STYLE.value, circle=True)
+        self._add_marker(folium_obj=steps_layer, marker_lat=path_end_node["lat"], marker_lon=path_end_node["lon"], popup="Destination", icon=folium.Icon(icon=IconStyles.DESTINATION_NODE_STYLE.value["icon"]))
 
         for i in range(len(route["line_predictions"]) - 1):
             start = [route["line_predictions"].iloc[i]["lat"], route["line_predictions"].iloc[i]["lon"]]
@@ -644,11 +644,11 @@ class RoadNetwork:
                 folium_obj=edges_layer,
                 locations=[start, end],  # two points!
                 color=TrafficClasses[route["line_predictions"].iloc[i]["traffic_class"]].value,
-                weight=10
+                weight=7
             )
 
         for trp in route["trps_along_path"]:
-            self._add_marker(folium_obj=trps_layer, marker_lat=trp["lat"], marker_lon=trp["lon"], popup=trp["id"], icon=IconStyles.TRP_LINK_STYLE.value)
+            self._add_marker(folium_obj=trps_layer, marker_lat=trp["lat"], marker_lon=trp["lon"], popup=trp["id"], icon=folium.Icon(icon=IconStyles.TRP_LINK_STYLE.value["icon"]))
 
         return [steps_layer, edges_layer, trps_layer]
 
