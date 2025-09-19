@@ -634,9 +634,9 @@ class RoadNetwork:
         trps_layer = folium.FeatureGroup("trps")
 
         # Adding source node
-        self._add_marker(folium_obj=steps_layer, marker_lat=path_start_node["lat"], marker_lon=path_start_node["lon"], popup="Start", icon=folium.Icon(icon=IconStyles.SOURCE_NODE_STYLE.value["icon"]))
+        self._add_marker(folium_obj=steps_layer, marker_lat=path_start_node["lat"], marker_lon=path_start_node["lon"], popup="Start", icon=folium.Icon(icon=IconStyles.SOURCE_NODE_STYLE.value["icon"], icon_color=IconStyles.SOURCE_NODE_STYLE.value["icon_color"]))
         # Adding destination node
-        self._add_marker(folium_obj=steps_layer, marker_lat=path_end_node["lat"], marker_lon=path_end_node["lon"], popup="Destination", icon=folium.Icon(icon=IconStyles.DESTINATION_NODE_STYLE.value["icon"]))
+        self._add_marker(folium_obj=steps_layer, marker_lat=path_end_node["lat"], marker_lon=path_end_node["lon"], popup="Destination", icon=folium.Icon(icon=IconStyles.DESTINATION_NODE_STYLE.value["icon"], icon_color=IconStyles.DESTINATION_NODE_STYLE.value["icon_color"]))
 
         for i in range(len(route["line_predictions"]) - 1):
             start = [route["line_predictions"].iloc[i]["lat"], route["line_predictions"].iloc[i]["lon"]]
@@ -644,13 +644,13 @@ class RoadNetwork:
 
             self._add_line(
                 folium_obj=edges_layer,
-                locations=[start, end],  # two points!
+                locations=[start, end],
                 color=TrafficClasses[route["line_predictions"].iloc[i]["traffic_class"]].value,
                 weight=7
             )
 
         for trp in route["trps_along_path"]:
-            self._add_marker(folium_obj=trps_layer, marker_lat=trp["lat"], marker_lon=trp["lon"], popup=trp["id"], icon=folium.Icon(icon=IconStyles.TRP_LINK_STYLE.value["icon"]))
+            self._add_marker(folium_obj=trps_layer, marker_lat=trp["lat"], marker_lon=trp["lon"], popup=trp["id"], icon=folium.Icon(icon=IconStyles.TRP_LINK_STYLE.value["icon"], icon_color=IconStyles.TRP_LINK_STYLE.value["icon_color"]))
 
         return [steps_layer, edges_layer, trps_layer]
 
