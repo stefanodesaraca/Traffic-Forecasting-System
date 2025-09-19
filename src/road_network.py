@@ -270,7 +270,6 @@ class RoadNetwork:
 
     @staticmethod
     def _get_ok_structured_data(y_pred: dict[str, dict[str, dd.DataFrame] | Any], horizon: datetime.datetime, target: str):
-        pprint(y_pred.values())
         return dd.from_pandas(pd.DataFrame([
             {
                 target: row[target],
@@ -279,7 +278,7 @@ class RoadNetwork:
             }
             for trp_data in y_pred.values()
             for _, row in trp_data[f"{target}_preds"].loc[trp_data[f"{target}_preds"]["zoned_dt_iso"] == horizon].iterrows() #TODO FOR THE HEATMAP ERROR THE EMPTY DATAFRAME COMES FROM NOT HAVING A ROW WITH PREDS ZONED_DT_ISO == HORIZON
-        ]), npartitions=1)
+        ]), npartitions=1)                                                                                                   # SOLUTION: REMOVED TIMEZONE, TRY NOW
 
 
     def _get_ordinary_kriging(self, y_pred: dict[str, dict[str, dd.DataFrame] | Any], horizon: datetime.datetime, target: str, verbose: bool = False):
@@ -375,7 +374,7 @@ class RoadNetwork:
                    max_iter: PositiveInt = 5
     ) -> dict[str, dict[str, Any]]:
 
-        if not horizon.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT):
+        if not horizon.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT): #Must strictly be not zoned
             raise ValueError(f"The horizon value must be in {GlobalDefinitions.DT_ISO_TZ_FORMAT} format")
 
         if not any([use_volume, use_mean_speed]):
@@ -724,12 +723,6 @@ class RoadNetwork:
 
 
     def _get_municipality_id_preds(self, municipality_id: PositiveInt, target: str, model: str) -> dict[str, dict[str, dd.DataFrame]]:
-
-        print("MUNICIPALITY TRPS: ", self._db_broker.get_municipality_trps(municipality_id=municipality_id))
-
-        print("lat: ", [trp["lat"] for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id)])
-        print("lon: ", [trp["lon"] for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id)])
-
         return {
             trp["id"]:  {
                 f"{target}_preds": self._get_trp_predictions(
@@ -749,7 +742,7 @@ class RoadNetwork:
     def _get_municipality_traffic_heatmap(self, municipality_id: PositiveInt, horizon: datetime.datetime, target: str, model: str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
         check_municipality_id(municipality_id=municipality_id)
 
-        if not horizon.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT):
+        if not horizon.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT): #Must strictly be not zoned
             raise ValueError(f"The horizon value must be in {GlobalDefinitions.DT_ISO_TZ_FORMAT} format")
 
         municipality_geom = self._db_broker.get_municipality_geometry(municipality_id=municipality_id)
