@@ -86,15 +86,6 @@ class RoadNetwork:
         return minkowski([u_easting, u_northing], [v_easting, v_northing], p=2.0) #TODO 1.0 if G.edges[u, v]["road_category"] in GlobalDefinitions.HIGH_SPEED_ROAD_CATEGORIES else
 
 
-    def _get_neighbor_links(self, link_id: str, buffer_zone_radius: PositiveInt) -> dict[str, Any]:
-        return self._db_broker.send_sql(
-            f""" SELECT rgl_b.* FROM "{ProjectTables.RoadGraphLinks}" rgl_a 
-            JOIN "{ProjectTables.RoadGraphLinks}" rgl_b ON rgl_a.link_id = %s 
-            AND rgl_a.link_id <> rgl_b.link_id 
-            WHERE ST_DWithin(rgl_a.geom::geography, rgl_b.geom::geography, %s);""",
-            execute_args=[link_id, buffer_zone_radius])
-
-
     def _get_neighbor_trps(self, link_id: str, buffer_zone_radius: PositiveInt = 3500) -> list[dict[str, Any]]:
         return self._db_broker.send_sql(f"""
             WITH neighbors AS (
@@ -277,8 +268,8 @@ class RoadNetwork:
                 "lat": trp_data["lat"],
             }
             for trp_data in y_pred.values()
-            for _, row in trp_data[f"{target}_preds"].loc[trp_data[f"{target}_preds"]["zoned_dt_iso"] == horizon].iterrows() #TODO FOR THE HEATMAP ERROR THE EMPTY DATAFRAME COMES FROM NOT HAVING A ROW WITH PREDS ZONED_DT_ISO == HORIZON
-        ]), npartitions=1)                                                                                                   # SOLUTION: REMOVED TIMEZONE, TRY NOW
+            for _, row in trp_data[f"{target}_preds"].loc[trp_data[f"{target}_preds"]["zoned_dt_iso"] == horizon].iterrows()
+        ]), npartitions=1)
 
 
     def _get_ordinary_kriging(self, y_pred: dict[str, dict[str, dd.DataFrame] | Any], horizon: datetime.datetime, target: str, verbose: bool = False):
@@ -550,8 +541,7 @@ class RoadNetwork:
                     TrafficClasses.HIGH_AVERAGE.name: 3,
                     TrafficClasses.HIGH.name: 4,
                     TrafficClasses.STOP_AND_GO.name: 5
-                }
-
+                } #TODO BRING INTO AN ENUM WITH ONLY ONE ELEMENT (THIS DICT)
 
                 class_cols = [f"{target}_traffic_class" for target in targets]
                 line_predictions["traffic_class"] = line_predictions[class_cols].apply(
@@ -559,11 +549,13 @@ class RoadNetwork:
                     axis=1
                 )
 
-                print("Route predictions: ", line_predictions)
+                print("Route predictions: ", line_predictions) #TODO THIS DOESN'T PRINT! SO IT IS THAT A NETOWRKXNOTHPATH GETS RAISED?
                 paths[str(p)]["line_predictions"] = line_predictions
+                print(f"LINE PREDICTIONS FOR ITERATION {p}", line_predictions.compute())
 
 
         except nx.exception.NetworkXNoPath:
+            print("HEYY, I'M HERE!")
             pass
 
 
@@ -638,6 +630,9 @@ class RoadNetwork:
         # Adding destination node
         self._add_marker(folium_obj=steps_layer, marker_lat=path_end_node["lat"], marker_lon=path_end_node["lon"], popup="Destination", icon=folium.Icon(icon=IconStyles.DESTINATION_NODE_STYLE.value["icon"], icon_color=IconStyles.DESTINATION_NODE_STYLE.value["icon_color"]))
 
+
+        print(route["line_predictions"].compute())
+
         for i in range(len(route["line_predictions"]) - 1):
             start = [route["line_predictions"].iloc[i]["lat"], route["line_predictions"].iloc[i]["lon"]]
             end = [route["line_predictions"].iloc[i + 1]["lat"], route["line_predictions"].iloc[i + 1]["lon"]]
@@ -659,8 +654,9 @@ class RoadNetwork:
         municipality_geom_layer = folium.FeatureGroup("municipality_geom")
         trps_layer = folium.FeatureGroup("trps")
 
+        coords = [(lat, lon) for lon, lat in municipality_geom.exterior.coords] #Must swap coordinates order since shapely works with x and y (longitude and latitude) and folium works with latitude and longitude
         folium.Polygon(
-            locations=municipality_geom,
+            locations=coords,
             color=municipality_geom_color, # The geometry border color
             weight=2, # The geometry border thickness
             fill=True,
