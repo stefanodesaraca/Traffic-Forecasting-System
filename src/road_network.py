@@ -1,3 +1,7 @@
+import io
+import base64
+import warnings
+from PIL import Image
 from pathlib import Path
 import datetime
 import pickle
@@ -16,7 +20,6 @@ from pykrige.ok import OrdinaryKriging
 import folium
 from folium.raster_layers import ImageOverlay
 import matplotlib.pyplot as plt
-import warnings
 
 from definitions import (
     GlobalDefinitions,
@@ -396,6 +399,7 @@ class RoadNetwork:
         paths = {}
         removed_edges = {} #For each path we'll keep the edges removed when searching alternative paths
         lags = GlobalDefinitions.SHORT_TERM_LAGS
+        traffic_class_cols = [f"{target}_traffic_class" for target in targets]
 
         try:
             for p in range(max_iter):
@@ -518,6 +522,16 @@ class RoadNetwork:
 
                 # ---------- STEP 6 ----------
 
+                line_predictions["traffic_class"] = line_predictions[traffic_class_cols].apply(
+                    lambda row: max(row, key=lambda x: TrafficClasses.TRAFFIC_PRIORITIES.value[x]),
+                    axis=1
+                )
+
+                print("Route predictions: ", line_predictions)
+                paths[str(p)]["line_predictions"] = line_predictions
+                print(f"LINE PREDICTIONS FOR ITERATION {p}", line_predictions.compute())
+
+
                 if any(paths[str(p)].get(f"{target}_high_traffic_perc", 0) > 50 for target in targets):
                     trp_research_buffer_radius += 2000 #Incrementing the TRP research buffer radius
 
@@ -534,28 +548,7 @@ class RoadNetwork:
                 else:
                     break
 
-                traffic_priority = {
-                    TrafficClasses.LOW.name: 0,
-                    TrafficClasses.LOW_AVERAGE.name: 1,
-                    TrafficClasses.AVERAGE.name: 2,
-                    TrafficClasses.HIGH_AVERAGE.name: 3,
-                    TrafficClasses.HIGH.name: 4,
-                    TrafficClasses.STOP_AND_GO.name: 5
-                } #TODO BRING INTO AN ENUM WITH ONLY ONE ELEMENT (THIS DICT)
-
-                class_cols = [f"{target}_traffic_class" for target in targets]
-                line_predictions["traffic_class"] = line_predictions[class_cols].apply(
-                    lambda row: max(row, key=lambda x: traffic_priority[x]),
-                    axis=1
-                )
-
-                print("Route predictions: ", line_predictions) #TODO THIS DOESN'T PRINT! SO IT IS THAT A NETOWRKXNOTHPATH GETS RAISED?
-                paths[str(p)]["line_predictions"] = line_predictions
-                print(f"LINE PREDICTIONS FOR ITERATION {p}", line_predictions.compute())
-
-
         except nx.exception.NetworkXNoPath:
-            print("HEYY, I'M HERE!")
             pass
 
 
@@ -630,7 +623,8 @@ class RoadNetwork:
         # Adding destination node
         self._add_marker(folium_obj=steps_layer, marker_lat=path_end_node["lat"], marker_lon=path_end_node["lon"], popup="Destination", icon=folium.Icon(icon=IconStyles.DESTINATION_NODE_STYLE.value["icon"], icon_color=IconStyles.DESTINATION_NODE_STYLE.value["icon_color"]))
 
-
+        print("ROUTE: ")
+        print(route)
         print(route["line_predictions"].compute())
 
         for i in range(len(route["line_predictions"]) - 1):
@@ -700,6 +694,9 @@ class RoadNetwork:
                     map_loc_init: list[float] | None = None,
                     zoom_init: int = MapDefaultConfigs.ZOOM.value,
                     tiles: str = FoliumMapTiles.OPEN_STREET_MAPS. value) -> folium.Map:
+
+        print("N ROUTES: ", len(routes))
+        print("ROUTES: ", routes)
 
         lat_init = None
         lon_init = None
@@ -777,6 +774,14 @@ class RoadNetwork:
             alpha=1
         )
 
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight", pad_inches=0, transparent=True)
+        plt.close(fig)
+
+        buf.seek(0)
+        base64_encoded_img = base64.b64encode(buf.read()).decode("utf-8")
+        base64_encoded_img_url = f"data:image/png;base64,{base64_encoded_img}"
+
         cbar = fig.colorbar(grid_interpolation_viz, ax=ax, orientation='vertical')  # Adding a color bar #NOTE TRY WITHOUT , fraction=0.036, pad=0.04
         cbar.set_label(target)
 
@@ -784,7 +789,7 @@ class RoadNetwork:
 
         # Creating an image overlay object to add as a layer to the folium city map
         ImageOverlay(
-            image=fig,
+            image=base64_encoded_img_url,
             bounds=[[min(gridy), min(gridx)], [max(gridy), max(gridx)]],
             # Defining the bounds where the image will be placed
             opacity=0.7,
