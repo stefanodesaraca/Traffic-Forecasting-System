@@ -32,6 +32,8 @@ from loaders import BatchStreamLoader
 from pipelines import MLPreprocessingPipeline, MLPredictionPipeline
 from utils import check_municipality_id, save_plot
 
+from pprint import pprint
+
 
 warnings.filterwarnings(
     "ignore",
@@ -191,7 +193,7 @@ class RoadNetwork:
 
 
     def load_nodes(self) -> None:
-        all(self._network.add_nodes_from((row.to_dict().pop("node_id"), row) for _, row in partition.iterrows()) for partition in self._loader.get_nodes().partitions)
+        all(self._network.add_nodes_from((row.to_dict().pop("node_id"), row) for _, row in partition.iterrows()) for partition in self._loader.get_nodes(lat=True, lon=True).partitions)
         return None
 
 
@@ -275,8 +277,8 @@ class RoadNetwork:
                 "lat": trp_data["lat"],
             }
             for trp_data in y_pred.values()
-            for _, row in trp_data[f"{target}_preds"].loc[trp_data[f"{target}_preds"]["zoned_dt_iso"] == horizon].iterrows()
-        ]), npartitions=1)
+            for _, row in trp_data[f"{target}_preds"].loc[trp_data[f"{target}_preds"]["zoned_dt_iso"] == horizon].iterrows() #TODO FOR THE HEATMAP ERROR THE EMPTY DATAFRAME COMES FROM NOT HAVING A ROW WITH PREDS ZONED_DT_ISO == HORIZON
+        ]), npartitions=1)                                                                                                   # SOLUTION: REMOVED TIMEZONE, TRY NOW
 
 
     def _get_ordinary_kriging(self, y_pred: dict[str, dict[str, dd.DataFrame] | Any], horizon: datetime.datetime, target: str, verbose: bool = False):
@@ -311,7 +313,7 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _get_advanced_weighting(edge_start: str, edge_end: str, attrs: dict | Mapping[str, Any]) -> PositiveFloat | None:
+    def _get_edge_weighting(edge_start: str, edge_end: str, attrs: dict | Mapping[str, Any]) -> PositiveFloat | None:
         length: PositiveFloat = attrs.get("length")
         road_category: str = attrs.get("road_category")
         min_lanes: PositiveInt = attrs.get("min_lanes")
@@ -368,10 +370,11 @@ class RoadNetwork:
                    has_toll_stations: bool | None = None,
                    has_ferry_routes: bool | None = None,
                    trp_research_buffer_radius: PositiveInt = 3500,
-                   model: str = "HistGradientBoostingRegressor"
+                   model: str = "HistGradientBoostingRegressor",
+                   max_iter: PositiveInt = 5
     ) -> dict[str, dict[str, Any]]:
 
-        if not horizon.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT):
+        if not horizon.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT): #Must strictly be not zoned
             raise ValueError(f"The horizon value must be in {GlobalDefinitions.DT_ISO_TZ_FORMAT} format")
 
         if not any([use_volume, use_mean_speed]):
@@ -404,11 +407,11 @@ class RoadNetwork:
         lags = GlobalDefinitions.SHORT_TERM_LAGS
 
         try:
-            for p in range(5):
+            for p in range(max_iter):
 
                 # ---------- STEP 1 ----------
 
-                sp = self._get_shortest_path(source=source, destination=destination, heuristic=heuristic, weight=self._get_advanced_weighting)
+                sp = self._get_shortest_path(source=source, destination=destination, heuristic=heuristic, weight=self._get_edge_weighting)
                 print(sp)
                 sp_edges = self._get_path_edges(sp)
                 #print(sp_edges)
@@ -434,12 +437,12 @@ class RoadNetwork:
                     self._network.edges[u, v]["length"]
                     for u, v in zip(sp[:-1], sp[1:])
                 )
-                print("Lengths: ", [self._network.edges[u, v]["length"] for u, v in zip(sp[:-1], sp[1:])])
+                print("Route traits length: ", [self._network.edges[u, v]["length"] for u, v in zip(sp[:-1], sp[1:])])
                 average_highest_speed_limit = np.mean([
                     self._network.edges[u, v]["highest_speed_limit"]
                     for u, v in zip(sp[:-1], sp[1:])
                 ])
-                print("Highest speed limit: ", [self._network.edges[u, v]["highest_speed_limit"] for u, v in zip(sp[:-1], sp[1:])])
+                print("Highest speed limit by trait: ", [self._network.edges[u, v]["highest_speed_limit"] for u, v in zip(sp[:-1], sp[1:])])
 
                 paths.update({
                     str(p): {
@@ -478,7 +481,7 @@ class RoadNetwork:
                                                                                 x_coords=line_predictions["lon"].values,
                                                                                 y_coords=line_predictions["lat"].values,
                                                                                 style="points"
-                                                                            )  # Kriging variance is sometimes called "ss" (sigma squared)
+                                                                            ) # Kriging variance is sometimes called "ss" (sigma squared)
 
                     variogram_plot = self._edit_variogram_plot(fig=variogram_plot, target=target)
 
@@ -527,24 +530,36 @@ class RoadNetwork:
                 if any(paths[str(p)].get(f"{target}_high_traffic_perc", 0) > 50 for target in targets):
                     trp_research_buffer_radius += 2000 #Incrementing the TRP research buffer radius
 
-                    sp_edges_weight = [(u, v, self._get_advanced_weighting(u, v, data)) for u, v, data in sp_edges]
+                    sp_edges_weight = [(u, v, self._get_edge_weighting(u, v, data)) for u, v, data in sp_edges]
 
                     # Sort by weight (descending) and pick the top-n heaviest nodes to remove them
                     n = max(1, len(sp_edges))  # Maximum number of heaviest edges to remove
-                    print("N OF HEAVY EDGES TO REMOVE: ", n)
                     removed_edges[str(p)] = [
                         (u, v, self._network.edges[u, v].copy())
                         for u, v, w in sorted(sp_edges_weight, key=lambda x: x[2], reverse=True)[:n]
                     ] # Must save the whole edge with the attributes dictionary to add back into the graph afterward (with the attributes dictionary as well)
-                    print("EDGES TO REMOVE", removed_edges)
                     self._network.remove_edges_from([(u, v) for u, v, _ in removed_edges[str(p)]]) # Adopting this method since remove_edges_from accepts (u, v) tuples without attributes, but we need to keep attributes for the future re-insertion in the graph of ALL the nodes removed during the iterations
 
                 else:
                     break
 
-                print("PATHS:", paths)
-                print("LINE PREDICTIONS: ", line_predictions)
+                traffic_priority = {
+                    TrafficClasses.LOW.name: 0,
+                    TrafficClasses.LOW_AVERAGE.name: 1,
+                    TrafficClasses.AVERAGE.name: 2,
+                    TrafficClasses.HIGH_AVERAGE.name: 3,
+                    TrafficClasses.HIGH.name: 4,
+                    TrafficClasses.STOP_AND_GO.name: 5
+                }
 
+
+                class_cols = [f"{target}_traffic_class" for target in targets]
+                line_predictions["traffic_class"] = line_predictions[class_cols].apply(
+                    lambda row: max(row, key=lambda x: traffic_priority[x]),
+                    axis=1
+                )
+
+                print("Route predictions: ", line_predictions)
                 paths[str(p)]["line_predictions"] = line_predictions
 
 
@@ -581,18 +596,19 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _add_marker(folium_obj: folium.Map | folium.FeatureGroup, marker_lat: float | np.floating, marker_lon: float | np.floating, tooltip: str | None = None, popup: str | None = None, icon: folium.Icon | None = None, circle: bool = False, radius: float | None = None) -> None:
+    def _add_marker(folium_obj: folium.Map | folium.FeatureGroup, marker_lat: float | np.floating, marker_lon: float | np.floating, tooltip: str | None = None, popup: str | None = None, icon: folium.Icon | None = None, circle: bool = False, fill: bool = False, radius: float | None = None) -> None:
+        if isinstance(icon, dict):
+            from folium.plugins import BeautifyIcon
+            icon = BeautifyIcon(**icon)
         if not circle:
             folium.Marker(location=[marker_lat, marker_lon], tooltip=tooltip, popup=popup, icon=icon).add_to(folium_obj)
         else:
-            folium.CircleMarker(location=[marker_lat, marker_lon], radius=radius, tooltip=tooltip, popup=popup, icon=icon).add_to(folium_obj)
+            folium.CircleMarker(location=[marker_lat, marker_lon], radius=radius, tooltip=tooltip, popup=popup, icon=icon, fill=fill).add_to(folium_obj)
         return None
-
 
     @staticmethod
-    def _add_line(folium_obj: folium.Map | folium.FeatureGroup, locations: list[float | np.floating], color: str, weight: float, smooth_factor: float | None = None, tooltip: str | None = None, popup: str | None = None) -> None:
+    def _add_line(folium_obj: folium.Map | folium.FeatureGroup, locations: list[list[float | np.floating]], color: str, weight: float, smooth_factor: float | None = None, tooltip: str | None = None, popup: str | None = None) -> None:
         folium.PolyLine(locations=locations, color=color, weight=weight, smooth_factor=smooth_factor, tooltip=tooltip, popup=popup).add_to(folium_obj)
-        return None
     # https://python-visualization.github.io/folium/latest/user_guide/vector_layers/polyline.html
 
 
@@ -604,9 +620,8 @@ class RoadNetwork:
         return None
 
 
-    @staticmethod
-    def _get_route_start_end_nodes(route: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-        return next(iter(route["path"]), route["path"][-1])
+    def _get_route_start_end_nodes(self, route: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        return self._network.nodes[route["path"][0]],  self._network.nodes[route["path"][-1]]
 
 
     def _get_route_map_layers(self, route: dict[str, Any]) -> list[folium.FeatureGroup]:
@@ -619,15 +634,23 @@ class RoadNetwork:
         trps_layer = folium.FeatureGroup("trps")
 
         # Adding source node
-        self._add_marker(folium_obj=steps_layer, marker_lat=path_start_node["lat"], marker_lon=path_start_node["lon"], popup="Start", icon=IconStyles.SOURCE_NODE_STYLE.value, circle=True)
+        self._add_marker(folium_obj=steps_layer, marker_lat=path_start_node["lat"], marker_lon=path_start_node["lon"], popup="Start", icon=folium.Icon(icon=IconStyles.SOURCE_NODE_STYLE.value["icon"], icon_color=IconStyles.SOURCE_NODE_STYLE.value["icon_color"]))
         # Adding destination node
-        self._add_marker(folium_obj=steps_layer, marker_lat=path_end_node["lat"], marker_lon=path_end_node["lon"], popup="Destination", icon=IconStyles.DESTINATION_NODE_STYLE.value, circle=True)
+        self._add_marker(folium_obj=steps_layer, marker_lat=path_end_node["lat"], marker_lon=path_end_node["lon"], popup="Destination", icon=folium.Icon(icon=IconStyles.DESTINATION_NODE_STYLE.value["icon"], icon_color=IconStyles.DESTINATION_NODE_STYLE.value["icon_color"]))
 
-        for edge in route["line_predictions"].iterrows():
-            self._add_line(folium_obj=edges_layer, locations=[edge["lat"], edge["lon"]], color=TrafficClasses[edge["traffic_class"]].value, weight=10)
+        for i in range(len(route["line_predictions"]) - 1):
+            start = [route["line_predictions"].iloc[i]["lat"], route["line_predictions"].iloc[i]["lon"]]
+            end = [route["line_predictions"].iloc[i + 1]["lat"], route["line_predictions"].iloc[i + 1]["lon"]]
+
+            self._add_line(
+                folium_obj=edges_layer,
+                locations=[start, end],
+                color=TrafficClasses[route["line_predictions"].iloc[i]["traffic_class"]].value,
+                weight=7
+            )
 
         for trp in route["trps_along_path"]:
-            self._add_marker(folium_obj=trps_layer, marker_lat=trp["lat"], marker_lon=trp["lon"], popup=trp["trp_id"], icon=IconStyles.TRP_LINK_STYLE.value)
+            self._add_marker(folium_obj=trps_layer, marker_lat=trp["lat"], marker_lon=trp["lon"], popup=trp["id"], icon=folium.Icon(icon=IconStyles.TRP_LINK_STYLE.value["icon"], icon_color=IconStyles.TRP_LINK_STYLE.value["icon_color"]))
 
         return [steps_layer, edges_layer, trps_layer]
 
@@ -687,26 +710,19 @@ class RoadNetwork:
 
         if map_loc_init is None:
             map_loc_init = [
-                (sn["lat"], en["lon"])
-                for route_init in [(self._get_route_start_end_nodes(route=r)) for r in routes.values()]
-                for sn, en in route_init
+                (sn["lat"], sn["lon"])
+                for sn, _ in [tuple(self._get_route_start_end_nodes(route=r)) for r in routes.values()]
             ]
             lat_init = np.mean([lat for lat, lon in map_loc_init])
             lon_init = np.mean([lon for lat, lon in map_loc_init])
 
         return self._get_layers_assembly(
             map_obj=self._create_map(lat_init=lat_init, lon_init=lon_init, zoom=zoom_init or MapDefaultConfigs.ZOOM.value, tiles=tiles or FoliumMapTiles.OPEN_STREET_MAPS.value), # The map where to add all layers
-            layers=list(*chain(self._get_route_map_layers(route=r) for r in routes.values())) # Map layers
+            layers=list(chain.from_iterable(self._get_route_map_layers(route=r) for r in routes.values())) # Map layers
         )
 
 
     def _get_municipality_id_preds(self, municipality_id: PositiveInt, target: str, model: str) -> dict[str, dict[str, dd.DataFrame]]:
-
-        print("MUNICIPALITY TRPS: ", self._db_broker.get_municipality_trps(municipality_id=municipality_id))
-
-        print("lat: ", [trp["lat"] for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id)])
-        print("lon: ", [trp["lon"] for trp in self._db_broker.get_municipality_trps(municipality_id=municipality_id)])
-
         return {
             trp["id"]:  {
                 f"{target}_preds": self._get_trp_predictions(
@@ -725,6 +741,9 @@ class RoadNetwork:
 
     def _get_municipality_traffic_heatmap(self, municipality_id: PositiveInt, horizon: datetime.datetime, target: str, model: str, zoom_init: PositiveInt | None = None, tiles: str | None = None) -> folium.Map:
         check_municipality_id(municipality_id=municipality_id)
+
+        if not horizon.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT): #Must strictly be not zoned
+            raise ValueError(f"The horizon value must be in {GlobalDefinitions.DT_ISO_TZ_FORMAT} format")
 
         municipality_geom = self._db_broker.get_municipality_geometry(municipality_id=municipality_id)
         min_lon, min_lat, max_lon, max_lat = municipality_geom.bounds
