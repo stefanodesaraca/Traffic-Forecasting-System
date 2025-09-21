@@ -29,7 +29,8 @@ from definitions import (
     FoliumMapTiles,
     IconStyles,
     RoadCategoryTraitLengthWeightMultipliers,
-    MapDefaultConfigs
+    MapDefaultConfigs,
+    TRAFFIC_PRIORITIES
 )
 from loaders import BatchStreamLoader
 from pipelines import MLPreprocessingPipeline, MLPredictionPipeline
@@ -523,7 +524,7 @@ class RoadNetwork:
                 # ---------- STEP 6 ----------
 
                 line_predictions["traffic_class"] = line_predictions[traffic_class_cols].apply(
-                    lambda row: max(row, key=lambda x: TrafficClasses.TRAFFIC_PRIORITIES.value[x]),
+                    lambda row: max(row, key=lambda x: TRAFFIC_PRIORITIES[x]),
                     axis=1
                 )
 
@@ -774,18 +775,19 @@ class RoadNetwork:
             alpha=1
         )
 
+        cbar = fig.colorbar(grid_interpolation_viz, ax=ax, orientation="vertical")
+        cbar.set_label(target)
+
+        ax.axis('off')  # Removing axes
+
         buf = io.BytesIO()
         fig.savefig(buf, format="png", bbox_inches="tight", pad_inches=0, transparent=True)
-        plt.close(fig)
 
         buf.seek(0)
         base64_encoded_img = base64.b64encode(buf.read()).decode("utf-8")
         base64_encoded_img_url = f"data:image/png;base64,{base64_encoded_img}"
 
-        cbar = fig.colorbar(grid_interpolation_viz, ax=ax, orientation='vertical')  # Adding a color bar #NOTE TRY WITHOUT , fraction=0.036, pad=0.04
-        cbar.set_label(target)
-
-        ax.axis('off')  # Removing axes
+        plt.close(fig)
 
         # Creating an image overlay object to add as a layer to the folium city map
         ImageOverlay(
@@ -861,7 +863,3 @@ class RoadNetwork:
             ]
         )
         return fig, f"{self._network['network_id']}.svg"
-
-
-
-

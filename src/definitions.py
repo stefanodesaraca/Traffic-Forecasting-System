@@ -222,21 +222,23 @@ class TrafficClasses(Enum): #Import as TrafficClasses
     HIGH = "#a91d1d"
     STOP_AND_GO = "#470C00"
 
-    TRAFFIC_PRIORITIES = {
-        LOW.name: 0,
-        LOW_AVERAGE.name: 1,
-        AVERAGE.name: 2,
-        HIGH_AVERAGE.name: 3,
-        HIGH.name: 4,
-        STOP_AND_GO.name: 5
-    }
-
     CMAP = LinearSegmentedColormap.from_list("TrafficClassesCMAP", [LOW, LOW_AVERAGE, AVERAGE, HIGH_AVERAGE, HIGH, STOP_AND_GO], N=256)
 
     #Colors taken from:
     # https://www.color-hex.com/color-palette/1064006
     # https://www.color-hex.com/color-palette/1063978
     # https://www.color-hex.com/color-palette/1064022
+
+
+
+TRAFFIC_PRIORITIES = {
+    TrafficClasses.LOW.name: 0,
+    TrafficClasses.LOW_AVERAGE.name: 1,
+    TrafficClasses.AVERAGE.name: 2,
+    TrafficClasses.HIGH_AVERAGE.name: 3,
+    TrafficClasses.HIGH.name: 4,
+    TrafficClasses.STOP_AND_GO.name: 5
+}
 
 
 
