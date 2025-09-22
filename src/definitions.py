@@ -181,11 +181,11 @@ class FoliumMapTiles(Enum):
 
 class IconStyles(Enum):
     SOURCE_NODE_STYLE = {
-        "icon_color": "#4a90e2",
+        "icon_color": "#FFFFFF",
         "icon": "glyphicon-home"
     }
     DESTINATION_NODE_STYLE = {
-        "icon_color": "#c75146",
+        "icon_color": "#FFFFFF",
         "icon": "glyphicon-flag"
     }
     TRP_LINK_STYLE = {

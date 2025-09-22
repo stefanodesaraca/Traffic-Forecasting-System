@@ -530,8 +530,6 @@ class RoadNetwork:
 
                 print("Route predictions: ", line_predictions)
                 paths[str(p)]["line_predictions"] = line_predictions
-                print(f"LINE PREDICTIONS FOR ITERATION {p}", line_predictions.compute())
-
 
                 if any(paths[str(p)].get(f"{target}_high_traffic_perc", 0) > 50 for target in targets):
                     trp_research_buffer_radius += 2000 #Incrementing the TRP research buffer radius
@@ -623,10 +621,6 @@ class RoadNetwork:
         self._add_marker(folium_obj=steps_layer, marker_lat=path_start_node["lat"], marker_lon=path_start_node["lon"], popup="Start", icon=folium.Icon(icon=IconStyles.SOURCE_NODE_STYLE.value["icon"], icon_color=IconStyles.SOURCE_NODE_STYLE.value["icon_color"]))
         # Adding destination node
         self._add_marker(folium_obj=steps_layer, marker_lat=path_end_node["lat"], marker_lon=path_end_node["lon"], popup="Destination", icon=folium.Icon(icon=IconStyles.DESTINATION_NODE_STYLE.value["icon"], icon_color=IconStyles.DESTINATION_NODE_STYLE.value["icon_color"]))
-
-        print("ROUTE: ")
-        print(route)
-        print(route["line_predictions"].compute())
 
         for i in range(len(route["line_predictions"]) - 1):
             start = [route["line_predictions"].iloc[i]["lat"], route["line_predictions"].iloc[i]["lon"]]
@@ -781,7 +775,7 @@ class RoadNetwork:
         ax.axis('off')  # Removing axes
 
         buf = io.BytesIO()
-        fig.savefig(buf, format="png", bbox_inches="tight", pad_inches=0, transparent=True)
+        fig.savefig(buf, format="png", pad_inches=0, transparent=True) #TODO TRY WITHOUT bbox_...
 
         buf.seek(0)
         base64_encoded_img = base64.b64encode(buf.read()).decode("utf-8")
