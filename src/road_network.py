@@ -630,7 +630,8 @@ class RoadNetwork:
                 folium_obj=edges_layer,
                 locations=[start, end],
                 color=TrafficClasses[route["line_predictions"].iloc[i]["traffic_class"]].value,
-                weight=7
+                weight=7,
+                #TODO ADD POPUP
             )
 
         for trp in route["trps_along_path"]:
@@ -690,9 +691,6 @@ class RoadNetwork:
                     zoom_init: int = MapDefaultConfigs.ZOOM.value,
                     tiles: str = FoliumMapTiles.OPEN_STREET_MAPS. value) -> folium.Map:
 
-        print("N ROUTES: ", len(routes))
-        print("ROUTES: ", routes)
-
         lat_init = None
         lon_init = None
 
@@ -733,11 +731,18 @@ class RoadNetwork:
         if not horizon.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT): #Must strictly be not zoned
             raise ValueError(f"The horizon value must be in {GlobalDefinitions.DT_ISO_TZ_FORMAT} format")
 
-        municipality_geom = self._db_broker.get_municipality_geometry(municipality_id=municipality_id)
+        municipality_geom = self._db_broker.get_municipality_geometry(municipality_id=municipality_id, as_wgs84=True)
         min_lon, min_lat, max_lon, max_lat = municipality_geom.bounds
 
         gridx = np.linspace(min_lon - 0.35, max_lon + 0.35, 100).tolist()
         gridy = np.linspace(min_lat - 0.10, max_lat + 0.10, 100).tolist()
+
+        print(len(gridy), len(gridx))
+        print(min(gridx), max(gridx))
+        print(min(gridy), max(gridy))
+
+        start = datetime.datetime.now()
+        print("Ordinary kriging time start: ", start)
 
         ok, variogram_plot = self._get_ordinary_kriging(y_pred=self._get_municipality_id_preds(municipality_id=municipality_id, target=target, model=model), horizon=horizon, target=target)
         z_interpolated_vals, kriging_variance = self._ok_interpolate(
@@ -747,7 +752,10 @@ class RoadNetwork:
             style="grid"
         )
 
-        print("Kriging variance: ", kriging_variance)
+        end = datetime.datetime.now()
+        print("Ordinary kriging time end: ", end)
+
+        print("z_interpolated_vals.shape: ", z_interpolated_vals.shape)
 
         municipality_geom_center = municipality_geom.centroid
 

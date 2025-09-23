@@ -386,15 +386,15 @@ class DBBroker:
 
     def get_municipality_trps(self, municipality_id: PositiveInt) -> list[dict[str, Any]]:
         return self.send_sql(f"""
-                    SELECT "id", "road_category", "lat", "lon"
-                    FROM "{ProjectTables.TrafficRegistrationPoints.value}"
-                    WHERE "municipality_id" = %s
-                """, execute_args=[municipality_id])
+            SELECT "id", "road_category", "lat", "lon"
+            FROM "{ProjectTables.TrafficRegistrationPoints.value}"
+            WHERE "municipality_id" = %s
+        """, execute_args=[municipality_id])
 
 
-    def get_municipality_geometry(self, municipality_id: PositiveInt) -> BaseGeometry:
+    def get_municipality_geometry(self, municipality_id: PositiveInt, as_wgs84: bool | None = None) -> BaseGeometry:
         return wkt.loads(self.send_sql(f"""
-                    SELECT ST_AsText("geom")  AS geom
+                    SELECT {'ST_AsText(ST_Transform("geom"))' if as_wgs84 else ''}  AS geom
                     FROM "{ProjectTables.Municipalities.value}"
                     WHERE "id" = %s
                 """, execute_args=[municipality_id], single=True).get("geom"))
