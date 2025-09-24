@@ -361,7 +361,7 @@ class AIODBManager:
                             name TEXT NOT NULL,
                             county_id INTEGER NOT NULL,
                             country_part_id INTEGER NOT NULL,
-                            geom GEOMETRY(MultiPolygon, {GlobalDefinitions.EPSG32633_REFERENCE_SYSTEM}) NOT NULL,
+                            geom GEOMETRY(Polygon, {GlobalDefinitions.EPSG32633_REFERENCE_SYSTEM}) NOT NULL,
                             FOREIGN KEY (county_id) REFERENCES "{ProjectTables.Counties.value}"(id),
                             FOREIGN KEY (country_part_id) REFERENCES "{ProjectTables.CountryParts.value}"(id)
                         );

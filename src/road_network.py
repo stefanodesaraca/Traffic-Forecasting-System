@@ -754,6 +754,7 @@ class RoadNetwork:
 
         end = datetime.datetime.now()
         print("Ordinary kriging time end: ", end)
+        print("Ordinary kriging execution time: ", end - start)
 
         print("z_interpolated_vals.shape: ", z_interpolated_vals.shape)
 
