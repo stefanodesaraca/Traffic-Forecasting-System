@@ -36,6 +36,7 @@ class GlobalDefinitions(BaseModel):
     NORWEGIAN_UTC_TIME_ZONE_TIMEDELTA: ClassVar[timezone] = timezone(timedelta(hours=1))
 
     WGS84_REFERENCE_SYSTEM: ClassVar[int] = 4326 #WGS84
+    EPSG32633_REFERENCE_SYSTEM: ClassVar[int] = 32633 #WGS84
 
     COVID_YEARS: ClassVar[list[int]] = [2020, 2021, 2022]
     ML_CPUS: ClassVar[int] = int(os.cpu_count() * 0.75)  # To avoid crashing while executing parallel computing in the GridSearchCV algorithm
@@ -181,11 +182,11 @@ class FoliumMapTiles(Enum):
 
 class IconStyles(Enum):
     SOURCE_NODE_STYLE = {
-        "icon_color": "#4a90e2",
+        "icon_color": "#FFFFFF",
         "icon": "glyphicon-home"
     }
     DESTINATION_NODE_STYLE = {
-        "icon_color": "#c75146",
+        "icon_color": "#FFFFFF",
         "icon": "glyphicon-flag"
     }
     TRP_LINK_STYLE = {
@@ -228,6 +229,17 @@ class TrafficClasses(Enum): #Import as TrafficClasses
     # https://www.color-hex.com/color-palette/1064006
     # https://www.color-hex.com/color-palette/1063978
     # https://www.color-hex.com/color-palette/1064022
+
+
+
+TRAFFIC_PRIORITIES = {
+    TrafficClasses.LOW.name: 0,
+    TrafficClasses.LOW_AVERAGE.name: 1,
+    TrafficClasses.AVERAGE.name: 2,
+    TrafficClasses.HIGH_AVERAGE.name: 3,
+    TrafficClasses.HIGH.name: 4,
+    TrafficClasses.STOP_AND_GO.name: 5
+}
 
 
 

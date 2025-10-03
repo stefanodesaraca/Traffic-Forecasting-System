@@ -1,3 +1,7 @@
+import io
+import base64
+import warnings
+from PIL import Image
 from pathlib import Path
 import datetime
 import pickle
@@ -16,7 +20,6 @@ from pykrige.ok import OrdinaryKriging
 import folium
 from folium.raster_layers import ImageOverlay
 import matplotlib.pyplot as plt
-import warnings
 
 from definitions import (
     GlobalDefinitions,
@@ -26,7 +29,8 @@ from definitions import (
     FoliumMapTiles,
     IconStyles,
     RoadCategoryTraitLengthWeightMultipliers,
-    MapDefaultConfigs
+    MapDefaultConfigs,
+    TRAFFIC_PRIORITIES
 )
 from loaders import BatchStreamLoader
 from pipelines import MLPreprocessingPipeline, MLPredictionPipeline
@@ -84,15 +88,6 @@ class RoadNetwork:
         v_easting, v_northing, _, _ = utm.from_latlon(v_point.y, v_point.x)
 
         return minkowski([u_easting, u_northing], [v_easting, v_northing], p=2.0) #TODO 1.0 if G.edges[u, v]["road_category"] in GlobalDefinitions.HIGH_SPEED_ROAD_CATEGORIES else
-
-
-    def _get_neighbor_links(self, link_id: str, buffer_zone_radius: PositiveInt) -> dict[str, Any]:
-        return self._db_broker.send_sql(
-            f""" SELECT rgl_b.* FROM "{ProjectTables.RoadGraphLinks}" rgl_a 
-            JOIN "{ProjectTables.RoadGraphLinks}" rgl_b ON rgl_a.link_id = %s 
-            AND rgl_a.link_id <> rgl_b.link_id 
-            WHERE ST_DWithin(rgl_a.geom::geography, rgl_b.geom::geography, %s);""",
-            execute_args=[link_id, buffer_zone_radius])
 
 
     def _get_neighbor_trps(self, link_id: str, buffer_zone_radius: PositiveInt = 3500) -> list[dict[str, Any]]:
@@ -277,8 +272,8 @@ class RoadNetwork:
                 "lat": trp_data["lat"],
             }
             for trp_data in y_pred.values()
-            for _, row in trp_data[f"{target}_preds"].loc[trp_data[f"{target}_preds"]["zoned_dt_iso"] == horizon].iterrows() #TODO FOR THE HEATMAP ERROR THE EMPTY DATAFRAME COMES FROM NOT HAVING A ROW WITH PREDS ZONED_DT_ISO == HORIZON
-        ]), npartitions=1)                                                                                                   # SOLUTION: REMOVED TIMEZONE, TRY NOW
+            for _, row in trp_data[f"{target}_preds"].loc[trp_data[f"{target}_preds"]["zoned_dt_iso"] == horizon].iterrows()
+        ]), npartitions=1)
 
 
     def _get_ordinary_kriging(self, y_pred: dict[str, dict[str, dd.DataFrame] | Any], horizon: datetime.datetime, target: str, verbose: bool = False):
@@ -405,6 +400,7 @@ class RoadNetwork:
         paths = {}
         removed_edges = {} #For each path we'll keep the edges removed when searching alternative paths
         lags = GlobalDefinitions.SHORT_TERM_LAGS
+        traffic_class_cols = [f"{target}_traffic_class" for target in targets]
 
         try:
             for p in range(max_iter):
@@ -527,6 +523,14 @@ class RoadNetwork:
 
                 # ---------- STEP 6 ----------
 
+                line_predictions["traffic_class"] = line_predictions[traffic_class_cols].apply(
+                    lambda row: max(row, key=lambda x: TRAFFIC_PRIORITIES[x]),
+                    axis=1
+                )
+
+                print("Route predictions: ", line_predictions)
+                paths[str(p)]["line_predictions"] = line_predictions
+
                 if any(paths[str(p)].get(f"{target}_high_traffic_perc", 0) > 50 for target in targets):
                     trp_research_buffer_radius += 2000 #Incrementing the TRP research buffer radius
 
@@ -542,26 +546,6 @@ class RoadNetwork:
 
                 else:
                     break
-
-                traffic_priority = {
-                    TrafficClasses.LOW.name: 0,
-                    TrafficClasses.LOW_AVERAGE.name: 1,
-                    TrafficClasses.AVERAGE.name: 2,
-                    TrafficClasses.HIGH_AVERAGE.name: 3,
-                    TrafficClasses.HIGH.name: 4,
-                    TrafficClasses.STOP_AND_GO.name: 5
-                }
-
-
-                class_cols = [f"{target}_traffic_class" for target in targets]
-                line_predictions["traffic_class"] = line_predictions[class_cols].apply(
-                    lambda row: max(row, key=lambda x: traffic_priority[x]),
-                    axis=1
-                )
-
-                print("Route predictions: ", line_predictions)
-                paths[str(p)]["line_predictions"] = line_predictions
-
 
         except nx.exception.NetworkXNoPath:
             pass
@@ -646,7 +630,8 @@ class RoadNetwork:
                 folium_obj=edges_layer,
                 locations=[start, end],
                 color=TrafficClasses[route["line_predictions"].iloc[i]["traffic_class"]].value,
-                weight=7
+                weight=7,
+                #TODO ADD POPUP
             )
 
         for trp in route["trps_along_path"]:
@@ -659,8 +644,9 @@ class RoadNetwork:
         municipality_geom_layer = folium.FeatureGroup("municipality_geom")
         trps_layer = folium.FeatureGroup("trps")
 
+        coords = [(lat, lon) for lon, lat in municipality_geom.exterior.coords] #Must swap coordinates order since shapely works with x and y (longitude and latitude) and folium works with latitude and longitude
         folium.Polygon(
-            locations=municipality_geom,
+            locations=coords,
             color=municipality_geom_color, # The geometry border color
             weight=2, # The geometry border thickness
             fill=True,
@@ -745,11 +731,18 @@ class RoadNetwork:
         if not horizon.strftime(GlobalDefinitions.DT_ISO_TZ_FORMAT): #Must strictly be not zoned
             raise ValueError(f"The horizon value must be in {GlobalDefinitions.DT_ISO_TZ_FORMAT} format")
 
-        municipality_geom = self._db_broker.get_municipality_geometry(municipality_id=municipality_id)
+        municipality_geom = self._db_broker.get_municipality_geometry(municipality_id=municipality_id, as_wgs84=True)
         min_lon, min_lat, max_lon, max_lat = municipality_geom.bounds
 
         gridx = np.linspace(min_lon - 0.35, max_lon + 0.35, 100).tolist()
         gridy = np.linspace(min_lat - 0.10, max_lat + 0.10, 100).tolist()
+
+        print(len(gridy), len(gridx))
+        print(min(gridx), max(gridx))
+        print(min(gridy), max(gridy))
+
+        start = datetime.datetime.now()
+        print("Ordinary kriging time start: ", start)
 
         ok, variogram_plot = self._get_ordinary_kriging(y_pred=self._get_municipality_id_preds(municipality_id=municipality_id, target=target, model=model), horizon=horizon, target=target)
         z_interpolated_vals, kriging_variance = self._ok_interpolate(
@@ -759,7 +752,11 @@ class RoadNetwork:
             style="grid"
         )
 
-        print("Kriging variance: ", kriging_variance)
+        end = datetime.datetime.now()
+        print("Ordinary kriging time end: ", end)
+        print("Ordinary kriging execution time: ", end - start)
+
+        print("z_interpolated_vals.shape: ", z_interpolated_vals.shape)
 
         municipality_geom_center = municipality_geom.centroid
 
@@ -781,14 +778,23 @@ class RoadNetwork:
             alpha=1
         )
 
-        cbar = fig.colorbar(grid_interpolation_viz, ax=ax, orientation='vertical')  # Adding a color bar #NOTE TRY WITHOUT , fraction=0.036, pad=0.04
+        cbar = fig.colorbar(grid_interpolation_viz, ax=ax, orientation="vertical")
         cbar.set_label(target)
 
         ax.axis('off')  # Removing axes
 
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", pad_inches=0, transparent=True) #TODO TRY WITHOUT bbox_...
+
+        buf.seek(0)
+        base64_encoded_img = base64.b64encode(buf.read()).decode("utf-8")
+        base64_encoded_img_url = f"data:image/png;base64,{base64_encoded_img}"
+
+        plt.close(fig)
+
         # Creating an image overlay object to add as a layer to the folium city map
         ImageOverlay(
-            image=fig,
+            image=base64_encoded_img_url,
             bounds=[[min(gridy), min(gridx)], [max(gridy), max(gridx)]],
             # Defining the bounds where the image will be placed
             opacity=0.7,
@@ -860,7 +866,3 @@ class RoadNetwork:
             ]
         )
         return fig, f"{self._network['network_id']}.svg"
-
-
-
-
