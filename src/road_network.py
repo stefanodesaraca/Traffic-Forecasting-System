@@ -655,7 +655,7 @@ class RoadNetwork:
         ).add_to(municipality_geom_layer)
 
         for trp in trps:
-            self._add_marker(folium_obj=trps_layer, marker_lat=trp["lat"], marker_lon=trp["lon"], popup=trp["id"], icon=IconStyles.TRP_LINK_STYLE.value)
+            self._add_marker(folium_obj=trps_layer, marker_lat=trp["lat"], marker_lon=trp["lon"], popup=trp["id"], icon=folium.Icon(icon=IconStyles.TRP_LINK_STYLE.value["icon"], icon_color=IconStyles.TRP_LINK_STYLE.value["icon_color"]))
 
         return [municipality_geom_layer, trps_layer]
 

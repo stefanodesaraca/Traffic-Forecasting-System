@@ -38,7 +38,6 @@ from utils import (
     check_target,
     split_by_target,
     get_n_items_from_gen,
-    save_plot
 )
 
 
@@ -836,19 +835,3 @@ class MLPredictionPipeline:
             fig.show()
 
         return fig
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

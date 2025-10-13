@@ -559,7 +559,7 @@ def manage_road_network(functionality: str) -> None:
                 dask_client=client
             )
             network.build() #county_ids_filter=[GlobalDefinitions.OSLO_COUNTY_ID]
-            routes = network.find_route(source="647670", destination="630863", horizon=db_broker.get_forecasting_horizon(target=target).replace(tzinfo=None), max_iter=3)
+            routes = network.find_route(source="647670", destination="630863", horizon=db_broker.get_forecasting_horizon(target=target).replace(tzinfo=None), max_iter=1)
             #NOTE SECURE PATHS: (636379 - 635079), (629849, 629667), (R605677, 646497) | WITHOUT MUNICIPALITY FILTER (889404, 3151378), (456663 - 211623 (HAS F ROADS))
             network.draw_routes(routes=routes)
             map = network.draw_route(route=routes["0"])
@@ -594,7 +594,7 @@ def manage_road_network(functionality: str) -> None:
             network.build()
             pprint(network._get_municipality_id_preds(municipality_id=301, target=GlobalDefinitions.VOLUME, model="HistGradientBoostingRegressor"))
             map = network.draw_municipality_traffic_volume_heatmap(municipality_id=muni, horizon=db_broker.get_forecasting_horizon(target=target).replace(tzinfo=None), model="HistGradientBoostingRegressor")
-            network.export_map(map_obj=map, fp=str(Path.cwd() / "heatmap.html"))
+            network.export_map(map_obj=map, fp=str(Path.cwd() / f"heatmap_{muni}.html"))
 
 
     elif functionality == "4.4":

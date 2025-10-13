@@ -27,11 +27,9 @@ from sklearn.metrics import (
     mean_squared_error,
     mean_absolute_error,
     root_mean_squared_error,
-    PredictionErrorDisplay
 )
 
 from sktime.base import BaseEstimator as SktimeBaseEstimator
-#from pytorch_forecasting.models.base_model import BaseModel as PyTorchForecastingBaseModel
 
 from exceptions import ModelNotSetError, ScoringNotFoundError
 from definitions import GlobalDefinitions, ProjectTables, ProjectConstraints
@@ -427,14 +425,3 @@ class TFS:
                 "pickle_object" = EXCLUDED."pickle_object";
             """, execute_args=[self._model.model_id, self._target, self._road_category, joblib_bytes.getvalue(), pickle.dumps(self._model)]) #Before it was: pickle.dumps(self._model.model_obj)
         return None
-
-
-
-
-
-
-
-
-
-
-
