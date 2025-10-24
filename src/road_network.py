@@ -63,10 +63,10 @@ class RoadNetwork:
         self.network_id: str = network_id
         self.name: str = name
         self._backend: str = backend
-        self._network: nx.Graph | None = None #TODO CORRECTLY DEFINE ROAD DIRECTIONS, BUT WITH AN UNDIRECTED GRAPH EVERYTHING WORKS CORRECTLY. CHECK IF MULTI DIGRAPH WORKS
+        self._network: nx.DiGraph | None = None #TODO CORRECTLY DEFINE ROAD DIRECTIONS, BUT WITH AN UNDIRECTED GRAPH EVERYTHING WORKS CORRECTLY. CHECK IF MULTI DIGRAPH WORKS
 
         if not network_binary:
-            self._network = nx.Graph(**{"network_id": self.network_id, "name": self.name})
+            self._network = nx.DiGraph(**{"network_id": self.network_id, "name": self.name})
         else:
             self._network = pickle.loads(network_binary)  # To load pre-computed graphs
 
@@ -75,7 +75,7 @@ class RoadNetwork:
 
 
     @staticmethod
-    def _get_minkowski_dist(u: tuple[Any, ...], v: tuple[Any, ...], G: nx.Graph):
+    def _get_minkowski_dist(u: tuple[Any, ...], v: tuple[Any, ...], G: nx.DiGraph):
         # Parsing WKT geometry into shapely Point
         u_geom = G.nodes[u]["geom"]
         v_geom = G.nodes[v]["geom"]
