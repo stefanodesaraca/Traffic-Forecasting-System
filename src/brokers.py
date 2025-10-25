@@ -167,8 +167,8 @@ class AIODBBroker:
     async def reset_forecasting_horizon_async(self, target: str) -> None:
         await asyncio.to_thread(check_target, target, errors=True)
         await self.send_sql_async(f"""UPDATE "{ProjectTables.ForecastingSettings.value}"
-                                                       SET "config" = jsonb_set("config", '{{{f"'{target}_forecasting_horizon'"}}}', 'null'::jsonb)
-                                                       WHERE "id" = TRUE;""")
+                                      SET "config" = jsonb_set("config", '{{{f"'{target}_forecasting_horizon'"}}}', 'null'::jsonb)
+                                      WHERE "id" = TRUE;""")
         return None
 
 

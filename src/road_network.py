@@ -472,12 +472,17 @@ class RoadNetwork:
                 for target in targets:
 
                     ok, variogram_plot = self._get_ordinary_kriging(y_pred=self.trps_along_sp_preds, horizon=horizon, target=target, verbose=True)
+
+                    t_start = datetime.datetime.now()
+
                     z_interpolated_vals, kriging_variance = self._ok_interpolate(
                                                                                 ordinary_kriging_obj=ok,
                                                                                 x_coords=line_predictions["lon"].values,
                                                                                 y_coords=line_predictions["lat"].values,
                                                                                 style="points"
                                                                             ) # Kriging variance is sometimes called "ss" (sigma squared)
+
+                    print("TOTAL KRIGING TIME: ", datetime.datetime.now() - t_start)
 
                     variogram_plot = self._edit_variogram_plot(fig=variogram_plot, target=target)
 
@@ -622,16 +627,13 @@ class RoadNetwork:
         # Adding destination node
         self._add_marker(folium_obj=steps_layer, marker_lat=path_end_node["lat"], marker_lon=path_end_node["lon"], popup="Destination", icon=folium.Icon(icon=IconStyles.DESTINATION_NODE_STYLE.value["icon"], icon_color=IconStyles.DESTINATION_NODE_STYLE.value["icon_color"]))
 
-        for i in range(len(route["line_predictions"]) - 1):
-            start = [route["line_predictions"].iloc[i]["lat"], route["line_predictions"].iloc[i]["lon"]]
-            end = [route["line_predictions"].iloc[i + 1]["lat"], route["line_predictions"].iloc[i + 1]["lon"]]
-
+        for edge_id, group in route["line_predictions"].groupby("edge_id"):
             self._add_line(
                 folium_obj=edges_layer,
-                locations=[start, end],
-                color=TrafficClasses[route["line_predictions"].iloc[i]["traffic_class"]].value,
+                locations=group[["lat", "lon"]].values.tolist(),
+                color=TrafficClasses[group.iloc[0]["traffic_class"]].value,
                 weight=7,
-                #TODO ADD POPUP
+                popup=edge_id
             )
 
         for trp in route["trps_along_path"]:
