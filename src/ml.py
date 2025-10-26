@@ -343,7 +343,7 @@ class TFS:
             gc.collect()
 
 
-    def compute_fpe(self, y_true: pd.DataFrame | dd.DataFrame, y_pred: pd.DataFrame | dd.DataFrame) -> dict[str, float | int]:
+    def fpe(self, y_true: pd.DataFrame | dd.DataFrame, y_pred: pd.DataFrame | dd.DataFrame) -> dict[str, float | int]:
         return {func_name: scoring_function(**{"y_true": y_true, "y_pred": y_pred}) for func_name, scoring_function in self._scoring_functions.items()}
 
 

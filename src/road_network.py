@@ -627,7 +627,7 @@ class RoadNetwork:
         # Adding destination node
         self._add_marker(folium_obj=steps_layer, marker_lat=path_end_node["lat"], marker_lon=path_end_node["lon"], popup="Destination", icon=folium.Icon(icon=IconStyles.DESTINATION_NODE_STYLE.value["icon"], icon_color=IconStyles.DESTINATION_NODE_STYLE.value["icon_color"]))
 
-        for edge_id, group in route["line_predictions"].groupby("edge_id"):
+        for edge_id, group in route["line_predictions"].groupby("link_id"):
             self._add_line(
                 folium_obj=edges_layer,
                 locations=group[["lat", "lon"]].values.tolist(),
