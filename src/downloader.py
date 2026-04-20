@@ -293,7 +293,7 @@ async def volumes_to_db(db_broker_async: Any, trp_ids: list[str] | Generator[str
                     time_start,
                     time_end,
                     last_end_cursor=end_cursor,
-                    next_page_query=pages_counter > 0
+                    next_page_query=pages_counter > 0 #Boolean condition that equals True or False
                 )
 
                 page_info = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]
