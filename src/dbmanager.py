@@ -76,8 +76,18 @@ def postgres_conn(user: str, password: str, dbname: str, host: str = 'localhost'
 
 class AIODBManager:
 
-    def __init__(self, superuser: str, superuser_password: str, tfs_user: str, tfs_password: str, tfs_role: str,
-                 tfs_role_password: str, hub_db: str = "tfs_hub", maintenance_db: str = "postgres", db_host: str = "localhost"):
+    def __init__(
+            self,
+            superuser: str,
+            superuser_password: str,
+            tfs_user: str,
+            tfs_password: str,
+            tfs_role: str,
+            tfs_role_password: str,
+            hub_db: str = "tfs_hub",
+            maintenance_db: str = "postgres",
+            db_host: str = "localhost"
+        ):
         self._superuser: str = superuser
         self._superuser_password: str = superuser_password
         self._tfs_user: str = tfs_user
