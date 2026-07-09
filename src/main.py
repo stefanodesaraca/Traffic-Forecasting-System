@@ -359,7 +359,7 @@ def forecast_warmup(functionality: str) -> None:
         learner.fpe(y_true=y_test, y_pred=y_pred)
         return None
 
-    def process_functionality(func: callable) -> None:
+    def process_functionality(func: type[callable]) -> None:
 
         models = {
             m["name"]: {

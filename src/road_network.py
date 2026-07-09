@@ -297,7 +297,7 @@ class RoadNetwork:
         self,
         source: str,
         destination: str,
-        heuristic: callable,
+        heuristic: type[callable],
         weight: str | type[callable],
     ) -> list[str]:
         return nx.astar_path(

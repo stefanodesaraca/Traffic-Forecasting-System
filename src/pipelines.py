@@ -1,10 +1,9 @@
 import math
 from itertools import pairwise
-import datetime
 from datetime import timedelta
+import datetime
 import json
 from pathlib import Path
-import datetime
 from zoneinfo import ZoneInfo
 import asyncio
 import aiofiles
@@ -415,7 +414,7 @@ class RoadGraphObjectsIngestionPipeline:
         self._db_broker_async: Any = db_broker_async
 
     @staticmethod
-    async def _load_geojson_async(fp: str) -> dict[str, Any]:
+    async def _load_geojson_async(fp: str | Path) -> dict[str, Any]:
         async with aiofiles.open(fp, "r", encoding="utf-8") as geo:
             return geojson.loads(await geo.read())
 
@@ -725,7 +724,7 @@ class RoadGraphObjectsIngestionPipeline:
             n=batch_size,
         )
 
-        async def limited_ingest(query: str, batch: list[tuple[Any]]) -> None:
+        async def limited_ingest(query: str, batch: list[list | tuple]) -> None:
             async with semaphore:
                 return await self._db_broker_async.send_sql_async(
                     sql=query, many=True, many_values=batch
@@ -890,10 +889,10 @@ class MLPredictionPipeline:
         trp_id: str,
         road_category: str,
         target: str,
-        db_broker: callable,
-        loader: callable,
+        db_broker: type[callable],
+        loader: type[callable],
         preprocessing_pipeline: MLPreprocessingPipeline,
-        model: callable,
+        model: type[callable],
     ):
         from brokers import DBBroker
         from loaders import BatchStreamLoader

@@ -9,7 +9,6 @@ import datetime
 from typing import Any
 from pydantic import BaseModel
 import pandas as pd
-import matplotlib.pyplot as plt
 import joblib
 
 import dask.dataframe as dd
@@ -32,7 +31,7 @@ from sklearn.metrics import (
 from sktime.base import BaseEstimator as SktimeBaseEstimator
 
 from exceptions import ModelNotSetError, ScoringNotFoundError
-from definitions import GlobalDefinitions, ProjectTables, ProjectConstraints
+from definitions import ProjectTables, ProjectConstraints
 
 from brokers import DBBroker
 from utils import check_target
@@ -211,7 +210,7 @@ class TFS:
 
     Parameters
     ----------
-    model : callable (class instance)
+    model : type[callable] (class instance)
         The model **class instance** (not an object). For example:
         `TFSLearner(model=EstimatorClass(), ...)` and **not**
         `TFSLearner(model=EstimatorClass, ...)`.
@@ -228,7 +227,7 @@ class TFS:
 
     def __init__(
         self,
-        model: callable,
+        model: type[callable],
         target: str,
         db_broker: DBBroker,
         client: Client | None = None,
@@ -430,7 +429,7 @@ class TFS:
             many_values=[tuple(row) for row in results.itertuples(name=None)],
         )
 
-        # TODO EXPORT PARAMETERES TO JSON FOR DEEPER ANALYSES
+        # TODO EXPORT PARAMETERS TO JSON FOR DEEPER ANALYSES
 
         return None
 

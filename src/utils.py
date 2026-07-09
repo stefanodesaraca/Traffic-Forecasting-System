@@ -336,7 +336,7 @@ def closest(numbers: list[int | float], k: int | float):
     return min(numbers, key=lambda n: abs(n - k))
 
 
-def get_trait_length_by_road_category(links: list[callable]) -> dict[str, float]:
+def get_trait_length_by_road_category(links: list[type[callable]]) -> dict[str, float]:
     lengths = {}
     for link in links:
         lengths[link["road_category"]] += link["length"]

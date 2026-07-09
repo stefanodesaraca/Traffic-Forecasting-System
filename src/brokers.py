@@ -375,7 +375,7 @@ class DBBroker:
 
     def get_trp_ids(
         self, road_category_filter: list[str] | None = None
-    ) -> list[tuple[Any, ...] | dict[Any, ...]]:
+    ) -> list[tuple[Any, ...] | dict[Any, Any]]:
         with postgres_conn(
             user=self._db_user,
             password=self._db_password,
@@ -397,7 +397,7 @@ class DBBroker:
         has_volumes: bool | None = None,
         has_mean_speed: bool | None = None,
         county_ids_filter: list[str] | None = None,
-    ) -> dict[Any, ...]:
+    ) -> dict[Any, Any]:
         with postgres_conn(
             user=self._db_user,
             password=self._db_password,
