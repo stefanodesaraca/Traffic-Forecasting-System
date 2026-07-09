@@ -8,7 +8,11 @@ from gql.transport.exceptions import TransportServerError
 from gql.transport.aiohttp import AIOHTTPTransport
 from graphql import ExecutionResult
 from pydantic.types import PositiveInt
-from aiohttp.client_exceptions import ClientConnectorError, ClientOSError, ServerDisconnectedError
+from aiohttp.client_exceptions import (
+    ClientConnectorError,
+    ClientOSError,
+    ServerDisconnectedError,
+)
 
 from pipelines import VolumeIngestionPipeline
 from definitions import GlobalDefinitions
@@ -18,12 +22,16 @@ simplefilter("ignore")
 
 # This client is specifically thought for asynchronous data downloading
 async def start_client_async() -> Client:
-    return Client(transport=AIOHTTPTransport(url="https://trafikkdata-api.atlas.vegvesen.no/"), fetch_schema_from_transport=True)
+    return Client(
+        transport=AIOHTTPTransport(url="https://trafikkdata-api.atlas.vegvesen.no/"),
+        fetch_schema_from_transport=True,
+    )
 
 
 async def fetch_areas(gql_client: Client) -> dict | ExecutionResult | None:
     try:
-        return await gql_client.execute_async(gql("""
+        return await gql_client.execute_async(
+            gql("""
                 {
                   areas {
                     countryParts {
@@ -45,7 +53,8 @@ async def fetch_areas(gql_client: Client) -> dict | ExecutionResult | None:
                     }
                   }
                 }
-                """))
+                """)
+        )
     except TimeoutError:
         return None
     except TransportServerError:  # If error code is 503: Service Unavailable
@@ -54,24 +63,29 @@ async def fetch_areas(gql_client: Client) -> dict | ExecutionResult | None:
 
 async def fetch_road_categories(gql_client: Client) -> dict | ExecutionResult | None:
     try:
-        return await gql_client.execute_async(gql("""
+        return await gql_client.execute_async(
+            gql("""
         {
             roadCategories{
                 id
                 name
             }
         }
-        """))
+        """)
+        )
     except TimeoutError:
         return None
     except TransportServerError:  # If error code is 503: Service Unavailable
         return None
 
 
-async def fetch_trps_from_ids(gql_client: Client, trp_ids: list[str]) -> dict | ExecutionResult | None:
+async def fetch_trps_from_ids(
+    gql_client: Client, trp_ids: list[str]
+) -> dict | ExecutionResult | None:
     try:
-        return await gql_client.execute_async(gql(
-            f"""
+        return await gql_client.execute_async(
+            gql(
+                f"""
             {{
               trafficRegistrationPoints(
                 trafficRegistrationPointIds: [{", ".join(f'"{x.strip()}"' for x in trp_ids)}]
@@ -128,17 +142,21 @@ async def fetch_trps_from_ids(gql_client: Client, trp_ids: list[str]) -> dict | 
               }}
             }}
             """
-        )) # The number 3 indicates the Oslo og Viken county, which only includes the Oslo municipality
+            )
+        )  # The number 3 indicates the Oslo og Viken county, which only includes the Oslo municipality
     except TimeoutError:
         return None
     except TransportServerError:  # If error code is 503: Service Unavailable
         return None
 
 
-async def fetch_trps(gql_client: Client, count_ids_filter: list[str] | None = None) -> dict | ExecutionResult | None:
+async def fetch_trps(
+    gql_client: Client, count_ids_filter: list[str] | None = None
+) -> dict | ExecutionResult | None:
     try:
-        return await gql_client.execute_async(gql(
-            f"""
+        return await gql_client.execute_async(
+            gql(
+                f"""
             {{
               trafficRegistrationPoints(
                 searchQuery: {{roadCategoryIds: [{", ".join(GlobalDefinitions.ROAD_CATEGORIES)}]{f", countyNumbers: [{', '.join(count_ids_filter)}]" if count_ids_filter else ""}, isOperational: true, trafficType: VEHICLE, registrationFrequency: CONTINUOUS}}
@@ -195,15 +213,24 @@ async def fetch_trps(gql_client: Client, count_ids_filter: list[str] | None = No
               }}
             }}
             """
-        )) # The number 3 indicates the Oslo og Viken county, which only includes the Oslo municipality
+            )
+        )  # The number 3 indicates the Oslo og Viken county, which only includes the Oslo municipality
     except TimeoutError:
         return None
     except TransportServerError:  # If error code is 503: Service Unavailable
         return None
 
 
-async def fetch_trp_volumes(gql_client: Client, trp_id: str, time_start: str, time_end: str, last_end_cursor: str, next_page_query: bool) -> dict | ExecutionResult:
-    return await gql_client.execute_async(gql(f"""
+async def fetch_trp_volumes(
+    gql_client: Client,
+    trp_id: str,
+    time_start: str,
+    time_end: str,
+    last_end_cursor: str,
+    next_page_query: bool,
+) -> dict | ExecutionResult:
+    return await gql_client.execute_async(
+        gql(f"""
         {{
             trafficData(trafficRegistrationPointId: "{trp_id}") {{
                 trafficRegistrationPoint {{
@@ -211,7 +238,7 @@ async def fetch_trp_volumes(gql_client: Client, trp_id: str, time_start: str, ti
                     name
                 }}
                 volume {{
-                    byHour(from: "{time_start}", to: "{time_end}"{f', after: "{last_end_cursor}"' if next_page_query else ''}) {{
+                    byHour(from: "{time_start}", to: "{time_end}"{f', after: "{last_end_cursor}"' if next_page_query else ""}) {{
                         edges {{
                             node {{
                                 from
@@ -259,15 +286,26 @@ async def fetch_trp_volumes(gql_client: Client, trp_id: str, time_start: str, ti
                 }}
             }}
         }}
-        """))
+        """)
+    )
 
 
-async def volumes_to_db(db_broker_async: Any, trp_ids: list[str] | Generator[str, None, None], time_start: str, time_end: str, n_async_jobs: PositiveInt = 5, max_retries: PositiveInt = 10, batch_size: int = 100000) -> None:
+async def volumes_to_db(
+    db_broker_async: Any,
+    trp_ids: list[str] | Generator[str, None, None],
+    time_start: str,
+    time_end: str,
+    n_async_jobs: PositiveInt = 5,
+    max_retries: PositiveInt = 10,
+    batch_size: int = 100000,
+) -> None:
     semaphore = asyncio.Semaphore(n_async_jobs)  # Limit to n_async_jobs async tasks
     pipeline = VolumeIngestionPipeline(db_broker_async=db_broker_async)
 
     # Shared buffer for batches per TRP
-    batch_buffers = defaultdict(dict) # Used to collect batches of data from each TRP to then ingest into the volumes processing pipeline
+    batch_buffers = defaultdict(
+        dict
+    )  # Used to collect batches of data from each TRP to then ingest into the volumes processing pipeline
     batch_lock = asyncio.Lock()
 
     async def flush_batch(trp_id: str):
@@ -276,7 +314,7 @@ async def volumes_to_db(db_broker_async: Any, trp_ids: list[str] | Generator[str
                 await pipeline.ingest(
                     payload=batch_buffers[trp_id],
                     trp_id=trp_id,
-                    fields=GlobalDefinitions.VOLUME_INGESTION_FIELDS
+                    fields=GlobalDefinitions.VOLUME_INGESTION_FIELDS,
                 )
                 batch_buffers[trp_id].clear()
 
@@ -288,22 +326,28 @@ async def volumes_to_db(db_broker_async: Any, trp_ids: list[str] | Generator[str
         while retries < max_retries:
             try:
                 query_result = await fetch_trp_volumes(
-                    await start_client_async(), #Starting a GraphQL client for each download_trp_data() call since a single client can't handle multiple asynchronous calls. This is because if multiple functions try to access the same client at the same time (while it can only handle one call at a time) this will raise this exception: gql.transport.exceptions.TransportAlreadyConnected: Transport is already connected
+                    await start_client_async(),  # Starting a GraphQL client for each download_trp_data() call since a single client can't handle multiple asynchronous calls. This is because if multiple functions try to access the same client at the same time (while it can only handle one call at a time) this will raise this exception: gql.transport.exceptions.TransportAlreadyConnected: Transport is already connected
                     trp_id,
                     time_start,
                     time_end,
                     last_end_cursor=end_cursor,
-                    next_page_query=pages_counter > 0
+                    next_page_query=pages_counter > 0,
                 )
 
                 page_info = query_result["trafficData"]["volume"]["byHour"]["pageInfo"]
-                end_cursor = page_info["endCursor"] if page_info["hasNextPage"] else None
+                end_cursor = (
+                    page_info["endCursor"] if page_info["hasNextPage"] else None
+                )
 
                 # Add the query result to the TRP's batch
                 async with batch_lock:
                     # If a batch for the TRP exists then just append the collected data to the previously collected ones, otherwise append the whole query result with additional data returned from the API
                     if batch_buffers.get(trp_id, None) is not None:
-                        batch_buffers[trp_id]["trafficData"]["volume"]["byHour"]["edges"].extend(query_result["trafficData"]["volume"]["byHour"]["edges"])
+                        batch_buffers[trp_id]["trafficData"]["volume"]["byHour"][
+                            "edges"
+                        ].extend(
+                            query_result["trafficData"]["volume"]["byHour"]["edges"]
+                        )
                     else:
                         batch_buffers[trp_id] = query_result
                     # Once the number of records in the buffer reaches the batch_size parameter's value
@@ -318,11 +362,15 @@ async def volumes_to_db(db_broker_async: Any, trp_ids: list[str] | Generator[str
                 if retries == max_retries:
                     print("\033[91mFailed to download TRP volumes data\033[0m")
                     break
-                await asyncio.sleep(delay=(2 ^ retries) + random.random()) #Exponential backoff
+                await asyncio.sleep(
+                    delay=(2 ^ retries) + random.random()
+                )  # Exponential backoff
                 retries += 1
 
             except (ClientConnectorError, ClientOSError, ServerDisconnectedError):
-                await asyncio.sleep(delay=(2 ^ retries ^ retries) + random.random())  #Big exponential backoff
+                await asyncio.sleep(
+                    delay=(2 ^ retries ^ retries) + random.random()
+                )  # Big exponential backoff
                 retries += 1
 
         return None

@@ -9,56 +9,67 @@ from brokers import DBBroker
 from utils import to_pg_array
 
 
-
-#Simple synchronous batch loader
+# Simple synchronous batch loader
 class BatchStreamLoader:
-
     def __init__(self, db_broker: DBBroker):
         self._data: dd.DataFrame
         self._db_broker: DBBroker = db_broker
-        self._dask_partition_size: str = GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE
+        self._dask_partition_size: str = (
+            GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE
+        )
 
-
-    def _load_from_stream(self, stream: Generator[Any, None, None], df_partitions_size: PositiveInt) -> dd.DataFrame:
+    def _load_from_stream(
+        self, stream: Generator[Any, None, None], df_partitions_size: PositiveInt
+    ) -> dd.DataFrame:
         df_partitions = []
         # WARNING: the order of the filters in the list within the list comprehension must be the same as the order of conditions inside the sql query
         batch = []
         for row in stream:
             batch.append(row)
             if len(batch) >= df_partitions_size:
-                df_partitions.append(dd.from_pandas(pd.DataFrame.from_records(batch), npartitions=1))
+                df_partitions.append(
+                    dd.from_pandas(pd.DataFrame.from_records(batch), npartitions=1)
+                )
                 batch = []
 
         # Adding remaining rows
         if batch:
-            df_partitions.append(dd.from_pandas(pd.DataFrame.from_records(batch), npartitions=1))
+            df_partitions.append(
+                dd.from_pandas(pd.DataFrame.from_records(batch), npartitions=1)
+            )
 
         # If df_partitions has only 1 element inside then there aren't any dataframes to concatenate since there's only one, so just return it
         if len(df_partitions) == 1:
-            return df_partitions[0].repartition(partition_size=self._dask_partition_size)
-        return dd.concat(dfs=df_partitions, axis=0).repartition(partition_size=self._dask_partition_size)
+            return df_partitions[0].repartition(
+                partition_size=self._dask_partition_size
+            )
+        return dd.concat(dfs=df_partitions, axis=0).repartition(
+            partition_size=self._dask_partition_size
+        )
 
-
-    def get_volume(self,
-                   batch_size: PositiveInt = 50000,
-                   trp_list_filter: list[str] | None = None,
-                   road_category_filter: list[str] | None = None,
-                   county_ids_filter: list[str] | None = None,
-                   limit: PositiveInt | None = None,
-                   split_cyclical_features: bool = False,
-                   year: bool = True,
-                   encoded_cyclical_features: bool = False,
-                   is_covid_year: bool = False,
-                   is_mice: bool = False,
-                   zoned_dt_start: datetime.datetime | None = None,
-                   zoned_dt_end: datetime.datetime | None = None,
-                   trp_lat: bool | None = False,
-                   trp_lon: bool | None = False,
-                   sort_by_date: bool = True,
-                   sort_ascending: bool = True,
-                   df_partitions_size: PositiveInt = 100000
-                   ) -> dd.DataFrame:
-        return self._load_from_stream(stream=self._db_broker.get_stream(sql=f"""
+    def get_volume(
+        self,
+        batch_size: PositiveInt = 50000,
+        trp_list_filter: list[str] | None = None,
+        road_category_filter: list[str] | None = None,
+        county_ids_filter: list[str] | None = None,
+        limit: PositiveInt | None = None,
+        split_cyclical_features: bool = False,
+        year: bool = True,
+        encoded_cyclical_features: bool = False,
+        is_covid_year: bool = False,
+        is_mice: bool = False,
+        zoned_dt_start: datetime.datetime | None = None,
+        zoned_dt_end: datetime.datetime | None = None,
+        trp_lat: bool | None = False,
+        trp_lon: bool | None = False,
+        sort_by_date: bool = True,
+        sort_ascending: bool = True,
+        df_partitions_size: PositiveInt = 100000,
+    ) -> dd.DataFrame:
+        return self._load_from_stream(
+            stream=self._db_broker.get_stream(
+                sql=f"""
             SELECT 
                 v.trp_id AS trp_id,
                 v.{GlobalDefinitions.VOLUME} AS {GlobalDefinitions.VOLUME},
@@ -68,14 +79,19 @@ class BatchStreamLoader:
                 {",EXTRACT(YEAR FROM zoned_dt_iso) as year" if year else ""}
                 {f",t.lat AS lat" if trp_lat else ""}
                 {f",t.lon AS lon" if trp_lon else ""}
-            {'''
+            {
+                    '''
                 ,
                 EXTRACT(DAY FROM zoned_dt_iso) AS day_of_month,
                 EXTRACT(HOUR FROM zoned_dt_iso) AS hour_of_day,
                 EXTRACT(MONTH FROM zoned_dt_iso) AS month_of_year,
                 EXTRACT(WEEK FROM zoned_dt_iso) AS week_of_year
-            ''' if split_cyclical_features else ""}
-            {'''    
+            '''
+                    if split_cyclical_features
+                    else ""
+                }
+            {
+                    '''    
                 ,
                 COS(2 * PI() * EXTRACT(DAY FROM zoned_dt_iso) / 31) AS day_cos,
                 SIN(2 * PI() * EXTRACT(DAY FROM zoned_dt_iso) / 31) AS day_sin,
@@ -88,50 +104,80 @@ class BatchStreamLoader:
                             
                 COS(2 * PI() * EXTRACT(WEEK FROM zoned_dt_iso) / 53) AS week_cos,
                 SIN(2 * PI() * EXTRACT(WEEK FROM zoned_dt_iso) / 53) AS week_sin'''
-            if encoded_cyclical_features else ""}
-            {'''
+                    if encoded_cyclical_features
+                    else ""
+                }
+            {
+                    '''
             ,
             CASE 
                 WHEN EXTRACT(YEAR FROM zoned_dt_iso) IN (2020, 2021, 2022) THEN TRUE
                     ELSE FALSE
                 END AS is_covid_year
-            ''' if is_covid_year else ""
-            }
-            FROM "{ProjectTables.Volume.value}" v JOIN "{ProjectTables.TrafficRegistrationPoints.value}" t ON v.trp_id = t.id
+            '''
+                    if is_covid_year
+                    else ""
+                }
+            FROM "{ProjectTables.Volume.value}" v JOIN "{
+                    ProjectTables.TrafficRegistrationPoints.value
+                }" t ON v.trp_id = t.id
             WHERE {"v.trp_id = ANY(%s)" if trp_list_filter else "1=1"}
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
-            AND {f'''"zoned_dt_iso" >= '{str(zoned_dt_start)}'::timestamptz''' if zoned_dt_start else "1=1"}
-            AND {f'''"zoned_dt_iso" <= '{str(zoned_dt_end)}'::timestamptz''' if zoned_dt_end else "1=1"}
+            AND {
+                    f'''"zoned_dt_iso" >= '{str(zoned_dt_start)}'::timestamptz'''
+                    if zoned_dt_start
+                    else "1=1"
+                }
+            AND {
+                    f'''"zoned_dt_iso" <= '{str(zoned_dt_end)}'::timestamptz'''
+                    if zoned_dt_end
+                    else "1=1"
+                }
             AND {f"t.county_id = ANY(%s)" if county_ids_filter else "1=1"}
-            {f'''
+            {
+                    f'''
             ORDER BY "zoned_dt_iso" {"ASC" if sort_ascending else "DESC"}
-            ''' if sort_by_date else ""
-            }
+            '''
+                    if sort_by_date
+                    else ""
+                }
             {f"LIMIT {limit}" if limit else ""}
-        """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter, county_ids_filter] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
+        """,
+                filters=tuple(
+                    to_pg_array(f)
+                    for f in [trp_list_filter, road_category_filter, county_ids_filter]
+                    if f
+                ),
+                batch_size=batch_size,
+                row_factory="dict_row",
+            ),
+            df_partitions_size=df_partitions_size,
+        )
         # The ORDER BY (descending order) is necessary since in time series forecasting the order of the records is fundamental
 
-
-    def get_mean_speed(self,
-                       batch_size: PositiveInt = 50000,
-                       trp_list_filter: list[str] | None = None,
-                       road_category_filter: list[str] | None = None,
-                       county_ids_filter: list[str] | None = None,
-                       limit: PositiveInt | None = None,
-                       split_cyclical_features: bool = False,
-                       year: bool = True,
-                       encoded_cyclical_features: bool = False,
-                       is_covid_year: bool = False,
-                       is_mice: bool = False,
-                       zoned_dt_start: datetime.datetime | None = None,
-                       zoned_dt_end: datetime.datetime | None = None,
-                       trp_lat: bool | None = False,
-                       trp_lon: bool | None = False,
-                       sort_by_date: bool = True,
-                       sort_ascending: bool = True,
-                       df_partitions_size: PositiveInt = 100000
-                       ) -> dd.DataFrame:
-        return self._load_from_stream(self._db_broker.get_stream(sql=f"""
+    def get_mean_speed(
+        self,
+        batch_size: PositiveInt = 50000,
+        trp_list_filter: list[str] | None = None,
+        road_category_filter: list[str] | None = None,
+        county_ids_filter: list[str] | None = None,
+        limit: PositiveInt | None = None,
+        split_cyclical_features: bool = False,
+        year: bool = True,
+        encoded_cyclical_features: bool = False,
+        is_covid_year: bool = False,
+        is_mice: bool = False,
+        zoned_dt_start: datetime.datetime | None = None,
+        zoned_dt_end: datetime.datetime | None = None,
+        trp_lat: bool | None = False,
+        trp_lon: bool | None = False,
+        sort_by_date: bool = True,
+        sort_ascending: bool = True,
+        df_partitions_size: PositiveInt = 100000,
+    ) -> dd.DataFrame:
+        return self._load_from_stream(
+            self._db_broker.get_stream(
+                sql=f"""
              SELECT 
                  ms.trp_id AS trp_id,
                  ms.{GlobalDefinitions.MEAN_SPEED} AS {GlobalDefinitions.MEAN_SPEED},
@@ -142,14 +188,18 @@ class BatchStreamLoader:
                 {",EXTRACT(YEAR FROM zoned_dt_iso) as year" if year else ""}
                 {f",t.lat AS lat" if trp_lat else ""}
                 {f",t.lon AS lon" if trp_lon else ""}
-            {'''
+            {
+                    '''
                 ,
                 EXTRACT(DAY FROM zoned_dt_iso) AS day_of_month,
                 EXTRACT(HOUR FROM zoned_dt_iso) AS hour_of_day,
                 EXTRACT(MONTH FROM zoned_dt_iso) AS month_of_year,
-                EXTRACT(WEEK FROM zoned_dt_iso) AS week_of_year''' 
-            if split_cyclical_features else ""}
-            {'''    
+                EXTRACT(WEEK FROM zoned_dt_iso) AS week_of_year'''
+                    if split_cyclical_features
+                    else ""
+                }
+            {
+                    '''    
                 ,
                 COS(2 * PI() * EXTRACT(DAY FROM zoned_dt_iso) / 31) AS day_cos,
                 SIN(2 * PI() * EXTRACT(DAY FROM zoned_dt_iso) / 31) AS day_sin,
@@ -162,51 +212,85 @@ class BatchStreamLoader:
             
                 COS(2 * PI() * EXTRACT(WEEK FROM zoned_dt_iso) / 53) AS week_cos,
                 SIN(2 * PI() * EXTRACT(WEEK FROM zoned_dt_iso) / 53) AS week_sin'''
-            if encoded_cyclical_features else ""}
-            {'''
+                    if encoded_cyclical_features
+                    else ""
+                }
+            {
+                    '''
             ,
             CASE 
                 WHEN EXTRACT(YEAR FROM zoned_dt_iso) IN (2020, 2021, 2022) THEN TRUE
                     ELSE FALSE
-                END AS is_covid_year''' 
-            if is_covid_year else ""
-            }
-            FROM "{ProjectTables.MeanSpeed.value}" ms JOIN "{ProjectTables.TrafficRegistrationPoints.value}" t ON ms.trp_id = t.id
+                END AS is_covid_year'''
+                    if is_covid_year
+                    else ""
+                }
+            FROM "{ProjectTables.MeanSpeed.value}" ms JOIN "{
+                    ProjectTables.TrafficRegistrationPoints.value
+                }" t ON ms.trp_id = t.id
             WHERE {"ms.trp_id = ANY(%s)" if trp_list_filter else "1=1"}
             AND {"t.road_category = ANY(%s)" if road_category_filter else "1=1"}
-            AND {f'''"zoned_dt_iso" >= '{str(zoned_dt_start)}'::timestamptz''' if zoned_dt_start else "1=1"}
-            AND {f'''"zoned_dt_iso" <= '{str(zoned_dt_end)}'::timestamptz''' if zoned_dt_end else "1=1"}
+            AND {
+                    f'''"zoned_dt_iso" >= '{str(zoned_dt_start)}'::timestamptz'''
+                    if zoned_dt_start
+                    else "1=1"
+                }
+            AND {
+                    f'''"zoned_dt_iso" <= '{str(zoned_dt_end)}'::timestamptz'''
+                    if zoned_dt_end
+                    else "1=1"
+                }
             AND {f"t.county_id = ANY(%s)" if county_ids_filter else "1=1"}
-            {f'''
-            ORDER BY "zoned_dt_iso" {"ASC" if sort_ascending else "DESC"}''' 
-            if sort_by_date else ""
-            }            
+            {
+                    f'''
+            ORDER BY "zoned_dt_iso" {"ASC" if sort_ascending else "DESC"}'''
+                    if sort_by_date
+                    else ""
+                }            
             {f"LIMIT {limit}" if limit else ""}
-        """, filters=tuple(to_pg_array(f) for f in [trp_list_filter, road_category_filter, county_ids_filter] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
+        """,
+                filters=tuple(
+                    to_pg_array(f)
+                    for f in [trp_list_filter, road_category_filter, county_ids_filter]
+                    if f
+                ),
+                batch_size=batch_size,
+                row_factory="dict_row",
+            ),
+            df_partitions_size=df_partitions_size,
+        )
         # The ORDER BY (descending order) is necessary since in time series forecasting the order of the records is fundamental
 
-
-    def get_nodes(self,
-                  batch_size: PositiveInt = 50000,
-                  node_ids_filter: list[str] | None = None,
-                  link_ids_filter: list[str] | None = None,
-                  limit: PositiveInt | None = None,
-                  lat: bool | None = None,
-                  lon: bool | None = None,
-                  df_partitions_size: PositiveInt = 100000
-                  ) -> dd.DataFrame:
-        return self._load_from_stream(self._db_broker.get_stream(sql=f"""
+    def get_nodes(
+        self,
+        batch_size: PositiveInt = 50000,
+        node_ids_filter: list[str] | None = None,
+        link_ids_filter: list[str] | None = None,
+        limit: PositiveInt | None = None,
+        lat: bool | None = None,
+        lon: bool | None = None,
+        df_partitions_size: PositiveInt = 100000,
+    ) -> dd.DataFrame:
+        return self._load_from_stream(
+            self._db_broker.get_stream(
+                sql=f"""
             SELECT 
                 "node_id",
                 "type",
                 ST_AsText("geom") AS geom,
-                {f'''
+                {
+                    f'''
                 ST_Y(ST_Transform("geom", {GlobalDefinitions.WGS84_REFERENCE_SYSTEM})) AS lat,
-                ''' if lat else ""
+                '''
+                    if lat
+                    else ""
                 }
-                {f'''
+                {
+                    f'''
                 ST_X(ST_Transform("geom", {GlobalDefinitions.WGS84_REFERENCE_SYSTEM})) AS lon,
-                ''' if lon else ""
+                '''
+                    if lon
+                    else ""
                 }
                 "road_node_ids",
                 "is_roundabout",
@@ -217,32 +301,43 @@ class BatchStreamLoader:
                 "road_system_references",
                 "raw_properties"
             FROM "{ProjectTables.RoadGraphNodes.value}"
-            WHERE {f'''"road_node_ids" && ANY(%s)'''
-                    if node_ids_filter else "1=1"
-            }
-            AND {f'''"connected_traffic_link_ids" && ANY(%s)'''
-                    if link_ids_filter else "1=1"
-            }
+            WHERE {f'''"road_node_ids" && ANY(%s)''' if node_ids_filter else "1=1"}
+            AND {
+                    f'''"connected_traffic_link_ids" && ANY(%s)'''
+                    if link_ids_filter
+                    else "1=1"
+                }
             {f"LIMIT {limit}" if limit else ""}
             ;
-        """, filters=tuple(to_pg_array(f) for f in [node_ids_filter, link_ids_filter] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
+        """,
+                filters=tuple(
+                    to_pg_array(f) for f in [node_ids_filter, link_ids_filter] if f
+                ),
+                batch_size=batch_size,
+                row_factory="dict_row",
+            ),
+            df_partitions_size=df_partitions_size,
+        )
 
-
-    def get_links(self,
-                  batch_size: PositiveInt = 50000,
-                  link_id_filter: list[str] | None = None,
-                  road_category_filter: list[str] | None = None,
-                  municipality_ids_filter: list[str] | None = None,
-                  county_ids_filter: list[str] | None = None,
-                  node_ids_filter: list[str] | None = None,
-                  link_ids_filter: list[str] | None = None,
-                  has_only_public_transport_lanes_filter: bool | None = None,
-                  has_trps: bool | None = None,
-                  has_toll_stations: bool | None = None,
-                  has_ferry_routes: bool | None = None,
-                  limit: PositiveInt | None = None,
-                  df_partitions_size: PositiveInt = 100000) -> dd.DataFrame:
-        return self._load_from_stream(self._db_broker.get_stream(sql=f"""
+    def get_links(
+        self,
+        batch_size: PositiveInt = 50000,
+        link_id_filter: list[str] | None = None,
+        road_category_filter: list[str] | None = None,
+        municipality_ids_filter: list[str] | None = None,
+        county_ids_filter: list[str] | None = None,
+        node_ids_filter: list[str] | None = None,
+        link_ids_filter: list[str] | None = None,
+        has_only_public_transport_lanes_filter: bool | None = None,
+        has_trps: bool | None = None,
+        has_toll_stations: bool | None = None,
+        has_ferry_routes: bool | None = None,
+        limit: PositiveInt | None = None,
+        df_partitions_size: PositiveInt = 100000,
+    ) -> dd.DataFrame:
+        return self._load_from_stream(
+            self._db_broker.get_stream(
+                sql=f"""
             SELECT 
                 rl.link_id,
                 rl.type,
@@ -286,52 +381,69 @@ class BatchStreamLoader:
                         FROM "{ProjectTables.RoadLink_TollStations.value}"
                         WHERE link_id = rl.link_id
                     )) AS has_toll_stations
-                {''',ARRAY_AGG(m.municipality_id) AS municipality_ids''' if municipality_ids_filter else ""}
-                {''',ARRAY_AGG(c.county_id) AS county_ids''' if county_ids_filter else ""}
+                {
+                    ''',ARRAY_AGG(m.municipality_id) AS municipality_ids'''
+                    if municipality_ids_filter
+                    else ""
+                }
+                {
+                    ''',ARRAY_AGG(c.county_id) AS county_ids'''
+                    if county_ids_filter
+                    else ""
+                }
             FROM "{ProjectTables.RoadGraphLinks.value}" rl 
-            {f'LEFT JOIN "{ProjectTables.RoadLink_Municipalities.value}" m ON rl.link_id = m.link_id' if municipality_ids_filter else ""}
-            {f'LEFT JOIN "{ProjectTables.RoadLink_Counties.value}" c ON rl.link_id = c.link_id' if county_ids_filter else ""}
-            LEFT JOIN "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}" t ON rl.link_id = t.link_id
-            LEFT JOIN "{ProjectTables.RoadLink_TollStations.value}" ts ON rl.link_id = ts.link_id
-            WHERE {f'''"rl.link_id" = ANY(%s)'''
-                if link_id_filter else "1=1"
-            }
-            AND {f'''"rl.road_category" = ANY(%s)'''
-                if road_category_filter else "1=1"
-            }
-            AND {f'''"municipality_id" = ANY(%s)'''
-                if municipality_ids_filter else "1=1"
-            }
-            AND {f'''"county_id" = ANY(%s)'''
-                if county_ids_filter else "1=1"
-            }
-            AND {f'''"road_node_ids" && ANY(%s)'''
-                if node_ids_filter else "1=1"
-            }
-            AND {f'''"road_link_ids" && ANY(%s)'''
-                if link_ids_filter else "1=1"
-            }
-            AND {f'"has_only_public_transport_lanes" = FALSE' 
-                if has_only_public_transport_lanes_filter is False else "1=1"
-            }
-            AND {f'''is_ferry_route = FALSE''' 
-                if has_ferry_routes else "1=1"
-            }
-            AND {f'''(SELECT EXISTS (
+            {
+                    f'LEFT JOIN "{ProjectTables.RoadLink_Municipalities.value}" m ON rl.link_id = m.link_id'
+                    if municipality_ids_filter
+                    else ""
+                }
+            {
+                    f'LEFT JOIN "{ProjectTables.RoadLink_Counties.value}" c ON rl.link_id = c.link_id'
+                    if county_ids_filter
+                    else ""
+                }
+            LEFT JOIN "{
+                    ProjectTables.RoadLink_TrafficRegistrationPoints.value
+                }" t ON rl.link_id = t.link_id
+            LEFT JOIN "{
+                    ProjectTables.RoadLink_TollStations.value
+                }" ts ON rl.link_id = ts.link_id
+            WHERE {f'''"rl.link_id" = ANY(%s)''' if link_id_filter else "1=1"}
+            AND {f'''"rl.road_category" = ANY(%s)''' if road_category_filter else "1=1"}
+            AND {
+                    f'''"municipality_id" = ANY(%s)'''
+                    if municipality_ids_filter
+                    else "1=1"
+                }
+            AND {f'''"county_id" = ANY(%s)''' if county_ids_filter else "1=1"}
+            AND {f'''"road_node_ids" && ANY(%s)''' if node_ids_filter else "1=1"}
+            AND {f'''"road_link_ids" && ANY(%s)''' if link_ids_filter else "1=1"}
+            AND {
+                    f'"has_only_public_transport_lanes" = FALSE'
+                    if has_only_public_transport_lanes_filter is False
+                    else "1=1"
+                }
+            AND {f'''is_ferry_route = FALSE''' if has_ferry_routes else "1=1"}
+            AND {
+                    f'''(SELECT EXISTS (
                         SELECT 1
                         FROM "{ProjectTables.RoadLink_TrafficRegistrationPoints.value}"
                         WHERE link_id = rl.link_id
-                    )) = TRUE''' 
-                if has_trps else "1=1"
-            }
-            AND {f'''(SELECT EXISTS (
+                    )) = TRUE'''
+                    if has_trps
+                    else "1=1"
+                }
+            AND {
+                    f'''(SELECT EXISTS (
                         SELECT 1
                         FROM "{ProjectTables.RoadLink_TollStations.value}"
                         WHERE link_id = rl.link_id
-                    )) = TRUE''' 
-                if has_toll_stations else "1=1"
-            }
-            {f'''
+                    )) = TRUE'''
+                    if has_toll_stations
+                    else "1=1"
+                }
+            {
+                    f'''
             GROUP BY
                 rl.id,
                 rl.link_id,
@@ -368,14 +480,27 @@ class BatchStreamLoader:
                 rl.raw_properties,
                 has_trps,
                 has_toll_stations
-            ''' if municipality_ids_filter or county_ids_filter else ""}
+            '''
+                    if municipality_ids_filter or county_ids_filter
+                    else ""
+                }
             {f"LIMIT {limit}" if limit else ""}
             ;
-            """, filters=tuple(to_pg_array(f) for f in [
-                    link_id_filter,
-                    road_category_filter,
-                    municipality_ids_filter,
-                    county_ids_filter,
-                    node_ids_filter,
-                    link_ids_filter
-                ] if f), batch_size=batch_size, row_factory="dict_row"), df_partitions_size=df_partitions_size)
+            """,
+                filters=tuple(
+                    to_pg_array(f)
+                    for f in [
+                        link_id_filter,
+                        road_category_filter,
+                        municipality_ids_filter,
+                        county_ids_filter,
+                        node_ids_filter,
+                        link_ids_filter,
+                    ]
+                    if f
+                ),
+                batch_size=batch_size,
+                row_factory="dict_row",
+            ),
+            df_partitions_size=df_partitions_size,
+        )

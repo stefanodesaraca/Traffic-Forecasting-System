@@ -22,10 +22,13 @@ from definitions import GlobalDefinitions
 pd.set_option("display.max_columns", None)
 
 
-
-
 @contextmanager
-def dask_cluster_client(scheduler_address: str | None = None, direct_to_workers: bool = False, processes: bool = False, silence_warnings: bool = True):
+def dask_cluster_client(
+    scheduler_address: str | None = None,
+    direct_to_workers: bool = False,
+    processes: bool = False,
+    silence_warnings: bool = True,
+):
     """
     - Initializing a client to support parallel backend computing and to be able to visualize the Dask client dashboard
     - Check localhost:8787 to watch real-time processing
@@ -33,13 +36,16 @@ def dask_cluster_client(scheduler_address: str | None = None, direct_to_workers:
     - More information about Dask local clusters here: https://docs.dask.org/en/stable/deploying-python.html
     """
     from dask.distributed import shuffle
+
     shuffle.p2p_barrier_timeout = 120  # increase from 30s to 2 minutes
 
     cluster = None
     if scheduler_address:
-        client = Client(address=scheduler_address + ":8786",
-                        timeout="60s",
-                        direct_to_workers=direct_to_workers)
+        client = Client(
+            address=scheduler_address + ":8786",
+            timeout="60s",
+            direct_to_workers=direct_to_workers,
+        )
         # Creating a zip of the entire src/ folder
         shutil.make_archive("src", "zip", "src")
         # Upload the whole archive to workers
@@ -47,13 +53,15 @@ def dask_cluster_client(scheduler_address: str | None = None, direct_to_workers:
         dask.config.set({"dataframe.shuffle.method": "tasks"})
 
         print(client.scheduler_info())  # shows scheduler & workers
-        print(client.run(lambda: __import__('sys').executable))  # shows python executable on each worker
-        print(client.run(lambda: __import__('socket').gethostname()))  # confirm hosts
+        print(
+            client.run(lambda: __import__("sys").executable)
+        )  # shows python executable on each worker
+        print(client.run(lambda: __import__("socket").gethostname()))  # confirm hosts
     else:
         cluster = LocalCluster(processes=processes)
         client = Client(cluster)
 
-    dask.config.set({'logging.distributed': 'error'})
+    dask.config.set({"logging.distributed": "error"})
 
     try:
         yield client
@@ -64,7 +72,10 @@ def dask_cluster_client(scheduler_address: str | None = None, direct_to_workers:
 
 
 def check_target(target: str, errors: bool = False) -> bool:
-    if target not in GlobalDefinitions.TARGET_DATA.keys() and target not in GlobalDefinitions.TARGET_DATA.values():
+    if (
+        target not in GlobalDefinitions.TARGET_DATA.keys()
+        and target not in GlobalDefinitions.TARGET_DATA.values()
+    ):
         if errors:
             raise TargetVariableNotFoundError(f"Wrong target variable: {target}")
         return False
@@ -82,11 +93,15 @@ def to_pg_array(py_list: list[str] | tuple[str]) -> str:
 
 
 def ZScore(df: dd.DataFrame, column: str) -> dd.DataFrame:
-        df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
-        return df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
+    df["z_score"] = (df[column] - df[column].mean()) / df[column].std()
+    return (
+        df[(df["z_score"] > -3) & (df["z_score"] < 3)].drop(columns="z_score").persist()
+    )
 
 
-def sin_encoder(data: dd.Series | dd.DataFrame | PositiveInt, timeframe: int) -> dd.Series | dd.DataFrame:
+def sin_encoder(
+    data: dd.Series | dd.DataFrame | PositiveInt, timeframe: int
+) -> dd.Series | dd.DataFrame:
     """
     Apply sine transformation for cyclical encoding.
 
@@ -115,7 +130,9 @@ def sin_encoder(data: dd.Series | dd.DataFrame | PositiveInt, timeframe: int) ->
     return np.sin(data * (2.0 * np.pi / timeframe))
 
 
-def cos_encoder(data: dd.Series | dd.DataFrame | PositiveInt, timeframe: int) -> dd.Series | dd.DataFrame:
+def cos_encoder(
+    data: dd.Series | dd.DataFrame | PositiveInt, timeframe: int
+) -> dd.Series | dd.DataFrame:
     """
     Apply cosine transformation for cyclical encoding.
 
@@ -144,22 +161,31 @@ def cos_encoder(data: dd.Series | dd.DataFrame | PositiveInt, timeframe: int) ->
     return np.cos((data - 1) * (2.0 * np.pi / timeframe))
 
 
-def apply_cyclical_decoding(df: pd.DataFrame,
-                            sin_encoded_col_name: str,
-                            cos_encoded_col_name: str,
-                            period: PositiveInt,
-                            start: int,  # Set to 1 if original values are 1-indexed
-                            new_col_name: str) -> pd.DataFrame:
+def apply_cyclical_decoding(
+    df: pd.DataFrame,
+    sin_encoded_col_name: str,
+    cos_encoded_col_name: str,
+    period: PositiveInt,
+    start: int,  # Set to 1 if original values are 1-indexed
+    new_col_name: str,
+) -> pd.DataFrame:
     sin_vals = df[sin_encoded_col_name].astype(float)
     cos_vals = df[cos_encoded_col_name].astype(float)
 
     # Decoding cyclical values
-    df[new_col_name] = (np.arctan2(sin_vals, cos_vals) * period / (2 * np.pi) + start).round().astype(int) % period
+    df[new_col_name] = (
+        np.arctan2(sin_vals, cos_vals) * period / (2 * np.pi) + start
+    ).round().astype(int) % period
 
     return df
 
 
-def split_by_target(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame] | tuple[dd.DataFrame, dd.DataFrame]:
+def split_by_target(
+    data: dd.DataFrame, target: str, mode: Literal[0, 1]
+) -> (
+    tuple[dd.DataFrame, dd.DataFrame, dd.DataFrame, dd.DataFrame]
+    | tuple[dd.DataFrame, dd.DataFrame]
+):
     """
     Splits the Dask DataFrame into training and testing sets based on the target column and mode.
 
@@ -182,10 +208,12 @@ def split_by_target(data: dd.DataFrame, target: str, mode: Literal[0, 1]) -> tup
     elif mode == 0:
         n_rows = data.shape[0].compute()
         p_70 = int(n_rows * 0.70)
-        return (dd.from_pandas(X.head(p_70)),
-                dd.from_pandas(X.tail(n_rows - p_70)),
-                dd.from_pandas(y.head(p_70)),
-                dd.from_pandas(y.tail(n_rows - p_70)))
+        return (
+            dd.from_pandas(X.head(p_70)),
+            dd.from_pandas(X.tail(n_rows - p_70)),
+            dd.from_pandas(y.head(p_70)),
+            dd.from_pandas(y.tail(n_rows - p_70)),
+        )
     else:
         raise ValueError(f"{mode} is not a valid splitting mode")
 
@@ -197,15 +225,21 @@ def merge(dfs: list[dd.DataFrame]) -> dd.DataFrame:
         dfs: a list of Dask Dataframes to concatenate
     """
     try:
-        return (dd.concat(dfs, axis=0)
-                .repartition(partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE)
-                .sort_values(["zoned_dt_iso"], ascending=True)
-                .persist())  # Sorting records by date
+        return (
+            dd.concat(dfs, axis=0)
+            .repartition(
+                partition_size=GlobalDefinitions.DEFAULT_DASK_DF_PARTITION_SIZE
+            )
+            .sort_values(["zoned_dt_iso"], ascending=True)
+            .persist()
+        )  # Sorting records by date
     except ValueError as e:
         raise MissingDataError(f"No data to concatenate. Error: {e}")
 
 
-def get_n_items_from_gen(gen: Generator[Any, None, None], n: PositiveInt) -> Generator[list[list | tuple], None, None]:
+def get_n_items_from_gen(
+    gen: Generator[Any, None, None], n: PositiveInt
+) -> Generator[list[list | tuple], None, None]:
     """Yield lists of up to n items from the generator."""
     while True:
         chunk = list(islice(gen, n))
@@ -218,15 +252,19 @@ def cached(maxsize: int | None = 128, typed: bool = False) -> Any:
     """
     Decorator that applies lru_cache, but allows per-call opt-out with enable_cache=False.
     """
+
     def decorator(func):
         cached_func = lru_cache(maxsize=maxsize, typed=typed)(func)
+
         @wraps(func)
         def wrapper(*args, enable_cache: bool = False, **kwargs):
             if enable_cache:
                 return cached_func(*args, **kwargs)
             else:
                 return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -234,8 +272,10 @@ def cached_async():
     """
     Async-compatible cache decorator with per-call enable/disable.
     """
+
     def decorator(func):
         cache = {}
+
         @wraps(func)
         async def wrapper(*args, enable_cache: bool = False, **kwargs):
             key = (args, tuple(sorted(kwargs.items())))
@@ -247,13 +287,18 @@ def cached_async():
                 return result
             else:
                 return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
 def save_plot(plotFunction):
     def save(plots, fp):
-        if isinstance(plots, (plt.Figure, plt.Axes, sns.axisgrid.FacetGrid, sns.axisgrid.PairGrid, list)):
+        if isinstance(
+            plots,
+            (plt.Figure, plt.Axes, sns.axisgrid.FacetGrid, sns.axisgrid.PairGrid, list),
+        ):
             plt.savefig(fp, dpi=300)
             print(f"{fp} exported correctly")
         elif isinstance(plots, plotly.graph_objs._figure.Figure):
@@ -265,7 +310,8 @@ def save_plot(plotFunction):
                 print(f"{fp} exported correctly")
             except Exception as e:
                 print(
-                    f"\033[91mExporting the plots wasn't possible, the returned type is not included in the decorator function. Error: {e}\033[0m")
+                    f"\033[91mExporting the plots wasn't possible, the returned type is not included in the decorator function. Error: {e}\033[0m"
+                )
         return None
 
     @wraps(plotFunction)
@@ -301,12 +347,11 @@ def get_trait_main_road_category(grouped_trait: dict[str, float]) -> str:
     return max(grouped_trait, key=grouped_trait.get)
 
 
-def _get_road_category_proportions(grouped_trait: dict[str, float]) -> dict[str, dict[str, float]]:
+def _get_road_category_proportions(
+    grouped_trait: dict[str, float],
+) -> dict[str, dict[str, float]]:
     total = sum(grouped_trait.values())
     stats = {}
     for category, length in grouped_trait.items():
-        stats[category] = {
-            "length": length,
-            "percentage": (length / total) * 100
-        }
+        stats[category] = {"length": length, "percentage": (length / total) * 100}
     return stats

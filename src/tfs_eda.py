@@ -17,15 +17,14 @@ from utils import save_plot
 tab10 = sns.color_palette("tab10")
 
 
-
-
-
 @save_plot
 def ShapiroWilkTest(targetFeatureName, data, shapiroWilkPlotsPath):
     plotName = targetFeatureName + inspect.currentframe().f_code.co_name
 
     print(f"Shapiro-Wilk Normality test on {targetFeatureName}")
-    _, SWH0PValue = stats.shapiro(data)  # Executing the Shapiro-Wilk Normality Test - This method returns a 'scipy.stats._morestats.ShapiroResult' class object with two parameters inside, the second is the H0 P-Value
+    _, SWH0PValue = stats.shapiro(
+        data
+    )  # Executing the Shapiro-Wilk Normality Test - This method returns a 'scipy.stats._morestats.ShapiroResult' class object with two parameters inside, the second is the H0 P-Value
     # print(type(stats.shapiro(data)))
     print(f"Normality probability (H0 Hypothesis P-Value): {SWH0PValue}")
 
@@ -46,13 +45,25 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
     percentile_75 = np.percentile(volumes["volume"], 75)
 
     external_values_by_year = {
-        y: volumes[(volumes["volume"] > np.percentile(volumes[volumes["year"] == y]["volume"], 75)) & (volumes["volume"] < np.percentile(volumes[volumes["year"] == y]["volume"], 25)) & (volumes["year"] == y)]
+        y: volumes[
+            (
+                volumes["volume"]
+                > np.percentile(volumes[volumes["year"] == y]["volume"], 75)
+            )
+            & (
+                volumes["volume"]
+                < np.percentile(volumes[volumes["year"] == y]["volume"], 25)
+            )
+            & (volumes["year"] == y)
+        ]
         for y in volumes["year"].unique()
     }  # Return all values which are greater than the 75th percentile and that are registered in the year taken in consideration (during the for loop in the dict comprehension)
 
     # --------------- Insights printing ---------------
 
-    print(f"\n\n************* Traffic volumes - Exploratory Data Analysis for TRP: {trp_id} *************")
+    print(
+        f"\n\n************* Traffic volumes - Exploratory Data Analysis for TRP: {trp_id} *************"
+    )
 
     print("TRP ID: ", trp_id, "\n")
     print("Data shape: ", volumes.shape, "\n")
@@ -69,20 +80,55 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
     print("Traffic volume 99th percentile: ", np.percentile(volumes["volume"], 99))
     print("\n")
 
-    print("Inter-Quartile Range (IQR) for the whole distribution (all years): ", percentile_75 - percentile_25)
-    print("Quartile Deviation for the whole distribution (all years): ", percentile_75 - percentile_25)
+    print(
+        "Inter-Quartile Range (IQR) for the whole distribution (all years): ",
+        percentile_75 - percentile_25,
+    )
+    print(
+        "Quartile Deviation for the whole distribution (all years): ",
+        percentile_75 - percentile_25,
+    )
 
     print("\nPercentiles by year")
-    print(volumes.groupby(volumes["year"], as_index=False)["volume"].quantile(0.25).rename(columns={"volume": "percentile_25"}), "\n")
-    print(volumes.groupby(volumes["year"], as_index=False)["volume"].quantile(0.50).rename(columns={"volume": "percentile_50"}), "\n")
-    print(volumes.groupby(volumes["year"], as_index=False)["volume"].quantile(0.75).rename(columns={"volume": "percentile_75"}), "\n")
-    print(volumes.groupby(volumes["year"], as_index=False)["volume"].quantile(0.95).rename(columns={"volume": "percentile_95"}), "\n")
-    print(volumes.groupby(volumes["year"], as_index=False)["volume"].quantile(0.99).rename(columns={"volume": "percentile_99"}), "\n")
+    print(
+        volumes.groupby(volumes["year"], as_index=False)["volume"]
+        .quantile(0.25)
+        .rename(columns={"volume": "percentile_25"}),
+        "\n",
+    )
+    print(
+        volumes.groupby(volumes["year"], as_index=False)["volume"]
+        .quantile(0.50)
+        .rename(columns={"volume": "percentile_50"}),
+        "\n",
+    )
+    print(
+        volumes.groupby(volumes["year"], as_index=False)["volume"]
+        .quantile(0.75)
+        .rename(columns={"volume": "percentile_75"}),
+        "\n",
+    )
+    print(
+        volumes.groupby(volumes["year"], as_index=False)["volume"]
+        .quantile(0.95)
+        .rename(columns={"volume": "percentile_95"}),
+        "\n",
+    )
+    print(
+        volumes.groupby(volumes["year"], as_index=False)["volume"]
+        .quantile(0.99)
+        .rename(columns={"volume": "percentile_99"}),
+        "\n",
+    )
     print("\n")
 
-    print("Number of external values (data over the 75th percentile for its year's data) by year:")
+    print(
+        "Number of external values (data over the 75th percentile for its year's data) by year:"
+    )
     for y in sorted(external_values_by_year.keys()):
-        print(f"Year: {y} | Number of external values: {len(external_values_by_year[y])}")
+        print(
+            f"Year: {y} | Number of external values: {len(external_values_by_year[y])}"
+        )
 
     print("\n")
 
@@ -93,10 +139,22 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
     print("\n")
 
     for y in sorted(external_values_by_year.keys()):
-        print(f"Volumes mean for year {y}: ", np.round(np.mean(volumes[volumes["year"] == y]["volume"]), 2))
-        print(f"Volumes median for year {y}: ", np.round(np.median(volumes[volumes["year"] == y]["volume"]), 2))
-        print(f"Volumes standard deviation for year {y}: ", np.round(np.std(volumes[volumes["year"] == y]["volume"]), 2))
-        print(f"Volumes variance for year {y}: ", np.round(np.var(volumes[volumes["year"] == y]["volume"]), 2))
+        print(
+            f"Volumes mean for year {y}: ",
+            np.round(np.mean(volumes[volumes["year"] == y]["volume"]), 2),
+        )
+        print(
+            f"Volumes median for year {y}: ",
+            np.round(np.median(volumes[volumes["year"] == y]["volume"]), 2),
+        )
+        print(
+            f"Volumes standard deviation for year {y}: ",
+            np.round(np.std(volumes[volumes["year"] == y]["volume"]), 2),
+        )
+        print(
+            f"Volumes variance for year {y}: ",
+            np.round(np.var(volumes[volumes["year"] == y]["volume"]), 2),
+        )
         print("\n")
 
     # Checking if the data distribution is normal
@@ -115,23 +173,39 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
     print("Traffic volumes - Correlations dataframe-wise (numerical variables only): ")
     print(volumes.corr(numeric_only=True), "\n")
 
-    volumes["date"] = pd.to_datetime([f"{y}-{m}-{d}" for y, m, d in zip(volumes["year"], volumes["month"], volumes["day"], strict=True)]) #TODO WE ALREADY HAVE THE "DATE" COLUMN RIGHT? WHY IS THIS STILL HERE. I'LL CHECK BETTER
+    volumes["date"] = pd.to_datetime(
+        [
+            f"{y}-{m}-{d}"
+            for y, m, d in zip(
+                volumes["year"], volumes["month"], volumes["day"], strict=True
+            )
+        ]
+    )  # TODO WE ALREADY HAVE THE "DATE" COLUMN RIGHT? WHY IS THIS STILL HERE. I'LL CHECK BETTER
 
     @save_plot
     def volume_trend_grouped_by_years():
 
         plt.figure(figsize=(16, 9))
         for y in sorted(volumes["year"].unique()):
-            year_data = volumes[volumes["year"] == y].groupby("date", as_index=False)["volume"].sum().sort_values(by="date", ascending=True)
+            year_data = (
+                volumes[volumes["year"] == y]
+                .groupby("date", as_index=False)["volume"]
+                .sum()
+                .sort_values(by="date", ascending=True)
+            )
             # print(year_data)
-            plt.plot(range(0, len(year_data)), "volume", data=year_data, marker="o")  # To make the plots overlap they must have the same exact data on the x-axis.
+            plt.plot(
+                range(0, len(year_data)), "volume", data=year_data, marker="o"
+            )  # To make the plots overlap they must have the same exact data on the x-axis.
             # In this case for example they must have the same days number on the x-axis so that matplotlib know where to plot the data and thus, this can overlap too if it has the same x-axis value
 
         plt.grid()
         plt.ylabel("Volume")
         plt.xlabel("Time (days)")
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
-        plt.title(f"Traffic volumes aggregated (sum) by day for different years | TRP: {trp_id}")
+        plt.title(
+            f"Traffic volumes aggregated (sum) by day for different years | TRP: {trp_id}"
+        )
 
         return f"{trp_id}_volume_trend_grouped_by_years", plt, ...
 
@@ -140,7 +214,12 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
 
         plt.figure(figsize=(16, 9))
         for y in sorted(volumes["year"].unique()):
-            week_data = volumes[volumes["year"] == y][["volume", "year", "week"]].groupby(["week"], as_index=False)["volume"].median().sort_values(by="week", ascending=True)
+            week_data = (
+                volumes[volumes["year"] == y][["volume", "year", "week"]]
+                .groupby(["week"], as_index=False)["volume"]
+                .median()
+                .sort_values(by="week", ascending=True)
+            )
 
             # print(week_data)
             plt.plot(range(0, len(week_data)), "volume", data=week_data, marker="o")
@@ -149,7 +228,9 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
         plt.ylabel("Volume")
         plt.xlabel("Week")
         plt.legend(labels=sorted(volumes["year"].unique()), loc="upper right")
-        plt.title(f"Traffic volumes aggregated (median) by week for different years | TRP: {trp_id}")
+        plt.title(
+            f"Traffic volumes aggregated (median) by week for different years | TRP: {trp_id}"
+        )
 
         return f"{trp_id}_volume_trend_by_hour_day", plt, ...
 
@@ -161,7 +242,9 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
 
         for idx, y in enumerate(sorted(volumes["year"].unique())):
             for w in sorted(volumes[volumes["year"] == y]["week"].unique()):
-                volumes_grouped = volumes[(volumes["year"] == y) & (volumes["week"] == w)]
+                volumes_grouped = volumes[
+                    (volumes["year"] == y) & (volumes["week"] == w)
+                ]
                 # print(volumes_grouped)
 
                 axs[idx].boxplot(x=volumes_grouped["volume"], positions=[w])
@@ -175,11 +258,23 @@ def analyze_volume(volumes: pd.DataFrame) -> None:
 
     @save_plot
     def correlation_heatmap():
-        return (f"{trp_id}_volumes_corr_heatmap",
-                sns.heatmap(volumes.corr(numeric_only=True), annot=True, fmt=".2f").set_title(f"Traffic volumes - TRP: {trp_id} - Correlation heatmap"),
-                ...)
+        return (
+            f"{trp_id}_volumes_corr_heatmap",
+            sns.heatmap(
+                volumes.corr(numeric_only=True), annot=True, fmt=".2f"
+            ).set_title(f"Traffic volumes - TRP: {trp_id} - Correlation heatmap"),
+            ...,
+        )
 
-    all((i(), plt.clf()) for i in (volume_trend_grouped_by_years, volume_trend_by_week, volumes_distribution_by_week_and_year, correlation_heatmap))
+    all(
+        (i(), plt.clf())
+        for i in (
+            volume_trend_grouped_by_years,
+            volume_trend_by_week,
+            volumes_distribution_by_week_and_year,
+            correlation_heatmap,
+        )
+    )
 
     return None
 
@@ -194,13 +289,25 @@ def analyze_mean_speed(speeds: pd.DataFrame) -> None:
     percentile_75 = np.percentile(speeds["mean_speed"], 75)
 
     external_values_by_year = {
-        y: speeds[(speeds["mean_speed"] > np.percentile(speeds[speeds["year"] == y]["mean_speed"], 75)) & (speeds["mean_speed"] < np.percentile(speeds[speeds["year"] == y]["mean_speed"], 25)) & (speeds["year"] == y)]
+        y: speeds[
+            (
+                speeds["mean_speed"]
+                > np.percentile(speeds[speeds["year"] == y]["mean_speed"], 75)
+            )
+            & (
+                speeds["mean_speed"]
+                < np.percentile(speeds[speeds["year"] == y]["mean_speed"], 25)
+            )
+            & (speeds["year"] == y)
+        ]
         for y in speeds["year"].unique()
     }  # Return all values which are greater than the 75th percentile and that are registered in the year taken in consideration (during the for loop in the dict comprehension)
 
     # --------------- Insights printing ---------------
 
-    print(f"\n\n************* Average speeds - Exploratory Data Analysis for TRP: {trp_id} *************")
+    print(
+        f"\n\n************* Average speeds - Exploratory Data Analysis for TRP: {trp_id} *************"
+    )
 
     print("TRP ID: ", trp_id, "\n")
     print("Data shape: ", speeds.shape, "\n")
@@ -216,34 +323,83 @@ def analyze_mean_speed(speeds: pd.DataFrame) -> None:
     print("Number of negative values: ", len(speeds[speeds["mean_speed"] < 0]))
     print("Number of zeros: ", len(speeds[speeds["mean_speed"] == 0]))
 
-    print("Inter-Quartile Range (IQR) for the whole distribution (all years): ", percentile_75 - percentile_25)
-    print("Quartile Deviation for the whole distribution (all years): ", percentile_75 - percentile_25)
+    print(
+        "Inter-Quartile Range (IQR) for the whole distribution (all years): ",
+        percentile_75 - percentile_25,
+    )
+    print(
+        "Quartile Deviation for the whole distribution (all years): ",
+        percentile_75 - percentile_25,
+    )
 
     print("\nPercentiles by year")
-    print(speeds.groupby(speeds["year"], as_index=False)["mean_speed"].quantile(0.25).rename(columns={"mean_speed": "percentile_25"}), "\n")
-    print(speeds.groupby(speeds["year"], as_index=False)["mean_speed"].quantile(0.50).rename(columns={"mean_speed": "percentile_50"}), "\n")
-    print(speeds.groupby(speeds["year"], as_index=False)["mean_speed"].quantile(0.75).rename(columns={"mean_speed": "percentile_75"}), "\n")
-    print(speeds.groupby(speeds["year"], as_index=False)["mean_speed"].quantile(0.95).rename(columns={"mean_speed": "percentile_95"}), "\n")
-    print(speeds.groupby(speeds["year"], as_index=False)["mean_speed"].quantile(0.99).rename(columns={"mean_speed": "percentile_99"}), "\n")
+    print(
+        speeds.groupby(speeds["year"], as_index=False)["mean_speed"]
+        .quantile(0.25)
+        .rename(columns={"mean_speed": "percentile_25"}),
+        "\n",
+    )
+    print(
+        speeds.groupby(speeds["year"], as_index=False)["mean_speed"]
+        .quantile(0.50)
+        .rename(columns={"mean_speed": "percentile_50"}),
+        "\n",
+    )
+    print(
+        speeds.groupby(speeds["year"], as_index=False)["mean_speed"]
+        .quantile(0.75)
+        .rename(columns={"mean_speed": "percentile_75"}),
+        "\n",
+    )
+    print(
+        speeds.groupby(speeds["year"], as_index=False)["mean_speed"]
+        .quantile(0.95)
+        .rename(columns={"mean_speed": "percentile_95"}),
+        "\n",
+    )
+    print(
+        speeds.groupby(speeds["year"], as_index=False)["mean_speed"]
+        .quantile(0.99)
+        .rename(columns={"mean_speed": "percentile_99"}),
+        "\n",
+    )
     print("\n")
 
-    print("Number of external values (data over the 75th percentile for its year's data) by year:")
+    print(
+        "Number of external values (data over the 75th percentile for its year's data) by year:"
+    )
     for y in sorted(external_values_by_year.keys()):
-        print(f"Year: {y} | Number of external values: {len(external_values_by_year[y])}")
+        print(
+            f"Year: {y} | Number of external values: {len(external_values_by_year[y])}"
+        )
 
     print("\n")
 
     print("Average speeds mean: ", np.round(np.mean(speeds["mean_speed"]), 2))
     print("Average speeds median: ", np.round(np.median(speeds["mean_speed"]), 2))
-    print("Average speeds standard deviation: ", np.round(np.std(speeds["mean_speed"]), 2))
+    print(
+        "Average speeds standard deviation: ", np.round(np.std(speeds["mean_speed"]), 2)
+    )
     print("Average speeds variance: ", np.round(np.var(speeds["mean_speed"]), 2))
     print("\n")
 
     for y in sorted(external_values_by_year.keys()):
-        print(f"Average speeds mean for year {y}: ", np.round(np.mean(speeds[speeds["year"] == y]["mean_speed"]), 2),)
-        print(f"Average speeds median for year {y}: ", np.round(np.median(speeds[speeds["year"] == y]["mean_speed"]), 2))
-        print(f"Average speeds standard deviation for year {y}: ", np.round(np.std(speeds[speeds["year"] == y]["mean_speed"]), 2))
-        print(f"Average speeds standard variance for year {y}: ", np.round(np.var(speeds[speeds["year"] == y]["mean_speed"]), 2))
+        print(
+            f"Average speeds mean for year {y}: ",
+            np.round(np.mean(speeds[speeds["year"] == y]["mean_speed"]), 2),
+        )
+        print(
+            f"Average speeds median for year {y}: ",
+            np.round(np.median(speeds[speeds["year"] == y]["mean_speed"]), 2),
+        )
+        print(
+            f"Average speeds standard deviation for year {y}: ",
+            np.round(np.std(speeds[speeds["year"] == y]["mean_speed"]), 2),
+        )
+        print(
+            f"Average speeds standard variance for year {y}: ",
+            np.round(np.var(speeds[speeds["year"] == y]["mean_speed"]), 2),
+        )
         print("\n")
 
     # Checking if the data distribution is normal
@@ -268,15 +424,24 @@ def analyze_mean_speed(speeds: pd.DataFrame) -> None:
 
         plt.figure(figsize=(16, 9))
         for y in sorted(speeds["year"].unique()):
-            year_data = speeds[speeds["year"] == y].groupby("date", as_index=False)["mean_speed"].mean().sort_values(by="date", ascending=True)
+            year_data = (
+                speeds[speeds["year"] == y]
+                .groupby("date", as_index=False)["mean_speed"]
+                .mean()
+                .sort_values(by="date", ascending=True)
+            )
             # print(year_data)
-            plt.plot(range(0, len(year_data)), "mean_speed", data=year_data, marker="o")  # To make the plots overlap they must have the same exact data on the x-axis.
+            plt.plot(
+                range(0, len(year_data)), "mean_speed", data=year_data, marker="o"
+            )  # To make the plots overlap they must have the same exact data on the x-axis.
 
         plt.grid()
         plt.ylabel("Average speed")
         plt.xlabel("Time (days)")
         plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
-        plt.title(f"Average speeds aggregated by day for different years | TRP: {trp_id}")
+        plt.title(
+            f"Average speeds aggregated by day for different years | TRP: {trp_id}"
+        )
 
         return f"{trp_id}_avg_speeds_trend_grouped_by_years", plt, ...
 
@@ -285,7 +450,12 @@ def analyze_mean_speed(speeds: pd.DataFrame) -> None:
 
         plt.figure(figsize=(16, 9))
         for y in sorted(speeds["year"].unique()):
-            week_data = speeds[speeds["year"] == y][["mean_speed", "year", "week"]].groupby(["week"], as_index=False)["mean_speed"].median().sort_values(by="week", ascending=True)
+            week_data = (
+                speeds[speeds["year"] == y][["mean_speed", "year", "week"]]
+                .groupby(["week"], as_index=False)["mean_speed"]
+                .median()
+                .sort_values(by="week", ascending=True)
+            )
 
             plt.plot(range(0, len(week_data)), "mean_speed", data=week_data, marker="o")
 
@@ -293,7 +463,9 @@ def analyze_mean_speed(speeds: pd.DataFrame) -> None:
         plt.ylabel("Median of the average speed")
         plt.xlabel("Week")
         plt.legend(labels=sorted(speeds["year"].unique()), loc="upper right")
-        plt.title(f"Median of the average speeds by week for different years | TRP: {trp_id}")
+        plt.title(
+            f"Median of the average speeds by week for different years | TRP: {trp_id}"
+        )
 
         return f"{trp_id}_avg_speed_trend_by_hour_day", plt, ...
 
@@ -319,11 +491,23 @@ def analyze_mean_speed(speeds: pd.DataFrame) -> None:
 
     @save_plot
     def correlation_heatmap():
-        return (f"{trp_id}_avg_speed_corr_heatmap",
-                sns.heatmap(speeds.corr(numeric_only=True), annot=True, fmt=".2f").set_title(f"Traffic volumes - TRP: {trp_id} - Correlation heatmap"),
-                ...)
+        return (
+            f"{trp_id}_avg_speed_corr_heatmap",
+            sns.heatmap(
+                speeds.corr(numeric_only=True), annot=True, fmt=".2f"
+            ).set_title(f"Traffic volumes - TRP: {trp_id} - Correlation heatmap"),
+            ...,
+        )
 
-    all((i(), plt.clf()) for i in (speeds_trend_grouped_by_years, speeds_trend_by_week, speeds_distribution_by_week_and_year, correlation_heatmap))
+    all(
+        (i(), plt.clf())
+        for i in (
+            speeds_trend_grouped_by_years,
+            speeds_trend_by_week,
+            speeds_distribution_by_week_and_year,
+            correlation_heatmap,
+        )
+    )
 
     return None
 
@@ -353,7 +537,11 @@ def volume_multicollinearity_test(volumes: pd.DataFrame) -> None:
         volumes_vif[volumes_col_names[i]] = vif
 
         print(f"R^2 value of variable: {volumes_col_names[i]} = ", r2)
-        print(f"VIF (Variance Inflation Factor) value of variable: {volumes_col_names[i]} = ", vif, "\n")
+        print(
+            f"VIF (Variance Inflation Factor) value of variable: {volumes_col_names[i]} = ",
+            vif,
+            "\n",
+        )
 
     print("----------------- Traffic volumes - VIFs -----------------")
 
@@ -373,7 +561,9 @@ def volume_multicollinearity_test(volumes: pd.DataFrame) -> None:
 
 
 def mean_speed_multicollinearity_test(speeds: pd.DataFrame) -> None:
-    speeds = speeds.drop(columns=["mean_speed", "percentile_85", "trp_id", "date"], axis=1)
+    speeds = speeds.drop(
+        columns=["mean_speed", "percentile_85", "trp_id", "date"], axis=1
+    )
     speeds_col_names = list(speeds.columns)
     # print(speeds_col_names)
 
@@ -393,7 +583,11 @@ def mean_speed_multicollinearity_test(speeds: pd.DataFrame) -> None:
         speeds_vif[speeds_col_names[i]] = vif
 
         print(f"R^2 value of variable: {speeds_col_names[i]} = ", r2)
-        print(f"VIF (Variance Inflation Factor) value of variable: {speeds_col_names[i]} = ", vif, "\n")
+        print(
+            f"VIF (Variance Inflation Factor) value of variable: {speeds_col_names[i]} = ",
+            vif,
+            "\n",
+        )
 
     print("----------------- Average speeds - VIFs -----------------")
 
