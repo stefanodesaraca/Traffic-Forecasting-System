@@ -77,8 +77,8 @@ class BatchStreamLoader:
                 {"v.is_mice AS is_mice," if is_mice else ""}
                 v.zoned_dt_iso AS zoned_dt_iso
                 {",EXTRACT(YEAR FROM zoned_dt_iso) as year" if year else ""}
-                {f",t.lat AS lat" if trp_lat else ""}
-                {f",t.lon AS lon" if trp_lon else ""}
+                {",t.lat AS lat" if trp_lat else ""}
+                {",t.lon AS lon" if trp_lon else ""}
             {
                     '''
                 ,

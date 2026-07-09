@@ -14,7 +14,6 @@ import psycopg
 from psycopg.rows import tuple_row
 from cleantext import clean
 import pandas as pd
-from pydantic.types import PositiveInt
 
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import HistGradientBoostingRegressor

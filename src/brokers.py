@@ -611,7 +611,7 @@ class DBBroker:
             AND {f"t.road_category = '{road_category}'" if road_category else "1=1"}
         """)
 
-    def update_model_grid(self, model: str, target: str, grid: dict[str, any]) -> None:
+    def update_model_grid(self, model: str, target: str, grid: dict[str, Any]) -> None:
         if target:
             check_target(target=target, errors=True)
         self.send_sql(

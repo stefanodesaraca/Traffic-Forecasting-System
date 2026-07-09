@@ -70,7 +70,7 @@ class IngestionPipelineMixin:
             r not in cast(dict, RegressorTypes.model_fields).keys()
         ):  # cast is used to silence static type checker warnings
             raise ValueError(
-                f"Regressor type '{r}' is not supported. Must be one of: {cast(dict, RegressorTypes.model_fields).keys()}"
+                f"Regressor type '{r}' is not supported. Must be one of: {dict, RegressorTypes.model_fields.keys()}"
             )
 
         reg = None
@@ -518,7 +518,7 @@ class RoadGraphObjectsIngestionPipeline:
                     feature.get("type"),
                     shape(
                         feature.get("geometry")
-                    ).wkt,  # Convertion of the geometry to WKT for PostGIS compatibility (so that PostGIS can read the actual shape of the feature)
+                    ).wkt,  # Conversion of the geometry to WKT for PostGIS compatibility (so that PostGIS can read the actual shape of the feature)
                     feature.get("properties").get("roadNodeIds"),
                     feature.get("properties").get("isRoundabout"),
                     feature.get("properties").get("numberOfIncomingLinks"),
@@ -917,7 +917,7 @@ class MLPredictionPipeline:
         Parameters:
             training_mode: the training mode we want to use.
                 0 - Stands for single-point training, so only the data from the TRP we want to predict future records for is used
-                1 - Stands for multipoint training, where data from all TRPs of the same road category as the one we want to predict future records for is used
+                1 - Stands for multi-point training, where data from all TRPs of the same road category as the one we want to predict future records for is used
         """
 
         def get_volume_training_data_start():
