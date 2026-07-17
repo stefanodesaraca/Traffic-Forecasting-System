@@ -28,3 +28,36 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    
+    data_service:
+      build:
+        context: .
+        dockerfile: services/data_service/Dockerfile
+      environment:
+        POSTGRES_HOST: postgres
+        POSTGRES_PORT: "5432"
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+        POSTGRES_DB: postgres
+        RABBITMQ_HOST: rabbitmq
+        RABBITMQ_PORT: "5672"
+      ports:
+        - "8002:8002"
+      depends_on:
+        - postgres
+        - rabbitmq
+
+    api_gateway:
+      build:
+        context: .
+        dockerfile: services/api_gateway/Dockerfile
+      environment:
+        RABBITMQ_HOST: rabbitmq
+        RABBITMQ_PORT: "5672"
+        POSTGRES_HOST: postgres
+        POSTGRES_PORT: "5432"
+      ports:
+        - "8000:8000"
+      depends_on:
+        - data_service
+        - rabbitmq

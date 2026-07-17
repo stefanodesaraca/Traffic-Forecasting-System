@@ -4,7 +4,7 @@ param(
 
 Write-Host "Starting E2E environment using docker-compose.e2e.yml"
 
-docker compose -f docker-compose.e2e.yml up -d
+docker compose -f docker-compose.e2e.yml up --build -d
 
 $start = Get-Date
 
@@ -29,6 +29,13 @@ if (-not (Wait-Port -host "localhost" -port 5672 -timeoutSec 120)) {
 Write-Host "Waiting for Postgres (localhost:5432)"
 if (-not (Wait-Port -host "localhost" -port 5432 -timeoutSec 120)) {
     Write-Error "Postgres did not become ready in time"
+    exit 1
+}
+
+Write-Host "Waiting for Data Service (localhost:8002)"
+if (-not (Wait-Port -host "localhost" -port 8002 -timeoutSec 120)) {
+    Write-Error "Data service did not become ready in time"
+    docker compose -f docker-compose.e2e.yml logs data_service
     exit 1
 }
 
